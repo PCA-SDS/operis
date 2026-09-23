@@ -13,6 +13,7 @@ import { ResourcesAssignment } from '@open-mercato/core/modules/resources/data/e
 import { ResourceAssignmentService } from '@open-mercato/core/modules/resources/lib/resourceAssignmentService'
 import { Appointment, AppointmentLine } from '../../data/entities'
 import { deriveScheduleConfirmationStatus } from '../../lib/scheduleTracking'
+import { loadResourceAvailabilityWindows, resolveResourceOrganizationIds } from '../../lib/resourceAvailability'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['appointments.view'] },
@@ -45,6 +46,7 @@ export async function GET(req: Request) {
     const organizationId = scope.selectedId ?? auth.orgId ?? null
     if (!organizationId) return NextResponse.json({ error: 'Organization scope is required', code: 'ORGANIZATION_SCOPE_REQUIRED' }, { status: 400 })
     const { start, end } = toDayBounds(date)
+    const resourceOrganizationIds = await resolveResourceOrganizationIds(em, auth.tenantId, organizationId)
 
     const resourceAssignmentService = new ResourceAssignmentService(em)
     const [organization, resourceWorkspace, appointments, allAppointments] = await Promise.all([
@@ -55,6 +57,7 @@ export async function GET(req: Request) {
         sourceModule: 'appointment',
         sourceEntityType: 'appointment_line',
         sourceEntityId: null,
+        organizationIds: resourceOrganizationIds,
       }),
       em.find(Appointment, {
         tenantId: auth.tenantId,
@@ -118,6 +121,12 @@ export async function GET(req: Request) {
       ? await findWithDecryption(em, StaffTeamMember, { id: { $in: memberIds }, tenantId: auth.tenantId, deletedAt: null })
       : []
     const memberNames = new Map(members.map((member) => [member.id, member.displayName]))
+    const resourceAvailabilityWindows = await loadResourceAvailabilityWindows(em, {
+      tenantId: auth.tenantId,
+      organizationIds: resourceOrganizationIds,
+      resourceIds: resourceWorkspace.resources.map((resource) => resource.id),
+      range: { start, end },
+    })
 
     const blocks = assignments.flatMap((assignment) => {
       const line = assignmentLineById.get(assignment.sourceEntityId)
@@ -187,6 +196,7 @@ export async function GET(req: Request) {
         typeIcon: resource.typeIcon ?? null,
         typeColor: resource.typeColor ?? null,
         areaName: resource.areaName ?? null,
+        availabilityWindows: resourceAvailabilityWindows.get(resource.id) ?? null,
       })),
       appointments: appointments.map((appointment) => ({
         id: appointment.id,

@@ -7,17 +7,17 @@
 
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { ResourceAssignmentService, type AssignmentDTO } from '@open-mercato/core/modules/resources/lib/resourceAssignmentService'
-import { ResourcesAssignment, ResourcesResource } from '@open-mercato/core/modules/resources/data/entities'
+import { ResourcesAssignment } from '@open-mercato/core/modules/resources/data/entities'
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
 import { CatalogProductOption, CatalogProductOptionGroup } from '@open-mercato/core/modules/catalog/data/entities'
-import { PlannerAvailabilityRule } from '@open-mercato/core/modules/planner/data/entities'
-import { getMergedAvailabilityWindows } from '@open-mercato/core/modules/planner/lib/availabilityMerge'
 import { parseAvailabilityRuleWindow } from '@open-mercato/core/modules/planner/lib/availabilitySchedule'
+import { PlannerAvailabilityRule } from '@open-mercato/core/modules/planner/data/entities'
 import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { enforceCommandOptimisticLock } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
 import { StaffTeamMember } from '@open-mercato/core/modules/staff/data/entities'
 import { Appointment, AppointmentLine, AppointmentLineOptionGroup, AppointmentStatus } from '../data/entities'
 import { loadLineOptionSnapshots } from './lineOptionSnapshot'
+import { loadResourceAvailabilityWindows, resolveResourceOrganizationIds } from './resourceAvailability'
 
 export interface SeatPlannerLine {
   id: string
@@ -190,15 +190,6 @@ export class AppointmentSeatPlannerService {
     this.assignmentService = new ResourceAssignmentService(em)
   }
 
-  private async getResourceOrganizationIds(tenantId: string, organizationId: string): Promise<string[]> {
-    const organization = await this.em.findOne(Organization, {
-      id: organizationId,
-      tenant: tenantId,
-      deletedAt: null,
-    })
-    return Array.from(new Set([organizationId, ...(organization?.ancestorIds ?? [])]))
-  }
-
   /**
    * Get seat planner workspace for an appointment
    */
@@ -241,7 +232,7 @@ export class AppointmentSeatPlannerService {
       },
       { orderBy: { sortOrder: 'asc' } },
     )
-    const resourceOrganizationIds = await this.getResourceOrganizationIds(params.tenantId, appointment.organizationId)
+    const resourceOrganizationIds = await resolveResourceOrganizationIds(this.em, params.tenantId, appointment.organizationId)
 
     // Resources are maintained at the parent organization, while bookings may
     // belong to a child organization. Include the booking org and its ancestors.
@@ -258,71 +249,16 @@ export class AppointmentSeatPlannerService {
     scheduleDayStart.setHours(0, 0, 0, 0)
     const scheduleDayEnd = new Date(scheduleDayStart)
     scheduleDayEnd.setDate(scheduleDayEnd.getDate() + 1)
-    const resourceRecords = resources.resources.length > 0
-      ? await this.em.find(ResourcesResource, {
-          id: { $in: resources.resources.map((resource) => resource.id) },
-          tenantId: params.tenantId,
-          organizationId: { $in: resourceOrganizationIds },
-          deletedAt: null,
-        })
-      : []
-    const resourceRecordById = new Map(resourceRecords.map((resource) => [resource.id, resource]))
-    const resourceIds = resources.resources.map((resource) => resource.id)
-    const resourceRuleSetIds = resourceRecords
-      .map((resource) => resource.availabilityRuleSetId)
-      .filter((ruleSetId): ruleSetId is string => Boolean(ruleSetId))
-    const [resourceAvailabilityRules, ruleSetAvailabilityRules] = resourceIds.length > 0
-      ? await Promise.all([
-          this.em.find(PlannerAvailabilityRule, {
-            tenantId: params.tenantId,
-            organizationId: { $in: resourceOrganizationIds },
-            subjectType: 'resource',
-            subjectId: { $in: resourceIds },
-            deletedAt: null,
-          }),
-          resourceRuleSetIds.length > 0
-            ? this.em.find(PlannerAvailabilityRule, {
-                tenantId: params.tenantId,
-                organizationId: { $in: resourceOrganizationIds },
-                subjectType: 'ruleset',
-                subjectId: { $in: resourceRuleSetIds },
-                deletedAt: null,
-              })
-            : Promise.resolve([]),
-        ])
-      : [[], []]
-    const availabilityRulesByResource = new Map<string, PlannerAvailabilityRule[]>()
-    const rulesBySubjectId = new Map<string, PlannerAvailabilityRule[]>()
-    for (const rule of [...resourceAvailabilityRules, ...ruleSetAvailabilityRules]) {
-      rulesBySubjectId.set(rule.subjectId, [...(rulesBySubjectId.get(rule.subjectId) ?? []), rule])
-    }
-    for (const resource of resourceRecords) {
-      const rules = [
-        ...(rulesBySubjectId.get(resource.id) ?? []),
-        ...(resource.availabilityRuleSetId ? rulesBySubjectId.get(resource.availabilityRuleSetId) ?? [] : []),
-      ]
-      if (rules.length > 0) {
-        availabilityRulesByResource.set(resource.id, rules)
-      }
-    }
+    const resourceAvailabilityWindows = await loadResourceAvailabilityWindows(this.em, {
+      tenantId: params.tenantId,
+      organizationIds: resourceOrganizationIds,
+      resourceIds: resources.resources.map((resource) => resource.id),
+      range: { start: scheduleDayStart, end: scheduleDayEnd },
+    })
     const resourcesWithAvailability = resources.resources.map((resource) => {
-      const resourceRecord = resourceRecordById.get(resource.id)
-      const rules = availabilityRulesByResource.get(resource.id) ?? []
-      const availabilityWindows = resourceRecord?.availabilityRuleSetId && rules.length > 0
-        ? getMergedAvailabilityWindows({
-            rules: rules.map((rule) => ({
-              id: rule.id,
-              rrule: rule.rrule,
-              exdates: rule.exdates,
-              kind: rule.kind,
-            })),
-            range: { start: scheduleDayStart, end: scheduleDayEnd },
-          }).map((window) => ({ startsAt: window.start.toISOString(), endsAt: window.end.toISOString() }))
-        : null
       return {
         ...resource,
-        code: resourceRecord?.code ?? resource.code ?? null,
-        availabilityWindows,
+        availabilityWindows: resourceAvailabilityWindows.get(resource.id) ?? null,
       }
     })
 
@@ -567,7 +503,7 @@ export class AppointmentSeatPlannerService {
 
     line.seatPlannerClearedAt = null
 
-    const resourceOrganizationIds = await this.getResourceOrganizationIds(params.tenantId, line.organizationId)
+    const resourceOrganizationIds = await resolveResourceOrganizationIds(this.em, params.tenantId, line.organizationId)
 
     const assignedMemberIds = Array.from(new Set([
       ...(params.assignedMemberIds ?? []),
