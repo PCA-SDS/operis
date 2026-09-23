@@ -2,7 +2,7 @@ import { registerCommand } from '@open-mercato/shared/lib/commands'
 import type { CommandHandler } from '@open-mercato/shared/lib/commands'
 import { buildChanges, requireId, parseWithCustomFields, setCustomFieldsIfAny, emitCrudSideEffects } from '@open-mercato/shared/lib/commands/helpers'
 import type { EntityManager } from '@mikro-orm/postgresql'
-import { UniqueConstraintViolationException } from '@mikro-orm/core'
+import { LockMode, UniqueConstraintViolationException } from '@mikro-orm/core'
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { loadCustomFieldSnapshot, buildCustomFieldResetMap } from '@open-mercato/shared/lib/commands/customFieldSnapshots'
@@ -640,7 +640,6 @@ const createVariantCommand: CommandHandler<VariantCreateInput, { variantId: stri
     const product = await requireProduct(em, parsed.productId, commandActorScope(ctx))
     ensureTenantScope(ctx, product.tenantId)
     ensureOrganizationScope(ctx, product.organizationId)
-    await ensureProductAllowsAdditionalVariant(em, product, translate)
     const { taxRateId, taxRate } = await resolveVariantTaxRate(
       em,
       product,
@@ -692,7 +691,17 @@ const createVariantCommand: CommandHandler<VariantCreateInput, { variantId: stri
       await withAtomicFlush(
         em,
         [
-          () => em.flush(),
+          async () => {
+            const lockedProduct = await em.findOne(CatalogProduct, product.id, {
+              lockMode: LockMode.PESSIMISTIC_WRITE,
+            })
+            if (!lockedProduct) {
+              throw new CrudHttpError(404, { error: translate('catalog.errors.productNotFound', 'Catalog product not found') })
+            }
+            await ensureProductAllowsAdditionalVariant(em, lockedProduct, translate)
+            record.product = lockedProduct
+            await em.flush()
+          },
           async () => {
             if (record.isDefault) {
               previousDefaultVariantId = await enforceSingleDefaultVariant(em, record)

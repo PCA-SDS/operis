@@ -1,6 +1,10 @@
 import { expect, test, type APIRequestContext } from '@playwright/test'
 import { apiRequest, getAuthToken } from '@open-mercato/core/modules/core/__integration__/helpers/api'
-import { createProductFixture, deleteCatalogProductIfExists } from '@open-mercato/core/modules/core/__integration__/helpers/catalogFixtures'
+import {
+  createProductFixture,
+  createVariantFixture,
+  deleteCatalogProductIfExists,
+} from '@open-mercato/core/modules/core/__integration__/helpers/catalogFixtures'
 
 async function ensurePriceKindId(
   request: APIRequestContext,
@@ -41,6 +45,12 @@ test.describe('TC-CAT-024: Product with Multiple Variants', () => {
         title: `QA TC-CAT-024 Simple ${suffix}`,
         sku: `QA-CAT-024-SIMPLE-${suffix}`,
       })
+      await createVariantFixture(request, token, {
+        productId,
+        name: `Default variant ${suffix}`,
+        sku: `QA-CAT-024-SIMPLE-DEFAULT-${suffix}`,
+        isDefault: true,
+      })
 
       const createRes = await apiRequest(request, 'POST', '/api/catalog/variants', {
         token,
@@ -53,6 +63,70 @@ test.describe('TC-CAT-024: Product with Multiple Variants', () => {
       expect(createRes.status()).toBe(400)
       const body = (await createRes.json()) as { error?: string }
       expect(body.error).toContain('Configurable')
+    } finally {
+      await deleteCatalogProductIfExists(request, token, productId)
+    }
+  })
+
+  test('should allow only one concurrent first variant for a Simple product', async ({ request }) => {
+    const suffix = Date.now()
+    let token: string | null = null
+    let productId: string | null = null
+
+    try {
+      token = await getAuthToken(request)
+      productId = await createProductFixture(request, token, {
+        title: `QA TC-CAT-024 Concurrent Simple ${suffix}`,
+        sku: `QA-CAT-024-CONCURRENT-${suffix}`,
+      })
+
+      const responses = await Promise.all([
+        apiRequest(request, 'POST', '/api/catalog/variants', {
+          token,
+          data: { productId, name: `Concurrent A ${suffix}`, sku: `QA-CAT-024-CON-A-${suffix}` },
+        }),
+        apiRequest(request, 'POST', '/api/catalog/variants', {
+          token,
+          data: { productId, name: `Concurrent B ${suffix}`, sku: `QA-CAT-024-CON-B-${suffix}` },
+        }),
+      ])
+
+      expect(responses.filter((response) => response.ok())).toHaveLength(1)
+      expect(responses.filter((response) => response.status() === 400)).toHaveLength(1)
+    } finally {
+      await deleteCatalogProductIfExists(request, token, productId)
+    }
+  })
+
+  test('should reject changing a multi-variant Configurable product to Simple', async ({ request }) => {
+    const suffix = Date.now()
+    let token: string | null = null
+    let productId: string | null = null
+
+    try {
+      token = await getAuthToken(request)
+      productId = await createProductFixture(request, token, {
+        title: `QA TC-CAT-024 Type transition ${suffix}`,
+        sku: `QA-CAT-024-TRANSITION-${suffix}`,
+        productType: 'configurable',
+      })
+      await createVariantFixture(request, token, {
+        productId,
+        name: `Transition A ${suffix}`,
+        sku: `QA-CAT-024-TRANS-A-${suffix}`,
+      })
+      await createVariantFixture(request, token, {
+        productId,
+        name: `Transition B ${suffix}`,
+        sku: `QA-CAT-024-TRANS-B-${suffix}`,
+      })
+
+      const response = await apiRequest(request, 'PUT', '/api/catalog/products', {
+        token,
+        data: { id: productId, productType: 'simple' },
+      })
+      expect(response.status()).toBe(400)
+      expect(((await response.json()) as { error?: string }).error).toContain('multiple variants')
     } finally {
       await deleteCatalogProductIfExists(request, token, productId)
     }
