@@ -684,7 +684,7 @@ const createVariantCommand: CommandHandler<VariantCreateInput, { variantId: stri
       customFieldsetCode: parsed.customFieldsetCode ?? null,
       createdAt: now,
       updatedAt: now,
-    })
+    }, { persist: false })
     let previousDefaultVariantId: string | null = null
     try {
       await withAtomicFlush(
