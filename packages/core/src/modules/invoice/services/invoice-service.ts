@@ -541,7 +541,9 @@ export class InvoiceService {
 
     entries.sort((a, b) => a.date.localeCompare(b.date) || a.invoiceId.localeCompare(b.invoiceId))
 
-    const dates = [...new Set([...receivable.byDate.keys(), ...payable.byDate.keys()])].sort()
+    const dates = [...new Set([...receivable.byDate.keys(), ...payable.byDate.keys()])].sort((firstDate, secondDate) =>
+      firstDate < secondDate ? -1 : firstDate > secondDate ? 1 : 0,
+    )
     let receivableCumulative = 0
     let payableCumulative = 0
     let netCumulative = 0
