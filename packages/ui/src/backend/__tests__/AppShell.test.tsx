@@ -1429,13 +1429,14 @@ describe('AppShell', () => {
       expect(heading).toHaveAttribute('aria-expanded', 'true')
     })
 
-    it('opens every group while collapsed so no icon is unreachable', () => {
+    it('keeps each group open or closed across collapsing, so icons never shift', () => {
       renderShell()
       fireEvent.click(screen.getAllByRole('button', { name: 'Core' })[0])
       expect(screen.getByRole('link', { name: 'Roles', hidden: true }).closest('[inert]')).not.toBeNull()
 
       fireEvent.click(screen.getByTestId('appshell-sidebar-toggle'))
-      expect(screen.getByRole('link', { name: 'Roles' }).closest('[inert]')).toBeNull()
+      expect(screen.getByRole('link', { name: 'Roles', hidden: true }).closest('[inert]')).not.toBeNull()
+      expect(screen.getAllByRole('button', { name: 'Core' })[0]).toHaveAttribute('aria-expanded', 'false')
     })
 
     it('toggles with Ctrl/Cmd+B, but not while typing', () => {
@@ -1470,6 +1471,7 @@ describe('AppShell', () => {
         pointer(rail, 'pointerover')
         advance(119)
         expect(rail).toHaveAttribute('data-peek', 'false')
+        expect(rail.className).not.toContain('lg:z-top')
         advance(1)
 
         expect(rail).toHaveAttribute('data-peek', 'true')
