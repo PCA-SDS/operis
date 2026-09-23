@@ -12,6 +12,13 @@ export const DRAG_SNAP_MINUTES = 15
 export const MIN_DRAG_DURATION_MINUTES = 30
 /** Shortest event a resize may produce — one snap step. */
 export const MIN_EVENT_DURATION_MINUTES = 15
+/**
+ * How long a new entry is when the user picked a moment but not a length —
+ * a click on either grid, or the toolbar's create action.
+ *
+ * A drag overrides it: that gesture states the length outright.
+ */
+export const DEFAULT_CREATE_DURATION_MINUTES = 60
 
 export type SnapIncrement = 15 | 30
 

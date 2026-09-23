@@ -19,6 +19,7 @@ import {
   SIDEBAR_SEARCH_TONE,
   ShellBrandLogo,
   SidebarDefaultIcon,
+  SidebarGroupDefaultIcon,
   shouldBypassLogoOptimization,
   sidebarItemStateClass,
   usesBuiltInWordmark,
@@ -1559,7 +1560,13 @@ function ItemRows({
   )
 }
 
-function SidebarPreviewIcon({ item }: { item: SidebarItem }) {
+function SidebarPreviewIcon({
+  item,
+  fallback = SidebarDefaultIcon,
+}: {
+  item: Pick<SidebarItem, 'icon' | 'iconName' | 'iconMarkup'>
+  fallback?: React.ReactNode
+}) {
   if (item.icon) return <>{item.icon}</>
   if (item.iconName) {
     const resolved = resolveInjectedIcon(item.iconName)
@@ -1568,7 +1575,7 @@ function SidebarPreviewIcon({ item }: { item: SidebarItem }) {
   if (item.iconMarkup) {
     return <span aria-hidden="true" dangerouslySetInnerHTML={{ __html: item.iconMarkup }} />
   }
-  return SidebarDefaultIcon
+  return <>{fallback}</>
 }
 
 /**
@@ -1661,7 +1668,10 @@ function SidebarPreview({
               return (
                 <div key={resolveGroupKey(group)}>
                   <div className={SIDEBAR_GROUP_LABEL}>
-                    <span className="min-w-0 truncate">{group.name}</span>
+                    <span className={SIDEBAR_ICON_BOX}>
+                      <SidebarPreviewIcon item={group} fallback={SidebarGroupDefaultIcon} />
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-left">{group.name}</span>
                   </div>
                   <div className="flex flex-col gap-1">
                     {visibleItems.map((item) => {

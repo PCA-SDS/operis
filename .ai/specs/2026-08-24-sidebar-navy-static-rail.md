@@ -4,6 +4,8 @@
 - **Status:** Implemented
 - **Scope:** `packages/ui/src/backend/AppShell.tsx`, `apps/mercato/src/app/globals.css`,
   backend nav labels across every module
+- **Superseded in part by:** [`2026-09-23-collapsible-sidebar-rail.md`](2026-09-23-collapsible-sidebar-rail.md)
+  (the rail collapses again, without an icon-only mirror)
 - **Supersedes:** [`implemented/2026-05-04-settings-sidebar-two-level.md`](implemented/2026-05-04-settings-sidebar-two-level.md)
   (its two-column arrangement depended on the icon rail this spec removes)
 

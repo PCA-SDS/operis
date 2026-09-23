@@ -5,6 +5,8 @@ import dynamic from 'next/dynamic'
 import { isSameDay } from 'date-fns/isSameDay'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { apiCall, apiCallOrThrow, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
+import { cn } from '@open-mercato/shared/lib/utils'
+import type { CalendarVisibilityScope } from '../../lib/calendar/preferences'
 import { matchFeature } from '@open-mercato/shared/lib/auth/featureMatch'
 import {
   buildOptimisticLockHeader,
@@ -16,6 +18,7 @@ import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuarde
 import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { findConflicts } from '../../lib/calendar/conflicts'
+import { DEFAULT_CREATE_DURATION_MINUTES } from '../../lib/calendar/grid'
 import { getVisibleRange, shiftAnchor } from '../../lib/calendar/range'
 import { resolveJoinUrl } from '../../lib/calendar/mapItem'
 import {
@@ -26,6 +29,11 @@ import {
 } from '../../lib/calendar/taskItem'
 import { CalendarSkeleton } from './CalendarSkeleton'
 import { CalendarHeader } from './CalendarHeader'
+import { CHROME_SEGMENTED_ITEM, CHROME_SEGMENTED_TRACK } from './chrome'
+import {
+  SegmentedControl,
+  SegmentedControlItem,
+} from '@open-mercato/ui/primitives/segmented-control'
 import { MonthGrid } from './MonthGrid'
 import { TimeGrid } from './TimeGrid'
 import { CalendarSettingsModal } from './CalendarSettingsModal'
@@ -64,18 +72,22 @@ type EditorState = { open: boolean; mode: 'create' | 'edit'; item: CalendarInter
 const MANAGE_FEATURE = 'customers.interactions.manage'
 /** Editing a task is the tasks module's permission, never the CRM's. */
 const TASK_EDIT_FEATURE = 'tasks.edit'
+/** Lets a viewer opt into everyone's entries instead of only their own. */
+const VIEW_ALL_FEATURE = 'customers.interactions.view_all'
 
 /**
- * Which of the calendar's two domains the caller may write to.
+ * What the caller may do on this screen.
  *
- * The grid holds records from two modules with two different features, so it
- * asks about both and gates each affordance on its own answer. This only hides
- * controls — every write is still authorised server-side by the route that
- * performs it, so a drag the UI failed to hide is refused by the API rather
- * than silently applied.
+ * The grid holds records from two modules with two different write features, so
+ * it asks about both and gates each affordance on its own answer, and it asks
+ * about the oversight read in the same round-trip rather than opening a second
+ * one. This only hides controls — every write is still authorised server-side by
+ * the route that performs it, and the widened read is re-checked against the
+ * same feature before the server honours it, so a control the UI failed to hide
+ * is refused rather than silently obeyed.
  */
-function useCalendarWriteAccess(): { canManage: boolean; canEditTasks: boolean } {
-  const [access, setAccess] = React.useState({ canManage: false, canEditTasks: false })
+function useCalendarAccess(): { canManage: boolean; canEditTasks: boolean; canViewAll: boolean } {
+  const [access, setAccess] = React.useState({ canManage: false, canEditTasks: false, canViewAll: false })
   React.useEffect(() => {
     const controller = new AbortController()
     let cancelled = false
@@ -83,7 +95,7 @@ function useCalendarWriteAccess(): { canManage: boolean; canEditTasks: boolean }
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       signal: controller.signal,
-      body: JSON.stringify({ features: [MANAGE_FEATURE, TASK_EDIT_FEATURE] }),
+      body: JSON.stringify({ features: [MANAGE_FEATURE, TASK_EDIT_FEATURE, VIEW_ALL_FEATURE] }),
     })
       .then((call) => {
         if (cancelled || !call.ok) return
@@ -92,10 +104,14 @@ function useCalendarWriteAccess(): { canManage: boolean; canEditTasks: boolean }
           : []
         const holds = (feature: string) =>
           granted.some((grantedFeature) => matchFeature(feature, grantedFeature))
-        setAccess({ canManage: holds(MANAGE_FEATURE), canEditTasks: holds(TASK_EDIT_FEATURE) })
+        setAccess({
+          canManage: holds(MANAGE_FEATURE),
+          canEditTasks: holds(TASK_EDIT_FEATURE),
+          canViewAll: holds(VIEW_ALL_FEATURE),
+        })
       })
       .catch(() => {
-        if (!cancelled && !controller.signal.aborted) setAccess({ canManage: false, canEditTasks: false })
+        if (!cancelled && !controller.signal.aborted) setAccess({ canManage: false, canEditTasks: false, canViewAll: false })
       })
     return () => {
       cancelled = true
@@ -123,7 +139,6 @@ export type CalendarScreenProps = {
  *  hour of its own — a month cell is a day, not a time. */
 const DEFAULT_CREATE_MINUTES = 9 * 60
 /** What a clicked slot is worth when the user did not drag a length. */
-const DEFAULT_CREATE_DURATION_MINUTES = 60
 
 export function CalendarScreen({
   resourcesEnabled = false,
@@ -154,6 +169,7 @@ export function CalendarScreen({
   const [highlightItemId, setHighlightItemId] = React.useState<string | null>(null)
   const [hasLoadedOnce, setHasLoadedOnce] = React.useState(false)
   const { preferences, setPreferences, hydrated: preferencesHydrated, userId: currentUserId } = useCalendarPreferences()
+  const { canManage, canEditTasks, canViewAll } = useCalendarAccess()
 
   const range = React.useMemo(
     () => getVisibleRange(view, anchor),
@@ -172,7 +188,14 @@ export function CalendarScreen({
     applyOverride,
     clearOverride,
     commitOverride,
-  } = useCalendarItems(range)
+  } = useCalendarItems(range, {
+    /* A stored 'all' is only honoured for a viewer who still holds the feature:
+       the grant can be revoked while the preference lingers in their browser,
+       and the request should narrow with it rather than bounce off the server.
+       Held at the default until preferences hydrate so the window is not
+       fetched twice on load. */
+    scope: canViewAll && preferencesHydrated && preferences.visibilityScope === 'all' ? 'all' : 'mine',
+  })
 
   React.useEffect(() => {
     if (!isLoading) setHasLoadedOnce(true)
@@ -293,7 +316,6 @@ export function CalendarScreen({
       .sort((first, second) => first.label.localeCompare(second.label))
   }, [visibleItems])
 
-  const { canManage, canEditTasks } = useCalendarWriteAccess()
   /** Either domain writable — enough to arm the grid's drag affordances. */
   const canDrag = canManage || canEditTasks
 
@@ -700,15 +722,20 @@ export function CalendarScreen({
     ],
   )
 
+  /**
+   * A click on a month cell, which names a day but no time.
+   *
+   * Delegates to the slot handler so both grids open the editor with the same
+   * default length. It used to build its own range at a hard-coded 30 minutes,
+   * so the same click produced an hour in the week view and half an hour in the
+   * month view.
+   */
   const handleCreateAt = React.useCallback(
     (date: Date) => {
       if (!canManage) return
-      const start = new Date(date)
-      start.setHours(9, 0, 0, 0)
-      const end = new Date(start.getTime() + 30 * 60_000)
-      handleCreateRange(start, end)
+      handleCreateSlot(date)
     },
-    [canManage, handleCreateRange],
+    [canManage, handleCreateSlot],
   )
 
   const focusSearch = React.useCallback(() => {
@@ -779,8 +806,37 @@ export function CalendarScreen({
 
   const showRefreshing = isRefreshing && hasLoadedOnce
   const anyTruncated = truncated || tasksTruncated
-  const calendarStatus = anyTruncated || showRefreshing ? (
+  /* Whose calendar this is.
+   *
+   * Shown only to a viewer who may actually widen the read — for everyone else
+   * there is no choice to offer, and a disabled control would only advertise
+   * rows they cannot see. The server scopes the query either way, so this is a
+   * preference, not the boundary.
+   *
+   * It sits with the status text rather than beside the view switcher: both
+   * answer "which entries am I looking at", while Day/Week/Month answers "over
+   * what span" — and two adjacent segmented controls would read as one. */
+  const scopeSwitcher = canViewAll ? (
+    <SegmentedControl
+      value={preferences.visibilityScope}
+      className={cn('shrink-0', CHROME_SEGMENTED_TRACK)}
+      onValueChange={(value) =>
+        setPreferences({ ...preferences, visibilityScope: value as CalendarVisibilityScope })
+      }
+      aria-label={t('customers.calendar.scope.label', 'Whose entries to show')}
+    >
+      <SegmentedControlItem className={CHROME_SEGMENTED_ITEM} value="mine">
+        {t('customers.calendar.scope.mine', 'Mine')}
+      </SegmentedControlItem>
+      <SegmentedControlItem className={CHROME_SEGMENTED_ITEM} value="all">
+        {t('customers.calendar.scope.everyone', 'Everyone')}
+      </SegmentedControlItem>
+    </SegmentedControl>
+  ) : null
+
+  const calendarStatus = scopeSwitcher || anyTruncated || showRefreshing ? (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      {scopeSwitcher}
       {anyTruncated ? (
         <p className="text-xs text-muted-foreground" role="status">
           {t('customers.calendar.notice.truncated', 'Showing first {count} items for this range.', {

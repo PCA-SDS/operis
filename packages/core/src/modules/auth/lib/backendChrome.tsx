@@ -111,6 +111,67 @@ export const settingsSectionOrder: Record<string, number> = {
   'settings.sections.featureToggles': 8,
 }
 
+/**
+ * Heading icons, keyed by the same untranslated group ids as `defaultGroupOrder` and
+ * `settingsSectionOrder`. The heading icon is what stays on screen when the rail collapses to
+ * icons. A group missing here gets the sidebar's generic group icon, so no heading is ever blank.
+ * Written as `{ id, icon }` rows so the lucide registry generator discovers every name.
+ */
+const navGroupIconRows: ReadonlyArray<{ id: string; icon: string }> = [
+  { id: 'customers.nav.group', icon: 'users' },
+  { id: 'customers~sales.nav.group', icon: 'shopping-cart' },
+  { id: 'sales.group', icon: 'shopping-cart' },
+  { id: 'catalog.nav.group', icon: 'package' },
+  { id: 'checkout.nav.group', icon: 'credit-card' },
+  { id: 'invoice.nav.group', icon: 'receipt' },
+  { id: 'wms.nav.group', icon: 'warehouse' },
+  { id: 'resources.nav.group', icon: 'calendar-range' },
+  { id: 'appointments.nav.group', icon: 'calendar-clock' },
+  { id: 'staff.nav.group', icon: 'id-card' },
+  { id: 'tasks.nav.group', icon: 'list-checks' },
+  { id: 'workflows.module.name', icon: 'workflow' },
+  { id: 'rules.nav.group', icon: 'scale' },
+  { id: 'eudr.nav.group', icon: 'shield-check' },
+  { id: 'warranty_claims.nav.group', icon: 'shield-alert' },
+  { id: 'inbox_ops.nav.group', icon: 'inbox' },
+  { id: 'messages.nav.group', icon: 'messages-square' },
+  { id: 'chat.nav.group', icon: 'message-circle' },
+  { id: 'email.nav.group', icon: 'mail' },
+  { id: 'communication_channels.nav.group', icon: 'plug' },
+  { id: 'communication_channels.profile.group', icon: 'circle-user' },
+  { id: 'notifications.preferences.profileGroup', icon: 'bell' },
+  { id: 'entities.nav.group', icon: 'database' },
+  { id: 'directory.nav.group', icon: 'building-2' },
+  { id: 'attachments.nav.group', icon: 'image' },
+  { id: 'currencies.nav.group', icon: 'coins' },
+  { id: 'feature_toggles.nav.group', icon: 'toggle-right' },
+  { id: 'auth.nav.group', icon: 'shield' },
+  { id: 'auth.settings.section', icon: 'shield' },
+  { id: 'design_system.nav.group', icon: 'palette' },
+  { id: 'backend.nav.externalSystems', icon: 'cable' },
+  { id: 'backend.nav.security', icon: 'lock' },
+  { id: 'backend.nav.developers', icon: 'code' },
+  { id: 'backend.nav.configuration', icon: 'sliders-horizontal' },
+  { id: 'backend.nav.settings', icon: 'settings' },
+  { id: 'settings.sections.system', icon: 'settings' },
+  { id: 'settings.sections.auth', icon: 'shield-check' },
+  { id: 'settings.sections.security', icon: 'lock' },
+  { id: 'settings.sections.dataDesigner', icon: 'database' },
+  { id: 'settings.sections.moduleConfigs', icon: 'sliders-horizontal' },
+  { id: 'settings.sections.directory', icon: 'building-2' },
+  { id: 'settings.sections.featureToggles', icon: 'toggle-right' },
+  { id: 'customer_accounts.settings.section', icon: 'user-round' },
+  { id: 'appShell.sidebarCustomizationGroup', icon: 'panels-top-left' },
+  { id: 'account', icon: 'circle-user' },
+]
+const navGroupIcons = new Map(navGroupIconRows.map((row) => [row.id, row.icon]))
+
+async function serializeGroupIcon(groupId: string): Promise<Pick<BackendChromeNavGroup, 'iconName' | 'iconMarkup'>> {
+  const iconName = navGroupIcons.get(groupId)
+  if (!iconName) return {}
+  return { iconName, iconMarkup: await serializeIconMarkup(iconName) }
+}
+
 type NavGroupWithWeight = Omit<BackendChromeNavGroup, 'id' | 'defaultName' | 'items'> & {
   id: string
   defaultName: string
@@ -257,6 +318,7 @@ async function groupEntries(entries: AdminNavItem[]): Promise<NavGroupWithWeight
   for (const { entries: groupItems, ...group } of groupMap.values()) {
     groups.push({
       ...group,
+      ...(await serializeGroupIcon(group.id)),
       items: await Promise.all(sortNavItemsByWeight(groupItems).map((entry) => serializeNavItem(entry))),
     })
   }
@@ -305,6 +367,7 @@ async function serializeSectionGroups(groups: SerializableSectionGroup[]): Promi
     label: group.label,
     labelKey: group.labelKey,
     order: group.order,
+    ...(await serializeGroupIcon(group.id)),
     items: await Promise.all(group.items.map((item) => serializeSectionItem(item))),
   })))
 }
