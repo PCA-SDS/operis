@@ -23,6 +23,7 @@ import { act, fireEvent, waitFor } from '@testing-library/react'
 import { z } from 'zod'
 import { renderWithProviders } from '@open-mercato/shared/lib/testing/renderWithProviders'
 import { CrudForm, type CrudField } from '../CrudForm'
+import { createCrudFormError } from '../utils/serverErrors'
 
 describe('CrudForm validation state', () => {
   it('renders each custom field error through exactly one declared owner', async () => {
@@ -276,5 +277,34 @@ describe('CrudForm validation state', () => {
     })
 
     expect(queryByText('This field is required')).not.toBeInTheDocument()
+  })
+
+  /**
+   * A field error whose control is not rendered used to vanish completely: the
+   * form-level summary was gated on there being NO field errors, and `flash` is
+   * suppressed for field errors too. A validator left behind after its field
+   * was removed then blocked every save with no visible reason at all.
+   */
+  it('still surfaces the message when a field error has no rendered control', async () => {
+    const fields: CrudField[] = [{ id: 'title', label: 'Title', type: 'text' }]
+
+    const { findByText } = renderWithProviders(
+      <CrudForm
+        title="Form"
+        fields={fields}
+        onSubmit={() => {
+          throw createCrudFormError('Select a person or company', {
+            // Keyed to a field this form does not render.
+            relatedTo: 'Select a person or company',
+          })
+        }}
+      />,
+    )
+
+    await act(async () => {
+      fireEvent.click(document.querySelector('button[type="submit"]') as HTMLButtonElement)
+    })
+
+    expect(await findByText('Select a person or company')).toBeInTheDocument()
   })
 })

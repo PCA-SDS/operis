@@ -16,6 +16,7 @@ import {
 import type { KeyboardSensorOptions } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { Alert } from '../primitives/alert'
 import { DataLoader } from '../primitives/DataLoader'
 import { Checkbox } from '../primitives/checkbox'
 import { Input } from '../primitives/input'
@@ -854,6 +855,28 @@ export function CrudForm<TValues extends Record<string, unknown>>({
   const submittingRef = React.useRef(false)
   const deletingRef = React.useRef(false)
   const [formError, setFormError] = React.useState<string | null>(null)
+
+  /**
+   * The form-level error summary.
+   *
+   * It renders whenever there is a message, INCLUDING when field errors exist.
+   * The previous `&& !Object.keys(errors).length` guard assumed a field error
+   * is always visible somewhere, and a field error whose control is not
+   * rendered — a validator left behind after its field was removed, a field
+   * hidden by the current mode, an error keyed to something a custom group
+   * owns — was then swallowed whole: no banner, and `flash` is suppressed for
+   * field errors too, so the submit failed in total silence.
+   *
+   * Showing both a summary and the inline error is the accessible pattern
+   * anyway (WCAG 3.3.1): `Alert` carries `role="alert"` so the message is
+   * announced, and it sits in one predictable place rather than leaving a
+   * screen-reader user to hunt the form for whichever control turned red.
+   */
+  const formErrorSummary = formError ? (
+    <Alert status="error" style="light" className="text-sm">
+      {formError}
+    </Alert>
+  ) : null
   const [dynamicOptions, setDynamicOptions] = React.useState<Record<string, CrudFieldOption[]>>({})
   const [cfDefinitions, setCfDefinitions] = React.useState<CustomFieldDefDto[]>([])
   const [cfMetadata, setCfMetadata] = React.useState<CustomFieldDefinitionsPayload | null>(null)
@@ -3785,7 +3808,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
               )}
               {hasSecondaryColumn ? <div className="space-y-3" data-crud-injection-region>{col2Content}</div> : null}
             </div>
-            {formError && !Object.keys(errors).length ? <div className="text-sm text-status-error-text">{formError}</div> : null}
+            {formErrorSummary}
             {hideFooterActions || formReadOnly ? null : (
               <FormFooter
                 embedded={embedded}
@@ -3885,7 +3908,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
               })}
             </div>
             </SectionPanel>
-            {formError && !Object.keys(errors).length ? <div className="text-sm text-status-error-text">{formError}</div> : null}
+            {formErrorSummary}
             {hideFooterActions || formReadOnly ? null : (
               <FormFooter
                 embedded={embedded}
