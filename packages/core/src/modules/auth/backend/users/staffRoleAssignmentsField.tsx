@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Alert } from '@open-mercato/ui/primitives/alert'
+import { Badge } from '@open-mercato/ui/primitives/badge'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
 import { TagsInput, type TagsInputOption } from '@open-mercato/ui/backend/inputs/TagsInput'
@@ -26,6 +27,8 @@ type AssignmentResponse = {
 }
 
 type RoleOption = TagsInputOption & { organizationId: string }
+type LoadStatus = 'idle' | 'loading' | 'ready' | 'unavailable'
+type BulkSummary = { matchedOrganizations: number; totalOrganizations: number; missingOrganizations: string[] }
 
 function readString(value: unknown): string | null {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
@@ -76,7 +79,7 @@ export function StaffRoleAssignmentsField({
   userId,
 }: CrudCustomFieldRenderProps & { tenantId: string | null; userId?: string | null }) {
   const t = useT()
-  const homeOrganizationId = values?.organizationId
+  const homeOrganizationId = readString(values?.organizationId)
   const assignedOrganizationIds = values?.organizationIds
   const organizationIds = React.useMemo(
     () => organizationIdsFromValues({ organizationId: homeOrganizationId, organizationIds: assignedOrganizationIds }),
@@ -84,11 +87,12 @@ export function StaffRoleAssignmentsField({
   )
   const organizationKey = organizationIds.join(',')
   const currentAssignments = readAssignments(value)
-  const [available, setAvailable] = React.useState<boolean | null>(null)
-  const [loading, setLoading] = React.useState(false)
+  const [loadStatus, setLoadStatus] = React.useState<LoadStatus>('idle')
   const [organizationNames, setOrganizationNames] = React.useState<Record<string, string>>({})
   const [roleOptions, setRoleOptions] = React.useState<Record<string, RoleOption[]>>({})
   const [bulkRoleIds, setBulkRoleIds] = React.useState<string[]>([])
+  const [bulkSummary, setBulkSummary] = React.useState<BulkSummary | null>(null)
+  const [retryCount, setRetryCount] = React.useState(0)
   const loadedKeyRef = React.useRef<string | null>(null)
   const currentAssignmentsRef = React.useRef(currentAssignments)
 
@@ -98,17 +102,23 @@ export function StaffRoleAssignmentsField({
 
   React.useEffect(() => {
     if (!tenantId || !organizationIds.length) {
-      setAvailable(null)
+      loadedKeyRef.current = null
+      setLoadStatus('idle')
       setRoleOptions({})
+      setOrganizationNames({})
+      setBulkRoleIds([])
+      setBulkSummary(null)
       if (organizationKey === '' && currentAssignmentsRef.current.length) setValue([])
       return
     }
     const loadKey = `${tenantId}:${organizationKey}`
     if (loadedKeyRef.current === loadKey) return
     loadedKeyRef.current = loadKey
+    setBulkRoleIds([])
+    setBulkSummary(null)
     let cancelled = false
     const controller = new AbortController()
-    setLoading(true)
+    setLoadStatus('loading')
     const params = new URLSearchParams({ organizationIds: organizationIds.join(',') })
     params.set('tenantId', tenantId)
     if (userId) params.set('userId', userId)
@@ -118,7 +128,7 @@ export function StaffRoleAssignmentsField({
     ]).then(([assignmentsResponse, organizations]) => {
       if (cancelled) return
       if (!assignmentsResponse.ok || !Array.isArray(assignmentsResponse.result?.items)) {
-        setAvailable(false)
+        setLoadStatus('unavailable')
         return
       }
       const existingByOrganization = new Map(currentAssignmentsRef.current.map((assignment) => [assignment.organizationId, assignment.roleIds]))
@@ -139,20 +149,18 @@ export function StaffRoleAssignmentsField({
       for (const organization of organizations) {
         if (organization.value && organization.label) nextNames[organization.value] = organization.label
       }
-      setAvailable(true)
+      setLoadStatus('ready')
       setRoleOptions(nextOptions)
       setOrganizationNames(nextNames)
       setValue(nextAssignments)
     }).catch(() => {
-      if (!cancelled) setAvailable(false)
-    }).finally(() => {
-      if (!cancelled) setLoading(false)
+      if (!cancelled) setLoadStatus('unavailable')
     })
     return () => {
       cancelled = true
       controller.abort()
     }
-  }, [organizationIds, organizationKey, setValue, tenantId, userId])
+  }, [organizationIds, organizationKey, retryCount, setValue, tenantId, userId])
 
   const assignments = React.useMemo(() => {
     const byOrganization = new Map(currentAssignments.map((assignment) => [assignment.organizationId, assignment.roleIds]))
@@ -183,23 +191,47 @@ export function StaffRoleAssignmentsField({
         .filter((option) => bulkRoleIds.includes(option.value))
         .map((option) => option.label),
     )
+    const missingOrganizations = assignments.filter((assignment) => {
+      const availableNames = new Set((roleOptions[assignment.organizationId] ?? []).map((option) => option.label))
+      return !Array.from(selectedNames).every((name) => availableNames.has(name))
+    }).map((assignment) => organizationNames[assignment.organizationId] ?? assignment.organizationId)
+    setBulkSummary({
+      matchedOrganizations: assignments.length - missingOrganizations.length,
+      totalOrganizations: assignments.length,
+      missingOrganizations,
+    })
     setValue(assignments.map((assignment) => ({
       ...assignment,
       roleIds: (roleOptions[assignment.organizationId] ?? [])
         .filter((option) => selectedNames.has(option.label))
         .map((option) => option.value),
     })))
-  }, [allRoleOptions, assignments, bulkRoleIds, roleOptions, setValue])
+  }, [allRoleOptions, assignments, bulkRoleIds, organizationNames, roleOptions, setValue])
 
-  if (available === false) {
+  const retryLoading = React.useCallback(() => {
+    loadedKeyRef.current = null
+    setRetryCount((current) => current + 1)
+  }, [])
+
+  const updateBulkRoleIds = React.useCallback((nextRoleIds: string[]) => {
+    setBulkRoleIds(nextRoleIds)
+    setBulkSummary(null)
+  }, [])
+
+  if (loadStatus === 'unavailable') {
     return (
-      <Alert status="information" style="lighter">
-        {t('auth.users.staffAssignments.unavailable', 'Staff role assignment is unavailable for this account or module.')}
+      <Alert status="error" style="lighter" size="sm">
+        <div className="flex w-full items-center justify-between gap-3">
+          <span>{t('auth.users.staffAssignments.unavailable', 'Staff role assignment is unavailable for this account or module.')}</span>
+          <Button type="button" variant="outline" size="sm" onClick={retryLoading}>
+            {t('common.retry', 'Retry')}
+          </Button>
+        </div>
       </Alert>
     )
   }
 
-  if (loading || available === null) {
+  if (loadStatus === 'loading') {
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Spinner size="sm" />
@@ -208,7 +240,7 @@ export function StaffRoleAssignmentsField({
     )
   }
 
-  if (!assignments.length) {
+  if (loadStatus === 'idle' || !assignments.length) {
     return (
       <Alert status="information" style="lighter">
         {t('auth.users.staffAssignments.selectOrganizations', 'Select at least one organization to assign staff roles.')}
@@ -226,7 +258,7 @@ export function StaffRoleAssignmentsField({
           <div className="min-w-0 flex-1">
             <TagsInput
               value={bulkRoleIds}
-              onChange={setBulkRoleIds}
+              onChange={updateBulkRoleIds}
               suggestions={allRoleOptions}
               selectedOptions={allRoleOptions}
               allowCustomValues={false}
@@ -237,14 +269,42 @@ export function StaffRoleAssignmentsField({
             {t('auth.users.staffAssignments.applyAction', 'Apply')}
           </Button>
         </div>
+        {bulkSummary ? (
+          <Alert
+            status={bulkSummary.matchedOrganizations === bulkSummary.totalOrganizations ? 'success' : 'warning'}
+            style="lighter"
+            size="xs"
+            className="mt-2"
+          >
+            {t('auth.users.staffAssignments.bulkSummary', 'Applied to {matched} of {total} organizations.', {
+              matched: bulkSummary.matchedOrganizations,
+              total: bulkSummary.totalOrganizations,
+            })}
+            {bulkSummary.matchedOrganizations < bulkSummary.totalOrganizations ? (
+              <div className="mt-1 space-y-1">
+                <div>{t('auth.users.staffAssignments.bulkPartial', 'Some selected roles are not available in every organization.')}</div>
+                <div className="text-xs">
+                  {t('auth.users.staffAssignments.bulkMissing', 'Not available in: {organizations}', {
+                    organizations: bulkSummary.missingOrganizations.join(', '),
+                  })}
+                </div>
+              </div>
+            ) : null}
+          </Alert>
+        ) : null}
       </div>
       <div className="space-y-2">
         {assignments.map((assignment) => {
           const options = roleOptions[assignment.organizationId] ?? []
           return (
             <div key={assignment.organizationId} className="rounded-md border p-3">
-              <div className="mb-2 text-sm font-medium">
-                {organizationNames[assignment.organizationId] ?? assignment.organizationId}
+              <div className="mb-2 flex items-center gap-2 text-sm font-medium">
+                <span>{organizationNames[assignment.organizationId] ?? assignment.organizationId}</span>
+                {assignment.organizationId === homeOrganizationId ? (
+                  <Badge variant="info" size="sm">
+                    {t('auth.users.staffAssignments.primary', 'Primary')}
+                  </Badge>
+                ) : null}
               </div>
               <TagsInput
                 value={assignment.roleIds}
