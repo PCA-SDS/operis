@@ -111,7 +111,7 @@ export async function GET(req: Request) {
       organizationId,
       sourceModule: 'appointment',
       sourceEntityType: 'appointment_line',
-      state: { $in: ['draft', 'confirmed'] },
+      state: 'confirmed',
       cancelledAt: null,
       startsAt: { $lt: end },
       endsAt: { $gt: start },
