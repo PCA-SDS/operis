@@ -11,6 +11,8 @@ const mockResolveResourceOrganizationIds = jest.fn()
 class Appointment {}
 class AppointmentLine {}
 class AppointmentLineOptionGroup {}
+class CatalogProductOptionGroup {}
+class CatalogProductOption {}
 class Organization {}
 class ResourcesAssignment {}
 class StaffTeamMember {}
@@ -19,6 +21,10 @@ jest.mock('../../data/entities', () => ({
   Appointment,
   AppointmentLine,
   AppointmentLineOptionGroup,
+}))
+jest.mock('@open-mercato/core/modules/catalog/data/entities', () => ({
+  CatalogProductOptionGroup,
+  CatalogProductOption,
 }))
 jest.mock('@open-mercato/core/modules/directory/data/entities', () => ({ Organization }))
 jest.mock('@open-mercato/core/modules/resources/data/entities', () => ({ ResourcesAssignment }))
@@ -95,6 +101,7 @@ describe('appointments overview route', () => {
       productTitle: 'Service',
       productCategory: null,
       durationMinutes: 60,
+      selectedOptions: { 'legacy-group': ['legacy-option'] },
       sortOrder: 0,
     }
     const resource = { id: RESOURCE_ID, name: 'Resource 1' }
@@ -120,6 +127,8 @@ describe('appointments overview route', () => {
         if (entity === AppointmentLine) return [line]
         if (entity === ResourcesAssignment) return where?.state === 'confirmed' ? [confirmed] : [draft, confirmed]
         if (entity === AppointmentLineOptionGroup) return []
+        if (entity === CatalogProductOptionGroup) return [{ id: 'legacy-group', name: 'Area' }]
+        if (entity === CatalogProductOption) return [{ id: 'legacy-option', group: 'legacy-group', name: 'Underarms' }]
         return []
       }),
     }
@@ -136,6 +145,7 @@ describe('appointments overview route', () => {
     expect(response.status).toBe(200)
     expect(body.blocks).toHaveLength(1)
     expect(body.blocks[0]).toMatchObject({ id: 'confirmed-assignment', state: 'confirmed' })
+    expect(body.appointments[0].lines[0].options).toEqual([{ groupName: 'Area', name: 'Underarms' }])
     const assignmentQueries = em.find.mock.calls.filter((call) => call[0] === ResourcesAssignment)
     expect(assignmentQueries).toHaveLength(2)
     expect(assignmentQueries.every((call) => call[1].state === 'confirmed')).toBe(true)

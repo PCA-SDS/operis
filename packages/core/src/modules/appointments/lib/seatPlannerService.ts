@@ -16,7 +16,7 @@ import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { enforceCommandOptimisticLock } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
 import { StaffTeamMember } from '@open-mercato/core/modules/staff/data/entities'
 import { Appointment, AppointmentLine, AppointmentLineOptionGroup, AppointmentStatus } from '../data/entities'
-import { loadLineOptionSnapshots } from './lineOptionSnapshot'
+import { loadLineOptionSnapshots, normalizeLineOptions } from './lineOptionSnapshot'
 import { loadResourceAvailabilityWindows, resolveResourceOrganizationIds } from './resourceAvailability'
 
 export interface SeatPlannerLine {
@@ -102,43 +102,6 @@ export function resolveSeatPlannerAssignment(
   if (seatPlannerClearedAt) return undefined
   return assignments.find((assignment) => assignment.state === 'draft')
     ?? assignments.find((assignment) => assignment.state === 'confirmed')
-}
-
-function normalizeLineOptions(
-  value: Record<string, unknown> | Record<string, unknown>[] | null | undefined,
-  groupNames: Map<string, string>,
-  optionNames: Map<string, { groupName: string | null; name: string }>,
-): Array<{ groupName: string | null; name: string }> {
-  const values = Array.isArray(value)
-    ? value
-    : value && typeof value === 'object'
-      ? Object.entries(value).flatMap(([groupId, selected]) => {
-          const selectedValues = Array.isArray(selected) ? selected : [selected]
-          return selectedValues.map((optionId) => ({
-            groupName: groupNames.get(groupId) ?? null,
-            name: typeof optionId === 'string' ? optionNames.get(optionId)?.name ?? optionId : '',
-          }))
-        })
-      : []
-  return values.flatMap((option) => {
-    if (option.name && typeof option.name === 'string') {
-      return [{
-        groupName: typeof option.groupName === 'string' ? option.groupName : null,
-        name: option.name,
-      }]
-    }
-    const record = option as Record<string, unknown>
-    const name = typeof record.label === 'string'
-      ? record.label
-      : typeof record.value === 'string'
-        ? record.value
-          : null
-    if (!name) return []
-    return [{
-      groupName: typeof record.groupName === 'string' ? record.groupName : null,
-      name,
-    }]
-  })
 }
 
 export interface UpsertDraftParams {

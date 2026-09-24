@@ -7,12 +7,14 @@ import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
+import { CatalogProductOption, CatalogProductOptionGroup } from '@open-mercato/core/modules/catalog/data/entities'
 import { StaffTeamMember } from '@open-mercato/core/modules/staff/data/entities'
 import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { ResourcesAssignment } from '@open-mercato/core/modules/resources/data/entities'
 import { ResourceAssignmentService } from '@open-mercato/core/modules/resources/lib/resourceAssignmentService'
 import { Appointment, AppointmentLine, AppointmentLineOptionGroup } from '../../data/entities'
 import { deriveScheduleConfirmationStatus } from '../../lib/scheduleTracking'
+import { normalizeLineOptions } from '../../lib/lineOptionSnapshot'
 import { loadResourceAvailabilityWindows, resolveResourceOrganizationIds } from '../../lib/resourceAvailability'
 
 export const metadata = {
@@ -93,14 +95,41 @@ export async function GET(req: Request) {
       ? await em.find(AppointmentLineOptionGroup, { line: { $in: lines.map((line) => line.id) } }, { populate: ['options'], orderBy: { sortOrder: 'asc' } })
       : []
     const lineOptions = new Map<string, Array<{ groupName: string | null; name: string }>>()
+    const snapshotLineIds = new Set<string>()
     for (const group of lineOptionGroups) {
       const lineId = String(group.line.id)
+      snapshotLineIds.add(lineId)
       const options = group.options.map((option) => ({
         groupName: group.breadcrumbPath ?? group.groupName,
         name: option.optionName,
       }))
       lineOptions.set(lineId, [...(lineOptions.get(lineId) ?? []), ...options])
     }
+    const legacyOptionLines = lines.filter((line) => line.selectedOptions)
+    const catalogGroups = legacyOptionLines.length > 0
+      ? await em.find(CatalogProductOptionGroup, {
+          tenantId: auth.tenantId,
+          organizationId: { $in: resourceOrganizationIds },
+          product: { $in: legacyOptionLines.map((line) => line.productId) },
+          isActive: true,
+          deletedAt: null,
+        })
+      : []
+    const catalogGroupIds = catalogGroups.map((group) => group.id)
+    const catalogOptions = catalogGroupIds.length > 0
+      ? await em.find(CatalogProductOption, {
+          tenantId: auth.tenantId,
+          organizationId: { $in: resourceOrganizationIds },
+          group: { $in: catalogGroupIds },
+          isActive: true,
+          deletedAt: null,
+        })
+      : []
+    const catalogGroupNames = new Map(catalogGroups.map((group) => [group.id, group.name]))
+    const catalogOptionNames = new Map(catalogOptions.map((option) => [option.id, {
+      groupName: typeof option.group === 'string' ? catalogGroupNames.get(option.group) ?? null : option.group.name,
+      name: option.name,
+    }]))
     const allLinesByAppointment = new Map<string, AppointmentLine[]>()
     for (const line of allLines) {
       const appointmentId = String(line.appointment.id)
@@ -226,7 +255,16 @@ export async function GET(req: Request) {
         statusCode: appointment.statusCode,
         requestedStartAt: appointment.requestedStartAt.toISOString(),
         requestedEndAt: appointment.requestedEndAt?.toISOString() ?? null,
-        lines: (linesByAppointment.get(appointment.id) ?? []).map((line) => ({ id: line.id, productId: line.productId, productTitle: line.productTitle, productCategory: line.productCategory ?? null, durationMinutes: line.durationMinutes ?? null, options: lineOptions.get(line.id) ?? [] })),
+        lines: (linesByAppointment.get(appointment.id) ?? []).map((line) => ({
+          id: line.id,
+          productId: line.productId,
+          productTitle: line.productTitle,
+          productCategory: line.productCategory ?? null,
+          durationMinutes: line.durationMinutes ?? null,
+          options: snapshotLineIds.has(line.id)
+            ? lineOptions.get(line.id) ?? []
+            : normalizeLineOptions(line.selectedOptions, catalogGroupNames, catalogOptionNames),
+        })),
       })),
       blocks,
       unassignedAppointmentIds: unassigned.map((appointment) => appointment.id),
