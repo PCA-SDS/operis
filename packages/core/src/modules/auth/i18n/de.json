@@ -273,6 +273,7 @@
   "auth.users.staffAssignments.loading": "Staff-Rollen werden geladen…",
   "auth.users.staffAssignments.noRoles": "Für diese Organisation sind keine Staff-Rollen konfiguriert.",
   "auth.users.staffAssignments.primary": "Primär",
+  "auth.users.staffAssignments.roleCount": "{count} Rollen ausgewählt",
   "auth.users.staffAssignments.rolePlaceholder": "Staff-Rollen auswählen",
   "auth.users.staffAssignments.selectOrganizations": "Wähle mindestens eine Organisation aus, um Staff-Rollen zuzuweisen.",
   "auth.users.staffAssignments.unavailable": "Die Staff-Rollenzuweisung ist für dieses Konto oder Modul nicht verfügbar.",

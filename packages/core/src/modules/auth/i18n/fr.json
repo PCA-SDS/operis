@@ -273,6 +273,7 @@
   "auth.users.staffAssignments.loading": "Loading staff roles…",
   "auth.users.staffAssignments.noRoles": "No staff roles are configured for this organization.",
   "auth.users.staffAssignments.primary": "Primary",
+  "auth.users.staffAssignments.roleCount": "{count} roles",
   "auth.users.staffAssignments.rolePlaceholder": "Choose staff roles",
   "auth.users.staffAssignments.selectOrganizations": "Select at least one organization to assign staff roles.",
   "auth.users.staffAssignments.unavailable": "Staff role assignment is unavailable for this account or module.",

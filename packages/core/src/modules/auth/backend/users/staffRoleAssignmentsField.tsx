@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Alert } from '@open-mercato/ui/primitives/alert'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@open-mercato/ui/primitives/accordion'
 import { Badge } from '@open-mercato/ui/primitives/badge'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
@@ -93,12 +94,22 @@ export function StaffRoleAssignmentsField({
   const [bulkRoleIds, setBulkRoleIds] = React.useState<string[]>([])
   const [bulkSummary, setBulkSummary] = React.useState<BulkSummary | null>(null)
   const [retryCount, setRetryCount] = React.useState(0)
+  const [openOrganizationIds, setOpenOrganizationIds] = React.useState<string[]>([])
   const loadedKeyRef = React.useRef<string | null>(null)
   const currentAssignmentsRef = React.useRef(currentAssignments)
 
   React.useEffect(() => {
     currentAssignmentsRef.current = currentAssignments
   }, [currentAssignments])
+
+  React.useEffect(() => {
+    setOpenOrganizationIds((current) => {
+      const activeOrganizationIds = current.filter((organizationId) => organizationIds.includes(organizationId))
+      if (activeOrganizationIds.length) return activeOrganizationIds
+      const defaultOrganizationId = homeOrganizationId ?? organizationIds[0]
+      return defaultOrganizationId ? [defaultOrganizationId] : []
+    })
+  }, [homeOrganizationId, organizationIds, organizationKey])
 
   React.useEffect(() => {
     if (!tenantId || !organizationIds.length) {
@@ -293,36 +304,48 @@ export function StaffRoleAssignmentsField({
           </Alert>
         ) : null}
       </div>
-      <div className="space-y-2">
+      <Accordion
+        type="multiple"
+        value={openOrganizationIds}
+        onValueChange={setOpenOrganizationIds}
+        className="space-y-2"
+      >
         {assignments.map((assignment) => {
           const options = roleOptions[assignment.organizationId] ?? []
           return (
-            <div key={assignment.organizationId} className="rounded-md border p-3">
-              <div className="mb-2 flex items-center gap-2 text-sm font-medium">
-                <span>{organizationNames[assignment.organizationId] ?? assignment.organizationId}</span>
-                {assignment.organizationId === homeOrganizationId ? (
-                  <Badge variant="info" size="sm">
-                    {t('auth.users.staffAssignments.primary', 'Primary')}
+            <AccordionItem key={assignment.organizationId} value={assignment.organizationId}>
+              <AccordionTrigger triggerIcon="chevron" className="items-center">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <span className="truncate">{organizationNames[assignment.organizationId] ?? assignment.organizationId}</span>
+                  {assignment.organizationId === homeOrganizationId ? (
+                    <Badge variant="info" size="sm">
+                      {t('auth.users.staffAssignments.primary', 'Primary')}
+                    </Badge>
+                  ) : null}
+                  <Badge variant="neutral" size="sm">
+                    {t('auth.users.staffAssignments.roleCount', '{count} roles', { count: assignment.roleIds.length })}
                   </Badge>
-                ) : null}
-              </div>
-              <TagsInput
-                value={assignment.roleIds}
-                onChange={(roleIds) => updateAssignment(assignment.organizationId, roleIds)}
-                suggestions={options}
-                selectedOptions={options}
-                allowCustomValues={false}
-                placeholder={t('auth.users.staffAssignments.rolePlaceholder', 'Choose staff roles')}
-              />
-              {!options.length && (
-                <div className="mt-2 text-xs text-muted-foreground">
-                  {t('auth.users.staffAssignments.noRoles', 'No staff roles are configured for this organization.')}
                 </div>
-              )}
-            </div>
+              </AccordionTrigger>
+              <AccordionContent>
+                <TagsInput
+                  value={assignment.roleIds}
+                  onChange={(roleIds) => updateAssignment(assignment.organizationId, roleIds)}
+                  suggestions={options}
+                  selectedOptions={options}
+                  allowCustomValues={false}
+                  placeholder={t('auth.users.staffAssignments.rolePlaceholder', 'Choose staff roles')}
+                />
+                {!options.length && (
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    {t('auth.users.staffAssignments.noRoles', 'No staff roles are configured for this organization.')}
+                  </div>
+                )}
+              </AccordionContent>
+            </AccordionItem>
           )
         })}
-      </div>
+      </Accordion>
     </div>
   )
 }

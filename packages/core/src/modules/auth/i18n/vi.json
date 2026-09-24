@@ -273,6 +273,7 @@
   "auth.users.staffAssignments.loading": "Đang tải vai trò staff…",
   "auth.users.staffAssignments.noRoles": "Tổ chức này chưa có staff role nào.",
   "auth.users.staffAssignments.primary": "Chính",
+  "auth.users.staffAssignments.roleCount": "Đã chọn {count} vai trò",
   "auth.users.staffAssignments.rolePlaceholder": "Chọn staff role",
   "auth.users.staffAssignments.selectOrganizations": "Hãy chọn ít nhất một tổ chức để gán staff role.",
   "auth.users.staffAssignments.unavailable": "Không thể gán staff role cho tài khoản hoặc module hiện tại.",

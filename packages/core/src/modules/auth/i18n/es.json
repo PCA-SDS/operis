@@ -273,6 +273,7 @@
   "auth.users.staffAssignments.loading": "Cargando roles de staff…",
   "auth.users.staffAssignments.noRoles": "Esta organización no tiene roles de staff configurados.",
   "auth.users.staffAssignments.primary": "Principal",
+  "auth.users.staffAssignments.roleCount": "{count} roles seleccionados",
   "auth.users.staffAssignments.rolePlaceholder": "Elige roles de staff",
   "auth.users.staffAssignments.selectOrganizations": "Selecciona al menos una organización para asignar roles de staff.",
   "auth.users.staffAssignments.unavailable": "La asignación de roles de staff no está disponible para esta cuenta o módulo.",

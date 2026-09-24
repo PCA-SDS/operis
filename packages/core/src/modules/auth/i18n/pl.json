@@ -273,6 +273,7 @@
   "auth.users.staffAssignments.loading": "Ładowanie ról staff…",
   "auth.users.staffAssignments.noRoles": "Ta organizacja nie ma skonfigurowanych ról staff.",
   "auth.users.staffAssignments.primary": "Główna",
+  "auth.users.staffAssignments.roleCount": "Wybrano {count} ról",
   "auth.users.staffAssignments.rolePlaceholder": "Wybierz role staff",
   "auth.users.staffAssignments.selectOrganizations": "Wybierz co najmniej jedną organizację, aby przypisać role staff.",
   "auth.users.staffAssignments.unavailable": "Przypisywanie ról staff jest niedostępne dla tego konta lub modułu.",
