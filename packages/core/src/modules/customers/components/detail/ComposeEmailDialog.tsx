@@ -1,10 +1,11 @@
 'use client'
 
 import * as React from 'react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@open-mercato/ui/primitives/dialog'
+import { Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@open-mercato/ui/primitives/dialog'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
-import { Label } from '@open-mercato/ui/primitives/label'
+import { cn } from '@open-mercato/shared/lib/utils'
+import { FormFieldLabel } from '@open-mercato/ui/backend/forms/FormSection'
 import { Textarea } from '@open-mercato/ui/primitives/textarea'
 import { RadioGroup } from '@open-mercato/ui/primitives/radio'
 import { RadioField } from '@open-mercato/ui/primitives/radio-field'
@@ -16,6 +17,7 @@ import {
   SelectValue,
 } from '@open-mercato/ui/primitives/select'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { DETAIL_DIALOG_BODY } from './dialogChrome'
 
 export interface ComposeEmailChannel {
   id: string
@@ -181,13 +183,13 @@ export function ComposeEmailDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="flex flex-col gap-4">
+        <DialogBody data-dialog-form="true" className={cn('flex flex-col gap-6', DETAIL_DIALOG_BODY)}>
           {/* To */}
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-2.5">
             <div className="flex items-center justify-between">
-              <Label htmlFor="compose-to">
+              <FormFieldLabel htmlFor="compose-to" className="mb-0" required>
                 {t('customers.email.compose.to', 'To')}
-              </Label>
+              </FormFieldLabel>
               {!showCc && (
                 <Button
                   type="button"
@@ -212,10 +214,10 @@ export function ComposeEmailDialog({
 
           {/* Cc (collapsible) */}
           {showCc && (
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="compose-cc">
+            <div className="flex flex-col gap-2.5">
+              <FormFieldLabel htmlFor="compose-cc" className="mb-0">
                 {t('customers.email.compose.cc', 'Cc')}
-              </Label>
+              </FormFieldLabel>
               <Input
                 id="compose-cc"
                 value={cc}
@@ -227,10 +229,10 @@ export function ComposeEmailDialog({
           )}
 
           {/* Subject */}
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="compose-subject">
+          <div className="flex flex-col gap-2.5">
+            <FormFieldLabel htmlFor="compose-subject" className="mb-0" required>
               {t('customers.email.compose.subject', 'Subject')}
-            </Label>
+            </FormFieldLabel>
             <Input
               id="compose-subject"
               value={subject}
@@ -240,10 +242,10 @@ export function ComposeEmailDialog({
           </div>
 
           {/* Body */}
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="compose-body">
+          <div className="flex flex-col gap-2.5">
+            <FormFieldLabel htmlFor="compose-body" className="mb-0" required>
               {t('customers.email.compose.body', 'Body')}
-            </Label>
+            </FormFieldLabel>
             <Textarea
               id="compose-body"
               value={body}
@@ -254,10 +256,10 @@ export function ComposeEmailDialog({
           </div>
 
           {/* Visibility */}
-          <div className="flex flex-col gap-2">
-            <Label>
+          <div className="flex flex-col gap-2.5">
+            <FormFieldLabel className="mb-0">
               {t('customers.email.compose.visibility', 'Visibility')}
-            </Label>
+            </FormFieldLabel>
             <RadioGroup
               value={visibility}
               onValueChange={(val) => setVisibility(val as 'private' | 'shared')}
@@ -276,10 +278,10 @@ export function ComposeEmailDialog({
 
           {/* Send as (channel selector) */}
           {channels.length > 0 && (
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="compose-channel">
+            <div className="flex flex-col gap-2.5">
+              <FormFieldLabel htmlFor="compose-channel" className="mb-0" required>
                 {t('customers.email.compose.sendAs', 'Send as')}
-              </Label>
+              </FormFieldLabel>
               <Select value={channelId} onValueChange={setChannelId}>
                 <SelectTrigger id="compose-channel">
                   <SelectValue placeholder={t('customers.email.compose.selectChannel', 'Select account')} />
@@ -296,13 +298,11 @@ export function ComposeEmailDialog({
             </div>
           )}
 
-          {/* Inline error */}
-          {error && (
-            <p className="text-sm text-status-error-text" role="alert">
-              {error}
-            </p>
-          )}
-        </div>
+          {/* Always laid out, so an error appearing moves nothing. */}
+          <p className="min-h-5 text-sm text-status-error-text" role="alert">
+            {error ?? ''}
+          </p>
+        </DialogBody>
 
         <DialogFooter>
           <Button

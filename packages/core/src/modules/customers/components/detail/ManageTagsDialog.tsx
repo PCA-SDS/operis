@@ -55,6 +55,9 @@ import {
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { SearchInput } from '@open-mercato/ui/primitives/search-input'
+import { Popover, PopoverContent, PopoverTrigger } from '@open-mercato/ui/primitives/popover'
+import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primitives/segmented-control'
+import { useDialogKeyHandler } from '@open-mercato/ui/hooks/useDialogKeyHandler'
 
 const logger = createLogger('customers')
 
@@ -370,7 +373,7 @@ function SortableEntryRow({
         {...attributes}
         {...listeners}
       >
-        <GripVertical className="size-3.5" />
+        <GripVertical className="size-4" />
       </div>
 
       {/* Arrow reorder buttons — additive alternative to drag */}
@@ -384,7 +387,7 @@ function SortableEntryRow({
           onClick={onMoveUp}
           className="h-5 w-5 text-muted-foreground hover:text-foreground disabled:opacity-40"
         >
-          <ChevronUp className="size-3" />
+          <ChevronUp className="size-4" />
         </IconButton>
         <IconButton
           type="button"
@@ -395,7 +398,7 @@ function SortableEntryRow({
           onClick={onMoveDown}
           className="h-5 w-5 text-muted-foreground hover:text-foreground disabled:opacity-40"
         >
-          <ChevronDown className="size-3" />
+          <ChevronDown className="size-4" />
         </IconButton>
       </div>
 
@@ -405,11 +408,11 @@ function SortableEntryRow({
           type="text"
           value={entry.label}
           onChange={(e) => onLabelChange(e.target.value)}
-          className="w-full rounded-md border border-input bg-input-bg px-3 py-2 text-sm font-medium text-foreground outline-none"
+          className="h-9 w-full rounded-lg border px-3 text-sm font-medium text-foreground outline-none focus-visible:shadow-focus"
         />
         {isDefault && (
           <div className="flex items-center gap-1.5">
-            <Check className="size-2.5 text-status-success-icon" />
+            <Check className="size-4 text-status-success-icon" />
             <span className="text-xs text-muted-foreground">
               {t('customers.tags.manage.defaultEntry', 'default when creating new records')}
             </span>
@@ -423,7 +426,7 @@ function SortableEntryRow({
           type="text"
           value={entry.value}
           onChange={(e) => onValueChange(slugifyLabel(e.target.value))}
-          className="w-full rounded-md bg-muted px-2.5 py-2 text-xs font-medium text-muted-foreground outline-none"
+          className="h-9 w-full rounded-lg border px-3 text-sm font-medium text-muted-foreground outline-none focus-visible:shadow-focus"
         />
       </div>
 
@@ -439,12 +442,12 @@ function SortableEntryRow({
       <IconButton
         type="button"
         variant="ghost"
-        size="sm"
-        className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
+        size="lg"
+        className="shrink-0 text-muted-foreground hover:text-destructive"
         onClick={onDelete}
         aria-label={t('customers.tags.manage.delete', 'Delete')}
       >
-        <Trash2 className="size-3.5" />
+        <Trash2 className="size-4" />
       </IconButton>
     </div>
   )
@@ -948,6 +951,11 @@ export function ManageTagsDialog({ open, onClose }: ManageTagsDialogProps) {
 
   // --- render ---
 
+  const handleDialogKeyDown = useDialogKeyHandler({
+    onConfirm: () => { void handleSave() },
+    disabled: saving || !hasChanges,
+  })
+
   return (
     <Dialog
       open={open}
@@ -955,10 +963,14 @@ export function ManageTagsDialog({ open, onClose }: ManageTagsDialogProps) {
         if (!nextOpen) onClose()
       }}
     >
+      {/* A FIXED height with tinted wells: switching categories swaps lists of
+          different lengths, and the content-sized dialog moved its footer. */}
       <DialogContent
         disableBodyWrap
-        className="flex max-h-[90vh] flex-col overflow-hidden border-border p-0 shadow-[0px_20px_48px_0px_rgba(0,0,0,0.18)] sm:max-w-[820px] sm:rounded-lg [&>[data-dialog-close]]:hidden"
+        data-dialog-form="true"
+        className="flex h-[min(90vh,44rem)] flex-col sm:h-[min(90vh,44rem)] overflow-hidden border-border p-0 shadow-xl sm:max-w-[820px] sm:rounded-lg [&>[data-dialog-close]]:hidden"
         aria-describedby={undefined}
+        onKeyDown={handleDialogKeyDown}
       >
         <VisuallyHidden>
           <DialogTitle>{t('customers.tags.manage.title', 'Manage tags')}</DialogTitle>
@@ -978,20 +990,64 @@ export function ManageTagsDialog({ open, onClose }: ManageTagsDialogProps) {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-auto gap-1.5 rounded-md px-3 py-2 text-xs font-semibold"
-              onClick={() => {
-                setCreateCategoryOpen((current) => !current)
-                setNewCategoryName('')
-                setNewCategorySelectionMode('multi')
+            {/* The create form opens in a popover so opening it never pushes the
+                tabs and entries down. */}
+            <Popover
+              open={createCategoryOpen}
+              onOpenChange={(next) => {
+                setCreateCategoryOpen(next)
+                if (next) {
+                  setNewCategoryName('')
+                  setNewCategorySelectionMode('multi')
+                }
               }}
             >
-              <Plus className="size-3.5" />
-              {t('customers.tags.manage.addCategory', 'New category')}
-            </Button>
+              <PopoverTrigger asChild>
+                <Button type="button" variant="soft">
+                  <Plus className="size-4" />
+                  {t('customers.tags.manage.addCategory', 'New category')}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-[26rem] space-y-3 p-3" data-dialog-form="true">
+                <input
+                  type="text"
+                  value={newCategoryName}
+                  onChange={(event) => setNewCategoryName(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault()
+                      void handleCreateCategory()
+                    }
+                  }}
+                  placeholder={t('customers.tags.manage.addCategoryPlaceholder', 'Category name...')}
+                  aria-label={t('customers.tags.manage.addCategoryPlaceholder', 'Category name...')}
+                  className="h-9 w-full rounded-lg border px-3 text-sm font-medium text-foreground outline-none placeholder:text-muted-foreground focus-visible:shadow-focus"
+                  autoFocus
+                />
+                <div className="flex items-center justify-between gap-2">
+                  <SegmentedControl
+                    tone="inset"
+                    aria-label={t('customers.tags.manage.categoryMode.label', 'Selection mode')}
+                    value={newCategorySelectionMode}
+                    onValueChange={(next) => setNewCategorySelectionMode(next as 'single' | 'multi')}
+                  >
+                    <SegmentedControlItem value="single">{t('customers.tags.manage.categoryMode.single', 'Single')}</SegmentedControlItem>
+                    <SegmentedControlItem value="multi">{t('customers.tags.manage.categoryMode.multi', 'Multi')}</SegmentedControlItem>
+                  </SegmentedControl>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      void handleCreateCategory()
+                    }}
+                    disabled={creatingCategory}
+                  >
+                    {creatingCategory
+                      ? t('customers.tags.manage.creatingCategory', 'Creating...')
+                      : t('customers.tags.manage.createCategory', 'Create category')}
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
             <CloseButton
               onClick={onClose}
               aria-label={t('customers.tags.manage.closeDialog', 'Close')}
@@ -1005,71 +1061,18 @@ export function ManageTagsDialog({ open, onClose }: ManageTagsDialogProps) {
           </div>
         ) : (
           <>
-            {createCategoryOpen ? (
-              <div className="flex shrink-0 flex-wrap items-center gap-2.5 border-b border-border px-6 py-3">
-                <div className="min-w-[220px] flex-1 rounded-md border border-input bg-input-bg px-3 py-2">
-                  <input
-                    type="text"
-                    value={newCategoryName}
-                    onChange={(event) => setNewCategoryName(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') {
-                        event.preventDefault()
-                        void handleCreateCategory()
-                      }
-                    }}
-                    placeholder={t('customers.tags.manage.addCategoryPlaceholder', 'Category name...')}
-                    className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
-                  />
-                </div>
-                <div className="flex items-center gap-1 rounded-md border border-border bg-muted/60 p-1">
-                  <Button
-                    type="button"
-                    variant={newCategorySelectionMode === 'single' ? 'secondary' : 'ghost'}
-                    size="sm"
-                    className="h-auto rounded-md px-2.5 py-1.5 text-xs"
-                    onClick={() => setNewCategorySelectionMode('single')}
-                  >
-                    {t('customers.tags.manage.categoryMode.single', 'Single')}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={newCategorySelectionMode === 'multi' ? 'secondary' : 'ghost'}
-                    size="sm"
-                    className="h-auto rounded-md px-2.5 py-1.5 text-xs"
-                    onClick={() => setNewCategorySelectionMode('multi')}
-                  >
-                    {t('customers.tags.manage.categoryMode.multi', 'Multi')}
-                  </Button>
-                </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  className="h-auto rounded-md px-3 py-2 text-xs font-semibold"
-                  onClick={() => {
-                    void handleCreateCategory()
-                  }}
-                  disabled={creatingCategory}
-                >
-                  {creatingCategory
-                    ? t('customers.tags.manage.creatingCategory', 'Creating...')
-                    : t('customers.tags.manage.createCategory', 'Create category')}
-                </Button>
-              </div>
-            ) : null}
-
             {/* Tab bar */}
             <div className="flex shrink-0 items-end gap-2 border-b border-input px-4 pt-1.5">
               <IconButton
                 type="button"
-                variant="ghost"
-                size="sm"
-                className="size-8 shrink-0 self-center rounded-full"
+                variant="soft"
+                size="lg"
+                className="shrink-0 self-center"
                 onClick={() => scrollCategoryRail('left')}
                 disabled={!canScrollLeft}
                 aria-label={t('customers.tags.manage.scrollLeft', 'Scroll categories left')}
               >
-                <ChevronsLeft className="size-3.5" />
+                <ChevronsLeft className="size-4" />
               </IconButton>
               <div
                 ref={categoryRailRef}
@@ -1096,10 +1099,9 @@ export function ManageTagsDialog({ open, onClose }: ManageTagsDialogProps) {
                             : 'border-transparent text-muted-foreground'
                         }`}
                       >
-                        <Icon className="size-3.5" />
-                        <span
-                          className={`whitespace-nowrap text-xs ${isActive ? 'font-semibold' : 'font-medium'}`}
-                        >
+                        <Icon className="size-4" />
+                        {/* One weight in every state, so switching tabs never changes widths. */}
+                        <span className="whitespace-nowrap text-sm font-medium">
                           {category.shortLabel}
                         </span>
                         <span className="rounded-sm bg-muted px-1 py-px text-overline font-semibold text-foreground">
@@ -1112,14 +1114,14 @@ export function ManageTagsDialog({ open, onClose }: ManageTagsDialogProps) {
               </div>
               <IconButton
                 type="button"
-                variant="ghost"
-                size="sm"
-                className="size-8 shrink-0 self-center rounded-full"
+                variant="soft"
+                size="lg"
+                className="shrink-0 self-center"
                 onClick={() => scrollCategoryRail('right')}
                 disabled={!canScrollRight}
                 aria-label={t('customers.tags.manage.scrollRight', 'Scroll categories right')}
               >
-                <ChevronsRight className="size-3.5" />
+                <ChevronsRight className="size-4" />
               </IconButton>
             </div>
 
@@ -1148,7 +1150,7 @@ export function ManageTagsDialog({ open, onClose }: ManageTagsDialogProps) {
                         ))}
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <Info className="size-3 shrink-0 text-muted-foreground" />
+                        <Info className="size-4 shrink-0 text-muted-foreground" />
                         <span className="text-xs text-muted-foreground">
                           {activeMeta.description}
                         </span>
@@ -1156,7 +1158,6 @@ export function ManageTagsDialog({ open, onClose }: ManageTagsDialogProps) {
                     </div>
                     <div className="w-[220px] shrink-0">
                       <SearchInput
-                        size="sm"
                         value={searchValue}
                         onChange={setSearchValue}
                         placeholder={t('customers.tags.manage.search', 'Search values...')}
@@ -1247,17 +1248,17 @@ export function ManageTagsDialog({ open, onClose }: ManageTagsDialogProps) {
                   {/* Add new value */}
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="soft"
                     onClick={handleAddEntry}
-                    className="flex h-auto w-full items-center justify-center gap-2 rounded-md border border-dashed border-border bg-surface p-3 text-xs font-semibold text-foreground hover:bg-muted"
+                    className="w-full"
                   >
-                    <Plus className="size-3.5" />
+                    <Plus className="size-4" />
                     {t('customers.tags.manage.addValue', 'Add new value')}
                   </Button>
 
                   {/* Info note */}
                   <div className="flex items-start gap-2.5 rounded-md bg-muted px-3.5 py-3">
-                    <Info className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                    <Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                     <div className="flex flex-1 flex-col gap-1">
                       <span className="text-xs font-semibold text-foreground">
                         {activeMeta.noteTitle}
@@ -1276,13 +1277,10 @@ export function ManageTagsDialog({ open, onClose }: ManageTagsDialogProps) {
               </div>
             </ScrollArea>
 
-            {/* Separator */}
-            <div className="h-px shrink-0 bg-border" />
-
             {/* Footer */}
             <div className="flex shrink-0 items-center justify-between px-6 py-3">
               <div className="flex items-center gap-1.5">
-                <Info className="size-3 shrink-0 text-muted-foreground" />
+                <Info className="size-4 shrink-0 text-muted-foreground" />
                 <span className="text-xs text-muted-foreground">
                   {t(
                     'customers.tags.manage.tenantNotice',
@@ -1304,9 +1302,8 @@ export function ManageTagsDialog({ open, onClose }: ManageTagsDialogProps) {
                     void handleSave()
                   }}
                   disabled={saving || !hasChanges}
-                  className="rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary-hover"
                 >
-                  <Save className="mr-2 size-4" />
+                  <Save className="size-4" />
                   {saving
                     ? t('customers.tags.manage.saving', 'Saving...')
                     : t('customers.tags.manage.save', 'Save changes')}

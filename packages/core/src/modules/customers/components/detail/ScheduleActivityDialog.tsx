@@ -15,6 +15,10 @@ import { Alert, AlertDescription, AlertTitle } from '@open-mercato/ui/primitives
 import { Button } from '@open-mercato/ui/primitives/button'
 import { CloseButton } from '@open-mercato/ui/primitives/close-button'
 import { Dialog, DialogContent, DialogTitle } from '@open-mercato/ui/primitives/dialog'
+import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primitives/segmented-control'
+import { FormFieldLabel } from '@open-mercato/ui/backend/forms/FormSection'
+import { LABEL_CLASS } from '../calendar/editor/inputs'
+import { DETAIL_DIALOG_BODY } from './dialogChrome'
 import { useDialogKeyHandler } from '@open-mercato/ui/hooks/useDialogKeyHandler'
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import { PhoneNumberField, SwitchableMarkdownInput } from '@open-mercato/ui/backend/inputs'
@@ -128,6 +132,7 @@ export function ScheduleActivityDialog({
   const [callPhoneNumber, setCallPhoneNumber] = React.useState('')
   const [callPhoneError, setCallPhoneError] = React.useState<string | null>(null)
   const [taskPriority, setTaskPriority] = React.useState<string>('medium')
+  const [titleMissing, setTitleMissing] = React.useState(false)
   const callPhoneInvalidMessage = React.useMemo(
     () =>
       t(
@@ -333,7 +338,10 @@ export function ScheduleActivityDialog({
     isTimeMissing
 
   const handleSave = React.useCallback(async () => {
-    if (!state.title.trim()) return
+    if (!state.title.trim()) {
+      setTitleMissing(true)
+      return
+    }
     if (isDateMissing) {
       flash(t('customers.activities.errors.dateRequired', 'Date is required'), 'error')
       return
@@ -462,7 +470,7 @@ export function ScheduleActivityDialog({
     <Dialog open={open} onOpenChange={(o) => { if (!o) void guardedClose() }}>
       <DialogContent
         disableBodyWrap
-        className="flex max-h-[90vh] flex-col overflow-hidden border-border p-0 shadow-xl sm:max-w-[760px] sm:rounded-xl [&>[data-dialog-close]]:hidden"
+        className="flex flex-col overflow-hidden border-border p-0 shadow-xl sm:max-w-[760px] sm:rounded-xl [&>[data-dialog-close]]:hidden"
         onKeyDown={handleKeyDown}
         aria-describedby={undefined}
       >
@@ -493,8 +501,11 @@ export function ScheduleActivityDialog({
           />
         </div>
 
-        <div className="flex-1 overflow-y-auto">
-        <div className="flex flex-col gap-4 bg-background p-6">
+        {/* A FIXED body, like the calendar event editor: each activity type
+            shows a different set of fields, and a body that sized to them moved
+            the footer every time the type changed. */}
+        <div className={DETAIL_DIALOG_BODY} data-dialog-form="true">
+        <div className="flex flex-col gap-6">
 
         {/* Conflict warning */}
         {state.conflict && (
@@ -506,47 +517,51 @@ export function ScheduleActivityDialog({
           </Alert>
         )}
 
-        {/* Type tabs — large rectangular tiles per Figma */}
-        <div className="grid grid-cols-4 gap-2">
-          {TYPE_TABS.map(({ type, icon: Icon, labelKey, fallback }) => {
-            const isActive = state.activityType === type
-            return (
-              <button
-                key={type}
-                type="button"
-                onClick={() => state.setActivityType(type)}
-                aria-pressed={isActive}
-                className={cn(
-                  'flex h-[80px] flex-col items-center justify-center gap-2 rounded-md border text-sm font-semibold transition-colors',
-                  isActive
-                    ? 'border-transparent bg-primary text-primary-foreground'
-                    : 'border-border bg-card text-muted-foreground hover:border-foreground/40 hover:text-foreground',
-                )}
-              >
-                <Icon className="size-[18px]" />
-                {t(labelKey, fallback)}
-              </button>
-            )
-          })}
-        </div>
+        {/* Type switcher — the calendar event editor's inset segmented control. */}
+        <SegmentedControl
+          tone="inset"
+          className="max-w-full overflow-x-auto"
+          aria-label={t('customers.schedule.typeSwitcher', 'Activity type')}
+          value={state.activityType}
+          onValueChange={(type) => state.setActivityType(type as ActivityType)}
+        >
+          {TYPE_TABS.map(({ type, icon: Icon, labelKey, fallback }) => (
+            <SegmentedControlItem key={type} value={type} icon={<Icon className="size-4" />}>
+              {t(labelKey, fallback)}
+            </SegmentedControlItem>
+          ))}
+        </SegmentedControl>
 
         {/* Title */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-overline font-semibold text-muted-foreground tracking-wider">
+        <div className="flex flex-col gap-2.5">
+          <FormFieldLabel htmlFor="schedule-activity-title" className="mb-0" required>
             {getFieldLabel(state.activityType, 'title', t, 'customers.schedule.titleLabel', 'Title')}
-          </label>
+          </FormFieldLabel>
           <input
+            id="schedule-activity-title"
             type="text"
+            aria-required="true"
+            aria-invalid={titleMissing || undefined}
+            aria-describedby="schedule-activity-title-error"
             value={state.title}
-            onChange={(e) => state.setTitle(e.target.value)}
+            onChange={(e) => {
+              state.setTitle(e.target.value)
+              if (e.target.value.trim()) setTitleMissing(false)
+            }}
             placeholder={
               state.activityType === 'email'
                 ? t('customers.schedule.subjectPlaceholder', 'Subject...')
                 : t('customers.schedule.titlePlaceholder', 'Activity title...')
             }
-            className="w-full rounded-md border border-border bg-input-bg px-3 py-2.5 text-sm text-foreground outline-none"
+            className={cn(
+              'h-9 w-full rounded-lg border px-3 text-sm font-medium text-foreground outline-none focus-visible:shadow-focus',
+              titleMissing && 'border-status-error-border',
+            )}
             autoFocus
           />
+          <p id="schedule-activity-title-error" role="alert" className="-mt-1.5 min-h-4 text-xs text-status-error-foreground">
+            {titleMissing ? t('customers.calendar.editor.validation.titleRequired', 'Title is required') : ''}
+          </p>
         </div>
 
         {/* Date/Time/Duration — placed before per-type chip rows so the call/task
@@ -576,57 +591,47 @@ export function ScheduleActivityDialog({
 
         {/* Call: Direction + Outcome chips */}
         {state.activityType === 'call' && (
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-6">
             <div>
-              <label className="text-overline font-semibold uppercase text-muted-foreground tracking-wider">
+              <label className={LABEL_CLASS}>
                 {t('customers.schedule.call.directionLabel', 'Direction')}
               </label>
-              <div className="mt-2 flex flex-wrap gap-2">
+              <div className="mt-2.5 flex flex-wrap gap-2">
                 {CALL_DIRECTIONS.map((opt) => {
                   const isActive = callDirection === opt.key
                   return (
-                    <button
+                    <Button
                       key={opt.key}
                       type="button"
+                      variant={isActive ? 'default' : 'soft'}
                       aria-pressed={isActive}
                       onClick={() => setCallDirection(opt.key)}
-                      className={cn(
-                        'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-sm font-medium transition-colors',
-                        isActive
-                          ? 'border-transparent bg-primary text-primary-foreground'
-                          : 'border-border bg-card text-muted-foreground hover:border-foreground/40',
-                      )}
                     >
                       <span className={cn('inline-block size-1.5 rounded-full', opt.dot)} aria-hidden />
                       {t(opt.labelKey, opt.labelFallback)}
-                    </button>
+                    </Button>
                   )
                 })}
               </div>
             </div>
             <div>
-              <label className="text-overline font-semibold uppercase text-muted-foreground tracking-wider">
+              <label className={LABEL_CLASS}>
                 {t('customers.schedule.call.outcomeLabel', 'Outcome')}
               </label>
-              <div className="mt-2 flex flex-wrap gap-2">
+              <div className="mt-2.5 flex flex-wrap gap-2">
                 {CALL_OUTCOMES.map((opt) => {
                   const isActive = callOutcome === opt.key
                   return (
-                    <button
+                    <Button
                       key={opt.key}
                       type="button"
+                      variant={isActive ? 'default' : 'soft'}
                       aria-pressed={isActive}
                       onClick={() => setCallOutcome(isActive ? null : opt.key)}
-                      className={cn(
-                        'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-sm font-medium transition-colors',
-                        isActive
-                          ? 'border-transparent bg-primary text-primary-foreground'
-                          : 'border-border bg-card text-muted-foreground hover:border-foreground/40',
-                      )}
                     >
                       <span className={cn('inline-block size-1.5 rounded-full', opt.dot)} aria-hidden />
                       {t(opt.labelKey, opt.labelFallback)}
-                    </button>
+                    </Button>
                   )
                 })}
               </div>
@@ -637,28 +642,23 @@ export function ScheduleActivityDialog({
         {/* Task: Priority chips */}
         {state.activityType === 'task' && (
           <div>
-            <label className="text-overline font-semibold uppercase text-muted-foreground tracking-wider">
+            <label className={LABEL_CLASS}>
               {t('customers.schedule.task.priorityLabel', 'Priority')}
             </label>
-            <div className="mt-2 flex flex-wrap gap-2">
+            <div className="mt-2.5 flex flex-wrap gap-2">
               {TASK_PRIORITIES.map((opt) => {
                 const isActive = taskPriority === opt.key
                 return (
-                  <button
+                  <Button
                     key={opt.key}
                     type="button"
+                    variant={isActive ? 'default' : 'soft'}
                     aria-pressed={isActive}
                     onClick={() => setTaskPriority(opt.key)}
-                    className={cn(
-                      'inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-sm font-medium transition-colors',
-                      isActive
-                        ? 'border-transparent bg-primary text-primary-foreground'
-                        : 'border-border bg-card text-muted-foreground hover:border-foreground/40',
-                    )}
                   >
                     <span className={cn('inline-block size-1.5 rounded-full', opt.dot)} aria-hidden />
                     {t(opt.labelKey, opt.labelFallback)}
-                  </button>
+                  </Button>
                 )
               })}
             </div>
@@ -678,8 +678,8 @@ export function ScheduleActivityDialog({
 
         {/* Location (or phone number for calls) */}
         {state.activityType === 'call' ? (
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="schedule-call-phone" className="text-overline font-semibold uppercase text-muted-foreground tracking-wider">
+          <div className="flex flex-col gap-2.5">
+            <label htmlFor="schedule-call-phone" className={LABEL_CLASS}>
               {t('customers.schedule.call.phoneLabel', 'Phone number')}
             </label>
             <PhoneNumberField
@@ -691,6 +691,7 @@ export function ScheduleActivityDialog({
               invalidLabel={callPhoneInvalidMessage}
               minDigits={7}
               defaultCountryIso2={defaultCountryIso2}
+              tone="well"
             />
           </div>
         ) : (
@@ -712,10 +713,10 @@ export function ScheduleActivityDialog({
 
         {/* Description */}
         <div>
-          <label className="text-overline font-semibold uppercase text-muted-foreground tracking-wider">
+          <label className={LABEL_CLASS}>
             {getFieldLabel(state.activityType, 'description', t, 'customers.schedule.description', 'Description')}
           </label>
-          <div className="mt-[8px]">
+          <div className="mt-2.5">
             <SwitchableMarkdownInput
               value={state.description}
               onChange={state.setDescription}
