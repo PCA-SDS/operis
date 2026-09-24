@@ -33,6 +33,7 @@ import {
   APPOINTMENT_SALUTATION_OPTIONS,
 } from '@open-mercato/core/modules/appointments/data/constants'
 import { splitCustomerName } from '@open-mercato/core/modules/appointments/lib/customerName'
+import { mapAppointmentCreateValidationIssues } from '@open-mercato/core/modules/appointments/lib/appointmentCreateValidation'
 import { formatOrganizationTreeLabel } from '@open-mercato/core/modules/directory/lib/tree'
 import { resolvePhoneIdentity } from '@open-mercato/core/modules/customers/lib/contactIdentity'
 import { DictionarySelectField } from '@open-mercato/core/modules/customers/components/formConfig'
@@ -823,48 +824,67 @@ export default function AppointmentCreatePage() {
               locationId ||
               null
             if (!tenantId || !selectedOrganizationId) {
-              throw createCrudFormError(t('appointments.create.error.scope'))
+              const message = t('appointments.create.error.scope')
+              throw createCrudFormError(message, { location: message })
             }
             const name = values.name.trim()
             if (!name) {
-              throw createCrudFormError(t('appointments.create.error.name'))
+              const message = t('appointments.create.error.name')
+              throw createCrudFormError(message, { name: message })
             }
             if (!values.origin) {
-              throw createCrudFormError(t('appointments.create.error.origin'))
+              const message = t('appointments.create.error.origin')
+              throw createCrudFormError(message, { origin: message })
             }
             if (!values.referral) {
-              throw createCrudFormError(t('appointments.create.error.referral'))
+              const message = t('appointments.create.error.referral')
+              throw createCrudFormError(message, { referral: message })
             }
             if (!values.bookingType) {
-              throw createCrudFormError(t('appointments.create.error.bookingType'))
+              const message = t('appointments.create.error.bookingType')
+              throw createCrudFormError(message, { bookingType: message })
             }
             const phone = values.phone.trim()
             if (!phone || !isValidPhoneNumber(phone)) {
-              throw createCrudFormError(t('appointments.create.field.phone.invalid'))
+              const message = t('appointments.create.field.phone.invalid')
+              throw createCrudFormError(message, { phone: message })
             }
             const phoneIdentity = resolvePhoneFromField(phone)
             if (!phoneIdentity.primaryPhone || !phoneIdentity.phoneCountryCode) {
-              throw createCrudFormError(t('appointments.create.field.phone.invalid'))
+              const message = t('appointments.create.field.phone.invalid')
+              throw createCrudFormError(message, { phone: message })
             }
             const date = values.date.trim()
             const time = normalizeTimeValue(values.time)
-            if (!date || !time) {
-              throw createCrudFormError(t('appointments.create.error.datetime'))
+            if (!date) {
+              const message = t('appointments.create.error.datetime')
+              throw createCrudFormError(message, { date: message })
+            }
+            if (!time) {
+              const message = t('appointments.create.error.datetime')
+              throw createCrudFormError(message, { time: message })
             }
             const serviceSelections = Array.isArray(values.serviceSelections) ? values.serviceSelections : []
             if (!serviceSelections.length) {
-              throw createCrudFormError(t('appointments.create.error.servicesRequired'))
+              const message = t('appointments.create.error.servicesRequired')
+              throw createCrudFormError(message, { serviceSelections: message })
             }
             const requestedStartAt = new Date(`${date}T${time}:00`).toISOString()
             if (Number.isNaN(new Date(requestedStartAt).getTime())) {
-              throw createCrudFormError(t('appointments.create.error.datetime'))
+              const message = t('appointments.create.error.datetime')
+              throw createCrudFormError(message, { date: message, time: message })
             }
             const { firstName, lastName } = splitCustomerName(name)
             const salutation =
               values.salutation && values.salutation !== 'None' ? values.salutation.trim() : null
             const result = await runMutation({
               operation: async () => {
-                const call = await withScopedApiRequestHeaders(buildOptimisticLockHeader(undefined), () => apiCall<{ id: string; error?: string }>(
+                const call = await withScopedApiRequestHeaders(buildOptimisticLockHeader(undefined), () => apiCall<{
+                  id?: string
+                  error?: string
+                  code?: string
+                  details?: unknown
+                }>(
                   '/api/appointments',
                   {
                     method: 'POST',
@@ -895,12 +915,18 @@ export default function AppointmentCreatePage() {
                   { fallback: null },
                 ))
                 if (!call.ok) {
-                  const errorPayload = call.result as { error?: string } | undefined
-                  throw createCrudFormError(
-                    typeof errorPayload?.error === 'string'
-                      ? errorPayload.error
-                      : t('appointments.create.failed'),
-                  )
+                  const errorPayload = call.result as { error?: string; code?: string; details?: unknown } | undefined
+                  const message = typeof errorPayload?.error === 'string'
+                    ? errorPayload.error
+                    : t('appointments.create.failed')
+                  const fieldErrors = mapAppointmentCreateValidationIssues(errorPayload?.details)
+                  if (errorPayload?.code === 'SCOPE_REQUIRED') fieldErrors.location = message
+                  if (errorPayload?.code === 'SERVICE_NOT_BOOKABLE') fieldErrors.serviceSelections = message
+                  if (errorPayload?.code === 'INVALID_START_AT') {
+                    fieldErrors.date = message
+                    fieldErrors.time = message
+                  }
+                  throw createCrudFormError(message, Object.keys(fieldErrors).length ? fieldErrors : undefined)
                 }
                 return call.result
               },

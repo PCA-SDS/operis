@@ -437,6 +437,10 @@ export async function POST(req: Request) {
         {
           error: translate('appointments.create.invalidInput', 'Invalid appointment payload.'),
           code: 'INVALID_INPUT',
+          details: error.issues.map((issue) => ({
+            path: issue.path,
+            message: issue.message,
+          })),
         },
         { status: 400 },
       )

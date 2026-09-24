@@ -139,4 +139,32 @@ describe('appointments staff create route', () => {
 
     expect(response.status).toBe(400)
   })
+
+  it('returns validation details for invalid customer fields', async () => {
+    mockGetAuthFromRequest.mockResolvedValue({
+      tenantId: '22222222-2222-4222-8222-222222222222',
+      orgId: '33333333-3333-4333-8333-333333333333',
+    })
+
+    const response = await (await import('../route')).POST(
+      new Request('http://localhost/api/appointments', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          ...validCreateBody,
+          customer: {
+            ...validCreateBody.customer,
+            firstName: 'A'.repeat(121),
+          },
+        }),
+      }),
+    )
+    const body = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(body).toMatchObject({ code: 'INVALID_INPUT' })
+    expect(body.details).toEqual(expect.arrayContaining([
+      expect.objectContaining({ path: ['customer', 'firstName'] }),
+    ]))
+  })
 })
