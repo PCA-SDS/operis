@@ -13,6 +13,7 @@ import type { InvoiceFormValues } from '../InvoiceForm'
 
 type Line = InvoiceFormValues['lineItems'][number]
 type Rates = { stale: boolean; rates: Record<string, { vndPerUnit: number }> }
+const numericInputClassName = '[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
 
 function PercentageInput({
   value,
@@ -37,6 +38,7 @@ function PercentageInput({
     value={localValue}
     onFocus={() => { isFocusedRef.current = true }}
     onChange={(event) => setLocalValue(event.target.value)}
+    onWheel={(event) => event.currentTarget.blur()}
     onBlur={() => {
       isFocusedRef.current = false
       if (localValue.trim() === '') {
@@ -83,13 +85,13 @@ export function InvoiceLineItems({ lines, onChange, currency, error }: {
           <IconButton type="button" variant="ghost" aria-label={t('invoice.form.removeItem', { number: index + 1 })} onClick={() => onChange(lines.filter((_, itemIndex) => itemIndex !== index))}><Trash2 /></IconButton>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
-          <label className="min-w-0 space-y-2"><span className="text-xs font-semibold uppercase text-muted-foreground">{t('invoice.form.quantity')} *</span><Input type="number" min="0.0001" step="0.0001" required value={line.quantity} onChange={(event) => update(index, { quantity: event.target.value })} /></label>
+          <label className="min-w-0 space-y-2"><span className="text-xs font-semibold uppercase text-muted-foreground">{t('invoice.form.quantity')} *</span><Input type="number" min="0.0001" step="0.0001" required value={line.quantity} onChange={(event) => update(index, { quantity: event.target.value })} onWheel={(event) => event.currentTarget.blur()} inputClassName={numericInputClassName} /></label>
           <label className="min-w-0 space-y-2"><span className="text-xs font-semibold uppercase text-muted-foreground">{t('invoice.form.unit')}</span><Input value={line.unit ?? ''} placeholder={t('invoice.form.unitPlaceholder')} onChange={(event) => update(index, { unit: event.target.value || null })} /></label>
-          <label className="min-w-0 space-y-2"><span className="text-xs font-semibold uppercase text-muted-foreground">{t('invoice.form.unitPrice')} *</span><Input type="number" min="0.0001" step="0.0001" required value={line.unitPrice} onChange={(event) => update(index, { unitPrice: event.target.value })} /></label>
+          <label className="min-w-0 space-y-2"><span className="text-xs font-semibold uppercase text-muted-foreground">{t('invoice.form.unitPrice')} *</span><Input type="number" min="0.0001" step="0.0001" required value={line.unitPrice} onChange={(event) => update(index, { unitPrice: event.target.value })} onWheel={(event) => event.currentTarget.blur()} inputClassName={numericInputClassName} /></label>
           <div className="min-w-0 space-y-2">
             <label className="block text-xs font-semibold uppercase text-muted-foreground" htmlFor={`discount-${index}`}>{t('invoice.form.discount')}</label>
             <div className="flex items-center rounded-md border border-border bg-input-bg" role="group" aria-label={t('invoice.form.discountMode', 'Discount calculation mode')}>
-              {percent ? <PercentageInput id={`discount-${index}`} min="0" max="100" step="0.0001" value={line.discountPercent ?? undefined} onCommit={(value) => update(index, { discountPercent: value, discountAmount: undefined })} className="min-w-0 flex-1 rounded-r-none border-0 bg-transparent focus-visible:ring-0" /> : <Input type="number" min="0" step="0.0001" value={line.discountAmount ?? ''} onChange={(event) => update(index, { discountAmount: event.target.value || undefined, discountPercent: undefined })} className="min-w-0 flex-1 rounded-r-none border-0 bg-transparent focus-visible:ring-0" />}
+              {percent ? <PercentageInput id={`discount-${index}`} min="0" max="100" step="0.0001" value={line.discountPercent ?? undefined} onCommit={(value) => update(index, { discountPercent: value, discountAmount: undefined })} className="min-w-0 flex-1 rounded-r-none border-0 bg-transparent focus-visible:ring-0" /> : <Input type="number" min="0" step="0.0001" value={line.discountAmount ?? ''} onChange={(event) => update(index, { discountAmount: event.target.value || undefined, discountPercent: undefined })} onWheel={(event) => event.currentTarget.blur()} inputClassName={numericInputClassName} className="min-w-0 flex-1 rounded-r-none border-0 bg-transparent focus-visible:ring-0" />}
               <Button type="button" size="sm" variant="ghost" className={`h-7 min-w-8 rounded-md px-2 text-xs font-semibold ${!percent ? 'bg-modal-muted text-foreground' : 'text-muted-foreground'}`} aria-pressed={!percent} aria-label={t('invoice.form.discountAmount')} onClick={() => {
                 const base = Number(line.quantity || 0) * Number(line.unitPrice || 0)
                 const amount = percent && base > 0 ? base * Number(line.discountPercent ?? 0) / 100 : Number(line.discountAmount ?? 0)
