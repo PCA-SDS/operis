@@ -1,13 +1,12 @@
 "use client"
 
 import React, { useState, useEffect, useCallback } from 'react'
-import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
-import { Save, GitBranch, Settings2 } from 'lucide-react'
+import { ArrowLeft, Save, GitBranch, Settings2 } from 'lucide-react'
 import {
   apiCallOrThrow,
   readApiResultOrThrow,
@@ -142,6 +141,14 @@ export default function ProductOptionsPage({ params }: { params?: { id?: string 
     <Page title={t('catalog.options.title', 'Option Tree')}>
       <PageBody>
         <div className="flex flex-col gap-4">
+          <div>
+            <Button type="button" variant="ghost" size="sm" asChild className="gap-2 px-2">
+              <Link href={`/backend/catalog/products/${productId}`}>
+                <ArrowLeft className="h-4 w-4" />
+                {t('catalog.products.edit.actions.backToProduct', 'Back to product')}
+              </Link>
+            </Button>
+          </div>
           {/* Content */}
           {loading ? (
             <OptionTreeSkeleton />

@@ -47,7 +47,7 @@ import {
   buildRecordInjectionContext,
   useSetCurrentRecordInjectionContext,
 } from "@open-mercato/ui/backend/injection/recordContext";
-import { useT } from "@open-mercato/shared/lib/i18n/context";
+import { useLocale, useT } from "@open-mercato/shared/lib/i18n/context";
 import { useConfirmDialog } from "@open-mercato/ui/backend/confirm-dialog";
 import { E } from "#generated/entities.ids.generated";
 import {
@@ -126,6 +126,7 @@ import {
   BookMarked,
   ExternalLink,
   FileText,
+  Languages,
   Layers,
   Plus,
   Save,
@@ -154,6 +155,10 @@ function isAbortError(error: unknown): boolean {
 
 type ProductResponse = {
   items?: Array<Record<string, unknown>>;
+};
+
+type ProductTranslationResponse = {
+  translations?: Record<string, Record<string, unknown>>;
 };
 
 type VariantListResponse = {
@@ -615,7 +620,7 @@ export default function EditCatalogProductPage({
       setIsNotFound(false);
       try {
         const productRes = await apiCall<ProductResponse>(
-          `/api/catalog/products?id=${encodeURIComponent(productId!)}&page=1&pageSize=1&withDeleted=false`,
+          `/api/catalog/products?id=${encodeURIComponent(productId!)}&page=1&pageSize=1&withDeleted=false&includeTranslations=false`,
           { signal: controller.signal },
         );
         if (!productRes.ok) {
@@ -1670,6 +1675,10 @@ function ProductDetailsSection({
         {errors.title ? (
           <p className="text-xs text-status-error-text">{errors.title}</p>
         ) : null}
+        <ProductTranslationSummary
+          recordId={productId}
+          baseTitle={values.title}
+        />
       </div>
 
       <div className="space-y-2" data-crud-field-id="description">
@@ -1735,6 +1744,70 @@ function ProductDetailsSection({
       {hasVariants && variantMediaGroups.length > 0 ? (
         <VariantMediaReadonlyGallery groups={variantMediaGroups} />
       ) : null}
+    </div>
+  );
+}
+
+function ProductTranslationSummary({
+  recordId,
+  baseTitle,
+}: {
+  recordId: string;
+  baseTitle: string;
+}) {
+  const t = useT();
+  const locale = useLocale();
+  const [translatedTitle, setTranslatedTitle] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!recordId) return;
+    const controller = new AbortController();
+
+    void (async () => {
+      try {
+        const response = await apiCall<ProductTranslationResponse>(
+          `/api/translations/${encodeURIComponent(E.catalog.catalog_product)}/${encodeURIComponent(recordId)}`,
+          { signal: controller.signal },
+        );
+        if (!response.ok) return;
+        const translations = response.result?.translations ?? {};
+        const localeFields = translations[locale] ?? translations[locale.split("-")[0]] ?? {};
+        const title = localeFields.title;
+        setTranslatedTitle(typeof title === "string" && title.trim().length > 0 ? title : null);
+      } catch (error) {
+        if (!isAbortError(error)) setTranslatedTitle(null);
+      }
+    })();
+
+    return () => controller.abort();
+  }, [locale, recordId]);
+
+  return (
+    <div className="rounded-md border border-border bg-surface p-3 text-sm">
+      <div className="mb-2 flex items-center gap-2 font-medium">
+        <Languages className="size-4" aria-hidden="true" />
+        {t("catalog.products.edit.translations.title", "Translations")}
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <div>
+          <p className="text-xs text-muted-foreground">
+            {t("catalog.products.edit.translations.baseTitle", "Base title")}
+          </p>
+          <p className="font-medium">
+            {baseTitle || t("catalog.products.edit.translations.empty", "Not set")}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs text-muted-foreground">
+            {t(
+              "catalog.products.edit.translations.currentLocaleTitle",
+              "Translation ({{locale}})",
+              { locale: locale.toUpperCase() },
+            )}
+          </p>
+          <p className="font-medium">{translatedTitle ?? t("catalog.products.edit.translations.missing", "Not translated")}</p>
+        </div>
+      </div>
     </div>
   );
 }

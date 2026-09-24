@@ -19,8 +19,27 @@ export type PhoneCountry = {
   dialCode: string
   /** Human-readable country name (English). Override per surface for i18n. */
   label: string
-  /** Emoji flag (no asset dependency). */
+  /** Emoji fallback for environments where the SVG asset cannot be loaded. */
   flag: string
+}
+
+function PhoneCountryFlag({ country, className }: { country: PhoneCountry; className?: string }) {
+  const [assetFailed, setAssetFailed] = React.useState(false)
+
+  if (assetFailed) {
+    return <span className={className}>{country.flag}</span>
+  }
+
+  return (
+    <img
+      src={`/assets/flags/${country.iso2.toLowerCase()}.svg`}
+      alt={`${country.label} flag`}
+      className={cn('block object-cover', className)}
+      loading="lazy"
+      decoding="async"
+      onError={() => setAssetFailed(true)}
+    />
+  )
 }
 
 /**
@@ -44,7 +63,8 @@ function iso2ToFlagEmoji(iso2: string): string {
  * ITU / Wikipedia list of telephone country codes.
  *
  * Rules baked into this data:
- * - Labels are English; flags are derived from the ISO code (`iso2ToFlagEmoji`).
+ * - Labels are English; the SVG flag asset is resolved from the ISO code and
+ *   the generated emoji remains available as a rendering fallback.
  * - Non-geographic / international service codes (`+800`, `+808`, `+870`,
  *   `+881`, `+882`, …) are intentionally excluded.
  * - North American Numbering Plan territories carry their full `+1<NPA>` dial
@@ -315,7 +335,7 @@ export function buildPhoneCountryOptions(countries: PhoneCountry[]): DropdownOpt
   return countries.map((country) => ({
     value: country.iso2,
     label: country.label,
-    leading: <span className="text-base leading-none">{country.flag}</span>,
+    leading: <PhoneCountryFlag country={country} className="h-5 w-7 rounded-sm" />,
     trailing: (
       <span className="text-xs text-muted-foreground tabular-nums">{country.dialCode}</span>
     ),
@@ -411,9 +431,9 @@ export type PhoneNumberFieldProps = {
   countries?: PhoneCountry[]
   /** Initial country shown when `value` is empty / unparseable. Defaults to US. */
   defaultCountryIso2?: string
-  /** Render the country menu above modal and sheet surfaces. */
+  /** Raise the country dropdown when the field is rendered inside an elevated surface. */
   dropdownElevated?: boolean
-  /** Render the country menu inside a scroll-locked surface when needed. */
+  /** Optional portal target for the country dropdown. */
   dropdownPortalContainer?: Element | null
   /** Additional classes for the bordered phone field surface. */
   fieldClassName?: string
@@ -641,7 +661,7 @@ export function PhoneNumberField({
           align="start"
           elevated={dropdownElevated}
           portalContainer={dropdownPortalContainer}
-          triggerLeading={<span className="text-base leading-none" aria-hidden="true">{country.flag}</span>}
+          triggerLeading={<PhoneCountryFlag country={country} className="h-5 w-7 rounded-sm" />}
           triggerLabel={<span className="text-sm text-foreground tabular-nums">{country.dialCode}</span>}
           triggerClassName={cn(
             'h-auto w-auto shrink-0 gap-1.5 rounded-none rounded-l-md border-0 bg-transparent px-2.5 py-2 shadow-none',
