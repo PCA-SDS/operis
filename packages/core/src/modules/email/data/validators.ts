@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { emptyStringToNull } from '@open-mercato/shared/lib/validation'
+import { isReservedEmailSystemVariable } from '../lib/accountingDefaults'
 
 const uuid = () => z.string().uuid()
 
@@ -14,6 +15,18 @@ const templateKeySchema = z
   .regex(/^[a-z0-9][a-z0-9._-]*$/)
 
 const jsonObjectSchema = z.record(z.string(), z.unknown())
+
+const accountingDefaultValuesSchema = z.record(z.string(), z.string().max(10000)).superRefine((values, ctx) => {
+  for (const key of Object.keys(values)) {
+    if (isReservedEmailSystemVariable(key)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `${key} is a system-managed email variable and cannot be saved as an accounting default`,
+        path: [key],
+      })
+    }
+  }
+})
 
 /** `z.coerce.boolean()` is `Boolean(input)`, so every non-empty string is true. */
 const booleanQueryParam = z
@@ -117,8 +130,8 @@ export const emailAccountingDefaultsSchema = z
     expected_updated_at: z.string().datetime().optional(),
     default_sender_name: clearableStringSchema(200),
     default_reply_to: z.preprocess(emptyStringToNull, z.string().email().max(320).nullable().optional()),
-    placeholders: jsonObjectSchema.default({}),
-    link_placeholders: jsonObjectSchema.default({}),
+    placeholders: accountingDefaultValuesSchema.default({}),
+    link_placeholders: accountingDefaultValuesSchema.default({}),
     rules: jsonObjectSchema.default({}),
   })
   .strict()

@@ -5,8 +5,6 @@ import { Organization, Tenant } from '../directory/data/entities'
 import { pcaAccountingSourceTemplates } from './data/pca-source-templates'
 
 const defaultPlaceholders = {
-  greeting: 'Dear customer,',
-  companyCode: 'ACME',
   accountingPeriod: 'Q1 2026',
   quarterShort: 'Q1',
   quarterPeriod: 'Quarter 1 2026',
