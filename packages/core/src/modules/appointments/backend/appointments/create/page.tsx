@@ -919,7 +919,7 @@ export default function AppointmentCreatePage() {
                   const message = typeof errorPayload?.error === 'string'
                     ? errorPayload.error
                     : t('appointments.create.failed')
-                  const fieldErrors = mapAppointmentCreateValidationIssues(errorPayload?.details)
+                  const fieldErrors = mapAppointmentCreateValidationIssues(errorPayload?.details, t)
                   if (errorPayload?.code === 'SCOPE_REQUIRED') fieldErrors.location = message
                   if (errorPayload?.code === 'SERVICE_NOT_BOOKABLE') fieldErrors.serviceSelections = message
                   if (errorPayload?.code === 'INVALID_START_AT') {

@@ -164,7 +164,8 @@ describe('appointments staff create route', () => {
     expect(response.status).toBe(400)
     expect(body).toMatchObject({ code: 'INVALID_INPUT' })
     expect(body.details).toEqual(expect.arrayContaining([
-      expect.objectContaining({ path: ['customer', 'firstName'] }),
+      expect.objectContaining({ path: ['customer', 'firstName'], code: 'too_big', maximum: 120 }),
     ]))
+    expect(body.details[0].message).toBeUndefined()
   })
 })
