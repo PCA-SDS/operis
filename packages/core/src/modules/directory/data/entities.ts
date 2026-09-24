@@ -144,3 +144,36 @@ export class Organization {
   @Property({ name: 'deleted_at', type: Date, nullable: true })
   deletedAt?: Date | null
 }
+
+@Entity({ tableName: 'directory_user_organization_memberships' })
+@Unique({
+  name: 'directory_user_org_memberships_user_org_uniq',
+  properties: ['tenantId', 'userId', 'organizationId'],
+})
+@Index({ name: 'directory_user_org_memberships_user_idx', properties: ['tenantId', 'userId'] })
+@Index({ name: 'directory_user_org_memberships_org_idx', properties: ['tenantId', 'organizationId'] })
+export class UserOrganizationMembership {
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'user_id', type: 'uuid' })
+  userId!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'is_active', type: 'boolean', default: true })
+  isActive: boolean = true
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+
+  @Property({ name: 'deleted_at', type: Date, nullable: true })
+  deletedAt?: Date | null
+}

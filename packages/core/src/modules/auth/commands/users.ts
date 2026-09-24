@@ -16,7 +16,7 @@ import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { LockMode } from '@mikro-orm/core'
 import type { EntityManager, FilterQuery } from '@mikro-orm/postgresql'
 import { User, UserRole, Role, UserAcl, Session, PasswordReset } from '@open-mercato/core/modules/auth/data/entities'
-import { Organization } from '@open-mercato/core/modules/directory/data/entities'
+import { Organization, UserOrganizationMembership } from '@open-mercato/core/modules/directory/data/entities'
 import { resolveOrganizationScope } from '@open-mercato/core/modules/directory/utils/organizationScope'
 import { isOrganizationAccessAllowed } from '@open-mercato/shared/lib/auth/organizationAccess'
 import { E } from '#generated/entities.ids.generated'
@@ -57,6 +57,7 @@ const logger = createLogger('auth').child({ component: 'users-commands' })
 type SerializedUser = {
   email: string
   organizationId: string | null
+  organizationIds: string[]
   tenantId: string | null
   roles: string[]
   name: string | null
@@ -75,6 +76,7 @@ type UserUndoSnapshot = {
   id: string
   email: string
   organizationId: string | null
+  organizationIds: string[]
   tenantId: string | null
   passwordHash: string | null
   name: string | null
@@ -119,6 +121,11 @@ const createSchema = z.object({
   password: passwordSchema.optional(),
   sendInviteEmail: z.boolean().optional(),
   organizationId: z.string().uuid(),
+  organizationIds: z.array(z.string().uuid()).min(1).optional(),
+  staffRoleAssignments: z.array(z.object({
+    organizationId: z.string().uuid(),
+    roleIds: z.array(z.string().uuid()),
+  })).optional(),
   roles: z.array(z.string()).optional(),
 }).refine(
   (data) => data.password || data.sendInviteEmail,
@@ -131,6 +138,11 @@ const updateSchema = z.object({
   name: displayNameSchema,
   password: passwordSchema.optional(),
   organizationId: z.string().uuid().optional(),
+  organizationIds: z.array(z.string().uuid()).min(1).optional(),
+  staffRoleAssignments: z.array(z.object({
+    organizationId: z.string().uuid(),
+    roleIds: z.array(z.string().uuid()),
+  })).optional(),
   roles: z.array(z.string()).optional(),
   isConfirmed: z.boolean().optional(),
 })
@@ -202,6 +214,172 @@ async function notifyRoleChanges(
   }
 }
 
+type OrganizationMembershipChange = {
+  tenantId: string | null
+  organizationIds: string[]
+}
+
+type StaffRoleAssignment = {
+  organizationId: string
+  roleIds: string[]
+}
+
+function normalizeOrganizationIds(values: unknown): string[] {
+  if (!Array.isArray(values)) return []
+  return Array.from(new Set(
+    values
+      .filter((value): value is string => typeof value === 'string')
+      .map((value) => value.trim())
+      .filter((value) => UUID_RE.test(value)),
+  ))
+}
+
+function normalizeStaffRoleAssignments(values: unknown): StaffRoleAssignment[] | undefined {
+  if (!Array.isArray(values)) return undefined
+  const byOrganizationId = new Map<string, Set<string>>()
+  for (const value of values) {
+    if (!value || typeof value !== 'object') continue
+    const record = value as Record<string, unknown>
+    const organizationId = typeof record.organizationId === 'string' && UUID_RE.test(record.organizationId.trim())
+      ? record.organizationId.trim()
+      : null
+    if (!organizationId) continue
+    const roleIds = normalizeOrganizationIds(record.roleIds)
+    const existing = byOrganizationId.get(organizationId) ?? new Set<string>()
+    roleIds.forEach((roleId) => existing.add(roleId))
+    byOrganizationId.set(organizationId, existing)
+  }
+  return Array.from(byOrganizationId.entries()).map(([organizationId, roleIds]) => ({
+    organizationId,
+    roleIds: Array.from(roleIds).sort(),
+  }))
+}
+
+function resolveSnapshotOrganizationIds(snapshot: { organizationIds?: unknown; organizationId?: string | null }): string[] {
+  const organizationIds = normalizeOrganizationIds(snapshot.organizationIds)
+  if (organizationIds.length > 0) return organizationIds
+  return snapshot.organizationId ? [snapshot.organizationId] : []
+}
+
+async function loadUserOrganizationIds(
+  em: EntityManager,
+  userId: string,
+  tenantId: string | null,
+  fallbackOrganizationId: string | null = null,
+): Promise<string[]> {
+  if (!tenantId) return fallbackOrganizationId ? [fallbackOrganizationId] : []
+  const memberships = await em.find(UserOrganizationMembership, {
+    tenantId,
+    userId,
+    deletedAt: null,
+  }, { orderBy: { organizationId: 'ASC' } })
+  const organizationIds = memberships
+    .filter((membership) => membership.isActive !== false)
+    .map((membership) => String(membership.organizationId))
+  if (organizationIds.length > 0) return Array.from(new Set(organizationIds))
+  return fallbackOrganizationId ? [fallbackOrganizationId] : []
+}
+
+async function validateOrganizationMembershipTargets(
+  em: EntityManager,
+  ctx: CommandRuntimeContext,
+  tenantId: string | null,
+  organizationIds: string[],
+  knownOrganizationIds: string[] = [],
+): Promise<void> {
+  if (!tenantId || !organizationIds.length) {
+    throw new CrudHttpError(400, { error: 'At least one organization is required' })
+  }
+  const knownIds = new Set(knownOrganizationIds)
+  const organizationIdsToLoad = organizationIds.filter((organizationId) => !knownIds.has(organizationId))
+  const organizations = organizationIdsToLoad.length
+    ? await findWithDecryption(
+        em,
+        Organization,
+        { id: { $in: organizationIdsToLoad }, deletedAt: null },
+        { populate: ['tenant'] },
+        { tenantId: null, organizationId: null },
+      )
+    : []
+  const validOrganizations = organizations.filter((organization) => (
+    organization.tenant?.id && String(organization.tenant.id) === tenantId
+  ))
+  if (validOrganizations.length !== organizationIdsToLoad.length) {
+    await throwUserDestinationOrganizationNotFound(400)
+  }
+
+  const actorIsSuperAdmin = ctx.systemActor === true || ctx.auth?.isSuperAdmin === true
+  if (actorIsSuperAdmin || !ctx.auth?.sub) return
+
+  const rbacService = ctx.container.resolve('rbacService') as RbacService
+  const organizationScope = ctx.organizationScope?.tenantId === tenantId
+    ? ctx.organizationScope
+    : await resolveOrganizationScope({ em, rbac: rbacService, auth: ctx.auth, tenantId })
+  for (const organizationId of organizationIds) {
+    if (!isOrganizationAccessAllowed({
+      isSuperAdmin: false,
+      allowedOrganizationIds: organizationScope?.allowedIds ?? null,
+      targetOrganizationId: organizationId,
+    })) {
+      throw new CrudHttpError(403, { error: 'Organization is outside actor scope' })
+    }
+  }
+}
+
+async function syncUserOrganizationMemberships(
+  em: EntityManager,
+  userId: string,
+  tenantId: string | null,
+  organizationIds: string[] | undefined,
+): Promise<OrganizationMembershipChange> {
+  if (!tenantId) return { tenantId: null, organizationIds: [] }
+  const desired = new Set(normalizeOrganizationIds(organizationIds))
+  const rows = await em.find(UserOrganizationMembership, { tenantId, userId, deletedAt: null })
+  if (typeof em.create !== 'function') return { tenantId, organizationIds: Array.from(desired).sort() }
+  const byOrganizationId = new Map(rows.map((row) => [String(row.organizationId), row]))
+
+  for (const organizationId of desired) {
+    const existing = byOrganizationId.get(organizationId)
+    if (existing) {
+      existing.isActive = true
+      continue
+    }
+    em.persist(em.create(UserOrganizationMembership, {
+      tenantId,
+      userId,
+      organizationId,
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      deletedAt: null,
+    }))
+  }
+
+  for (const row of rows) {
+    if (!desired.has(String(row.organizationId))) row.isActive = false
+  }
+
+  return { tenantId, organizationIds: Array.from(desired).sort() }
+}
+
+async function emitOrganizationMembershipChange(
+  change: OrganizationMembershipChange,
+  userId: string,
+  staffRoleAssignments?: StaffRoleAssignment[],
+): Promise<void> {
+  if (!change.tenantId) return
+  void emitAuthEvent('auth.user.organization_memberships_changed', {
+    userId,
+    tenantId: change.tenantId,
+    organizationIds: change.organizationIds,
+    ...(staffRoleAssignments ? { staffRoleAssignments } : {}),
+  }, {
+    persistent: true,
+    tenantId: change.tenantId,
+    organizationId: null,
+  }).catch(() => undefined)
+}
+
 type CreateUserResult = { user: User; warning?: 'invite_email_failed' }
 
 const createUserCommand: CommandHandler<Record<string, unknown>, CreateUserResult> = {
@@ -243,6 +421,10 @@ const createUserCommand: CommandHandler<Record<string, unknown>, CreateUserResul
       }
     }
 
+    const requestedOrganizationIds = normalizeOrganizationIds(parsed.organizationIds)
+    const organizationIds = Array.from(new Set([parsed.organizationId, ...requestedOrganizationIds]))
+    await validateOrganizationMembershipTargets(em, ctx, tenantId, organizationIds, [parsed.organizationId])
+
     const emailHash = computeEmailHash(parsed.email)
     // Email is unique per-tenant, not globally (see Migration20260610120000:
     // users_tenant_email_hash_uniq). Scope the duplicate check to the target tenant so the same
@@ -276,6 +458,9 @@ const createUserCommand: CommandHandler<Record<string, unknown>, CreateUserResul
       if (isUniqueViolation(error)) await throwDuplicateEmailError()
       throw error
     }
+
+    const membershipChange = await syncUserOrganizationMemberships(em, String(user.id), tenantId, organizationIds)
+    await em.flush()
 
     let assignedRoles: string[] = []
     if (Array.isArray(parsed.roles) && parsed.roles.length) {
@@ -311,6 +496,12 @@ const createUserCommand: CommandHandler<Record<string, unknown>, CreateUserResul
       indexer: userCrudIndexer,
     })
 
+    await emitOrganizationMembershipChange(
+      membershipChange,
+      String(user.id),
+      normalizeStaffRoleAssignments(parsed.staffRoleAssignments),
+    )
+
     if (assignedRoles.length && !parsed.sendInviteEmail) {
       await notifyRoleChanges(ctx, user, assignedRoles, [])
     }
@@ -322,25 +513,37 @@ const createUserCommand: CommandHandler<Record<string, unknown>, CreateUserResul
   captureAfter: async (_input, { user }, ctx) => {
     const em = (ctx.container.resolve('em') as EntityManager).fork()
     const roles = await loadUserRoleNames(em, String(user.id))
+    const organizationIds = await loadUserOrganizationIds(
+      em,
+      String(user.id),
+      user.tenantId ? String(user.tenantId) : null,
+      user.organizationId ? String(user.organizationId) : null,
+    )
     const custom = await loadUserCustomSnapshot(
       em,
       String(user.id),
       user.tenantId ? String(user.tenantId) : null,
       user.organizationId ? String(user.organizationId) : null
     )
-    return serializeUser(user, roles, custom)
+    return serializeUser(user, roles, custom, organizationIds)
   },
   buildLog: async ({ result: { user }, ctx }) => {
     const { translate } = await resolveTranslations()
     const em = (ctx.container.resolve('em') as EntityManager).fork()
     const roles = await loadUserRoleNames(em, String(user.id))
+    const organizationIds = await loadUserOrganizationIds(
+      em,
+      String(user.id),
+      user.tenantId ? String(user.tenantId) : null,
+      user.organizationId ? String(user.organizationId) : null,
+    )
     const custom = await loadUserCustomSnapshot(
       em,
       String(user.id),
       user.tenantId ? String(user.tenantId) : null,
       user.organizationId ? String(user.organizationId) : null
     )
-    const snapshot = captureUserSnapshots(user, roles, undefined, custom)
+    const snapshot = captureUserSnapshots(user, roles, [], custom, organizationIds)
     return {
       actionLabel: translate('auth.audit.users.create', 'Create user'),
       resourceKind: 'auth.user',
@@ -380,6 +583,7 @@ const createUserCommand: CommandHandler<Record<string, unknown>, CreateUserResul
 
         await em.nativeDelete(UserAcl, { user: userId })
         await em.nativeDelete(UserRole, { user: userId })
+        await em.nativeDelete(UserOrganizationMembership, { userId })
         await em.nativeDelete(Session, { user: userId })
         await em.nativeDelete(PasswordReset, { user: userId })
 
@@ -417,6 +621,11 @@ const createUserCommand: CommandHandler<Record<string, unknown>, CreateUserResul
       events: userCrudEvents,
       indexer: userCrudIndexer,
     })
+
+    await emitOrganizationMembershipChange({
+      tenantId: snapshot?.tenantId ?? null,
+      organizationIds: [],
+    }, userId)
 
     await invalidateUserCache(ctx, userId)
   },
@@ -463,6 +672,7 @@ const createUserCommand: CommandHandler<Record<string, unknown>, CreateUserResul
 
         await em.nativeDelete(UserRole, { user: after.id })
         await syncUserRoles(em, user, after.roles, after.tenantId)
+        await syncUserOrganizationMemberships(em, after.id, after.tenantId, resolveSnapshotOrganizationIds(after))
         await restoreUserAcls(em, user, after.acls)
 
         if (after.custom && Object.keys(after.custom).length) {
@@ -496,6 +706,11 @@ const createUserCommand: CommandHandler<Record<string, unknown>, CreateUserResul
       events: userCrudEvents,
       indexer: userCrudIndexer,
     })
+
+    await emitOrganizationMembershipChange({
+      tenantId: after.tenantId,
+      organizationIds: resolveSnapshotOrganizationIds(after),
+    }, String(user.id))
 
     await invalidateUserCache(ctx, after.id)
 
@@ -547,13 +762,19 @@ const updateUserCommand: CommandHandler<Record<string, unknown>, User> = {
     assertTargetTenantInScope(resolveActorTenantScope(ctx), existing.tenantId, 'User not found')
     const roles = await loadUserRoleNames(em, parsed.id)
     const acls = await loadUserAclSnapshots(em, parsed.id)
+    const organizationIds = await loadUserOrganizationIds(
+      em,
+      parsed.id,
+      existing.tenantId ? String(existing.tenantId) : null,
+      existing.organizationId ? String(existing.organizationId) : null,
+    )
     const custom = await loadUserCustomSnapshot(
       em,
       parsed.id,
       existing.tenantId ? String(existing.tenantId) : null,
       existing.organizationId ? String(existing.organizationId) : null
     )
-    return { before: captureUserSnapshots(existing, roles, acls, custom) }
+    return { before: captureUserSnapshots(existing, roles, acls, custom, organizationIds) }
   },
   async execute(rawInput, ctx) {
     const { parsed, custom } = parseWithCustomFields(updateSchema, rawInput)
@@ -630,6 +851,31 @@ const updateUserCommand: CommandHandler<Record<string, unknown>, User> = {
     const userTenantId = existing.tenantId ? String(existing.tenantId) : null
     const targetTenantId = tenantId !== undefined ? tenantId : userTenantId
     const isTenantChanging = targetTenantId !== userTenantId
+    const targetHomeOrganizationId = parsed.organizationId !== undefined
+      ? parsed.organizationId
+      : (existing.organizationId ? String(existing.organizationId) : null)
+    const shouldSyncOrganizationMemberships = parsed.organizationIds !== undefined || destinationChanged
+    let membershipChange: OrganizationMembershipChange | null = null
+    let targetOrganizationIds: string[] | null = null
+    if (shouldSyncOrganizationMemberships) {
+      const currentOrganizationIds = isTenantChanging
+        ? []
+        : await loadUserOrganizationIds(em, parsed.id, userTenantId, existing.organizationId ? String(existing.organizationId) : null)
+      targetOrganizationIds = Array.from(new Set([
+        ...(parsed.organizationIds === undefined ? currentOrganizationIds : normalizeOrganizationIds(parsed.organizationIds)),
+        ...(targetHomeOrganizationId ? [targetHomeOrganizationId] : []),
+      ]))
+      await validateOrganizationMembershipTargets(
+        em,
+        ctx,
+        targetTenantId,
+        targetOrganizationIds,
+        Array.from(new Set([
+          ...currentOrganizationIds,
+          ...(targetHomeOrganizationId ? [targetHomeOrganizationId] : []),
+        ])),
+      )
+    }
 
     // Hash password BEFORE transaction begins to avoid holding locks during CPU-heavy tasks
     let hashed: string | null = null
@@ -713,6 +959,15 @@ const updateUserCommand: CommandHandler<Record<string, unknown>, User> = {
           await syncUserRoles(em, user, parsed.roles, user.tenantId ? String(user.tenantId) : tenantId ?? null)
         }
 
+        if (targetOrganizationIds) {
+          membershipChange = await syncUserOrganizationMemberships(
+            em,
+            String(user.id),
+            targetTenantId,
+            targetOrganizationIds,
+          )
+        }
+
         await setCustomFieldsIfAny({
           dataEngine: de,
           entityId: E.auth.user,
@@ -738,6 +993,23 @@ const updateUserCommand: CommandHandler<Record<string, unknown>, User> = {
       events: userCrudEvents,
       indexer: userCrudIndexer,
     })
+
+    if (membershipChange || parsed.staffRoleAssignments !== undefined) {
+      const assignmentChange = membershipChange ?? {
+        tenantId: user.tenantId ? String(user.tenantId) : null,
+        organizationIds: await loadUserOrganizationIds(
+          em,
+          String(user.id),
+          user.tenantId ? String(user.tenantId) : null,
+          user.organizationId ? String(user.organizationId) : null,
+        ),
+      }
+      await emitOrganizationMembershipChange(
+        assignmentChange,
+        String(user.id),
+        normalizeStaffRoleAssignments(parsed.staffRoleAssignments),
+      )
+    }
 
     if (hashed) {
       const actorId = ctx.auth?.sub ? String(ctx.auth.sub) : null
@@ -775,13 +1047,19 @@ const updateUserCommand: CommandHandler<Record<string, unknown>, User> = {
   captureAfter: async (_input, result, ctx) => {
     const em = (ctx.container.resolve('em') as EntityManager).fork()
     const roles = await loadUserRoleNames(em, String(result.id))
+    const organizationIds = await loadUserOrganizationIds(
+      em,
+      String(result.id),
+      result.tenantId ? String(result.tenantId) : null,
+      result.organizationId ? String(result.organizationId) : null,
+    )
     const custom = await loadUserCustomSnapshot(
       em,
       String(result.id),
       result.tenantId ? String(result.tenantId) : null,
       result.organizationId ? String(result.organizationId) : null
     )
-    return serializeUser(result, roles, custom)
+    return serializeUser(result, roles, custom, organizationIds)
   },
   buildLog: async ({ result, snapshots, ctx }) => {
     const { translate } = await resolveTranslations()
@@ -790,17 +1068,26 @@ const updateUserCommand: CommandHandler<Record<string, unknown>, User> = {
     const beforeUndo = beforeSnapshots?.undo ?? null
     const em = (ctx.container.resolve('em') as EntityManager).fork()
     const afterRoles = await loadUserRoleNames(em, String(result.id))
+    const afterOrganizationIds = await loadUserOrganizationIds(
+      em,
+      String(result.id),
+      result.tenantId ? String(result.tenantId) : null,
+      result.organizationId ? String(result.organizationId) : null,
+    )
     const afterCustom = await loadUserCustomSnapshot(
       em,
       String(result.id),
       result.tenantId ? String(result.tenantId) : null,
       result.organizationId ? String(result.organizationId) : null
     )
-    const afterSnapshots = captureUserSnapshots(result, afterRoles, undefined, afterCustom)
+    const afterSnapshots = captureUserSnapshots(result, afterRoles, [], afterCustom, afterOrganizationIds)
     const after = afterSnapshots.view
     const changes = buildChanges(before ?? null, after as Record<string, unknown>, ['email', 'organizationId', 'tenantId', 'name', 'isConfirmed'])
     if (before && !arrayEquals(before.roles, afterRoles)) {
       changes.roles = { from: before.roles, to: afterRoles }
+    }
+    if (before && !arrayEquals(before.organizationIds, afterOrganizationIds)) {
+      changes.organizationIds = { from: before.organizationIds, to: afterOrganizationIds }
     }
     const customDiff = diffCustomFieldChanges(before?.custom, afterCustom)
     for (const [key, diff] of Object.entries(customDiff)) {
@@ -839,6 +1126,7 @@ const updateUserCommand: CommandHandler<Record<string, unknown>, User> = {
     const restoredTenantId = before.tenantId ? String(before.tenantId) : null
 
     let updated: User | null = null
+    let restoredMembershipChange: OrganizationMembershipChange | null = null
     await withAtomicFlush(em, [
       async () => {
         const current = await findOneWithDecryption(em, User, { id: userId, deletedAt: null }, {}, { tenantId: null, organizationId: null })
@@ -864,6 +1152,12 @@ const updateUserCommand: CommandHandler<Record<string, unknown>, User> = {
 
         if (updated) {
           await syncUserRoles(em, updated, before.roles, before.tenantId)
+          restoredMembershipChange = await syncUserOrganizationMemberships(
+            em,
+            before.id,
+            before.tenantId,
+            resolveSnapshotOrganizationIds(before),
+          )
         }
       },
     ], { transaction: true, label: 'auth.users.update.undo' })
@@ -894,6 +1188,10 @@ const updateUserCommand: CommandHandler<Record<string, unknown>, User> = {
       indexer: userCrudIndexer,
     })
 
+    if (restoredMembershipChange) {
+      await emitOrganizationMembershipChange(restoredMembershipChange, userId)
+    }
+
     await invalidateUserCache(ctx, userId)
   },
 }
@@ -912,13 +1210,19 @@ const deleteUserCommand: CommandHandler<{ body?: Record<string, unknown>; query?
     }
     const roles = await loadUserRoleNames(em, id)
     const acls = await loadUserAclSnapshots(em, id)
+    const organizationIds = await loadUserOrganizationIds(
+      em,
+      id,
+      existing.tenantId ? String(existing.tenantId) : null,
+      existing.organizationId ? String(existing.organizationId) : null,
+    )
     const custom = await loadUserCustomSnapshot(
       em,
       id,
       existing.tenantId ? String(existing.tenantId) : null,
       existing.organizationId ? String(existing.organizationId) : null
     )
-    return { before: captureUserSnapshots(existing, roles, acls, custom) }
+    return { before: captureUserSnapshots(existing, roles, acls, custom, organizationIds) }
   },
   async execute(input, ctx) {
     const id = requireId(input, 'User id required')
@@ -943,6 +1247,8 @@ const deleteUserCommand: CommandHandler<{ body?: Record<string, unknown>; query?
 
         await em.nativeDelete(UserAcl, { user: id })
         await em.nativeDelete(UserRole, { user: id })
+        const memberships = await em.find(UserOrganizationMembership, { userId: id })
+        if (memberships.length > 0) await em.nativeDelete(UserOrganizationMembership, { userId: id })
         await em.nativeDelete(Session, { user: id })
         await em.nativeDelete(PasswordReset, { user: id })
         const removed = await de.deleteOrmEntity({
@@ -967,6 +1273,11 @@ const deleteUserCommand: CommandHandler<{ body?: Record<string, unknown>; query?
       events: userCrudEvents,
       indexer: userCrudIndexer,
     })
+
+    await emitOrganizationMembershipChange({
+      tenantId: user.tenantId ? String(user.tenantId) : null,
+      organizationIds: [],
+    }, String(id))
 
     await invalidateUserCache(ctx, id)
 
@@ -1032,6 +1343,7 @@ const deleteUserCommand: CommandHandler<{ body?: Record<string, unknown>; query?
 
         await em.nativeDelete(UserRole, { user: before.id })
         await syncUserRoles(em, user, before.roles, before.tenantId)
+        await syncUserOrganizationMemberships(em, before.id, before.tenantId, resolveSnapshotOrganizationIds(before))
 
         await restoreUserAcls(em, user, before.acls)
 
@@ -1049,6 +1361,11 @@ const deleteUserCommand: CommandHandler<{ body?: Record<string, unknown>; query?
         }
       },
     ], { transaction: true })
+
+    await emitOrganizationMembershipChange({
+      tenantId: before.tenantId,
+      organizationIds: resolveSnapshotOrganizationIds(before),
+    }, before.id)
 
     await invalidateUserCache(ctx, before.id)
   },
@@ -1133,10 +1450,16 @@ async function loadUserRoleNames(em: EntityManager, userId: string): Promise<str
   return Array.from(new Set(names)).sort((a, b) => a.localeCompare(b))
 }
 
-function serializeUser(user: User, roles: string[], custom?: Record<string, unknown> | null): SerializedUser {
+function serializeUser(
+  user: User,
+  roles: string[],
+  custom?: Record<string, unknown> | null,
+  organizationIds: string[] = [],
+): SerializedUser {
   const payload: SerializedUser = {
     email: String(user.email ?? ''),
     organizationId: user.organizationId ? String(user.organizationId) : null,
+    organizationIds,
     tenantId: user.tenantId ? String(user.tenantId) : null,
     roles,
     name: user.name ? String(user.name) : null,
@@ -1150,14 +1473,16 @@ function captureUserSnapshots(
   user: User,
   roles: string[],
   acls: UserAclSnapshot[] = [],
-  custom?: Record<string, unknown> | null
+  custom?: Record<string, unknown> | null,
+  organizationIds: string[] = [],
 ): UserSnapshots {
   return {
-    view: serializeUser(user, roles, custom),
+    view: serializeUser(user, roles, custom, organizationIds),
     undo: {
       id: String(user.id),
       email: String(user.email ?? ''),
       organizationId: user.organizationId ? String(user.organizationId) : null,
+      organizationIds,
       tenantId: user.tenantId ? String(user.tenantId) : null,
       passwordHash: user.passwordHash ? String(user.passwordHash) : null,
       name: user.name ? String(user.name) : null,

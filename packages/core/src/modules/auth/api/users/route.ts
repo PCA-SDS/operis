@@ -8,7 +8,7 @@ import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { User, UserRole } from '@open-mercato/core/modules/auth/data/entities'
 import type { RbacService } from '@open-mercato/core/modules/auth/services/rbacService'
-import { Organization, Tenant } from '@open-mercato/core/modules/directory/data/entities'
+import { Organization, Tenant, UserOrganizationMembership } from '@open-mercato/core/modules/directory/data/entities'
 import { E } from '#generated/entities.ids.generated'
 import { loadCustomFieldValues } from '@open-mercato/shared/lib/crud/custom-fields'
 import type { EntityManager } from '@mikro-orm/postgresql'
@@ -63,6 +63,11 @@ const userCreateSchema = z.object({
   password: passwordSchema.optional(),
   sendInviteEmail: z.boolean().optional(),
   organizationId: z.string().uuid(),
+  organizationIds: z.array(z.string().uuid()).min(1).optional(),
+  staffRoleAssignments: z.array(z.object({
+    organizationId: z.string().uuid(),
+    roleIds: z.array(z.string().uuid()),
+  })).optional(),
   roles: z.array(z.string()).optional(),
 }).refine(
   (data) => data.password || data.sendInviteEmail,
@@ -75,6 +80,11 @@ const userUpdateSchema = z.object({
   name: displayNameSchema,
   password: passwordSchema.optional(),
   organizationId: z.string().uuid().optional(),
+  organizationIds: z.array(z.string().uuid()).min(1).optional(),
+  staffRoleAssignments: z.array(z.object({
+    organizationId: z.string().uuid(),
+    roleIds: z.array(z.string().uuid()),
+  })).optional(),
   roles: z.array(z.string()).optional(),
   isConfirmed: z.boolean().optional(),
 })
@@ -84,6 +94,7 @@ const userListItemSchema = z.object({
   email: z.string().email(),
   name: z.string().nullable(),
   organizationId: z.string().uuid().nullable(),
+  organizationIds: z.array(z.string().uuid()),
   organizationName: z.string().nullable(),
   tenantId: z.string().uuid().nullable(),
   tenantName: z.string().nullable(),
@@ -107,6 +118,21 @@ const errorResponseSchema = z.object({ error: z.string() })
 
 type CrudInput = Record<string, unknown>
 type UserListFilter = Record<string, unknown>
+
+async function findUserIdsForOrganizationMemberships(
+  em: EntityManager,
+  tenantId: string | null,
+  organizationIds: string[],
+): Promise<string[]> {
+  if (!tenantId || organizationIds.length === 0) return []
+  const memberships = await em.find(UserOrganizationMembership, {
+    tenantId,
+    organizationId: { $in: organizationIds },
+    isActive: true,
+    deletedAt: null,
+  }, { fields: ['userId'] as any })
+  return Array.from(new Set(memberships.map((membership) => String(membership.userId))))
+}
 
 // Role membership is expressed as a correlated EXISTS on the page query rather than by
 // loading every matching `user_roles` row into JS and re-injecting the ids as
@@ -315,19 +341,41 @@ export async function GET(req: Request) {
   if (effectiveTenantId) {
     filters.push({ tenantId: effectiveTenantId })
   }
-  if (effectiveOrganizationIds) {
-    filters.push({ organizationId: { $in: effectiveOrganizationIds as any } })
+  const scopedOrganizationIds = effectiveOrganizationIds ?? []
+  if (scopedOrganizationIds.length > 0) {
+    const scopedUserIds = await findUserIdsForOrganizationMemberships(em, effectiveTenantId, scopedOrganizationIds)
+    if (scopedUserIds.length === 0) {
+      return NextResponse.json({ items: [], total: 0, totalPages: 1, isSuperAdmin })
+    }
+    filters.push({ id: { $in: scopedUserIds as any } })
   }
   const scopeOrganizationId = usesSelectedTenantScope
     ? effectiveSelectedOrganizationId
     : auth.orgId ?? null
-  if (organizationId) filters.push({ organizationId })
+  if (organizationId) {
+    const organizationUserIds = await findUserIdsForOrganizationMemberships(em, effectiveTenantId, [organizationId])
+    if (organizationUserIds.length === 0) {
+      return NextResponse.json({ items: [], total: 0, totalPages: 1, isSuperAdmin })
+    }
+    filters.push({ id: { $in: organizationUserIds as any } })
+  }
   // Recipient/assignee pickers scope to the caller's active organization so they never
   // suggest users outside it. A message composed here is stamped with the caller's
   // active org (auth.orgId), and the message detail endpoint enforces
   // hasOrganizationAccess(scope.organizationId, message.organizationId); scoping the
   // suggestions to the same org keeps a picked recipient able to open what they were sent.
-  if (scopeToActiveOrganization) filters.push({ organizationId: auth.orgId ?? null })
+  if (scopeToActiveOrganization) {
+    const activeOrganizationId = scopeOrganizationId
+    const activeOrganizationUserIds = await findUserIdsForOrganizationMemberships(
+      em,
+      effectiveTenantId ?? auth.tenantId ?? null,
+      activeOrganizationId ? [activeOrganizationId] : [],
+    )
+    if (activeOrganizationUserIds.length === 0) {
+      return NextResponse.json({ items: [], total: 0, totalPages: 1, isSuperAdmin })
+    }
+    filters.push({ id: { $in: activeOrganizationUserIds as any } })
+  }
   const trimmedName = typeof name === 'string' ? name.trim() : ''
   if (trimmedName) {
     const searchPattern = `%${escapeLikePattern(trimmedName)}%`
@@ -370,7 +418,14 @@ export async function GET(req: Request) {
       .map((org) => (org?.id ? String(org.id) : null))
       .filter((orgId): orgId is string => typeof orgId === 'string' && orgId.length > 0)
     if (matchingOrganizationIds.length) {
-      searchFilters.push({ organizationId: { $in: matchingOrganizationIds as any } })
+      const matchingOrganizationUserIds = await findUserIdsForOrganizationMemberships(
+        em,
+        effectiveTenantId ?? auth.tenantId ?? null,
+        matchingOrganizationIds,
+      )
+      if (matchingOrganizationUserIds.length) {
+        searchFilters.push({ id: { $in: matchingOrganizationUserIds as any } })
+      }
     }
 
     searchFilters.push(buildRoleNameSearchExistsFilter(searchPattern, tenantScope))
@@ -387,6 +442,21 @@ export async function GET(req: Request) {
   const where = filters.length > 1 ? { $and: filters } : filters[0]
   const [rows, count] = await em.findAndCount(User, where, { limit: pageSize, offset: (page - 1) * pageSize })
   const userIds = rows.map((u: any) => u.id)
+  const memberships = userIds.length
+    ? await em.find(UserOrganizationMembership, {
+        tenantId: effectiveTenantId ?? auth.tenantId ?? null,
+        userId: { $in: userIds as any },
+        isActive: true,
+        deletedAt: null,
+      }, { fields: ['userId', 'organizationId'] as any })
+    : []
+  const organizationIdsByUser: Record<string, string[]> = {}
+  for (const membership of memberships) {
+    const uid = String(membership.userId)
+    const organizationId = String(membership.organizationId)
+    if (!organizationIdsByUser[uid]) organizationIdsByUser[uid] = []
+    organizationIdsByUser[uid].push(organizationId)
+  }
   const links = userIds.length
     ? await findWithDecryption(
         em,
@@ -474,6 +544,9 @@ export async function GET(req: Request) {
       email: String(u.email),
       name: u.name ? String(u.name) : null,
       organizationId: orgId,
+      organizationIds: organizationIdsByUser[uid]?.length
+        ? Array.from(new Set(organizationIdsByUser[uid])).sort()
+        : (orgId ? [orgId] : []),
       organizationName: orgId ? orgMap[orgId] ?? orgId : null,
       tenantId: u.tenantId ? String(u.tenantId) : null,
       tenantName: u.tenantId ? tenantMap[String(u.tenantId)] ?? String(u.tenantId) : null,

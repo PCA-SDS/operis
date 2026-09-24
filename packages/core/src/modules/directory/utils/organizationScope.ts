@@ -1,7 +1,7 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
 import type { FilterQuery } from '@mikro-orm/core'
 import type { AwilixContainer } from 'awilix'
-import { Organization } from '@open-mercato/core/modules/directory/data/entities'
+import { Organization, UserOrganizationMembership } from '@open-mercato/core/modules/directory/data/entities'
 import { isAllOrganizationsSelection } from '@open-mercato/core/modules/directory/constants'
 import type { RbacService } from '@open-mercato/core/modules/auth/services/rbacService'
 import type { AuthContext } from '@open-mercato/shared/lib/auth/server'
@@ -310,11 +310,30 @@ export async function resolveOrganizationScope({
         .map((value) => normalizeOrganizationId(value))
         .filter((value): value is string => value !== null)
       : null
-  const accessibleList = effectiveSuperAdmin
+  let accessibleList = effectiveSuperAdmin
     ? null
     : normalizedAccessible && normalizedAccessible.some((value) => isAllOrganizationsSelection(value))
       ? null
       : normalizedAccessible?.filter((value) => !isAllOrganizationsSelection(value)) ?? null
+
+  const memberships = effectiveSuperAdmin
+    ? []
+    : await em.find(UserOrganizationMembership, {
+        tenantId,
+        userId: auth.sub,
+        isActive: true,
+        deletedAt: null,
+      }, { fields: ['organizationId'] as any })
+  const membershipOrganizationIds = Array.from(new Set(
+    memberships
+      .map((membership) => normalizeOrganizationId(membership.organizationId))
+      .filter((value): value is string => value !== null),
+  ))
+  if (membershipOrganizationIds.length > 0) {
+    accessibleList = accessibleList === null
+      ? membershipOrganizationIds
+      : accessibleList.filter((organizationId) => membershipOrganizationIds.includes(organizationId))
+  }
 
   const accountOrgId = actorTenantId && actorTenantId === tenantId ? normalizeOrganizationId(auth.orgId) : null
   const fallbackOrgId = accountOrgId ?? null
