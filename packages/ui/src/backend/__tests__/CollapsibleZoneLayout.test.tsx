@@ -329,4 +329,38 @@ describe('CollapsibleZoneLayout', () => {
       expect(headingClickHandler).toHaveBeenCalled()
     })
   })
+
+  it('keeps the outline collapse toggle by default', async () => {
+    renderWithProviders(
+      <CollapsibleZoneLayout zone1={<div>Zone 1</div>} zone2={<div>Zone 2</div>} entityName="Brightside Solar" pageType="tone-default" />,
+      { dict: {} },
+    )
+    const collapse = await screen.findByRole('button', { name: 'Collapse form panel' })
+    expect(collapse.className).toContain('bg-card')
+    expect(collapse.className).not.toContain('bg-primary-soft')
+  })
+
+  it('renders 36px soft toggles and a primary expand when toggleTone is soft', async () => {
+    renderWithProviders(
+      <CollapsibleZoneLayout
+        zone1={<div>Zone 1</div>}
+        zone2={<div>Zone 2</div>}
+        entityName="Brightside Solar"
+        pageType="tone-soft"
+        toggleTone="soft"
+        sections={[{ id: 'identity', icon: User, label: 'Identity' }]}
+      />,
+      { dict: {} },
+    )
+    const collapse = await screen.findByRole('button', { name: 'Collapse form panel' })
+    expect(collapse.className).toContain('bg-primary-soft')
+    expect(collapse.className).toContain('size-9')
+
+    fireEvent.click(collapse)
+    const expand = await screen.findByRole('button', { name: 'Expand form panel' })
+    expect(expand.className).toContain('bg-primary')
+    expect(expand.className).toContain('size-9')
+    const section = screen.getByRole('button', { name: 'Identity' })
+    expect(section.className).toContain('bg-primary-soft')
+  })
 })

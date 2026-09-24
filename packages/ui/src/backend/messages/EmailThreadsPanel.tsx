@@ -64,6 +64,11 @@ export type EmailThreadsPanelProps = {
   /** Invoked when the user retries a message whose `status === 'failed'`. */
   onRetry?: (message: EmailThreadMessage) => void
   className?: string
+  /**
+   * `outline` (default) keeps the small bordered action buttons; `soft`
+   * renders them at 36px on the soft family (Retry stays compact).
+   */
+  actionVariant?: 'outline' | 'soft'
 }
 
 function formatWhen(value: string): string {
@@ -87,8 +92,11 @@ export function EmailThreadsPanel({
   onRefresh,
   onRetry,
   className,
+  actionVariant = 'outline',
 }: EmailThreadsPanelProps) {
   const t = useT()
+  const soft = actionVariant === 'soft'
+  const actionSize = soft ? 'default' : 'sm'
   const [selectedKey, setSelectedKey] = React.useState<string | null>(null)
 
   // Keep a valid selection as the thread set changes (refresh, new email).
@@ -119,8 +127,8 @@ export function EmailThreadsPanel({
           {onRefresh ? (
             <Button
               type="button"
-              variant="outline"
-              size="sm"
+              variant={soft ? 'soft' : 'outline'}
+              size={actionSize}
               className="gap-2"
               onClick={onRefresh}
               disabled={loading}
@@ -130,7 +138,7 @@ export function EmailThreadsPanel({
             </Button>
           ) : null}
           {canCompose && onComposeNew ? (
-            <Button type="button" size="sm" className="gap-2" onClick={onComposeNew}>
+            <Button type="button" size={actionSize} className="gap-2" onClick={onComposeNew}>
               <Mail className="h-4 w-4" />
               {t('ui.email.threads.new', 'New email')}
             </Button>
@@ -219,8 +227,8 @@ export function EmailThreadsPanel({
                   {canCompose && onReply ? (
                     <Button
                       type="button"
-                      variant="outline"
-                      size="sm"
+                      variant={soft ? 'soft' : 'outline'}
+                      size={actionSize}
                       className="shrink-0 gap-2"
                       onClick={() => onReply(selected)}
                     >

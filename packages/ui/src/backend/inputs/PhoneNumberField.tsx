@@ -411,6 +411,13 @@ export type PhoneNumberFieldProps = {
   countries?: PhoneCountry[]
   /** Initial country shown when `value` is empty / unparseable. Defaults to US. */
   defaultCountryIso2?: string
+  /**
+   * `default` keeps the white bordered box. `well` gives it the field well the
+   * `Input` primitive uses — `--input-bg` fill with a transparent border at
+   * rest — so it matches the fields beside it. Focus and error borders apply
+   * in both tones.
+   */
+  tone?: 'default' | 'well'
 }
 
 const DEFAULT_MIN_DIGITS = 6
@@ -436,6 +443,7 @@ export function PhoneNumberField({
   onDuplicateLookup,
   countries: countriesProp,
   defaultCountryIso2,
+  tone = 'default',
 }: PhoneNumberFieldProps) {
   const t = useT()
   const resolvedInvalidLabel = invalidLabel ?? t(
@@ -598,7 +606,7 @@ export function PhoneNumberField({
     }
   }, [country, localNumber, onDigitsChange, onValueChange, resolvedInvalidLabel])
 
-  const containerErrorBorder = errorMessage ? 'border-status-error-icon' : 'border-input'
+  const containerErrorBorder = errorMessage ? 'border-status-error-icon' : tone === 'well' ? 'border-transparent' : 'border-input'
   const containerFocusBorder = errorMessage
     ? 'border-status-error-icon shadow-focus'
     : 'border-brand-violet shadow-focus'
@@ -607,7 +615,9 @@ export function PhoneNumberField({
     <div className="space-y-2">
       <div
         className={cn(
-          'flex items-stretch w-full rounded-md border bg-surface shadow-xs transition-colors',
+          tone === 'well'
+            ? 'flex h-9 items-stretch w-full rounded-lg border bg-input-bg transition-colors'
+            : 'flex items-stretch w-full rounded-md border bg-surface shadow-xs transition-colors',
           disabled
             ? 'bg-bg-disabled border-border-disabled cursor-not-allowed'
             : focused
@@ -615,6 +625,7 @@ export function PhoneNumberField({
               : `${containerErrorBorder} hover:border-foreground/30`,
         )}
         aria-invalid={errorMessage ? 'true' : undefined}
+        data-slot={tone === 'well' ? 'input-wrapper' : undefined}
       >
         {/* Searchable: 243 rows is far past what anyone will scroll, so the menu
             opens on a search field and matches name, dial code or ISO code. The

@@ -69,6 +69,8 @@ export type AddressesSectionProps<C = unknown> = {
   formatContext?: C
   labelPrefix?: string
   showCoordinateFields?: boolean
+  /** Chrome for the section's own add buttons; see `AddressTiles`. */
+  actionVariant?: 'outline' | 'soft'
 }
 
 function generateTempId() {
@@ -92,6 +94,7 @@ function AddressesSectionImpl<C = unknown>({
   formatContext,
   labelPrefix = 'customers.people.detail.addresses',
   showCoordinateFields = false,
+  actionVariant = 'outline',
 }: AddressesSectionProps<C>) {
   const tHook = useT()
   const fallbackTranslator = React.useMemo<Translator>(() => createTranslatorWithFallback(tHook), [tHook])
@@ -349,6 +352,7 @@ function AddressesSectionImpl<C = unknown>({
           onAddActionChange={handleAddActionChange}
           emptyStateTitle={emptyState.title}
           emptyStateActionLabel={emptyState.actionLabel}
+          actionVariant={actionVariant}
           labelPrefix={labelPrefix}
           showCoordinateFields={showCoordinateFields}
           addressTypesAdapter={addressTypesAdapter}
