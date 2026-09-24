@@ -254,6 +254,7 @@ describe('createVariantCommand — SKU uniqueness handling', () => {
         durationMin: 45,
         durationMax: 75,
       }),
+      { persist: false },
     )
   })
 
