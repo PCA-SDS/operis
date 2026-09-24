@@ -76,14 +76,12 @@ export default function TranslationWidget({ context, data }: InjectionWidgetComp
       <Button
         type="button"
         variant="ghost"
-        size="sm"
-        className="gap-2"
+        size="icon"
         onClick={() => setOpen(true)}
         aria-label={t('translations.widgets.translationManager.fullManager', 'Translation manager')}
         title={t('translations.widgets.translationManager.fullManager', 'Translation manager')}
       >
         <Languages className="size-4" />
-        {t('translations.widgets.translationManager.manage', 'Manage translations')}
       </Button>
       <DrawerContent className="max-w-4xl">
         <DrawerHeader>

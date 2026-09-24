@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useQuery } from "@tanstack/react-query";
 import { extensionPoints } from "@open-mercato/core/modules/catalog/extension-points";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -48,6 +49,7 @@ import {
   useSetCurrentRecordInjectionContext,
 } from "@open-mercato/ui/backend/injection/recordContext";
 import { useLocale, useT } from "@open-mercato/shared/lib/i18n/context";
+import { hasAllFeatures } from "@open-mercato/shared/lib/auth/featureMatch";
 import { useConfirmDialog } from "@open-mercato/ui/backend/confirm-dialog";
 import { E } from "#generated/entities.ids.generated";
 import {
@@ -111,6 +113,15 @@ import {
 } from "@open-mercato/core/modules/catalog/components/products/ProductCategorizeSection";
 import { ProductUomSection } from "@open-mercato/core/modules/catalog/components/products/ProductUomSection";
 import { ProductComplianceSection } from "@open-mercato/core/modules/catalog/components/products/ProductComplianceSection";
+import { TranslationManager } from "@open-mercato/core/modules/translations/components/TranslationManager";
+import {
+  Drawer,
+  DrawerBody,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "@open-mercato/ui/primitives/drawer";
 import { canonicalizeUnitCode } from "@open-mercato/core/modules/catalog/lib/unitCodes";
 import {
   UNIT_PRICE_REFERENCE_UNITS,
@@ -1757,7 +1768,21 @@ function ProductTranslationSummary({
 }) {
   const t = useT();
   const locale = useLocale();
+  const [isManagerOpen, setIsManagerOpen] = React.useState(false);
   const [translatedTitle, setTranslatedTitle] = React.useState<string | null>(null);
+  const { data: canManageTranslations = false } = useQuery<boolean>({
+    queryKey: ["catalog-product-translation-access"],
+    queryFn: async () => {
+      const response = await apiCall<{ granted?: string[] }>("/api/auth/feature-check", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ features: ["translations.view"] }),
+      });
+      return response.ok && hasAllFeatures(["translations.view"], response.result?.granted ?? []);
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
 
   React.useEffect(() => {
     if (!recordId) return;
@@ -1784,10 +1809,6 @@ function ProductTranslationSummary({
 
   return (
     <div className="rounded-md border border-border bg-surface p-3 text-sm">
-      <div className="mb-2 flex items-center gap-2 font-medium">
-        <Languages className="size-4" aria-hidden="true" />
-        {t("catalog.products.edit.translations.title", "Translations")}
-      </div>
       <div className="grid gap-2 sm:grid-cols-2">
         <div>
           <p className="text-xs text-muted-foreground">
@@ -1798,16 +1819,59 @@ function ProductTranslationSummary({
           </p>
         </div>
         <div>
-          <p className="text-xs text-muted-foreground">
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
             {t(
               "catalog.products.edit.translations.currentLocaleTitle",
               "Translation ({{locale}})",
               { locale: locale.toUpperCase() },
             )}
-          </p>
+            {canManageTranslations ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-6"
+                aria-label={t(
+                  "translations.widgets.translationManager.fullManager",
+                  "Manage translations",
+                )}
+                title={t(
+                  "translations.widgets.translationManager.fullManager",
+                  "Manage translations",
+                )}
+                onClick={() => setIsManagerOpen(true)}
+              >
+                <Languages className="size-3.5" aria-hidden="true" />
+              </Button>
+            ) : null}
+          </div>
           <p className="font-medium">{translatedTitle ?? t("catalog.products.edit.translations.missing", "Not translated")}</p>
         </div>
       </div>
+      <Drawer open={isManagerOpen} onOpenChange={setIsManagerOpen}>
+        <DrawerContent className="max-w-4xl">
+          <DrawerHeader>
+            <DrawerTitle>
+              {t("translations.widgets.translationManager.groupLabel", "Translations")}
+            </DrawerTitle>
+            <DrawerDescription>
+              {t(
+                "translations.widgets.translationManager.groupDescription",
+                "Manage translations for this record across supported locales.",
+              )}
+            </DrawerDescription>
+          </DrawerHeader>
+          <DrawerBody>
+            <TranslationManager
+              mode="embedded"
+              compact
+              entityType={E.catalog.catalog_product}
+              recordId={recordId}
+              baseValues={{ title: baseTitle }}
+            />
+          </DrawerBody>
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }
