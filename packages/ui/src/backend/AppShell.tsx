@@ -663,8 +663,9 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
     clearPeekTimer()
     setSidebarPeek(false)
   }, [sidebarCollapsed, clearPeekTimer])
-  /* The panel keeps the top layer until it has finished narrowing back, or its
-     last 200ms would slide under the sticky topbar. */
+  /* The panel takes the top layer in the same render that opens it (an effect
+     would paint one frame of it under the sticky topbar) and keeps it until it
+     has finished narrowing back, or its last 200ms would slide under it. */
   React.useEffect(() => {
     if (sidebarPeek) {
       setSidebarLayered(true)
@@ -673,6 +674,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
     const timer = window.setTimeout(() => setSidebarLayered(false), SIDEBAR_COLLAPSE_MS)
     return () => window.clearTimeout(timer)
   }, [sidebarPeek])
+  const sidebarOnTopLayer = sidebarPeek || sidebarLayered
   const railVisuallyCollapsed = sidebarCollapsed && !sidebarPeek
   const hasKeyboardFocusWithin = (element: HTMLElement) => element.querySelector(':focus-visible') !== null
   const handleSidebarPointerEnter = (event: React.PointerEvent<HTMLElement>) => {
@@ -1072,9 +1074,11 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
 
   /* A heading is a clipping shell around content held at the expanded width,
      like a row. Collapsed, its icon stays on the icon column as the group's
-     marker and the label and chevron fade. Every group is open while collapsed,
-     so the heading has nothing to toggle: it leaves the tab order and drops
-     its hover fill. */
+     marker and the label and chevron fade. Groups keep their open state when
+     the rail collapses — forcing them open would move every icon below a
+     closed group each time the rail peeks — so a closed group shows just its
+     heading icon. The heading only toggles once the rail is open: collapsed,
+     it leaves the tab order and drops its hover fill. */
   function renderGroupHeading(
     group: { label: string; iconName?: string; iconMarkup?: string },
     open: boolean,
@@ -1213,7 +1217,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
             const sectionLabel = section.labelKey ? t(section.labelKey, section.label) : section.label
             const sectionKey = `settings:${section.id}`
             const regionId = `sidebar-section-${slugifySidebarId(section.id)}`
-            const open = navQueryActive || railCollapsed ? true : openGroups[sectionKey] !== false
+            const open = navQueryActive ? true : openGroups[sectionKey] !== false
             const sortSectionItems = (items: typeof section.items = []) =>
               [...items].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
             const filterChildren = (children: typeof section.items | undefined) => {
@@ -1405,7 +1409,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
                   {mainGroups.map((g, gi) => {
                     const groupId = resolveGroupKey(g)
                     const regionId = `sidebar-group-${slugifySidebarId(groupId)}`
-                    const open = navQueryActive || railCollapsed ? true : openGroups[groupId] !== false
+                    const open = navQueryActive ? true : openGroups[groupId] !== false
                     const visibleItems = g.items.filter((item) => {
                       if (item.hidden === true) return false
                       if (!navQueryActive) return true
@@ -1596,7 +1600,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
         id={DESKTOP_SIDEBAR_ID}
         data-collapsed={railVisuallyCollapsed ? 'true' : 'false'}
         data-peek={sidebarPeek ? 'true' : 'false'}
-        className={`${asideClassesBase} hidden lg:block lg:sticky lg:top-0 lg:h-svh lg:self-start lg:overflow-hidden lg:relative transition-[width,box-shadow] ${SIDEBAR_RAIL_TRANSITION} ${sidebarLayered ? 'lg:z-top' : ''} ${sidebarPeek ? 'shadow-lg' : 'shadow-none'}`}
+        className={`${asideClassesBase} hidden lg:block lg:sticky lg:top-0 lg:h-svh lg:self-start lg:overflow-hidden lg:relative transition-[width,box-shadow] ${SIDEBAR_RAIL_TRANSITION} ${sidebarOnTopLayer ? 'lg:z-top' : ''} ${sidebarPeek ? 'shadow-lg' : 'shadow-none'}`}
         style={{
           width: railVisuallyCollapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH,
           '--sidebar-content-width': `calc(${SIDEBAR_WIDTH} - 1.5rem - 1px)`,

@@ -20,6 +20,7 @@ import { resolveGrantedFeatures } from '@open-mercato/shared/lib/auth/grantedFea
 import { EmailAccountingDefaults } from '../../data/entities'
 import { emailAccountingDefaultsSchema } from '../../data/validators'
 import { createEmailOperationId, emailCommonErrors, emailSettingsTag } from '../openapi'
+import { withoutReservedEmailSystemVariables } from '../../lib/accountingDefaults'
 
 const logger = createLogger('email').child({ component: 'api/accounting-defaults' })
 const RESOURCE_KIND = 'email.accounting_defaults'
@@ -34,8 +35,8 @@ function serialize(defaults: EmailAccountingDefaults) {
     id: defaults.id,
     default_sender_name: defaults.defaultSenderName ?? null,
     default_reply_to: defaults.defaultReplyTo ?? null,
-    placeholders: defaults.placeholders,
-    link_placeholders: defaults.linkPlaceholders,
+    placeholders: withoutReservedEmailSystemVariables(defaults.placeholders as Record<string, unknown>),
+    link_placeholders: withoutReservedEmailSystemVariables(defaults.linkPlaceholders as Record<string, unknown>),
     rules: defaults.rules,
     tenant_id: defaults.tenantId,
     organization_id: defaults.organizationId,

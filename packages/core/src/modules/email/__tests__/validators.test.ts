@@ -87,17 +87,26 @@ describe('email validators', () => {
     expect(emailTemplateQuerySchema.parse({ activeOnly: 'true' })).toMatchObject({ activeOnly: true })
   })
 
-  it('stores tenant-owned accounting defaults with placeholder links only', () => {
+  it('stores tenant-owned accounting defaults without system-managed variables', () => {
     const parsed = emailAccountingDefaultsSchema.parse({
-      default_sender_name: 'PCA Accounting',
-      default_reply_to: 'accounting@example.com',
-      placeholders: { greeting: 'Dear Mr. Client,' },
+      default_sender_name: null,
+      default_reply_to: null,
+      placeholders: { currentTaxQuarter: 'Q3 2026' },
       link_placeholders: { vatPitReportsLink: 'https://example.com/vat-pit-reports-folder' },
-      rules: { tax_report: { defaultDeadlineDays: 7 } },
+      rules: {},
     })
 
     expect(parsed.link_placeholders).toEqual({
       vatPitReportsLink: 'https://example.com/vat-pit-reports-folder',
     })
+    expect(parsed.placeholders).toEqual({ currentTaxQuarter: 'Q3 2026' })
+  })
+
+  it('rejects reserved system variables in accounting defaults', () => {
+    expect(() => emailAccountingDefaultsSchema.parse({
+      placeholders: { greeting: 'Dear customer,' },
+      link_placeholders: {},
+      rules: {},
+    })).toThrow('greeting is a system-managed email variable')
   })
 })
