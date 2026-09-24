@@ -8,6 +8,7 @@ import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -23,6 +24,7 @@ import {
   SelectValue,
 } from '@open-mercato/ui/primitives/select'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
+import { FormFieldLabel } from '@open-mercato/ui/backend/forms/FormSection'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { buildHrefWithReturnTo } from '@open-mercato/shared/lib/navigation/returnTo'
 import { DictionaryValue, renderDictionaryColor, renderDictionaryIcon } from './dictionaryAppearance'
@@ -103,6 +105,12 @@ export type DictionaryEntrySelectProps = {
    * (e.g. a create form that shouldn't surface dictionary styling).
    */
   showActiveAppearance?: boolean
+  /**
+   * The inline-create "+" button. `outline` (default) keeps the bordered white
+   * button; `soft` gives it the brand-tinted soft treatment for hosts built on
+   * the soft button family.
+   */
+  addButtonVariant?: 'outline' | 'soft'
 }
 
 export function DictionaryEntrySelect({
@@ -123,8 +131,11 @@ export function DictionaryEntrySelect({
   showManage = true,
   sortOptions = 'label_asc',
   showActiveAppearance = true,
+  addButtonVariant = 'outline',
 }: DictionaryEntrySelectProps) {
   const unavailableMessageId = React.useId()
+  const newValueInputId = React.useId()
+  const newLabelInputId = React.useId()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const [options, setOptions] = React.useState<DictionaryOption[]>([])
@@ -348,7 +359,7 @@ export function DictionaryEntrySelect({
               <DialogTrigger asChild>
                 <Button
                   type="button"
-                  variant="outline"
+                  variant={addButtonVariant}
                   size="icon"
                   disabled={disabled}
                   title={labels.addLabel}
@@ -362,11 +373,16 @@ export function DictionaryEntrySelect({
                   <DialogTitle>{labels.dialogTitle}</DialogTitle>
                   {labels.addPrompt ? <DialogDescription>{labels.addPrompt}</DialogDescription> : null}
                 </DialogHeader>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">{labels.valueLabel}</label>
+                {/* Tinted wells via `[data-dialog-form]`. The error slot below is
+                    always rendered at its line height, so the message appearing
+                    never pushes the footer down. */}
+                <DialogBody data-dialog-form="true" className="space-y-6">
+                  <div className="flex flex-col gap-2.5">
+                    <FormFieldLabel htmlFor={newValueInputId} className="mb-0" required>{labels.valueLabel}</FormFieldLabel>
                     <Input
+                      id={newValueInputId}
                       type="text"
+                      aria-required="true"
                       value={newValue}
                       onChange={(event) => {
                         setNewValue(event.target.value)
@@ -378,9 +394,10 @@ export function DictionaryEntrySelect({
                     />
                   </div>
                   {showLabelInput ? (
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">{labels.labelLabel}</label>
+                    <div className="flex flex-col gap-2.5">
+                      <FormFieldLabel htmlFor={newLabelInputId} className="mb-0">{labels.labelLabel}</FormFieldLabel>
                       <Input
+                        id={newLabelInputId}
                         type="text"
                         value={newLabel}
                         onChange={(event) => setNewLabel(event.target.value)}
@@ -398,20 +415,21 @@ export function DictionaryEntrySelect({
                       labels={appearanceLabels ?? DEFAULT_APPEARANCE_LABELS}
                     />
                   ) : null}
-                  {formError ? <p className="text-sm text-status-error-text">{formError}</p> : null}
-                </div>
+                  <p role="alert" className="min-h-5 text-sm text-status-error-text">{formError ?? ''}</p>
+                </DialogBody>
                 <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
+                  <Button type="button" variant="soft" onClick={() => setDialogOpen(false)} disabled={saving}>
                     {labels.cancelLabel}
                   </Button>
-                  <Button type="button" onClick={handleCreate} disabled={saving || !newValue.trim()}>
-                    {saving ? <Spinner className="mr-2 h-4 w-4" /> : <Save className="mr-2 h-4 w-4" />}
-                    <span className="flex items-center gap-2">
-                      <span>{labels.saveLabel}</span>
-                      {!saving ? (
-                        <span className="text-xs text-muted-foreground">{`(${shortcutHint})`}</span>
-                      ) : null}
-                    </span>
+                  <Button
+                    type="button"
+                    onClick={handleCreate}
+                    disabled={saving || !newValue.trim()}
+                    title={shortcutHint}
+                    aria-keyshortcuts="Meta+Enter Control+Enter"
+                  >
+                    {saving ? <Spinner className="size-4" /> : <Save className="size-4" />}
+                    {labels.saveLabel}
                   </Button>
                 </DialogFooter>
               </DialogContent>

@@ -20,8 +20,8 @@ jest.mock('@open-mercato/ui/backend/FlashMessages', () => ({
 }))
 
 jest.mock('@open-mercato/ui/primitives/button', () => ({
-  Button: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
-    <button {...props}>{children}</button>
+  Button: ({ children, variant, size: _size, asChild: _asChild, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: string; size?: string; asChild?: boolean }) => (
+    <button data-variant={variant} {...props}>{children}</button>
   ),
 }))
 
@@ -30,8 +30,8 @@ jest.mock('@open-mercato/ui/primitives/input', () => ({
 }))
 
 jest.mock('@open-mercato/ui/primitives/dialog', () => ({
-  DialogBody: ({ children, className }: { children: React.ReactNode; className?: string }) => (
-    <div data-slot="dialog-body" className={className}>{children}</div>
+  DialogBody: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+    <div data-slot="dialog-body" {...props}>{children}</div>
   ),
   Dialog: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   DialogContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -195,5 +195,39 @@ describe('DictionaryEntrySelect', () => {
 
     await waitFor(() => expect(flash).toHaveBeenCalledWith('Load failed', 'error'))
     expect(screen.queryByText('boom')).toBeNull()
+  })
+
+  describe('inline create', () => {
+    const createOption = jest.fn(async () => null)
+
+    it('keeps the outline add button by default', async () => {
+      render(<DictionaryEntrySelect onChange={() => {}} fetchOptions={fetchOptions} createOption={createOption} labels={labels} />)
+      await waitFor(() => expect(fetchOptions).toHaveBeenCalled())
+      expect(screen.getByRole('button', { name: 'Add' })).toHaveAttribute('data-variant', 'outline')
+    })
+
+    it('renders the soft add button when addButtonVariant is soft', async () => {
+      render(
+        <DictionaryEntrySelect
+          onChange={() => {}}
+          fetchOptions={fetchOptions}
+          createOption={createOption}
+          labels={labels}
+          addButtonVariant="soft"
+        />,
+      )
+      await waitFor(() => expect(fetchOptions).toHaveBeenCalled())
+      expect(screen.getByRole('button', { name: 'Add' })).toHaveAttribute('data-variant', 'soft')
+    })
+
+    it('marks the value as required, reserves the error alert and uses a soft cancel', async () => {
+      render(<DictionaryEntrySelect onChange={() => {}} fetchOptions={fetchOptions} createOption={createOption} labels={labels} />)
+      await waitFor(() => expect(fetchOptions).toHaveBeenCalled())
+      const body = document.querySelector('[data-slot="dialog-body"]') as HTMLElement
+      expect(body).toHaveAttribute('data-dialog-form', 'true')
+      expect(screen.getAllByText('Value')[0].closest('label')?.textContent).toContain('*')
+      expect(body.querySelector('[role="alert"]')).not.toBeNull()
+      expect(screen.getByRole('button', { name: 'Cancel' })).toHaveAttribute('data-variant', 'soft')
+    })
   })
 })
