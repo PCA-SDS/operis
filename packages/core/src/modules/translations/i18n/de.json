@@ -41,5 +41,6 @@
   "translations.widgets.translationManager.customFieldLabels": "Übersetzungen benutzerdefinierter Felder",
   "translations.widgets.translationManager.fullManager": "Übersetzungsmanager",
   "translations.widgets.translationManager.groupDescription": "Verwalte Übersetzungen für diesen Datensatz in unterstützten Sprachen.",
-  "translations.widgets.translationManager.groupLabel": "Übersetzungen"
+  "translations.widgets.translationManager.groupLabel": "Übersetzungen",
+  "translations.widgets.translationManager.manage": "Manage translations"
 }

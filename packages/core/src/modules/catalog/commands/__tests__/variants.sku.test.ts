@@ -9,6 +9,7 @@ const FAKE_PRODUCT = {
   id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
   organizationId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
   tenantId: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+  productType: 'simple',
   taxRateId: null,
   taxRate: null,
 }
@@ -219,6 +220,18 @@ const UPDATE_INPUT = {
 // ---------------------------------------------------------------------------
 
 describe('createVariantCommand — SKU uniqueness handling', () => {
+  it('allows the first variant for a simple product before counting persisted variants', async () => {
+    expect(createCommand).toBeDefined()
+    const em = buildEm()
+    ;(em.count as jest.Mock).mockImplementation(async () =>
+      (em.persist as jest.Mock).mock.calls.length > 0 ? 1 : 0,
+    )
+
+    await expect(
+      createCommand.execute(CREATE_INPUT, buildCtx(em)),
+    ).resolves.toEqual(expect.objectContaining({ variantId: expect.any(String) }))
+  })
+
   it('persists duration fields on create', async () => {
     expect(createCommand).toBeDefined()
     const em = buildEm()
@@ -241,6 +254,7 @@ describe('createVariantCommand — SKU uniqueness handling', () => {
         durationMin: 45,
         durationMax: 75,
       }),
+      { persist: false },
     )
   })
 

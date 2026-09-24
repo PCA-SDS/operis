@@ -18,6 +18,7 @@ import {
   convertSchemaToProductOptions,
   buildVariantCombinations,
   isConfigurableProductType,
+  normalizeVariantDraftsForProductType,
   getProductTypeSelectionUpdates,
 } from '../productForm'
 
@@ -120,6 +121,64 @@ describe('product type selection', () => {
       ['requiresShipping', false],
       ['hasVariants', true],
     ])
+  })
+
+  it('keeps the default variant when normalizing a simple product', () => {
+    const first = createVariantDraft(null, { sku: 'FIRST' })
+    const defaultVariant = createVariantDraft(null, {
+      sku: 'DEFAULT',
+      isDefault: true,
+    })
+
+    const normalized = normalizeVariantDraftsForProductType(
+      'simple',
+      [first, defaultVariant],
+      () => createVariantDraft(null),
+    )
+
+    expect(normalized).toHaveLength(1)
+    expect(normalized[0].sku).toBe('DEFAULT')
+    expect(normalized[0].isDefault).toBe(true)
+  })
+
+  it('falls back to the first variant when no default exists', () => {
+    const first = createVariantDraft(null, { sku: 'FIRST' })
+    const second = createVariantDraft(null, { sku: 'SECOND' })
+
+    const normalized = normalizeVariantDraftsForProductType(
+      'simple',
+      [first, second],
+      () => createVariantDraft(null),
+    )
+
+    expect(normalized).toHaveLength(1)
+    expect(normalized[0].sku).toBe('FIRST')
+    expect(normalized[0].isDefault).toBe(true)
+  })
+
+  it('returns exactly one normalized variant for the create payload', () => {
+    const variants = [
+      createVariantDraft(null, { sku: 'FIRST' }),
+      createVariantDraft(null, { sku: 'SECOND', isDefault: true }),
+      createVariantDraft(null, { sku: 'THIRD' }),
+    ]
+
+    const normalized = normalizeVariantDraftsForProductType(
+      'simple',
+      variants,
+      () => createVariantDraft(null),
+    )
+
+    const submittedVariantPayloads = normalized.map((variant) => ({
+      sku: variant.sku,
+      isDefault: variant.isDefault,
+    }))
+
+    expect(submittedVariantPayloads).toHaveLength(1)
+    expect(submittedVariantPayloads[0]).toEqual({
+      sku: 'SECOND',
+      isDefault: true,
+    })
   })
 })
 

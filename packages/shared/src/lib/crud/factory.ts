@@ -1535,6 +1535,12 @@ export function makeCrudRoute<TCreate = any, TUpdate = any, TList = any>(opts: C
         ...rawQueryParams,
         ...(interceptorRequest.query ?? {}),
       } as Record<string, unknown>
+      const includeTranslations =
+        parseBooleanToken(
+          typeof queryParams.includeTranslations === 'string'
+            ? queryParams.includeTranslations
+            : null,
+        ) !== false
       const parsedIds = parseIdsParam(queryParams.ids)
       const idsParamProvided = isIdsParamProvided(queryParams.ids)
 
@@ -1853,7 +1859,7 @@ export function makeCrudRoute<TCreate = any, TUpdate = any, TList = any>(opts: C
         transformedItems = await decorateItemsWithCustomFields(transformedItems, ctx, res.customFieldDefinitions)
         profiler.mark('custom_fields_complete', { itemCount: transformedItems.length })
 
-        if (opts.list?.entityId && request) {
+        if (opts.list?.entityId && request && includeTranslations) {
           try {
             const { overlay, resolveLocale } = getTranslationOverlayPlugin()
             if (overlay && resolveLocale) {
