@@ -7,10 +7,21 @@ export type ConflictScope = 'mine' | 'all'
 
 export const CONFLICT_SCOPES: ConflictScope[] = ['mine', 'all']
 
+// Whose entries the calendar REQUESTS, which is a different question from whose
+// overlaps it flags: `conflictScope` narrows warnings about rows already on
+// screen, `visibilityScope` decides which rows arrive at all.
+// - 'mine': only entries the viewer authors, owns or is a participant of.
+// - 'all': everyone's — honoured by the server only for a viewer holding
+//   `customers.interactions.view_all`, and ignored for anyone else.
+export type CalendarVisibilityScope = 'mine' | 'all'
+
+export const CALENDAR_VISIBILITY_SCOPES: CalendarVisibilityScope[] = ['mine', 'all']
+
 export type CalendarPreferences = {
   showWeekends: boolean
   conflictWarnings: boolean
   conflictScope: ConflictScope
+  visibilityScope: CalendarVisibilityScope
   showCrmActivities: boolean
   aiSummaries: boolean
   eventCategories: string[]
@@ -24,6 +35,7 @@ export const DEFAULT_CALENDAR_PREFERENCES: CalendarPreferences = {
   showWeekends: false,
   conflictWarnings: true,
   conflictScope: 'mine',
+  visibilityScope: 'mine',
   showCrmActivities: true,
   aiSummaries: true,
   eventCategories: [],
@@ -51,8 +63,12 @@ export function normalizeCalendarTagList(value: unknown, max: number): string[] 
   return result
 }
 
-function readConflictScope(value: unknown, fallback: ConflictScope): ConflictScope {
-  return value === 'mine' || value === 'all' ? value : fallback
+/** Shared by both mine/all preferences so one reader defines the stored shape. */
+function readMineAllScope<T extends ConflictScope | CalendarVisibilityScope>(
+  value: unknown,
+  fallback: T,
+): T {
+  return value === 'mine' || value === 'all' ? (value as T) : fallback
 }
 
 export function mergeCalendarPreferences(stored: unknown): CalendarPreferences {
@@ -63,7 +79,8 @@ export function mergeCalendarPreferences(stored: unknown): CalendarPreferences {
   return {
     showWeekends: readBoolean('showWeekends', DEFAULT_CALENDAR_PREFERENCES.showWeekends),
     conflictWarnings: readBoolean('conflictWarnings', DEFAULT_CALENDAR_PREFERENCES.conflictWarnings),
-    conflictScope: readConflictScope(record.conflictScope, DEFAULT_CALENDAR_PREFERENCES.conflictScope),
+    conflictScope: readMineAllScope(record.conflictScope, DEFAULT_CALENDAR_PREFERENCES.conflictScope),
+    visibilityScope: readMineAllScope(record.visibilityScope, DEFAULT_CALENDAR_PREFERENCES.visibilityScope),
     showCrmActivities: readBoolean('showCrmActivities', DEFAULT_CALENDAR_PREFERENCES.showCrmActivities),
     aiSummaries: readBoolean('aiSummaries', DEFAULT_CALENDAR_PREFERENCES.aiSummaries),
     eventCategories: normalizeCalendarTagList(record.eventCategories, MAX_EVENT_CATEGORIES),
@@ -85,6 +102,7 @@ export function calendarPreferencesEqual(first: CalendarPreferences, second: Cal
     first.showWeekends === second.showWeekends &&
     first.conflictWarnings === second.conflictWarnings &&
     first.conflictScope === second.conflictScope &&
+    first.visibilityScope === second.visibilityScope &&
     first.showCrmActivities === second.showCrmActivities &&
     first.aiSummaries === second.aiSummaries &&
     first.eventCategories.length === second.eventCategories.length &&

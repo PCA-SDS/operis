@@ -4,6 +4,7 @@ import * as React from 'react'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { expandOccurrences } from '../../lib/calendar/recurrence'
 import { getFetchWindow } from '../../lib/calendar/range'
+import type { CalendarVisibilityScope } from '../../lib/calendar/preferences'
 import { mapInteractionToCalendarItem } from '../../lib/calendar/mapItem'
 import {
   calendarInteractionPayloadSchema,
@@ -17,6 +18,12 @@ export const MAX_WINDOW_ITEMS = 500
 
 type FetchInteractionWindowOptions = {
   recurrenceMasters?: boolean
+  /**
+   * Whose entries to ask for. Omitted or 'mine' returns only what the viewer is
+   * involved in — the server's default — so the parameter is sent only when
+   * widening, and the request shape is unchanged for everyone else.
+   */
+  scope?: CalendarVisibilityScope
 }
 
 /**
@@ -39,6 +46,7 @@ export async function fetchInteractionWindow(
       limit: String(PAGE_LIMIT),
     })
     if (options.recurrenceMasters) params.set('recurrenceMasters', 'true')
+    if (options.scope === 'all') params.set('scope', 'all')
     if (cursor) params.set('cursor', cursor)
     const call = await apiCall<{ items?: unknown[]; nextCursor?: string }>(
       `/api/customers/interactions?${params.toString()}`,
@@ -81,10 +89,11 @@ export function mergeInteractionPayloads(
 export async function fetchCalendarCandidates(
   window: CalendarRange,
   signal?: AbortSignal,
+  options: { scope?: CalendarVisibilityScope } = {},
 ): Promise<{ payloads: CalendarInteractionPayload[]; truncated: boolean }> {
   const [windowResult, recurringResult] = await Promise.all([
-    fetchInteractionWindow(window, signal),
-    fetchInteractionWindow(window, signal, { recurrenceMasters: true }),
+    fetchInteractionWindow(window, signal, { scope: options.scope }),
+    fetchInteractionWindow(window, signal, { recurrenceMasters: true, scope: options.scope }),
   ])
   const merged = mergeInteractionPayloads(windowResult.payloads, recurringResult.payloads)
   return {
@@ -124,7 +133,11 @@ export type UseCalendarItemsResult = {
   commitOverride(id: string, override: Partial<CalendarItemOverride>): void
 }
 
-export function useCalendarItems(range: CalendarRange): UseCalendarItemsResult {
+export function useCalendarItems(
+  range: CalendarRange,
+  options: { scope?: CalendarVisibilityScope } = {},
+): UseCalendarItemsResult {
+  const scope = options.scope ?? 'mine'
   const [payloads, setPayloads] = React.useState<CalendarInteractionPayload[]>([])
   const [overrides, setOverrides] = React.useState<Record<string, Partial<CalendarItemOverride>>>({})
   const [isLoading, setIsLoading] = React.useState(true)
@@ -185,7 +198,7 @@ export function useCalendarItems(range: CalendarRange): UseCalendarItemsResult {
       setError(null)
       try {
         const fetchWindow = getFetchWindow({ from: new Date(fromTime), to: new Date(toTime) })
-        const result = await fetchCalendarCandidates(fetchWindow, controller.signal)
+        const result = await fetchCalendarCandidates(fetchWindow, controller.signal, { scope })
         if (cancelled) return
         setPayloads(result.payloads)
         setTruncated(result.truncated)
@@ -206,7 +219,7 @@ export function useCalendarItems(range: CalendarRange): UseCalendarItemsResult {
       cancelled = true
       controller.abort()
     }
-  }, [fromTime, toTime, reloadToken])
+  }, [fromTime, toTime, reloadToken, scope])
 
   // Overrides are applied to the payloads before mapping, so an optimistic
   // move flows through exactly the same geometry as a persisted one.

@@ -29,7 +29,7 @@ async function truncatedLabels(page: Page): Promise<string[]> {
   return page.getByTestId('sidebar').evaluate((nav) => {
     const clipped: string[] = [];
     for (const link of Array.from(nav.querySelectorAll('a'))) {
-      const label = link.querySelector('span:last-of-type');
+      const label = link.querySelector('span > span:last-of-type');
       if (!(label instanceof HTMLElement)) continue;
       // 1px of tolerance: sub-pixel text metrics round against us on some engines.
       if (label.scrollWidth > label.clientWidth + 1) clipped.push(label.textContent ?? '');
@@ -47,9 +47,8 @@ test.describe('backend sidebar width and alignment', () => {
     await expect(aside).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId('sidebar')).toBeVisible({ timeout: 30_000 });
 
-    // The rail is the fixed column AppShell declares, and the grid column beside
-    // it is driven from the same custom property — so measuring the aside proves
-    // both.
+    // `login` pins the rail open (see TC-AUTH-SIDEBAR-PEEK-001 for the collapsed
+    // default), so this measures the full column the label budget was set for.
     // 272px since the nav rows moved to `text-xs`; see SIDEBAR_WIDTH in AppShell.
     // The no-truncation assertion below is the real contract — this number only
     // pins the width the label budget was measured against.
@@ -75,7 +74,7 @@ test.describe('backend sidebar width and alignment', () => {
     const iconLefts = await page.getByTestId('sidebar').evaluate((nav) => {
       const lefts = new Set<number>();
       for (const link of Array.from(nav.querySelectorAll('a'))) {
-        const icon = link.querySelector('span');
+        const icon = link.querySelector('span > span');
         if (icon instanceof HTMLElement) lefts.add(Math.round(icon.getBoundingClientRect().left));
       }
       return [...lefts].sort((a, b) => a - b);
@@ -104,7 +103,7 @@ test.describe('backend sidebar width and alignment', () => {
     // (`hidden lg:block`), and an unscoped lookup measures that hidden nav at 0.
     const firstIconLeft = await drawer
       .getByTestId('sidebar')
-      .locator('a span')
+      .locator('a span > span')
       .first()
       .evaluate((node) => Math.round(node.getBoundingClientRect().left));
 

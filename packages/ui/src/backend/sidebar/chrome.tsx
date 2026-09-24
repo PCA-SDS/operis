@@ -54,6 +54,27 @@ export const SIDEBAR_CHILD_BOX = 'w-full h-9 pl-6 pr-3 gap-3'
  *  which pins it to its content width and lets `truncate` overflow the row
  *  instead of clipping. Long titles ("Customer Related Tasks") make this real. */
 export const SIDEBAR_ITEM_LABEL = 'min-w-0 flex-1 truncate text-left'
+
+/* ── The collapsed rail ──────────────────────────────────────────────────────
+ *
+ * Collapsed, the desktop rail is exactly gutter + row pad + icon + row pad +
+ * gutter + its 1px rule wide, so every top-level icon keeps the x it has when
+ * expanded, centred in a 44px pill, and nothing slides sideways. There is still
+ * ONE set of rows, not an icon-only mirror: a row is a clipping shell
+ * (`w-full overflow-hidden`) around content held at the expanded width
+ * (`SIDEBAR_RAIL_CONTENT`). As the rail narrows the shell shrinks around text
+ * that never reflows or re-truncates, and the labels
+ * fade out on the same curve. `--sidebar-content-width` is published only by
+ * the desktop aside; everywhere else the fallback keeps the old `w-full`. */
+export const SIDEBAR_COLLAPSED_WIDTH = '69px'
+export const SIDEBAR_RAIL_TRANSITION = 'duration-200 ease-out motion-reduce:transition-none'
+export const SIDEBAR_RAIL_CONTENT = 'w-[var(--sidebar-content-width,100%)] shrink-0'
+
+/** `undefined` means "not the collapsible rail" (drawer, preview): fully shown. */
+export function sidebarRailFadeClass(collapsed: boolean | undefined): string {
+  return `transition-opacity ${SIDEBAR_RAIL_TRANSITION} ${collapsed ? 'pointer-events-none opacity-0' : 'opacity-100'}`
+}
+
 /* Group heading — a quiet overline, not a button that competes with the rows.
  *
  * `text-overline` (11px) sits one step under the 12px rows it labels, which is
@@ -67,7 +88,7 @@ export const SIDEBAR_ITEM_LABEL = 'min-w-0 flex-1 truncate text-left'
 /** Geometry of the heading row, split out from its skin so the loading
  *  placeholder can sit on exactly the same box — same height, same x — instead
  *  of restating the numbers and drifting from them. */
-export const SIDEBAR_GROUP_LABEL_BOX = 'w-full h-8 px-3 gap-2'
+export const SIDEBAR_GROUP_LABEL_BOX = 'w-full h-8 px-3 gap-3'
 export const SIDEBAR_GROUP_LABEL =
   `${SIDEBAR_GROUP_LABEL_BOX} justify-between flex text-overline font-bold uppercase tracking-wide text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground`
 
@@ -122,6 +143,15 @@ export const SidebarDefaultIcon = (
   </svg>
 )
 
+/* The heading icon for a group that declares none (injected groups, app
+ * modules). A group heading is never blank, so the collapsed rail never shows an
+ * empty row where a heading stood. */
+export const SidebarGroupDefaultIcon = (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+  </svg>
+)
+
 /* ── The brand mark ──────────────────────────────────────────────────────────
  *
  * Three surfaces paint it: the rail's header, the mobile drawer's header and
@@ -148,34 +178,45 @@ export function usesBuiltInWordmark(logo: ShellLogo | undefined, brandName: stri
   return !logo?.src && brandName.trim().toLowerCase() === 'operis'
 }
 
+/* The wordmark opens with the mark: its first 367 of 1537 viewBox units are the
+ * same glyph the `mark` variant draws. Clipping the rest away folds the wordmark
+ * into the mark in place, where swapping variants would jump. */
+const WORDMARK_TEXT_INSET = `${((1 - 367 / 1537) * 100).toFixed(2)}%`
+
 export function ShellBrandLogo({
   logo,
   brandName,
   unoptimized,
   mobile = false,
+  railCollapsed,
 }: {
   logo?: ShellLogo
   brandName: string
   unoptimized?: boolean
   mobile?: boolean
+  /** Set only by the collapsible desktop rail; see `sidebarRailFadeClass`. */
+  railCollapsed?: boolean
 }) {
   const src = logo?.src
   const alt = logo?.alt ?? brandName
   const isCustomLogo = Boolean(src)
   const preserveAspectRatio = Boolean(logo?.preserveAspectRatio)
+  const customLogoFade = railCollapsed === undefined ? '' : sidebarRailFadeClass(railCollapsed)
 
   if (!isCustomLogo) {
     // Inline rather than <Image src="/operis.svg">: an external SVG renders in
     // its own document, where `currentColor` cannot reach the sidebar's ink —
     // and the rail is navy, so the mark has to take the rail's ink to be seen.
     const showWordmark = usesBuiltInWordmark(logo, brandName)
+    const foldsToMark = showWordmark && railCollapsed !== undefined
     return (
       <OperisLogo
         variant={showWordmark ? 'wordmark' : 'mark'}
         title={showWordmark ? brandName : null}
         className={`w-auto shrink-0 text-sidebar-foreground ${
           showWordmark ? (mobile ? 'h-5' : 'h-6') : mobile ? 'h-6' : 'h-7'
-        }`}
+        } ${foldsToMark ? `transition-[clip-path] ${SIDEBAR_RAIL_TRANSITION}` : ''}`}
+        style={foldsToMark ? { clipPath: `inset(0 ${railCollapsed ? WORDMARK_TEXT_INSET : '0%'} 0 0)` } : undefined}
       />
     )
   }
@@ -187,7 +228,7 @@ export function ShellBrandLogo({
         alt={alt}
         width={mobile ? 28 : 40}
         height={mobile ? 28 : 40}
-        className={`${mobile ? 'rounded' : 'rounded-full'} shrink-0 object-cover`}
+        className={`${mobile ? 'rounded' : 'rounded-full'} shrink-0 object-cover ${customLogoFade}`}
         unoptimized={unoptimized ? true : undefined}
       />
     )
@@ -205,7 +246,7 @@ export function ShellBrandLogo({
       alt={alt}
       width={width}
       height={height}
-      className={className}
+      className={`${className} ${customLogoFade}`}
       unoptimized={unoptimized ? true : undefined}
     />
   )

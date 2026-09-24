@@ -37,14 +37,31 @@ export const CONTROL_HEIGHT = 'h-9'
  */
 export const LABEL_CLASS = 'block text-xs font-bold uppercase tracking-wide text-muted-foreground'
 
-export function Field({ label, children, error, className }: { label: string; children: React.ReactNode; error?: string | null; className?: string }) {
+export function Field({
+  label,
+  children,
+  error,
+  required,
+  className,
+}: {
+  label: string
+  children: React.ReactNode
+  error?: string | null
+  /** Marks the label, so a required field says so BEFORE it is submitted
+   *  empty rather than only after. `FormFieldLabel` draws the marker. */
+  required?: boolean
+  className?: string
+}) {
   return (
     // `gap-2.5` reproduces the reference label's `mb-2.5`, which `LABEL_CLASS`
     // deliberately drops so the spacing is owned in one place.
     <div className={cn('flex w-full flex-col gap-2.5', className)}>
-      <FormFieldLabel className="mb-0">{label}</FormFieldLabel>
+      <FormFieldLabel className="mb-0" required={required}>{label}</FormFieldLabel>
       {children}
-      {error ? <p className="text-xs text-status-error-text">{error}</p> : null}
+      {/* `role="alert"` so the reason is announced when it appears, not just
+          painted — a sighted user sees it under the control, a screen-reader
+          user is told. */}
+      {error ? <p role="alert" className="text-xs text-status-error-text">{error}</p> : null}
     </div>
   )
 }

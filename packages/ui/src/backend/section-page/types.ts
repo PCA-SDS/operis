@@ -17,6 +17,8 @@ export type SectionNavGroup = {
   id: string
   label: string
   labelKey?: string
+  iconName?: string
+  iconMarkup?: string
   items: SectionNavItem[]
   order?: number
 }

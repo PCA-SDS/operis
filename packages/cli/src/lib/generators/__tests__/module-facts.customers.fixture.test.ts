@@ -29,7 +29,7 @@ describe('module-facts customers fixture (T1 anti-drift guard)', () => {
 
   it('locks customers events, acl, search, and notification surfaces', () => {
     expect(facts.events).toHaveLength(49)
-    expect(facts.aclFeatures).toHaveLength(21)
+    expect(facts.aclFeatures).toHaveLength(22)
     expect(facts.searchEntities).toEqual([
       'customers:customer_person_profile',
       'customers:customer_company_profile',

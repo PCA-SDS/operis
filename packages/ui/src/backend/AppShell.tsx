@@ -3,7 +3,7 @@ import * as React from 'react'
 import { createContext, useContext } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { ChevronDown, ChevronLeft, Home, Search, X } from 'lucide-react'
+import { ChevronDown, ChevronLeft, Home, PanelLeft, Pin, Search, X } from 'lucide-react'
 import { useIsomorphicLayoutEffect } from '@open-mercato/ui/hooks/useIsomorphicLayoutEffect'
 import { Button } from '../primitives/button'
 import {
@@ -20,6 +20,7 @@ import { Input } from '../primitives/input'
 import { SearchInput } from '../primitives/search-input'
 import { Checkbox } from '../primitives/checkbox'
 import { Separator } from '../primitives/separator'
+import { SimpleTooltip } from '../primitives/tooltip'
 import { FlashMessages } from './FlashMessages'
 import { QueryProvider } from '../theme/QueryProvider'
 import { usePathname, useSearchParams } from 'next/navigation'
@@ -39,7 +40,7 @@ import {
   DRAWER_CHROME_INSET,
   DRAWER_SLOT_INSET,
   SIDEBAR_BRAND_LABEL,
-  SIDEBAR_CHILD_BOX,
+  SIDEBAR_COLLAPSED_WIDTH,
   SIDEBAR_GROUP_DIVIDER,
   SIDEBAR_GROUP_LABEL,
   SIDEBAR_GROUP_LABEL_BOX,
@@ -47,15 +48,19 @@ import {
   SIDEBAR_ICON_BOX,
   SIDEBAR_ITEM_BASE,
   SIDEBAR_ITEM_BOX,
-  SIDEBAR_ITEM_LABEL,
+  SIDEBAR_RAIL_CONTENT,
+  SIDEBAR_RAIL_TRANSITION,
   SIDEBAR_SEARCH_SIZE,
   SIDEBAR_SEARCH_TONE,
   ShellBrandLogo,
   SidebarDefaultIcon as DefaultIcon,
+  SidebarGroupDefaultIcon,
   shouldBypassLogoOptimization,
   sidebarItemStateClass,
+  sidebarRailFadeClass,
   usesBuiltInWordmark,
 } from './sidebar/chrome'
+import { SidebarNavLink } from './sidebar/SidebarNavLink'
 import type { SectionNavGroup } from './section-page/types'
 import type { ShellLogo } from './sidebar/chrome'
 /** Re-exported: the logo shape is part of `AppShellProps`, so callers type it from here. */
@@ -138,6 +143,23 @@ const SIDEBAR_SKELETON_GROUPS: ReadonlyArray<ReadonlyArray<string>> = [
 ]
 
 const SIDEBAR_OPEN_GROUPS_KEY = 'om:sidebarOpenGroups'
+/* A cookie rather than localStorage: the layout reads it on the server, so the
+   rail's first paint is already the right width and never animates on load. */
+const SIDEBAR_COLLAPSED_COOKIE = 'om_sidebar_collapsed'
+const SIDEBAR_COLLAPSED_COOKIE_MAX_AGE = 60 * 60 * 24 * 365
+const DESKTOP_SIDEBAR_ID = 'appshell-sidebar'
+/* Hover intent: a pointer crossing the rail on its way to the page should not
+   flash the panel open, and a pointer slipping off its edge should not snap it
+   shut. Keyboard focus opens it at once — there is no "passing through" there. */
+const SIDEBAR_PEEK_OPEN_DELAY_MS = 120
+const SIDEBAR_PEEK_CLOSE_DELAY_MS = 180
+
+function isTextEntryTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  const tag = target.tagName
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true
+  return target.isContentEditable
+}
 const SIDEBAR_OPEN_GROUPS_VERSION = 1
 
 function isBooleanRecord(value: unknown): value is Record<string, boolean> {
@@ -158,6 +180,8 @@ export type AppShellProps = {
     id?: string
     name: string
     defaultName?: string
+    iconName?: string
+    iconMarkup?: string
     items: {
       id?: string
       href: string
@@ -199,6 +223,8 @@ export type AppShellProps = {
   profileSectionTitle?: string
   profilePathPrefixes?: string[]
   mobileSidebarSlot?: React.ReactNode
+  /** Server-read `om_sidebar_collapsed` cookie, so a collapsed rail paints collapsed on first load. */
+  sidebarCollapsedDefault?: boolean
   /**
    * Hide the backend footer status bar (app version + terms/privacy links).
    * Intended for app developers and whitelabel/embedded deployments that want to
@@ -540,7 +566,9 @@ function SidebarCollapse({
       }`}
       inert={!open}
     >
-      <div className={clip ? 'overflow-hidden' : 'overflow-visible'}>
+      {/* `min-w-0`: a grid item's automatic minimum is its min-content width,
+          which would hold the collapsed rail's rows at their expanded width. */}
+      <div className={`min-w-0 ${clip ? 'overflow-hidden' : 'overflow-visible'}`}>
         {/* `pt-1` lives INSIDE the clip so the gap under the heading collapses
             with the rows; as a margin on the wrapper it would leave a 4px ghost
             behind every closed group. */}
@@ -579,7 +607,7 @@ export function AppShell(props: AppShellProps) {
   )
 }
 
-function AppShellBody({ productName, logo, email, canManageUpgradeActions = false, groups, rightHeaderSlot, centerHeaderSlot, children, currentTitle, breadcrumb, version, settingsSectionTitle, settingsPathPrefixes = [], settingsSections, profileSections, profileSectionTitle, profilePathPrefixes = [], mobileSidebarSlot, hideFooter = false, progressCompletedAutoHideMs }: AppShellProps) {
+function AppShellBody({ productName, logo, email, canManageUpgradeActions = false, groups, rightHeaderSlot, centerHeaderSlot, children, currentTitle, breadcrumb, version, settingsSectionTitle, settingsPathPrefixes = [], settingsSections, profileSections, profileSectionTitle, profilePathPrefixes = [], mobileSidebarSlot, sidebarCollapsedDefault = false, hideFooter = false, progressCompletedAutoHideMs }: AppShellProps) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const t = useT()
@@ -606,6 +634,100 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
   const resolvedLogoBypassesOptimization = shouldBypassLogoOptimization(resolvedLogo?.src)
   const brandNameIsInLogo = usesBuiltInWordmark(resolvedLogo, resolvedBrandName)
   const [mobileOpen, setMobileOpen] = React.useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = React.useState(sidebarCollapsedDefault)
+  const toggleSidebarCollapsed = React.useCallback(() => setSidebarCollapsed((collapsed) => !collapsed), [])
+  React.useEffect(() => {
+    document.cookie = `${SIDEBAR_COLLAPSED_COOKIE}=${sidebarCollapsed ? '1' : '0'}; path=/; max-age=${SIDEBAR_COLLAPSED_COOKIE_MAX_AGE}; samesite=lax`
+  }, [sidebarCollapsed])
+  /* A collapsed rail "peeks": hovered or keyboard-focused, it widens OVER the
+     page instead of pushing it. The grid track stays at the collapsed width, so
+     the content column never moves; only the aside grows, on the top layer.
+     Pinning (the toggle, Ctrl/⌘+B) is what gives the rail its own column. */
+  const [sidebarPeek, setSidebarPeek] = React.useState(false)
+  const [sidebarLayered, setSidebarLayered] = React.useState(false)
+  const peekTimerRef = React.useRef<number | null>(null)
+  const clearPeekTimer = React.useCallback(() => {
+    if (peekTimerRef.current !== null) window.clearTimeout(peekTimerRef.current)
+    peekTimerRef.current = null
+  }, [])
+  const schedulePeek = React.useCallback((open: boolean, delayMs: number) => {
+    clearPeekTimer()
+    peekTimerRef.current = window.setTimeout(() => {
+      peekTimerRef.current = null
+      setSidebarPeek(open)
+    }, delayMs)
+  }, [clearPeekTimer])
+  React.useEffect(() => clearPeekTimer, [clearPeekTimer])
+  React.useEffect(() => {
+    if (sidebarCollapsed) return
+    clearPeekTimer()
+    setSidebarPeek(false)
+  }, [sidebarCollapsed, clearPeekTimer])
+  /* The panel takes the top layer in the same render that opens it (an effect
+     would paint one frame of it under the sticky topbar) and keeps it until it
+     has finished narrowing back, or its last 200ms would slide under it. */
+  React.useEffect(() => {
+    if (sidebarPeek) {
+      setSidebarLayered(true)
+      return
+    }
+    const timer = window.setTimeout(() => setSidebarLayered(false), SIDEBAR_COLLAPSE_MS)
+    return () => window.clearTimeout(timer)
+  }, [sidebarPeek])
+  const sidebarOnTopLayer = sidebarPeek || sidebarLayered
+  const railVisuallyCollapsed = sidebarCollapsed && !sidebarPeek
+  const hasKeyboardFocusWithin = (element: HTMLElement) => element.querySelector(':focus-visible') !== null
+  const handleSidebarPointerEnter = (event: React.PointerEvent<HTMLElement>) => {
+    if (!sidebarCollapsed || event.pointerType !== 'mouse') return
+    schedulePeek(true, SIDEBAR_PEEK_OPEN_DELAY_MS)
+  }
+  const handleSidebarPointerLeave = (event: React.PointerEvent<HTMLElement>) => {
+    if (!sidebarCollapsed || event.pointerType !== 'mouse') return
+    if (hasKeyboardFocusWithin(event.currentTarget)) {
+      clearPeekTimer()
+      return
+    }
+    schedulePeek(false, SIDEBAR_PEEK_CLOSE_DELAY_MS)
+  }
+  const handleSidebarFocus = (event: React.FocusEvent<HTMLElement>) => {
+    if (!sidebarCollapsed || !(event.target instanceof HTMLElement) || !event.target.matches(':focus-visible')) return
+    clearPeekTimer()
+    setSidebarPeek(true)
+  }
+  const handleSidebarBlur = (event: React.FocusEvent<HTMLElement>) => {
+    if (!sidebarCollapsed) return
+    if (event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget)) return
+    if (event.currentTarget.matches(':hover')) return
+    schedulePeek(false, 0)
+  }
+  const sidebarToggleRef = React.useRef<HTMLButtonElement>(null)
+  /* While peeking, the panel covers the topbar toggle, so it carries its own way
+     to stay open. Pinning takes the pin button away, so keyboard focus moves to
+     the topbar toggle, which is now the control that collapses it again. */
+  const pinSidebarOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
+    const fromKeyboard = event.currentTarget.matches(':focus-visible')
+    setSidebarCollapsed(false)
+    if (fromKeyboard) window.requestAnimationFrame(() => sidebarToggleRef.current?.focus())
+  }
+  const handleSidebarKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
+    if (event.key !== 'Escape' || !sidebarPeek) return
+    clearPeekTimer()
+    setSidebarPeek(false)
+    if (document.activeElement instanceof HTMLElement && event.currentTarget.contains(document.activeElement)) {
+      document.activeElement.blur()
+    }
+  }
+  React.useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.repeat || event.altKey || event.shiftKey) return
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'b') return
+      if (isTextEntryTarget(event.target)) return
+      event.preventDefault()
+      toggleSidebarCollapsed()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [toggleSidebarCollapsed])
   // When the mobile drawer opens on a settings/profile route, it follows the
   // section sidebar by default. Set to 'main' to force-show the main nav even
   // when the route is in a section context. Reset on close.
@@ -635,10 +757,10 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
     if (!label) return false
     return label.toLowerCase().includes(navQueryNorm)
   }, [navQueryActive, navQueryNorm])
-  /* The rail is a fixed, always-open column. There is no collapse: a nav that
-     can hide itself has to keep an icon-only mirror of every row, and the two
-     drift. The only responsive step left is the `lg:` breakpoint, below which
-     the whole column becomes the mobile drawer.
+  /* The rail collapses to an icon column (`SIDEBAR_COLLAPSED_WIDTH`) without an
+     icon-only mirror of the nav: it is the same rows, clipped and faded — see
+     "The collapsed rail" in sidebar/chrome.tsx. Below the `lg:` breakpoint the
+     whole column becomes the mobile drawer, which never collapses.
 
      272px, down from 304 — and 304 itself was up from a truncating 240. The
      rail can narrow ONLY because the nav rows moved from `text-sm` to `text-xs`
@@ -660,8 +782,10 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
      Non-Latin locales are already wider than the rail at any of these widths —
      see that spec's note.
 
-     Published as `--sidebar-width` so the grid column below cannot drift from
-     the aside's own width — they were two literals before. */
+     Published as `--sidebar-width` (always the expanded width — the sidebar
+     customization preview sizes itself from it). The grid track reads
+     `--sidebar-rail-width`, which is the one value that animates; the aside
+     fills its track, so the two cannot drift apart mid-transition. */
   const SIDEBAR_WIDTH = '272px'
 
   /* The mobile drawer keeps the pre-existing 304px and is deliberately NOT
@@ -875,21 +999,113 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
    *  panel that nothing below it matched. The focus ring still marks it as a
    *  target for keyboard users. */
   function renderBrandHeader() {
+    const pinLabel = t('appShell.pinSidebar', 'Keep sidebar open')
     return (
+      <div className="relative shrink-0">
       <Link
         href="/backend"
-        className="flex h-16 shrink-0 items-center gap-3 rounded-lg px-3 outline-none focus-visible:shadow-focus"
+        className="flex h-16 w-full shrink-0 overflow-hidden rounded-lg outline-none focus-visible:shadow-focus"
         aria-label={t('appShell.goToDashboard')}
       >
-        <ShellBrandLogo
-          logo={resolvedLogo}
-          brandName={resolvedBrandName}
-          unoptimized={resolvedLogoBypassesOptimization}
-        />
-        {!brandNameIsInLogo && (
-          <span className={SIDEBAR_BRAND_LABEL}>{resolvedBrandName}</span>
-        )}
+        <span className={`flex h-full items-center gap-3 px-3 ${SIDEBAR_RAIL_CONTENT}`}>
+          <ShellBrandLogo
+            logo={resolvedLogo}
+            brandName={resolvedBrandName}
+            unoptimized={resolvedLogoBypassesOptimization}
+            railCollapsed={railVisuallyCollapsed}
+          />
+          {!brandNameIsInLogo && (
+            <span className={`${SIDEBAR_BRAND_LABEL} ${sidebarRailFadeClass(railVisuallyCollapsed)}`}>{resolvedBrandName}</span>
+          )}
+        </span>
       </Link>
+      {/* Held at the expanded width like a row's content, so the panel's edge
+          uncovers the pin in place instead of dragging it along. */}
+      <div
+        className={`pointer-events-none absolute inset-y-0 left-0 flex items-center justify-end ${SIDEBAR_RAIL_CONTENT} ${sidebarRailFadeClass(!sidebarPeek)}`}
+        inert={!sidebarPeek}
+      >
+        <IconButton
+          type="button"
+          variant="ghost"
+          size="lg"
+          aria-label={pinLabel}
+          data-testid="appshell-sidebar-pin"
+          className="pointer-events-auto text-sidebar-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          onClick={pinSidebarOpen}
+        >
+          <Pin aria-hidden />
+        </IconButton>
+      </div>
+      </div>
+    )
+  }
+
+  /* Collapsed, the field fades out and leaves its magnifier glyph standing on
+     the icon column; hovering or focusing the rail opens it at full width. */
+  function renderNavSearch(railCollapsed: boolean | undefined) {
+    return (
+      <div className="relative shrink-0">
+        <div className={`${SIDEBAR_RAIL_CONTENT} ${sidebarRailFadeClass(railCollapsed)}`} inert={railCollapsed === true}>
+          <SearchInput
+            value={navQuery}
+            onChange={setNavQuery}
+            placeholder={t('appShell.searchNavPlaceholder', 'Search...')}
+            aria-label={t('appShell.searchNavAria', 'Search navigation')}
+            clearLabel={t('appShell.searchNavClear', 'Clear search')}
+            size={SIDEBAR_SEARCH_SIZE}
+            tone={SIDEBAR_SEARCH_TONE}
+            className="shrink-0"
+          />
+        </div>
+        {railCollapsed === undefined ? null : (
+          <span
+            aria-hidden
+            className={`pointer-events-none absolute inset-y-0 left-0 flex items-center border border-transparent px-3 text-sidebar-muted-foreground ${sidebarRailFadeClass(!railCollapsed)}`}
+          >
+            <span className={SIDEBAR_ICON_BOX}>
+              <Search />
+            </span>
+          </span>
+        )}
+      </div>
+    )
+  }
+
+  /* A heading is a clipping shell around content held at the expanded width,
+     like a row. Collapsed, its icon stays on the icon column as the group's
+     marker and the label and chevron fade. Groups keep their open state when
+     the rail collapses — forcing them open would move every icon below a
+     closed group each time the rail peeks — so a closed group shows just its
+     heading icon. The heading only toggles once the rail is open: collapsed,
+     it leaves the tab order and drops its hover fill. */
+  function renderGroupHeading(
+    group: { label: string; iconName?: string; iconMarkup?: string },
+    open: boolean,
+    regionId: string,
+    onToggle: () => void,
+    railCollapsed: boolean | undefined,
+  ) {
+    return (
+      <Button
+        type="button"
+        variant="muted"
+        onClick={railCollapsed ? undefined : onToggle}
+        className={`${SIDEBAR_GROUP_LABEL} overflow-hidden border-0 px-0 ${railCollapsed ? 'cursor-default hover:bg-transparent hover:text-sidebar-muted-foreground' : ''}`}
+        aria-expanded={open}
+        aria-controls={regionId}
+        tabIndex={railCollapsed ? -1 : undefined}
+      >
+        <span className={`flex h-full items-center gap-3 px-3 ${SIDEBAR_RAIL_CONTENT}`}>
+          <span className={SIDEBAR_ICON_BOX}>
+            {renderIcon(undefined, group.iconName, group.iconMarkup, SidebarGroupDefaultIcon)}
+          </span>
+          <span className={`min-w-0 flex-1 truncate text-left ${sidebarRailFadeClass(railCollapsed)}`}>{group.label}</span>
+          <span className={`flex ${sidebarRailFadeClass(railCollapsed)}`}>
+            <Chevron open={open} />
+          </span>
+        </span>
+      </Button>
     )
   }
 
@@ -964,32 +1180,25 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
   ) {
     const sortedSections = [...sections].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
     const lastVisibleIndex = sortedSections.length - 1
+    const railCollapsed = hideHeader ? undefined : railVisuallyCollapsed
 
     return (
       <div className="flex h-full flex-col gap-3" data-testid="appshell-section-sidebar">
         {!hideHeader && renderBrandHeader()}
-        <Link
-          href="/backend"
-          className={`${SIDEBAR_ITEM_BASE} ${SIDEBAR_ITEM_BOX} shrink-0 ${sidebarItemStateClass(false)}`}
-          data-testid="appshell-section-back-to-main"
-          aria-label={t('backend.nav.backToMain', 'Back to Main')}
-          onClick={() => setMobileOpen(false)}
-        >
-          <span className={SIDEBAR_ICON_BOX}>
-            <ChevronLeft aria-hidden />
-          </span>
-          <span className={`${SIDEBAR_ITEM_LABEL} font-semibold`}>{title}</span>
-        </Link>
-        <SearchInput
-          value={navQuery}
-          onChange={setNavQuery}
-          placeholder={t('appShell.searchNavPlaceholder', 'Search...')}
-          aria-label={t('appShell.searchNavAria', 'Search navigation')}
-          clearLabel={t('appShell.searchNavClear', 'Clear search')}
-          size={SIDEBAR_SEARCH_SIZE}
-          tone={SIDEBAR_SEARCH_TONE}
-          className="shrink-0"
-        />
+        <div className="shrink-0">
+          <SidebarNavLink
+            href="/backend"
+            label={title}
+            labelClassName="font-semibold"
+            icon={<ChevronLeft aria-hidden />}
+            active={false}
+            railCollapsed={railCollapsed}
+            data-testid="appshell-section-back-to-main"
+            aria-label={t('backend.nav.backToMain', 'Back to Main')}
+            onClick={() => setMobileOpen(false)}
+          />
+        </div>
+        {renderNavSearch(railCollapsed)}
         <div className={SIDEBAR_SCROLL_FRAME}>
         <div data-sidebar-scroll="true" className={`${SIDEBAR_SCROLL_AREA} ${!hideHeader && sidebarScrollState !== 'none' ? SIDEBAR_SCROLL_AREA_RESERVED : ''}`}>
           <nav className="flex flex-col gap-3" aria-label={title}>
@@ -1033,23 +1242,21 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
 
               return (
                 <React.Fragment key={item.id}>
-                  <Link
+                  <SidebarNavLink
                     href={item.href}
-                    className={`${SIDEBAR_ITEM_BASE} ${depth === 0 ? SIDEBAR_ITEM_BOX : SIDEBAR_CHILD_BOX} ${sidebarItemStateClass(isActive)}`}
-                    style={depth > 1 ? { paddingLeft: `${24 + (depth - 1) * 12}px` } : undefined}
+                    label={label}
+                    icon={renderIcon(
+                      item.icon,
+                      item.iconName,
+                      item.iconMarkup,
+                      item.href.includes('/backend/entities/user/') && item.href.endsWith('/records') ? DataTableIcon : DefaultIcon,
+                    )}
+                    active={isActive}
+                    depth={depth}
+                    railCollapsed={railCollapsed}
                     data-menu-item-id={item.id}
                     onClick={() => setMobileOpen(false)}
-                  >
-                    <span className={SIDEBAR_ICON_BOX}>
-                      {renderIcon(
-                        item.icon,
-                        item.iconName,
-                        item.iconMarkup,
-                        item.href.includes('/backend/entities/user/') && item.href.endsWith('/records') ? DataTableIcon : DefaultIcon,
-                      )}
-                    </span>
-                    <span className={SIDEBAR_ITEM_LABEL}>{label}</span>
-                  </Link>
+                  />
                   {showChildren ? childItems.map((child) => renderSectionItem(child, depth + 1)) : null}
                 </React.Fragment>
               )
@@ -1057,17 +1264,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
 
             return (
               <div key={section.id}>
-                <Button
-                  type="button"
-                  variant="muted"
-                  onClick={() => toggleGroup(sectionKey)}
-                  className={SIDEBAR_GROUP_LABEL}
-                  aria-expanded={open}
-                  aria-controls={regionId}
-                >
-                  <span className="min-w-0 truncate">{sectionLabel}</span>
-                  <Chevron open={open} />
-                </Button>
+                {renderGroupHeading({ label: sectionLabel, iconName: section.iconName, iconMarkup: section.iconMarkup }, open, regionId, () => toggleGroup(sectionKey), railCollapsed)}
                 <SidebarCollapse id={regionId} open={open}>
                   {sortedItems.map((item) => renderSectionItem(item))}
                 </SidebarCollapse>
@@ -1084,6 +1281,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
   }
 
   function renderSidebar(hideHeader?: boolean, forceMainOnly?: boolean) {
+    const railCollapsed = hideHeader ? undefined : railVisuallyCollapsed
     if (!isChromeReady && isChromeLoading) {
       // The placeholder is built from the rail's own boxes — the same row
       // height, the same heading box, the same group rhythm — so what loads in
@@ -1109,14 +1307,15 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
                     slab: a group label is a few characters, and drawing it the
                     width of the rail is what made headings and rows read as the
                     same thing. */}
-                <div className={`flex items-center ${SIDEBAR_GROUP_LABEL_BOX}`}>
-                  <span className={`h-2.5 w-16 ${SIDEBAR_SKELETON_BAR}`} />
+                <div className={`flex items-center overflow-hidden ${SIDEBAR_GROUP_LABEL_BOX}`}>
+                  <span className={`${SIDEBAR_ICON_BOX} ${SIDEBAR_SKELETON_BAR}`} />
+                  <span className={`h-2.5 w-16 shrink-0 ${SIDEBAR_SKELETON_BAR} ${sidebarRailFadeClass(railCollapsed)}`} />
                 </div>
                 <div className="flex flex-col gap-1 pt-1">
                   {rows.map((width, rowIndex) => (
-                    <div key={rowIndex} className={`flex items-center ${SIDEBAR_ITEM_BOX}`}>
+                    <div key={rowIndex} className={`flex items-center overflow-hidden ${SIDEBAR_ITEM_BOX}`}>
                       <span className={`${SIDEBAR_ICON_BOX} ${SIDEBAR_SKELETON_BAR}`} />
-                      <span className={`h-3 ${width} ${SIDEBAR_SKELETON_BAR}`} />
+                      <span className={`h-3 shrink-0 ${width} ${SIDEBAR_SKELETON_BAR} ${sidebarRailFadeClass(railCollapsed)}`} />
                     </div>
                   ))}
                 </div>
@@ -1163,21 +1362,14 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
       <div className="flex h-full flex-col gap-3">
         {!hideHeader && renderBrandHeader()}
         {shouldRenderSidebarInjectionSpots ? (
-          <InjectionSpot
-            spotId={BACKEND_SIDEBAR_TOP_INJECTION_SPOT_ID}
-            context={injectionContext}
-          />
+          <div className={`empty:hidden ${SIDEBAR_RAIL_CONTENT} ${sidebarRailFadeClass(railCollapsed)}`} inert={railCollapsed === true}>
+            <InjectionSpot
+              spotId={BACKEND_SIDEBAR_TOP_INJECTION_SPOT_ID}
+              context={injectionContext}
+            />
+          </div>
         ) : null}
-        <SearchInput
-          value={navQuery}
-          onChange={setNavQuery}
-          placeholder={t('appShell.searchNavPlaceholder', 'Search...')}
-          aria-label={t('appShell.searchNavAria', 'Search navigation')}
-          clearLabel={t('appShell.searchNavClear', 'Clear search')}
-          size={SIDEBAR_SEARCH_SIZE}
-          tone={SIDEBAR_SEARCH_TONE}
-          className="shrink-0"
-        />
+        {renderNavSearch(railCollapsed)}
         <div className={SIDEBAR_SCROLL_FRAME}>
         <div data-sidebar-scroll="true" className={`${SIDEBAR_SCROLL_AREA} ${shouldRenderSidebarInjectionSpots && sidebarScrollState !== 'none' ? SIDEBAR_SCROLL_AREA_RESERVED : ''}`}>
           {(() => {
@@ -1207,10 +1399,12 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
               return (
                 <nav className="flex flex-col gap-3" data-testid="sidebar" aria-label={t('appShell.mainNavAria', 'Main navigation')}>
                   {shouldRenderSidebarInjectionSpots ? (
-                    <InjectionSpot
-                      spotId={BACKEND_SIDEBAR_NAV_INJECTION_SPOT_ID}
-                      context={injectionContext}
-                    />
+                    <div className={`empty:hidden ${SIDEBAR_RAIL_CONTENT} ${sidebarRailFadeClass(railCollapsed)}`} inert={railCollapsed === true}>
+                      <InjectionSpot
+                        spotId={BACKEND_SIDEBAR_NAV_INJECTION_SPOT_ID}
+                        context={injectionContext}
+                      />
+                    </div>
                   ) : null}
                   {mainGroups.map((g, gi) => {
                     const groupId = resolveGroupKey(g)
@@ -1226,17 +1420,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
                     if (visibleItems.length === 0) return null
                     return (
                       <div key={groupId}>
-                        <Button
-                          type="button"
-                          variant="muted"
-                          onClick={() => toggleGroup(groupId)}
-                          className={SIDEBAR_GROUP_LABEL}
-                          aria-expanded={open}
-                          aria-controls={regionId}
-                        >
-                          <span className="min-w-0 truncate">{g.name}</span>
-                          <Chevron open={open} />
-                        </Button>
+                        {renderGroupHeading({ label: g.name, iconName: g.iconName, iconMarkup: g.iconMarkup }, open, regionId, () => toggleGroup(groupId), railCollapsed)}
                         <SidebarCollapse id={regionId} open={open}>
                           {visibleItems.map((i) => {
                               const allChildItems = (i.children ?? []).filter((child) => child.hidden !== true)
@@ -1257,23 +1441,21 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
                               const isParentActive = pathname === i.href || (isOnParentBranch && !hasActiveChild)
                               return (
                                 <React.Fragment key={i.href}>
-                                  <Link
+                                  <SidebarNavLink
                                     href={i.href}
-                                    className={`${SIDEBAR_ITEM_BASE} ${SIDEBAR_ITEM_BOX} ${sidebarItemStateClass(isParentActive)} ${i.enabled === false ? 'pointer-events-none opacity-50' : ''}`}
-                                    aria-disabled={i.enabled === false || undefined}
+                                    label={i.title}
+                                    icon={renderIcon(
+                                      i.icon,
+                                      i.iconName,
+                                      i.iconMarkup,
+                                      DefaultIcon,
+                                    )}
+                                    active={isParentActive}
+                                    disabled={i.enabled === false}
+                                    railCollapsed={railCollapsed}
                                     data-menu-item-id={i.id ?? i.href}
                                     onClick={() => setMobileOpen(false)}
-                                  >
-                                    <span className={SIDEBAR_ICON_BOX}>
-                                      {renderIcon(
-                                        i.icon,
-                                        i.iconName,
-                                        i.iconMarkup,
-                                        DefaultIcon,
-                                      )}
-                                    </span>
-                                    <span className={SIDEBAR_ITEM_LABEL}>{i.title}</span>
-                                  </Link>
+                                  />
                                   {showChildren ? (
                                     /* No guide rail down the left: the child box's own indent
                                        already reads as depth, and a hairline behind rows that
@@ -1283,24 +1465,23 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
                                       {childItems.map((c) => {
                                         const childActive = pathname?.startsWith(c.href)
                                         return (
-                                          <Link
+                                          <SidebarNavLink
                                             key={c.href}
                                             href={c.href}
-                                            className={`${SIDEBAR_ITEM_BASE} ${SIDEBAR_CHILD_BOX} ${sidebarItemStateClass(!!childActive)} ${c.enabled === false ? 'pointer-events-none opacity-50' : ''}`}
-                                            aria-disabled={c.enabled === false || undefined}
+                                            label={c.title}
+                                            icon={renderIcon(
+                                              c.icon,
+                                              c.iconName,
+                                              c.iconMarkup,
+                                              c.href.includes('/backend/entities/user/') && c.href.endsWith('/records') ? DataTableIcon : DefaultIcon,
+                                            )}
+                                            active={!!childActive}
+                                            depth={1}
+                                            disabled={c.enabled === false}
+                                            railCollapsed={railCollapsed}
                                             data-menu-item-id={c.id ?? c.href}
                                             onClick={() => setMobileOpen(false)}
-                                          >
-                                            <span className={SIDEBAR_ICON_BOX}>
-                                              {renderIcon(
-                                                c.icon,
-                                                c.iconName,
-                                                c.iconMarkup,
-                                                c.href.includes('/backend/entities/user/') && c.href.endsWith('/records') ? DataTableIcon : DefaultIcon,
-                                              )}
-                                            </span>
-                                            <span className={SIDEBAR_ITEM_LABEL}>{c.title}</span>
-                                          </Link>
+                                          />
                                         )
                                       })}
                                     </div>
@@ -1322,7 +1503,15 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
         {/* `empty:hidden` — all three spots return null when no module fills
             them, and a stock install would otherwise carry a stray rule and a
             band of dead space at the foot of the rail. */}
-        <div className="sticky bottom-0 -mx-3 shrink-0 border-t border-sidebar-border bg-sidebar px-3 pt-3 empty:hidden">
+        {/* Its widgets are injected and have no icon column to keep, so on the
+            collapsible rail the whole footer holds its expanded width and fades
+            out rather than reflowing. Wrapping each spot instead would defeat
+            `empty:hidden`, which needs the footer itself to be empty. */}
+        <div
+          className={`sticky bottom-0 -mx-3 shrink-0 border-t border-sidebar-border bg-sidebar px-3 pt-3 empty:hidden ${sidebarRailFadeClass(railCollapsed)}`}
+          style={railCollapsed === undefined ? undefined : { width: 'calc(var(--sidebar-content-width) + 1.5rem)' }}
+          inert={railCollapsed === true}
+        >
           {shouldRenderSidebarInjectionSpots ? (
             <InjectionSpot
               spotId={BACKEND_SIDEBAR_NAV_FOOTER_INJECTION_SPOT_ID}
@@ -1390,16 +1579,38 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
     {/* `--topbar-height` is what Sheet anchors drawers to. The topbar is `h-16`
         plus its 1px rule; the previous 61px slid every drawer up under it. */}
     <div
-      className="relative min-h-svh lg:grid lg:grid-cols-[var(--sidebar-width)_1fr]"
-      style={{ '--topbar-height': '65px', '--sidebar-width': SIDEBAR_WIDTH, '--drawer-width': MOBILE_DRAWER_WIDTH } as React.CSSProperties}
+      className={`relative min-h-svh lg:grid lg:grid-cols-[var(--sidebar-rail-width)_1fr] lg:transition-[grid-template-columns] ${SIDEBAR_RAIL_TRANSITION}`}
+      style={{
+        '--topbar-height': '65px',
+        '--sidebar-width': SIDEBAR_WIDTH,
+        '--sidebar-rail-width': sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH,
+        '--drawer-width': MOBILE_DRAWER_WIDTH,
+      } as React.CSSProperties}
     >
-      {/* Desktop sidebar — one fixed rail, `SIDEBAR_WIDTH` wide. Settings and
-          Profile swap their own nav into it (see `renderSidebar`) rather than
-          opening a second column beside it. */}
+      {/* Desktop sidebar — one rail that fills the animated grid track.
+          Settings and Profile swap their own nav into it (see `renderSidebar`)
+          rather than opening a second column beside it. */}
       {/* Scroll affordance (#1803) lives inside `renderSidebar`, anchored to the
           nav's own scroll frame — from out here it painted over the sticky
           footer, whose top edge is not the aside's bottom edge. */}
-      <aside ref={sidebarAsideRef} className={`${asideClassesBase} hidden lg:block lg:sticky lg:top-0 lg:h-svh lg:self-start lg:overflow-hidden lg:relative`} style={{ width: SIDEBAR_WIDTH }}>
+      {/* The aside sizes itself rather than filling its track: peeking, it is
+          wider than its column and overhangs the page on the top layer. */}
+      <aside
+        ref={sidebarAsideRef}
+        id={DESKTOP_SIDEBAR_ID}
+        data-collapsed={railVisuallyCollapsed ? 'true' : 'false'}
+        data-peek={sidebarPeek ? 'true' : 'false'}
+        className={`${asideClassesBase} hidden lg:block lg:sticky lg:top-0 lg:h-svh lg:self-start lg:overflow-hidden lg:relative transition-[width,box-shadow] ${SIDEBAR_RAIL_TRANSITION} ${sidebarOnTopLayer ? 'lg:z-top' : ''} ${sidebarPeek ? 'shadow-lg' : 'shadow-none'}`}
+        style={{
+          width: railVisuallyCollapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH,
+          '--sidebar-content-width': `calc(${SIDEBAR_WIDTH} - 1.5rem - 1px)`,
+        } as React.CSSProperties}
+        onPointerEnter={handleSidebarPointerEnter}
+        onPointerLeave={handleSidebarPointerLeave}
+        onFocus={handleSidebarFocus}
+        onBlur={handleSidebarBlur}
+        onKeyDown={handleSidebarKeyDown}
+      >
         {renderSidebar()}
       </aside>
 
@@ -1418,6 +1629,29 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
             <IconButton variant="ghost" size="lg" className="lg:hidden" aria-label={t('appShell.openMenu')} onClick={() => setMobileOpen(true)}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
             </IconButton>
+            {(() => {
+              const sidebarToggleLabel = sidebarCollapsed
+                ? t('appShell.expandSidebar', 'Expand sidebar')
+                : t('appShell.collapseSidebar', 'Collapse sidebar')
+              return (
+                <SimpleTooltip content={sidebarToggleLabel} side="bottom">
+                  <IconButton
+                    ref={sidebarToggleRef}
+                    variant="ghost"
+                    size="lg"
+                    className="hidden lg:inline-flex"
+                    aria-label={sidebarToggleLabel}
+                    aria-expanded={!sidebarCollapsed}
+                    aria-controls={DESKTOP_SIDEBAR_ID}
+                    aria-keyshortcuts="Control+B Meta+B"
+                    data-testid="appshell-sidebar-toggle"
+                    onClick={toggleSidebarCollapsed}
+                  >
+                    <PanelLeft aria-hidden />
+                  </IconButton>
+                </SimpleTooltip>
+              )
+            })()}
             {/* Header breadcrumb: always starts with Dashboard */}
             {(() => {
               const dashboardLabel = t('dashboard.title')

@@ -1,6 +1,7 @@
 import type {
   CalendarInteractionItem, CalendarItem } from '../../components/calendar/types'
 import { parseRecurrenceRule } from './recurrence'
+import { DEFAULT_CREATE_DURATION_MINUTES } from './grid'
 
 export type EditorKind = 'meeting' | 'call' | 'email' | 'note' | 'event' | 'task'
 
@@ -248,7 +249,7 @@ export function createDefaultFormState(
     base = defaultDate ? new Date(defaultDate) : new Date(now)
     base.setHours(now.getHours(), 0, 0, 0)
     base.setHours(base.getHours() + 1)
-    end = new Date(base.getTime() + 90 * 60_000)
+    end = new Date(base.getTime() + DEFAULT_CREATE_DURATION_MINUTES * 60_000)
   }
   return {
     kind: 'meeting',

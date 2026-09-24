@@ -162,8 +162,17 @@ the rows silently end up a few pixels narrower than the search field above them.
 
 `AppShell` (`packages/ui/src/backend/AppShell.tsx`) owns the rail. Its contract:
 
-- It is a fixed, always-open 240px column — no collapse toggle, no persisted collapsed flag, no
-  icon-only variant. Below `lg:` the same nav renders inside the mobile drawer, same tokens.
+- It is a 69px icon column by default that opens to 272px OVER the page (`z-top`) on hover or
+  keyboard focus, and can be pinned open as its own 272px column (topbar `PanelLeft` toggle,
+  `Ctrl/⌘+B`, or the in-panel pin; persisted in the `om_sidebar_collapsed` cookie that the layout
+  reads server-side).
+  Collapse is purely visual: the SAME rows narrow around content held at the expanded width
+  (`SIDEBAR_RAIL_CONTENT`) and their labels fade, so nothing reflows and icons never move. Never
+  add an icon-only row variant; route new rail rows through `SidebarNavLink`. Group headings carry
+  an icon too (declare new group ids in `navGroupIconRows`, `auth/lib/backendChrome.tsx`); it stays
+  visible when collapsed. Below `lg:` the same
+  nav renders inside the mobile drawer, which never collapses. See
+  `.ai/specs/2026-09-23-collapsible-sidebar-rail.md`.
 - Row chrome is declared once at the top of the file (`SIDEBAR_ITEM_BASE`, `SIDEBAR_ITEM_BOX`,
   `SIDEBAR_CHILD_BOX`, `SIDEBAR_GROUP_LABEL`, `sidebarItemStateClass`). Reuse those constants — a
   hand-rolled row makes the rail read as several lists stacked together.
@@ -422,7 +431,7 @@ When building a new module UI, use the **customers module** as reference:
 | Constrain max content width | `max-w-screen-2xl mx-auto` |
 | Show/hide based on device | `hidden lg:block` or `lg:hidden` |
 
-`md:` is the first breakpoint for layout changes. The backend sidebar is a fixed 240px rail at `lg:` (1024px) and above; below that it is the mobile drawer. It never collapses to an icon rail.
+`md:` is the first breakpoint for layout changes. The backend sidebar at `lg:` (1024px) and above is a 69px icon column that opens over the page on hover, or a pinned 272px column; below that it is the mobile drawer, which never collapses.
 
 ## Borders (Widths & Styles)
 - NEVER use arbitrary border widths (`border-[3px]`, `border-[1.5px]`)

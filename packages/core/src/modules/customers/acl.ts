@@ -71,6 +71,21 @@ export const features = [
     module: 'customers',
     dependsOn: ['customers.interactions.view'],
   },
+  {
+    /**
+     * Read interactions you have nothing to do with.
+     *
+     * Without it, a personal view — the calendar, which asks for a time window
+     * and names no customer — returns only what you authored, own, or are a
+     * participant in. A CUSTOMER-scoped request is unaffected either way: the
+     * interactions on Acme's record are shared history, and that is what a CRM
+     * timeline is for.
+     */
+    id: 'customers.interactions.view_all',
+    title: 'View all users\u2019 interactions',
+    module: 'customers',
+    dependsOn: ['customers.interactions.view'],
+  },
   { id: 'customers.roles.view', title: 'View entity roles', module: 'customers' },
   {
     id: 'customers.roles.manage',
