@@ -85,6 +85,16 @@ describe('Dropdown', () => {
     expect(document.body.contains(menu())).toBe(true)
   })
 
+  it('can portal the menu into a scroll-locked surface', () => {
+    const portalContainer = document.createElement('div')
+    document.body.appendChild(portalContainer)
+    renderWithI18n(<Single portalContainer={portalContainer} />)
+    fireEvent.click(trigger())
+    expect(portalContainer.contains(menu())).toBe(true)
+    expect(menu()!.className).toContain('touch-pan-y')
+    expect(document.querySelector('[data-slot="dropdown-list"]')!.className).toContain('overscroll-contain')
+  })
+
   it('selects an option, reports it, and closes', () => {
     const onChange = jest.fn()
     renderWithI18n(<Single onChange={onChange} />)

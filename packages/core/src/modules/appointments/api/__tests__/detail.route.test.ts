@@ -18,6 +18,7 @@ const mockGetAuthFromRequest = jest.fn()
 const mockEmitAppointmentEvent = jest.fn()
 const mockResolveOrganizationScopeForRequest = jest.fn()
 const mockCancelAssignmentsForSourceEntities = jest.fn()
+const mockLoadLineOptionSnapshotsForLines = jest.fn()
 
 class Appointment {}
 class AppointmentStatus {}
@@ -62,6 +63,10 @@ jest.mock('@open-mercato/core/modules/resources/lib/resourceAssignmentService', 
   },
 }))
 
+jest.mock('../../lib/lineOptionSnapshot', () => ({
+  loadLineOptionSnapshotsForLines: (...args: unknown[]) => mockLoadLineOptionSnapshotsForLines(...args),
+}))
+
 const TENANT_ID = '11111111-1111-4111-8111-111111111111'
 const APPOINTMENT_ID = '22222222-2222-4222-8222-222222222222'
 const ORGANIZATION_ID = '33333333-3333-4333-8333-333333333333'
@@ -90,7 +95,14 @@ function buildAppointment() {
 function buildEm(appointment: ReturnType<typeof buildAppointment>) {
   return {
     flush: jest.fn().mockResolvedValue(undefined),
-    find: jest.fn(async (entity: unknown) => entity === AppointmentLine ? [{ id: 'line-1' }] : []),
+    find: jest.fn(async (entity: unknown) => entity === AppointmentLine ? [{
+      id: 'line-1',
+      productId: 'product-1',
+      productTitle: 'Arms',
+      productCategory: 'Waxing (Men)',
+      selectedOptions: { 'group-1': ['option-1'] },
+      sortOrder: 0,
+    }] : []),
     findOne: jest.fn(async (entity: unknown) => {
       if (entity === AppointmentStatus) {
         return Object.assign(new AppointmentStatus(), { id: 'status-1', code: 'confirmed' })
@@ -132,12 +144,75 @@ describe('appointments detail route — optimistic locking', () => {
     })
     mockEmitAppointmentEvent.mockResolvedValue(undefined)
     mockCancelAssignmentsForSourceEntities.mockReset()
+    mockLoadLineOptionSnapshotsForLines.mockResolvedValue(new Map())
   })
 
   async function patch(statusCode = 'confirmed', headers?: Record<string, string>) {
     const { PATCH } = await import('../[id]/route')
     return PATCH(patchRequest(statusCode, headers), { params: Promise.resolve({ id: APPOINTMENT_ID }) })
   }
+
+  async function get() {
+    const { GET } = await import('../[id]/route')
+    return GET(
+      new Request(`http://localhost/api/appointments/${APPOINTMENT_ID}`),
+      { params: Promise.resolve({ id: APPOINTMENT_ID }) },
+    )
+  }
+
+  it('returns selected option snapshots for appointment detail lines', async () => {
+    mockLoadLineOptionSnapshotsForLines.mockResolvedValue(new Map([
+      ['line-1', {
+        groups: [{
+          groupName: 'Area',
+          breadcrumbPath: 'Area',
+          options: [{ optionName: 'Underarms', priceFlat: '248000.00' }],
+        }],
+      }],
+    ]))
+
+    const response = await get()
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body.lines[0].options).toEqual([
+      { groupName: 'Area', name: 'Underarms', priceFlat: '248000.00' },
+    ])
+    expect(mockLoadLineOptionSnapshotsForLines).toHaveBeenCalledWith(em, ['line-1'])
+  })
+
+  it('loads option snapshots for multiple lines in one batch', async () => {
+    em.find.mockImplementation(async (entity: unknown) => entity === AppointmentLine ? [
+      {
+        id: 'line-1',
+        productId: 'product-1',
+        productTitle: 'Arms',
+        productCategory: 'Waxing (Men)',
+        selectedOptions: { 'group-1': ['option-1'] },
+        sortOrder: 0,
+      },
+      {
+        id: 'line-2',
+        productId: 'product-2',
+        productTitle: 'Legs',
+        productCategory: 'Waxing (Men)',
+        selectedOptions: { 'group-2': ['option-2'] },
+        sortOrder: 1,
+      },
+    ] : [])
+    mockLoadLineOptionSnapshotsForLines.mockResolvedValue(new Map([
+      ['line-1', { groups: [] }],
+      ['line-2', { groups: [] }],
+    ]))
+
+    const response = await get()
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body.lines).toHaveLength(2)
+    expect(mockLoadLineOptionSnapshotsForLines).toHaveBeenCalledTimes(1)
+    expect(mockLoadLineOptionSnapshotsForLines).toHaveBeenCalledWith(em, ['line-1', 'line-2'])
+  })
 
   it('rejects a status change carrying a stale version', async () => {
     const response = await patch('confirmed', { [OPTIMISTIC_LOCK_HEADER_NAME]: STALE_UPDATED_AT })

@@ -583,6 +583,7 @@ export type TimePickerProps = {
   onOpenChange?: (open: boolean) => void
   popoverAlign?: 'start' | 'center' | 'end'
   popoverSide?: 'top' | 'right' | 'bottom' | 'left'
+  elevated?: boolean
 
   className?: string
   disabled?: boolean
@@ -926,6 +927,7 @@ export function TimePicker({
   onOpenChange,
   popoverAlign = 'start',
   popoverSide = 'bottom',
+  elevated = false,
   className,
   disabled = false,
   'aria-label': ariaLabel,
@@ -1045,7 +1047,7 @@ export function TimePicker({
       <PopoverContent
         align={popoverAlign}
         side={popoverSide}
-        className="w-auto border-none bg-transparent p-0 shadow-none"
+        className={cn('w-auto border-none bg-transparent p-0 shadow-none', elevated ? 'z-top' : undefined)}
       >
         {card}
       </PopoverContent>
