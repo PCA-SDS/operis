@@ -39,11 +39,18 @@ interface ActivityTimelineFiltersProps {
   onDateFromChange: (value: string) => void
   onDateToChange: (value: string) => void
   onReset: () => void
+  /**
+   * `default` keeps the compact bordered chips. `soft` renders every control
+   * at 36px on the soft/primary button family with one weight in every state,
+   * so toggling a chip never changes its width.
+   */
+  tone?: 'default' | 'soft'
 }
 
 const CHIP_BASE = 'inline-flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium transition-colors'
 const CHIP_INACTIVE = 'border border-border bg-card text-muted-foreground hover:bg-accent/40'
 const CHIP_ACTIVE = 'border border-status-info-border bg-status-info-bg text-status-info-text'
+const SOFT_DATE_INPUT = 'h-9 w-full rounded-lg border border-transparent bg-input-bg px-3 text-sm focus:outline-none focus-visible:shadow-focus'
 
 export function ActivityTimelineFilters({
   entityId,
@@ -54,8 +61,13 @@ export function ActivityTimelineFilters({
   onDateFromChange,
   onDateToChange,
   onReset,
+  tone = 'default',
 }: ActivityTimelineFiltersProps) {
   const t = useT()
+  const soft = tone === 'soft'
+  const chipProps = (active: boolean) => soft
+    ? ({ variant: active ? 'default' : 'soft', className: undefined } as const)
+    : ({ variant: 'ghost', size: 'sm', className: cn(CHIP_BASE, active ? CHIP_ACTIVE : CHIP_INACTIVE) } as const)
   const hasActiveFilters = activeTypes.length > 0 || dateFrom || dateTo
   const allActive = activeTypes.length === 0
   const [counts, setCounts] = React.useState<InteractionCounts | null>(null)
@@ -105,11 +117,9 @@ export function ActivityTimelineFilters({
       <div className="flex flex-wrap items-center gap-2.5">
         <Button
           type="button"
-          variant="ghost"
-          size="sm"
+          {...chipProps(allActive)}
           onClick={handleSelectAll}
           aria-pressed={allActive}
-          className={cn(CHIP_BASE, allActive ? CHIP_ACTIVE : CHIP_INACTIVE)}
         >
           <span>{t('customers.timeline.filter.all', 'All Activities')}</span>
         </Button>
@@ -122,13 +132,11 @@ export function ActivityTimelineFilters({
             <Button
               key={type}
               type="button"
-              variant="ghost"
-              size="sm"
+              {...chipProps(isActive)}
               onClick={() => handleTypeToggle(type)}
               aria-pressed={isActive}
-              className={cn(CHIP_BASE, isActive ? CHIP_ACTIVE : CHIP_INACTIVE)}
             >
-              <Icon className="size-[18px] shrink-0" />
+              <Icon className={soft ? 'size-4 shrink-0' : 'size-[18px] shrink-0'} />
               <span>
                 {t(`customers.timeline.filter.${type}`, type)}
                 {hasCount ? ` ${count}` : ''}
@@ -142,12 +150,12 @@ export function ActivityTimelineFilters({
         <PopoverTrigger asChild>
           <IconButton
             type="button"
-            variant="outline"
-            size="sm"
-            className="size-7 rounded-md text-muted-foreground"
+            variant={soft ? 'soft' : 'outline'}
+            size={soft ? 'lg' : 'sm'}
+            className={soft ? undefined : 'size-7 rounded-md text-muted-foreground'}
             aria-label={t('customers.people.detail.activities.moreFilters', 'More filters')}
           >
-            <SlidersHorizontal className="size-3.5" />
+            <SlidersHorizontal className={soft ? 'size-4' : 'size-3.5'} />
           </IconButton>
         </PopoverTrigger>
         <PopoverContent align="end" className="w-72 space-y-3">
@@ -160,7 +168,7 @@ export function ActivityTimelineFilters({
                 type="date"
                 value={dateFrom}
                 onChange={(event) => onDateFromChange(event.target.value)}
-                className="h-8 w-full rounded-md border bg-input-bg px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                className={soft ? SOFT_DATE_INPUT : 'h-8 w-full rounded-md border bg-input-bg px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring'}
                 aria-label={t('customers.timeline.filter.from', 'From date')}
               />
               <span className="shrink-0 text-xs text-muted-foreground">—</span>
@@ -168,13 +176,23 @@ export function ActivityTimelineFilters({
                 type="date"
                 value={dateTo}
                 onChange={(event) => onDateToChange(event.target.value)}
-                className="h-8 w-full rounded-md border bg-input-bg px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                className={soft ? SOFT_DATE_INPUT : 'h-8 w-full rounded-md border bg-input-bg px-2 text-xs focus:outline-none focus:ring-1 focus:ring-ring'}
                 aria-label={t('customers.timeline.filter.to', 'To date')}
               />
             </div>
           </div>
 
-          {hasActiveFilters ? (
+          {soft ? (
+            <Button
+              type="button"
+              variant="soft"
+              onClick={onReset}
+              disabled={!hasActiveFilters}
+              className="w-full"
+            >
+              {t('customers.activities.filters.clearAll', 'Clear filters')}
+            </Button>
+          ) : hasActiveFilters ? (
             <Button
               type="button"
               variant="ghost"

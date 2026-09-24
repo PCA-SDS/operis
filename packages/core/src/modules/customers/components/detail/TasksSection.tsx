@@ -451,7 +451,7 @@ export function TasksSection({
         {!isInitialLoading && !hasTasks ? (
           <TabEmptyState title={emptyState.title}>
             {CUSTOMER_TASKS_IN_PRODUCT ? (
-              <Button asChild variant="outline" size="sm" className="mt-2">
+              <Button asChild variant="soft" className="mt-2">
                 <Link href="/backend/customer-tasks">
                   {t('customers.people.detail.tasks.viewAll', 'View all tasks')}
                 </Link>
@@ -579,7 +579,7 @@ export function TasksSection({
             <div ref={sentinelRef} />
             {hasMore ? (
               <div className="flex justify-center">
-                <Button type="button" variant="outline" size="sm" onClick={() => loadMore().catch(() => {})} disabled={isLoadingMore}>
+                <Button type="button" variant="soft" onClick={() => loadMore().catch(() => {})} disabled={isLoadingMore}>
                   {isLoadingMore ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -601,7 +601,7 @@ export function TasksSection({
         ) : null}
         {!isInitialLoading && hasTasks && CUSTOMER_TASKS_IN_PRODUCT ? (
           <div className="flex justify-center">
-            <Button asChild variant="outline" size="sm">
+            <Button asChild variant="soft">
               <Link href="/backend/customer-tasks">
                 {t('customers.people.detail.tasks.viewAll', 'View all tasks')}
               </Link>

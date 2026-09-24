@@ -246,8 +246,7 @@ export function RolesSection({ entityType, entityId, entityName }: RolesSectionP
                 </p>
                 <Button
                   type="button"
-                  variant="outline"
-                  size="sm"
+                  variant="soft"
                   className="mt-4 self-start"
                   onClick={() => openDialog(entry.roleType)}
                 >
@@ -265,11 +264,10 @@ export function RolesSection({ entityType, entityId, entityName }: RolesSectionP
           actions={
             <Button
               type="button"
-              variant="outline"
-              size="sm"
+              variant="soft"
               onClick={() => openDialog(null)}
             >
-              <Plus className="h-4 w-4" aria-hidden="true" />
+              <Plus className="size-4" aria-hidden="true" />
               {t('customers.roles.choosePerson', 'Choose person')}
             </Button>
           }
@@ -284,7 +282,7 @@ export function RolesSection({ entityType, entityId, entityName }: RolesSectionP
             'Create role types in Customers config before assigning owners here.',
           )}
           actions={
-            <Button asChild type="button" variant="outline" size="sm">
+            <Button asChild type="button" variant="soft">
               <Link href="/backend/config/customers">
                 {t('customers.roles.configureRoleTypes', 'Configure role types')}
               </Link>
@@ -297,14 +295,13 @@ export function RolesSection({ entityType, entityId, entityName }: RolesSectionP
         <Button
           type="button"
           variant="ghost"
-          size="sm"
           onClick={() => openDialog(null)}
         >
-          <Plus className="mr-1 size-3.5" />
+          <Plus className="size-4" />
           {t('customers.roles.addRole', 'Add role')}
         </Button>
       ) : (
-        <Button asChild type="button" variant="ghost" size="sm">
+        <Button asChild type="button" variant="ghost">
           <Link href="/backend/config/customers">
             {t('customers.roles.configureRoleTypes', 'Configure role types')}
           </Link>

@@ -579,6 +579,7 @@ export default function PersonDetailV2Page({ params }: { params?: { id?: string 
                   onDelete={handleFormDelete}
                   hideFooterActions
                   collapsibleGroups={{ pageType: 'person-v2', chevronPosition: 'right' }}
+                  flatCustomFieldSections
                   sortableGroups={{ pageType: 'person-v2' }}
                   onDirtyChange={setIsDirty}
                 />
@@ -627,6 +628,7 @@ export default function PersonDetailV2Page({ params }: { params?: { id?: string 
                           }}
                           onActionChange={handleSectionActionChange}
                           onEditActivity={handleEditActivity}
+                          tone="soft"
                         />
                       </div>
                     )
@@ -714,6 +716,7 @@ export default function PersonDetailV2Page({ params }: { params?: { id?: string 
                     return (
                       <AttachmentsSection
                         entityId={E.customers.customer_entity}
+                        actionVariant="soft"
                         recordId={personId}
                         title={t('customers.people.detail.tabs.files', 'Files')}
                         description={t('customers.people.detail.files.subtitle', 'Upload and manage files linked to this person.')}
@@ -722,7 +725,7 @@ export default function PersonDetailV2Page({ params }: { params?: { id?: string 
                   }
 
                   if (activeTab === 'changelog') {
-                    return <ChangelogTab entityId={personId} entityType="person" />
+                    return <ChangelogTab entityId={personId} entityType="person" tone="soft" />
                   }
 
                   return null
@@ -740,6 +743,7 @@ export default function PersonDetailV2Page({ params }: { params?: { id?: string 
             ) : (
               <CollapsibleZoneLayout
                 pageType="person-v2"
+                toggleTone="soft"
                 entityName={personName}
                 isDirty={isDirty}
                 sections={zoneSections}

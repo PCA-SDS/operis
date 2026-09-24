@@ -201,7 +201,7 @@ export function ActivitiesCard({
           </h3>
           {overdueCount > 0 ? (
             <span className="inline-flex items-center gap-1 rounded-full bg-status-error-bg px-1.5 py-0.5 text-xs font-medium text-status-error-text">
-              <CalendarClock className="size-3" />
+              <CalendarClock className="size-4" />
               {t('customers.activities.card.overdue', '{count} overdue', { count: overdueCount })}
             </span>
           ) : null}

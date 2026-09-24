@@ -4,6 +4,7 @@ import * as React from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { toZonedTime } from 'date-fns-tz'
 import { cn } from '@open-mercato/shared/lib/utils'
+import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import type { TranslateFn } from '@open-mercato/shared/lib/i18n/context'
 import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
@@ -278,34 +279,38 @@ export function ActivitiesDayStrip({ entityId, selectedDate, onSelectDate, refre
 
   return (
     <div className="flex flex-col gap-2.5 rounded-md px-3.5 py-3 w-full">
-      <div className="flex items-center justify-center gap-1.5 rounded-md bg-muted px-1.5 py-1.5">
-        <button
+      <div className="flex items-center justify-center gap-1.5">
+        <IconButton
           type="button"
+          variant="soft"
+          size="lg"
           onClick={handleHeaderPrev}
           aria-label={t('customers.activities.calendar.prevMonth', 'Previous month')}
-          className="flex size-6 items-center justify-center rounded-md border border-border bg-card shadow-xs hover:bg-accent/40"
         >
-          <ChevronLeft className="size-4 text-foreground" />
-        </button>
+          <ChevronLeft className="size-4" />
+        </IconButton>
         <span className="flex-1 text-center text-sm font-medium leading-5 text-foreground">{headerLabel}</span>
-        <button
+        <IconButton
           type="button"
+          variant="soft"
+          size="lg"
           onClick={handleHeaderNext}
           aria-label={t('customers.activities.calendar.nextMonth', 'Next month')}
-          className="flex size-6 items-center justify-center rounded-md border border-border bg-card shadow-xs hover:bg-accent/40"
         >
-          <ChevronRight className="size-4 text-foreground" />
-        </button>
+          <ChevronRight className="size-4" />
+        </IconButton>
       </div>
       <div className="flex w-full items-center gap-2">
-        <button
+        <IconButton
           type="button"
+          variant="soft"
+          size="lg"
+          className="shrink-0"
           onClick={handlePrev}
           aria-label={t('customers.activities.calendar.prevWindow', 'Previous days')}
-          className="flex size-6 shrink-0 items-center justify-center rounded-md border border-border bg-card shadow-xs hover:bg-accent/40"
         >
-          <ChevronLeft className="size-4 text-foreground" />
-        </button>
+          <ChevronLeft className="size-4" />
+        </IconButton>
         <div className="flex flex-1 items-stretch justify-center gap-1">
           {visibleDays.map((day) => {
             const busy = computeDayBusyness(events, day)
@@ -331,14 +336,16 @@ export function ActivitiesDayStrip({ entityId, selectedDate, onSelectDate, refre
             )
           })}
         </div>
-        <button
+        <IconButton
           type="button"
+          variant="soft"
+          size="lg"
+          className="shrink-0"
           onClick={handleNext}
           aria-label={t('customers.activities.calendar.nextWindow', 'Next days')}
-          className="flex size-6 shrink-0 items-center justify-center rounded-md border border-border bg-card shadow-xs hover:bg-accent/40"
         >
-          <ChevronRight className="size-4 text-foreground" />
-        </button>
+          <ChevronRight className="size-4" />
+        </IconButton>
       </div>
     </div>
   )
@@ -366,7 +373,7 @@ function DayCard({ day, isActive, isToday, busyness, label, dayName, onSelect }:
         'flex h-[104px] w-[101px] flex-col items-center gap-[6px] overflow-hidden rounded-lg border p-[12px] transition-colors',
         isActive
           ? 'border-transparent bg-primary'
-          : 'border-border bg-card hover:border-foreground/40',
+          : 'border-transparent bg-input-bg hover:border-foreground/20',
       )}
     >
       <span
@@ -424,7 +431,8 @@ function BusySlot({ state, active }: { state: SlotState; active: boolean }) {
     else if (state === 'partial') bgClass = 'bg-primary-foreground/60'
     else bgClass = 'bg-primary-foreground'
   } else {
-    if (state === 'empty') bgClass = 'bg-border'
+    // White: an empty slot is a shape drawn on the tile's tinted fill.
+    if (state === 'empty') bgClass = 'bg-surface'
     else if (state === 'partial') bgClass = 'bg-muted-foreground'
     else bgClass = 'bg-primary'
   }
