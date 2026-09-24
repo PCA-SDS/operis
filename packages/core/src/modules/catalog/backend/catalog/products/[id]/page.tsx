@@ -1779,7 +1779,10 @@ function ProductTranslationSummary({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ features: ["translations.view"] }),
       });
-      return response.ok && hasAllFeatures(["translations.view"], response.result?.granted ?? []);
+      return response.ok && hasAllFeatures(
+        ["translations.view", "translations.manage"],
+        response.result?.granted ?? [],
+      );
     },
     staleTime: 5 * 60 * 1000,
     retry: false,
