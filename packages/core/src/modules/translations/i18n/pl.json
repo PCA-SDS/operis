@@ -41,5 +41,6 @@
   "translations.widgets.translationManager.customFieldLabels": "Tłumaczenia pól niestandardowych",
   "translations.widgets.translationManager.fullManager": "Menedżer tłumaczeń",
   "translations.widgets.translationManager.groupDescription": "Zarządzaj tłumaczeniami tego rekordu w obsługiwanych językach.",
-  "translations.widgets.translationManager.groupLabel": "Tłumaczenia"
+  "translations.widgets.translationManager.groupLabel": "Tłumaczenia",
+  "translations.widgets.translationManager.manage": "Manage translations"
 }

@@ -86,6 +86,7 @@ import {
   updateDimensionValue,
   updateWeightValue,
   isConfigurableProductType,
+  normalizeVariantDraftsForProductType,
   getProductTypeSelectionUpdates,
   buildComplianceProductPayload,
 } from "@open-mercato/core/modules/catalog/components/products/productForm";
@@ -658,17 +659,14 @@ export default function CreateCatalogProductPage() {
               productPayload.customFields = customFields;
             }
 
-            const allVariantDrafts =
-              (Array.isArray(formValues.variants) && formValues.variants.length
-                ? formValues.variants
-                : [
-                    createVariantDraft(formValues.taxRateId ?? null, {
-                      isDefault: true,
-                    }),
-                  ]) ?? [];
-            const variantDrafts = isConfigurableProductType(formValues.productType || "simple")
-              ? allVariantDrafts
-              : [{ ...(allVariantDrafts.find((variant) => variant.isDefault) ?? allVariantDrafts[0]), isDefault: true }];
+            const variantDrafts = normalizeVariantDraftsForProductType(
+              formValues.productType,
+              formValues.variants,
+              () =>
+                createVariantDraft(formValues.taxRateId ?? null, {
+                  isDefault: true,
+                }),
+            );
             const priceRequests: VariantPriceRequest[] = [];
             for (const variant of variantDrafts) {
               const { resolvedVariantTaxRateId, resolvedVariantTaxRate } =

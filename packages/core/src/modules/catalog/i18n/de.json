@@ -881,5 +881,11 @@
   "customers~catalog.errors.organization_required": "Organisationskontext ist erforderlich.",
   "customers~catalog.errors.tenant_required": "Mandantenkontext ist erforderlich.",
   "customers~catalog.nav.group": "Katalog",
+  "catalog.products.edit.actions.backToProduct": "Back to product",
+  "catalog.products.edit.translations.baseTitle": "Base title",
+  "catalog.products.edit.translations.currentLocaleTitle": "Translation ({{locale}})",
+  "catalog.products.edit.translations.empty": "Not set",
+  "catalog.products.edit.translations.missing": "Not translated",
+  "catalog.products.edit.translations.title": "Translations",
   "notifications.categories.catalog": "Katalog"
 }

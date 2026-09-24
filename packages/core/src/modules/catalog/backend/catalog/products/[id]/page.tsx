@@ -1770,6 +1770,7 @@ function ProductTranslationSummary({
   const locale = useLocale();
   const [isManagerOpen, setIsManagerOpen] = React.useState(false);
   const [translatedTitle, setTranslatedTitle] = React.useState<string | null>(null);
+  const [translationRefreshKey, setTranslationRefreshKey] = React.useState(0);
   const { data: canManageTranslations = false } = useQuery<boolean>({
     queryKey: ["catalog-product-translation-access"],
     queryFn: async () => {
@@ -1787,6 +1788,9 @@ function ProductTranslationSummary({
   React.useEffect(() => {
     if (!recordId) return;
     const controller = new AbortController();
+    let isActive = true;
+
+    setTranslatedTitle(null);
 
     void (async () => {
       try {
@@ -1794,18 +1798,23 @@ function ProductTranslationSummary({
           `/api/translations/${encodeURIComponent(E.catalog.catalog_product)}/${encodeURIComponent(recordId)}`,
           { signal: controller.signal },
         );
-        if (!response.ok) return;
+        if (!isActive || !response.ok) return;
         const translations = response.result?.translations ?? {};
         const localeFields = translations[locale] ?? translations[locale.split("-")[0]] ?? {};
         const title = localeFields.title;
-        setTranslatedTitle(typeof title === "string" && title.trim().length > 0 ? title : null);
+        if (isActive) {
+          setTranslatedTitle(typeof title === "string" && title.trim().length > 0 ? title : null);
+        }
       } catch (error) {
-        if (!isAbortError(error)) setTranslatedTitle(null);
+        if (isActive && !isAbortError(error)) setTranslatedTitle(null);
       }
     })();
 
-    return () => controller.abort();
-  }, [locale, recordId]);
+    return () => {
+      isActive = false;
+      controller.abort();
+    };
+  }, [locale, recordId, translationRefreshKey]);
 
   return (
     <div className="rounded-md border border-border bg-surface p-3 text-sm">
@@ -1868,6 +1877,7 @@ function ProductTranslationSummary({
               entityType={E.catalog.catalog_product}
               recordId={recordId}
               baseValues={{ title: baseTitle }}
+              onSaved={() => setTranslationRefreshKey((key) => key + 1)}
             />
           </DrawerBody>
         </DrawerContent>
