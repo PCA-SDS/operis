@@ -293,6 +293,7 @@ export type CrudCustomFieldRenderProps = {
   id: string
   value: unknown
   error?: string
+  errors?: Record<string, string>
   autoFocus?: boolean
   disabled?: boolean
   values?: Record<string, unknown>
@@ -325,6 +326,7 @@ export type CrudFormSubmitContext = {
 
 export type CrudFormProps<TValues extends Record<string, unknown>> = {
   schema?: z.ZodType<TValues>
+  disableNativeValidation?: boolean
   fields: CrudField[]
   initialValues?: Partial<TValues>
   /**
@@ -739,6 +741,7 @@ function SortableGroupItem({ id, children, disabled }: { id: string; children: R
 
 export function CrudForm<TValues extends Record<string, unknown>>({
   schema,
+  disableNativeValidation = false,
   fields,
   initialValues,
   disableInitialFocus = false,
@@ -3343,6 +3346,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
               field={f}
               value={readRenderedFieldValue(values as Record<string, unknown>, f.id)}
               error={errors[f.id]}
+              errors={errors}
               options={fieldOptionsById.get(f.id) || EMPTY_OPTIONS}
               setValue={setValue}
               onBlurRequest={onBlurRequest}
@@ -3781,7 +3785,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
           className={embedded ? 'min-h-[1px]' : 'min-h-[400px]'}
         >
           {wrapFormBody(
-            <form id={formId} onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className={`${embedded ? 'space-y-4' : 'space-y-5'} ${dialogFormPadding}`}>
+            <form id={formId} noValidate={disableNativeValidation} onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className={`${embedded ? 'space-y-4' : 'space-y-5'} ${dialogFormPadding}`}>
             {resolvedInjectionSpotId ? (
               <InjectionSpot
                 spotId={resolvedInjectionSpotId}
@@ -3866,6 +3870,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
           <div>
           <form
             id={formId}
+            noValidate={disableNativeValidation}
             onSubmit={handleSubmit}
             onKeyDown={handleFormKeyDown}
             className={`${embedded ? 'space-y-4' : 'space-y-5'} ${dialogFormPadding}`}
@@ -3892,6 +3897,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
                     field={f}
                     value={values[f.id]}
                     error={errors[f.id]}
+                    errors={errors}
                     options={fieldOptionsById.get(f.id) || EMPTY_OPTIONS}
                     setValue={setValue}
                     onBlurRequest={onBlurRequest}
@@ -4338,6 +4344,7 @@ type FieldControlProps = {
   field: CrudField
   value: unknown
   error?: string
+  errors: Record<string, string>
   options: CrudFieldOption[]
   setValue: (id: string, v: unknown) => void
   onBlurRequest: (fieldId: string) => void
@@ -4452,6 +4459,7 @@ const FieldControl = React.memo(function FieldControlImpl({
   field,
   value,
   error,
+  errors,
   options,
   setValue,
   onBlurRequest,
@@ -4855,6 +4863,7 @@ const FieldControl = React.memo(function FieldControlImpl({
             id: field.id,
             value,
             error,
+            errors,
             setValue: fieldSetValue,
             setFormValue,
             values,
@@ -4886,6 +4895,7 @@ const FieldControl = React.memo(function FieldControlImpl({
   prev.markRequired === next.markRequired &&
   prev.value === next.value &&
   prev.error === next.error &&
+  prev.errors === next.errors &&
   prev.options === next.options &&
   prev.loadFieldOptions === next.loadFieldOptions &&
   prev.autoFocus === next.autoFocus &&
