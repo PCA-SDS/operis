@@ -291,13 +291,7 @@ export async function snapshotLineOptions(
   }
 }
 
-/**
- * Load option group and option snapshots for a line (for display in seat planner).
- */
-export async function loadLineOptionSnapshots(
-  em: EntityManager,
-  lineId: string,
-): Promise<{
+export type LineOptionSnapshots = {
   groups: Array<{
     id: string
     catalogGroupId: string | null
@@ -309,38 +303,67 @@ export async function loadLineOptionSnapshots(
       optionName: string
       code: string | null
       note: string | null
-        priceFlat: string | null
-        durationValue: number | null
-        durationUnit: string | null
-        isAddon: boolean
+      priceFlat: string | null
+      durationValue: number | null
+      durationUnit: string | null
+      isAddon: boolean
     }>
   }>
-}> {
-  const groups = await em.find(
-    AppointmentLineOptionGroup,
-    { line: lineId },
-    { populate: ['options'], orderBy: { sortOrder: 'asc' } },
-  )
+}
 
+function mapOptionGroupSnapshot(group: AppointmentLineOptionGroup): LineOptionSnapshots['groups'][number] {
   return {
-    groups: groups.map((g) => ({
-      id: g.id,
-      catalogGroupId: g.catalogGroupId ?? null,
-      groupName: g.groupName,
-      breadcrumbPath: g.breadcrumbPath ?? null,
-      isRootGroup: g.isRootGroup,
-      options: g.options.map((o) => ({
-        id: o.id,
-        optionName: o.optionName,
-        code: o.code ?? null,
-        note: o.note ?? null,
-        priceFlat: o.priceFlat ?? null,
-        durationValue: o.durationValue ?? null,
-        durationUnit: o.durationUnit ?? null,
-        isAddon: o.isAddon,
-      })),
+    id: group.id,
+    catalogGroupId: group.catalogGroupId ?? null,
+    groupName: group.groupName,
+    breadcrumbPath: group.breadcrumbPath ?? null,
+    isRootGroup: group.isRootGroup,
+    options: group.options.map((option) => ({
+      id: option.id,
+      optionName: option.optionName,
+      code: option.code ?? null,
+      note: option.note ?? null,
+      priceFlat: option.priceFlat ?? null,
+      durationValue: option.durationValue ?? null,
+      durationUnit: option.durationUnit ?? null,
+      isAddon: option.isAddon,
     })),
   }
+}
+
+export async function loadLineOptionSnapshotsForLines(
+  em: EntityManager,
+  lineIds: string[],
+): Promise<Map<string, LineOptionSnapshots>> {
+  const uniqueLineIds = [...new Set(lineIds)]
+  if (uniqueLineIds.length === 0) return new Map()
+
+  const groups = await em.find(
+    AppointmentLineOptionGroup,
+    { line: { $in: uniqueLineIds } },
+    { populate: ['options'], orderBy: { sortOrder: 'asc' } },
+  )
+  const snapshotsByLineId = new Map<string, LineOptionSnapshots>()
+
+  for (const group of groups) {
+    const lineId = group.line.id
+    const snapshots = snapshotsByLineId.get(lineId) ?? { groups: [] }
+    snapshots.groups.push(mapOptionGroupSnapshot(group))
+    snapshotsByLineId.set(lineId, snapshots)
+  }
+
+  return snapshotsByLineId
+}
+
+/**
+ * Load option group and option snapshots for a line (for display in seat planner).
+ */
+export async function loadLineOptionSnapshots(
+  em: EntityManager,
+  lineId: string,
+): Promise<LineOptionSnapshots> {
+  const snapshotsByLineId = await loadLineOptionSnapshotsForLines(em, [lineId])
+  return snapshotsByLineId.get(lineId) ?? { groups: [] }
 }
 
 /**

@@ -18,7 +18,7 @@ const mockGetAuthFromRequest = jest.fn()
 const mockEmitAppointmentEvent = jest.fn()
 const mockResolveOrganizationScopeForRequest = jest.fn()
 const mockCancelAssignmentsForSourceEntities = jest.fn()
-const mockLoadLineOptionSnapshots = jest.fn()
+const mockLoadLineOptionSnapshotsForLines = jest.fn()
 
 class Appointment {}
 class AppointmentStatus {}
@@ -64,7 +64,7 @@ jest.mock('@open-mercato/core/modules/resources/lib/resourceAssignmentService', 
 }))
 
 jest.mock('../../lib/lineOptionSnapshot', () => ({
-  loadLineOptionSnapshots: (...args: unknown[]) => mockLoadLineOptionSnapshots(...args),
+  loadLineOptionSnapshotsForLines: (...args: unknown[]) => mockLoadLineOptionSnapshotsForLines(...args),
 }))
 
 const TENANT_ID = '11111111-1111-4111-8111-111111111111'
@@ -144,7 +144,7 @@ describe('appointments detail route — optimistic locking', () => {
     })
     mockEmitAppointmentEvent.mockResolvedValue(undefined)
     mockCancelAssignmentsForSourceEntities.mockReset()
-    mockLoadLineOptionSnapshots.mockResolvedValue({ groups: [] })
+    mockLoadLineOptionSnapshotsForLines.mockResolvedValue(new Map())
   })
 
   async function patch(statusCode = 'confirmed', headers?: Record<string, string>) {
@@ -161,13 +161,15 @@ describe('appointments detail route — optimistic locking', () => {
   }
 
   it('returns selected option snapshots for appointment detail lines', async () => {
-    mockLoadLineOptionSnapshots.mockResolvedValue({
-      groups: [{
-        groupName: 'Area',
-        breadcrumbPath: 'Area',
-        options: [{ optionName: 'Underarms', priceFlat: '248000.00' }],
+    mockLoadLineOptionSnapshotsForLines.mockResolvedValue(new Map([
+      ['line-1', {
+        groups: [{
+          groupName: 'Area',
+          breadcrumbPath: 'Area',
+          options: [{ optionName: 'Underarms', priceFlat: '248000.00' }],
+        }],
       }],
-    })
+    ]))
 
     const response = await get()
     const body = await response.json()
@@ -176,7 +178,40 @@ describe('appointments detail route — optimistic locking', () => {
     expect(body.lines[0].options).toEqual([
       { groupName: 'Area', name: 'Underarms', priceFlat: '248000.00' },
     ])
-    expect(mockLoadLineOptionSnapshots).toHaveBeenCalledWith(em, 'line-1')
+    expect(mockLoadLineOptionSnapshotsForLines).toHaveBeenCalledWith(em, ['line-1'])
+  })
+
+  it('loads option snapshots for multiple lines in one batch', async () => {
+    em.find.mockImplementation(async (entity: unknown) => entity === AppointmentLine ? [
+      {
+        id: 'line-1',
+        productId: 'product-1',
+        productTitle: 'Arms',
+        productCategory: 'Waxing (Men)',
+        selectedOptions: { 'group-1': ['option-1'] },
+        sortOrder: 0,
+      },
+      {
+        id: 'line-2',
+        productId: 'product-2',
+        productTitle: 'Legs',
+        productCategory: 'Waxing (Men)',
+        selectedOptions: { 'group-2': ['option-2'] },
+        sortOrder: 1,
+      },
+    ] : [])
+    mockLoadLineOptionSnapshotsForLines.mockResolvedValue(new Map([
+      ['line-1', { groups: [] }],
+      ['line-2', { groups: [] }],
+    ]))
+
+    const response = await get()
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body.lines).toHaveLength(2)
+    expect(mockLoadLineOptionSnapshotsForLines).toHaveBeenCalledTimes(1)
+    expect(mockLoadLineOptionSnapshotsForLines).toHaveBeenCalledWith(em, ['line-1', 'line-2'])
   })
 
   it('rejects a status change carrying a stale version', async () => {

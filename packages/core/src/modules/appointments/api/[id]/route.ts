@@ -14,7 +14,7 @@ import { Appointment, AppointmentLine, AppointmentStatus } from '../../data/enti
 import { appointmentStatusUpdateSchema, appointmentStaffCreateSchema } from '../../data/validators'
 import { emitAppointmentEvent } from '../../events'
 import { updateAppointmentFromStaffEdit } from '../../lib/intake'
-import { loadLineOptionSnapshots } from '../../lib/lineOptionSnapshot'
+import { loadLineOptionSnapshotsForLines, type LineOptionSnapshots } from '../../lib/lineOptionSnapshot'
 import { CustomerEntity } from '@open-mercato/core/modules/customers/data/entities'
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
 import { createLogger } from '@open-mercato/shared/lib/logger'
@@ -33,9 +33,7 @@ export const metadata = {
 
 type RouteContext = { params: Promise<{ id: string }> }
 
-async function mapLine(em: EntityManager, line: AppointmentLine) {
-  const snapshots = await loadLineOptionSnapshots(em, line.id)
-
+function mapLine(line: AppointmentLine, snapshots: LineOptionSnapshots) {
   return {
     id: line.id,
     productId: line.productId,
@@ -64,6 +62,8 @@ async function mapAppointment(
   customerUpdatedAt: string | null = null,
   organizationName: string | null = null,
 ) {
+  const snapshotsByLineId = await loadLineOptionSnapshotsForLines(em, lines.map((line) => line.id))
+
   return {
     id: row.id,
     tenantId: row.tenantId,
@@ -84,7 +84,7 @@ async function mapAppointment(
     requestedEndAt: row.requestedEndAt?.toISOString() ?? null,
     notes: row.notes ?? null,
     externalNotes: getVisibleAppointmentExternalNotes(row.externalNotes),
-    lines: await Promise.all(lines.map((line) => mapLine(em, line))),
+    lines: lines.map((line) => mapLine(line, snapshotsByLineId.get(line.id) ?? { groups: [] })),
     updatedAt: row.updatedAt.toISOString(),
   }
 }
