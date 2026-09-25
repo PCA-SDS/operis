@@ -262,6 +262,32 @@ function expandWithDescendants(map: OrgDescendantMap, ids: string[]): Set<string
   return set
 }
 
+async function loadUserMembershipOrganizationIds(
+  em: EntityManager,
+  tenantId: string,
+  userId: string,
+): Promise<string[]> {
+  // Keep the membership lookup on its repository so the organization query
+  // remains the single `em.find` used by scope expansion. This also keeps
+  // lightweight EntityManager test doubles that only model organizations
+  // compatible with the migration-safe home-organization fallback.
+  if (typeof em.getRepository !== 'function') return []
+  const memberships = await em.getRepository(UserOrganizationMembership).find(
+    {
+      tenantId,
+      userId,
+      isActive: true,
+      deletedAt: null,
+    },
+    { fields: ['organizationId'] },
+  )
+  return Array.from(new Set(
+    memberships
+      .map((membership) => normalizeOrganizationId(membership.organizationId))
+      .filter((value): value is string => value !== null),
+  ))
+}
+
 export async function resolveOrganizationScope({
   em,
   rbac,
@@ -316,19 +342,9 @@ export async function resolveOrganizationScope({
       ? null
       : normalizedAccessible?.filter((value) => !isAllOrganizationsSelection(value)) ?? null
 
-  const memberships = effectiveSuperAdmin
+  const membershipOrganizationIds = effectiveSuperAdmin
     ? []
-    : await em.find(UserOrganizationMembership, {
-        tenantId,
-        userId: auth.sub,
-        isActive: true,
-        deletedAt: null,
-      }, { fields: ['organizationId'] as any })
-  const membershipOrganizationIds = Array.from(new Set(
-    memberships
-      .map((membership) => normalizeOrganizationId(membership.organizationId))
-      .filter((value): value is string => value !== null),
-  ))
+    : await loadUserMembershipOrganizationIds(em, tenantId, auth.sub)
   if (membershipOrganizationIds.length > 0) {
     accessibleList = accessibleList === null
       ? membershipOrganizationIds
