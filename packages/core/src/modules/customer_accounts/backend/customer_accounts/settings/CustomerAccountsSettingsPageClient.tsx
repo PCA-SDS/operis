@@ -35,7 +35,7 @@ export function CustomerAccountsSettingsPageClient({ portalOrigin }: CustomerAcc
         />
       </div>
 
-      <div className="max-w-2xl space-y-6">
+      <div className="space-y-6">
         <div className="rounded-lg border p-4 space-y-3">
           <h3 className="text-sm font-semibold">
             {t('customer_accounts.settings.portal_access.title', 'Portal Access')}
