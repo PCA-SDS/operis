@@ -124,9 +124,10 @@ async function findUserIdsForOrganizationMemberships(
   tenantId: string | null,
   organizationIds: string[],
 ): Promise<string[]> {
-  if (!tenantId || organizationIds.length === 0) return []
+  if (organizationIds.length === 0) return []
+  const tenantFilter = tenantId ? { tenantId } : {}
   const memberships = await em.find(UserOrganizationMembership, {
-    tenantId,
+    ...tenantFilter,
     organizationId: { $in: organizationIds },
     isActive: true,
     deletedAt: null,
@@ -376,7 +377,7 @@ export async function GET(req: Request) {
     if (activeOrganizationId) {
       const activeOrganizationUserIds = await findUserIdsForOrganizationMemberships(
         em,
-        effectiveTenantId ?? auth.tenantId ?? null,
+        effectiveTenantId,
         [activeOrganizationId],
       )
       filters.push(
@@ -432,7 +433,7 @@ export async function GET(req: Request) {
     if (matchingOrganizationIds.length) {
       const matchingOrganizationUserIds = await findUserIdsForOrganizationMemberships(
         em,
-        effectiveTenantId ?? auth.tenantId ?? null,
+        effectiveTenantId,
         matchingOrganizationIds,
       )
       searchFilters.push(
@@ -461,9 +462,19 @@ export async function GET(req: Request) {
   const where = filters.length > 1 ? { $and: filters } : filters[0]
   const [rows, count] = await em.findAndCount(User, where, { limit: pageSize, offset: (page - 1) * pageSize })
   const userIds = rows.map((u: any) => u.id)
+  const userTenantIds = Array.from(new Set(
+    rows
+      .map((u: any) => (u.tenantId ? String(u.tenantId) : null))
+      .filter((tenantId): tenantId is string => !!tenantId),
+  ))
+  const membershipTenantFilter = effectiveTenantId
+    ? { tenantId: effectiveTenantId }
+    : userTenantIds.length
+      ? { tenantId: { $in: userTenantIds } }
+      : {}
   const memberships = userIds.length
     ? await em.find(UserOrganizationMembership, {
-        tenantId: effectiveTenantId ?? auth.tenantId ?? null,
+        ...membershipTenantFilter,
         userId: { $in: userIds as any },
         isActive: true,
         deletedAt: null,
@@ -518,10 +529,7 @@ export async function GET(req: Request) {
       return acc
     }, {})
   }
-  const tenantIds = rows
-    .map((u: any) => (u.tenantId ? String(u.tenantId) : null))
-    .filter((id): id is string => !!id)
-  const uniqueTenantIds = Array.from(new Set(tenantIds))
+  const uniqueTenantIds = userTenantIds
   let tenantMap: Record<string, string> = {}
   if (uniqueTenantIds.length) {
     const tenants = await em.find(
