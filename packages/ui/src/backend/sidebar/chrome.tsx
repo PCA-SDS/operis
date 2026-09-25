@@ -4,27 +4,17 @@ import Image from 'next/image'
 import { OperisLogo } from '../brand/OperisLogo'
 
 /**
- * The sidebar's chrome, declared once for every surface that paints it.
+ * The navy sidebar chrome the customization editor previews, declared once.
  *
- * Four renderers put a navigation row on screen: the desktop rail, the section
- * (Settings / Profile) nav, the mobile drawer, and the customization editor's
- * live preview. They must emit the SAME box, or the sidebar reads as several
- * lists stacked together and the preview stops previewing — which is exactly
- * how the preview drifted into a different component: a light card ground under
- * a navy rail, `gap-2` rows with no fixed height, unboxed icons at their own
- * intrinsic sizes, and an active-state marker bar the rail had already dropped.
- * Importing from here is the contract that keeps the four one component in
- * everything but the JSX that hosts them.
+ * The global rail is gone (modules now carry their own in-page sidebars, see
+ * `module-nav/`), but the customization editor still draws a live navy preview
+ * of the navigation, and the brand mark is also painted in the topbar. What
+ * remains here is what those two surfaces share.
  *
- * The rail is painted in the CTA navy (`bg-sidebar`), so every class here comes
- * from the `sidebar-*` family rather than from the content-side neutrals: a
- * `surface-muted` hover or a `muted-foreground` icon is tuned for a light
- * ground and disappears on navy. Active is a pale `sidebar-primary` pill with
- * the rail's own colour as its ink — the row reads as cut out of the rail —
- * and there is no separate marker bar, because the pill already carries the
- * state and a bar on top of a fill is two signals for one fact. Idle rows use
- * FULL ink with a quiet icon: a sidebar is a reading surface, and dimming every
- * label to make one stand out costs more than it buys. */
+ * The preview is painted in the CTA navy (`bg-sidebar`), so every class here
+ * comes from the `sidebar-*` family rather than from the content-side
+ * neutrals: a `surface-muted` hover or a `muted-foreground` icon is tuned for a
+ * light ground and disappears on navy. */
 export const SIDEBAR_ITEM_BASE =
   'relative flex items-center rounded-lg text-xs font-medium transition-colors outline-none focus-visible:shadow-focus'
 
@@ -46,34 +36,10 @@ export const SIDEBAR_GUTTER = 'px-3'
 
 /** Row box for a top-level item: fixed height so rows scan as a rhythm. */
 export const SIDEBAR_ITEM_BOX = 'w-full h-10 px-3 gap-3'
-/** Children sit one step shorter and one 12px step in. With the guide line gone
- *  the indent is the only depth cue, so it is a real step rather than a nudge —
- *  a child icon lands where a parent label starts. */
-export const SIDEBAR_CHILD_BOX = 'w-full h-9 pl-6 pr-3 gap-3'
 /** Labels must be allowed to shrink: a flex item defaults to `min-width: auto`,
  *  which pins it to its content width and lets `truncate` overflow the row
  *  instead of clipping. Long titles ("Customer Related Tasks") make this real. */
 export const SIDEBAR_ITEM_LABEL = 'min-w-0 flex-1 truncate text-left'
-
-/* ── The collapsed rail ──────────────────────────────────────────────────────
- *
- * Collapsed, the desktop rail is exactly gutter + row pad + icon + row pad +
- * gutter + its 1px rule wide, so every top-level icon keeps the x it has when
- * expanded, centred in a 44px pill, and nothing slides sideways. There is still
- * ONE set of rows, not an icon-only mirror: a row is a clipping shell
- * (`w-full overflow-hidden`) around content held at the expanded width
- * (`SIDEBAR_RAIL_CONTENT`). As the rail narrows the shell shrinks around text
- * that never reflows or re-truncates, and the labels
- * fade out on the same curve. `--sidebar-content-width` is published only by
- * the desktop aside; everywhere else the fallback keeps the old `w-full`. */
-export const SIDEBAR_COLLAPSED_WIDTH = '69px'
-export const SIDEBAR_RAIL_TRANSITION = 'duration-200 ease-out motion-reduce:transition-none'
-export const SIDEBAR_RAIL_CONTENT = 'w-[var(--sidebar-content-width,100%)] shrink-0'
-
-/** `undefined` means "not the collapsible rail" (drawer, preview): fully shown. */
-export function sidebarRailFadeClass(collapsed: boolean | undefined): string {
-  return `transition-opacity ${SIDEBAR_RAIL_TRANSITION} ${collapsed ? 'pointer-events-none opacity-0' : 'opacity-100'}`
-}
 
 /* Group heading — a quiet overline, not a button that competes with the rows.
  *
@@ -97,25 +63,8 @@ export const SIDEBAR_GROUP_LABEL =
  * the sidebar starting at the same x. */
 export const SIDEBAR_ICON_BOX = 'flex size-5 shrink-0 items-center justify-center [&_svg]:size-4'
 
-/* The brand name, wherever it is painted. The desktop rail and the mobile
- * drawer render their own brand rows (the drawer's carries a close button and a
- * full-bleed rule, so it cannot simply reuse the desktop one) and the two had
- * drifted to different weights for the same string. Declared once so they
- * cannot drift again. */
+/* The brand name beside a whitelabel logo in the navy preview. */
 export const SIDEBAR_BRAND_LABEL = `${SIDEBAR_ITEM_LABEL} text-xs font-medium text-sidebar-foreground`
-
-/* ── The drawer's half of the same grid ──────────────────────────────────────
- *
- * The mobile drawer's chrome rows (brand, view tabs) sit DIRECTLY on the aside,
- * outside the nav's own `p-3` gutter, so they have to carry the full 24px inset
- * themselves. That is what puts the drawer's logo, its tab labels and every nav
- * icon below them on one x — they were on three (16px, 16px, 24px) before.
- *
- * The injected slot keeps the 12px inset instead: its content is a full-width
- * BOX, and the box that matters for it is the nav's search field directly
- * below, whose edge the drawer's `p-3` puts at 12px. */
-export const DRAWER_CHROME_INSET = 'px-6'
-export const DRAWER_SLOT_INSET = 'px-3'
 
 /* The nav search sits ON the rail, so it takes the search primitive's `sidebar`
  * tone — the light-ground chrome would read as a piece of the page that fell
@@ -154,11 +103,9 @@ export const SidebarGroupDefaultIcon = (
 
 /* ── The brand mark ──────────────────────────────────────────────────────────
  *
- * Three surfaces paint it: the rail's header, the mobile drawer's header and
- * the customization preview. The preview used to hardcode `/operis.svg` in a
- * `rounded-full` <Image>, so a whitelabel install previewed somebody else's
- * brand — and an external SVG cannot take the rail's ink, which is why the
- * built-in mark is inlined below rather than loaded as a file. */
+ * Two surfaces paint it: the topbar and the customization preview. An external
+ * SVG cannot take the surface's ink, which is why the built-in mark is inlined
+ * below rather than loaded as a file. */
 export type ShellLogo = {
   src: string
   alt?: string
@@ -178,75 +125,54 @@ export function usesBuiltInWordmark(logo: ShellLogo | undefined, brandName: stri
   return !logo?.src && brandName.trim().toLowerCase() === 'operis'
 }
 
-/* The wordmark opens with the mark: its first 367 of 1537 viewBox units are the
- * same glyph the `mark` variant draws. Clipping the rest away folds the wordmark
- * into the mark in place, where swapping variants would jump. */
-const WORDMARK_TEXT_INSET = `${((1 - 367 / 1537) * 100).toFixed(2)}%`
+/** `sidebar` inks the mark for the navy preview; `surface` for the light topbar. */
+export type ShellBrandTone = 'sidebar' | 'surface'
 
 export function ShellBrandLogo({
   logo,
   brandName,
   unoptimized,
-  mobile = false,
-  railCollapsed,
+  tone = 'sidebar',
 }: {
   logo?: ShellLogo
   brandName: string
   unoptimized?: boolean
-  mobile?: boolean
-  /** Set only by the collapsible desktop rail; see `sidebarRailFadeClass`. */
-  railCollapsed?: boolean
+  tone?: ShellBrandTone
 }) {
   const src = logo?.src
   const alt = logo?.alt ?? brandName
-  const isCustomLogo = Boolean(src)
-  const preserveAspectRatio = Boolean(logo?.preserveAspectRatio)
-  const customLogoFade = railCollapsed === undefined ? '' : sidebarRailFadeClass(railCollapsed)
 
-  if (!isCustomLogo) {
-    // Inline rather than <Image src="/operis.svg">: an external SVG renders in
-    // its own document, where `currentColor` cannot reach the sidebar's ink —
-    // and the rail is navy, so the mark has to take the rail's ink to be seen.
+  if (!src) {
     const showWordmark = usesBuiltInWordmark(logo, brandName)
-    const foldsToMark = showWordmark && railCollapsed !== undefined
     return (
       <OperisLogo
         variant={showWordmark ? 'wordmark' : 'mark'}
         title={showWordmark ? brandName : null}
-        className={`w-auto shrink-0 text-sidebar-foreground ${
-          showWordmark ? (mobile ? 'h-5' : 'h-6') : mobile ? 'h-6' : 'h-7'
-        } ${foldsToMark ? `transition-[clip-path] ${SIDEBAR_RAIL_TRANSITION}` : ''}`}
-        style={foldsToMark ? { clipPath: `inset(0 ${railCollapsed ? WORDMARK_TEXT_INSET : '0%'} 0 0)` } : undefined}
+        className={`w-auto shrink-0 ${tone === 'surface' ? 'text-primary' : 'text-sidebar-foreground'} ${showWordmark ? 'h-6' : 'h-7'}`}
       />
     )
   }
 
-  if (!preserveAspectRatio) {
+  if (!logo?.preserveAspectRatio) {
     return (
       <Image
-        src={src as string}
+        src={src}
         alt={alt}
-        width={mobile ? 28 : 40}
-        height={mobile ? 28 : 40}
-        className={`${mobile ? 'rounded' : 'rounded-full'} shrink-0 object-cover ${customLogoFade}`}
+        width={tone === 'surface' ? 32 : 40}
+        height={tone === 'surface' ? 32 : 40}
+        className={`rounded-full shrink-0 object-cover ${tone === 'surface' ? 'size-8' : ''}`}
         unoptimized={unoptimized ? true : undefined}
       />
     )
   }
 
-  const width = mobile ? 96 : 120
-  const height = mobile ? 28 : 40
-  const className = mobile
-    ? 'h-7 max-w-24 w-auto shrink-0 object-contain'
-    : 'h-10 max-w-[120px] w-auto shrink-0 object-contain'
-
   return (
     <Image
-      src={src as string}
+      src={src}
       alt={alt}
-      width={width}
-      height={height}
-      className={`${className} ${customLogoFade}`}
+      width={120}
+      height={40}
+      className={`${tone === 'surface' ? 'h-8' : 'h-10'} max-w-[120px] w-auto shrink-0 object-contain`}
       unoptimized={unoptimized ? true : undefined}
     />
   )
