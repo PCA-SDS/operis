@@ -148,7 +148,7 @@
     "@tanstack/react-virtual": "^3.14.6",
     "cmdk": "^1.0.0",
     "date-fns": "4.4.0",
-    "framer-motion": "^12",
+    "framer-motion": "^13",
     "react-big-calendar": "^1.20.0",
     "react-day-picker": "^10.0.1",
     "react-markdown": "^10.1.0",
