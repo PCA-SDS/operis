@@ -1,6 +1,7 @@
 export const metadata = {
   requireAuth: true,
   requireFeatures: ['chat.view'],
+  moduleSidebar: false,
   // The list route owns the nav entry; a conversation is reached from it, not
   // from the sidebar.
   navHidden: true,

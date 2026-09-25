@@ -15,17 +15,22 @@ import {
 import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { Skeleton } from '@open-mercato/ui/primitives/skeleton'
+import {
+  ModuleSidebar,
+  ModuleSidebarAction,
+  ModuleSidebarDivider,
+  ModuleSidebarLink,
+} from '@open-mercato/ui/backend/module-nav/ModuleSidebar'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { useMyTasks, useProjects } from './hooks'
 
-const NAV_ITEM =
-  'flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition-colors focus:outline-none focus-visible:shadow-focus'
-
 /**
- * The module's own navigation, sitting inside the page next to the app shell's
- * global sidebar. It carries what the global nav cannot: live counts, the
- * project list, and the two creation affordances people reach for constantly.
+ * The Task Manager's module sidebar. Every module gets one built from the same
+ * `module-nav` parts; this one replaces the generic page list (its pages opt
+ * out with `moduleSidebar: false`) because it carries what a page list cannot:
+ * live counts, the project list, and the two creation affordances people reach
+ * for constantly.
  */
 export function TasksSidebar({
   onQuickAdd,
@@ -55,109 +60,90 @@ export function TasksSidebar({
   ]
 
   return (
-    <aside aria-label={t('tasks.sidebar.navLabel', 'Tasks navigation')}>
-      <nav className="flex items-center gap-1 overflow-x-auto rounded-xl bg-surface-muted p-2 md:sticky md:top-0 md:flex-col md:items-stretch md:gap-1 md:overflow-visible">
-        <p className="hidden px-3 pb-1 pt-2 text-sm font-semibold uppercase tracking-widest text-muted-foreground md:block">
-          {t('tasks.nav.group', 'Tasks')}
-        </p>
+    <ModuleSidebar label={t('tasks.sidebar.navLabel', 'Tasks navigation')} title={t('tasks.nav.group', 'Tasks')}>
+      <ModuleSidebarAction
+        icon={<CirclePlus className="size-5 shrink-0" aria-hidden="true" />}
+        label={t('tasks.sidebar.addTask', 'Add Task')}
+        onClick={onQuickAdd}
+      />
 
-        <button
-          type="button"
-          onClick={onQuickAdd}
-          className={cn(NAV_ITEM, 'font-semibold text-primary hover:bg-primary-soft')}
+      {views.map((view) => {
+        const Icon = view.icon
+        return (
+          <ModuleSidebarLink
+            key={view.href}
+            href={view.href}
+            icon={<Icon className="size-4 shrink-0" />}
+            label={view.label}
+            active={pathname === view.href}
+            count={view.count}
+          />
+        )
+      })}
+
+      <ModuleSidebarDivider />
+
+      <div className="flex shrink-0 items-center gap-1">
+        <Link
+          href="/backend/tasks/projects"
+          className="flex-1 whitespace-nowrap rounded-md px-3 py-1 text-overline font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
         >
-          <CirclePlus className="size-5 shrink-0" aria-hidden="true" />
-          {t('tasks.sidebar.addTask', 'Add Task')}
-        </button>
+          {t('tasks.sidebar.myProjects', 'My Projects')}
+        </Link>
+        <IconButton
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={onNewProject}
+          aria-label={t('tasks.sidebar.newProject', 'New project')}
+        >
+          <Plus className="size-4" aria-hidden="true" />
+        </IconButton>
+      </div>
 
-        {views.map((view) => {
-          const active = pathname === view.href
-          const Icon = view.icon
-          return (
-            <Link
-              key={view.href}
-              href={view.href}
-              aria-current={active ? 'page' : undefined}
-              className={cn(
-                NAV_ITEM,
-                active
-                  ? 'bg-primary-soft text-primary'
-                  : 'text-muted-foreground hover:bg-surface-strong hover:text-foreground',
-              )}
-            >
-              <Icon className="size-4 shrink-0" aria-hidden="true" />
-              <span className="flex-1">{view.label}</span>
-              {view.count ? (
-                <span className="text-xs tabular-nums opacity-70">{view.count}</span>
-              ) : null}
-            </Link>
-          )
-        })}
-
-        <hr aria-hidden="true" className="hidden border-t border-border md:my-2 md:block" />
-
-        <div className="flex shrink-0 items-center gap-1">
-          <Link
-            href="/backend/tasks/projects"
-            className="flex-1 whitespace-nowrap rounded-md px-3 py-1 text-overline font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
-          >
-            {t('tasks.sidebar.myProjects', 'My Projects')}
-          </Link>
-          <IconButton
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={onNewProject}
-            aria-label={t('tasks.sidebar.newProject', 'New project')}
-          >
-            <Plus className="size-4" aria-hidden="true" />
-          </IconButton>
+      {isInitialLoading ? (
+        <div className="flex shrink-0 gap-1 md:block md:space-y-1 md:px-1">
+          <Skeleton className="h-7 w-24 rounded-md md:w-auto" />
+          <Skeleton className="h-7 w-24 rounded-md md:w-auto" />
         </div>
-
-        {isInitialLoading ? (
-          <div className="flex shrink-0 gap-1 md:block md:space-y-1 md:px-1">
-            <Skeleton className="h-7 w-24 rounded-md md:w-auto" />
-            <Skeleton className="h-7 w-24 rounded-md md:w-auto" />
-          </div>
-        ) : projects.length === 0 ? (
-          <div className="shrink-0 px-2">
-            <EmptyState
-              variant="subtle"
-              size="sm"
-              title={t('tasks.sidebar.noProjects', 'No projects yet')}
-              description={t('tasks.sidebar.noProjectsHint', 'Use the + above to create your first one.')}
-            />
-          </div>
-        ) : (
-          <div className="flex shrink-0 gap-1 md:block md:max-h-[50vh] md:space-y-1 md:overflow-y-auto">
-            {projects.map((project) => {
-              const href = `/backend/tasks/projects/${project.id}`
-              const active = pathname === href
-              return (
-                <Link
-                  key={project.id}
-                  href={href}
-                  aria-current={active ? 'page' : undefined}
-                  className={cn(
-                    'flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-3 py-1.5 text-sm transition-colors focus:outline-none focus-visible:shadow-focus',
-                    active
-                      ? 'bg-primary-soft font-medium text-primary'
-                      : 'text-muted-foreground hover:bg-surface-strong hover:text-foreground',
-                  )}
-                >
-                  <span aria-hidden="true" className="shrink-0 text-sm leading-none">
-                    {project.icon}
-                  </span>
-                  <span className="flex-1 truncate">{project.name}</span>
-                  {project.openTaskCount > 0 && (
-                    <span className="text-xs tabular-nums opacity-70">{project.openTaskCount}</span>
-                  )}
-                </Link>
-              )
-            })}
-          </div>
-        )}
-      </nav>
-    </aside>
+      ) : projects.length === 0 ? (
+        <div className="shrink-0 px-2">
+          <EmptyState
+            variant="subtle"
+            size="sm"
+            title={t('tasks.sidebar.noProjects', 'No projects yet')}
+            description={t('tasks.sidebar.noProjectsHint', 'Use the + above to create your first one.')}
+          />
+        </div>
+      ) : (
+        <div className="flex shrink-0 gap-1 md:block md:max-h-[50vh] md:space-y-1 md:overflow-y-auto">
+          {projects.map((project) => {
+            const href = `/backend/tasks/projects/${project.id}`
+            const active = pathname === href
+            return (
+              <Link
+                key={project.id}
+                href={href}
+                aria-current={active ? 'page' : undefined}
+                className={cn(
+                  'flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-3 py-1.5 text-sm transition-colors focus:outline-none focus-visible:shadow-focus',
+                  active
+                    ? 'bg-primary-soft font-medium text-primary'
+                    : 'text-muted-foreground hover:bg-surface-strong hover:text-foreground',
+                )}
+              >
+                <span aria-hidden="true" className="shrink-0 text-sm leading-none">
+                  {project.icon}
+                </span>
+                <span className="flex-1 truncate">{project.name}</span>
+                {project.openTaskCount > 0 && (
+                  <span className="text-xs tabular-nums opacity-70">{project.openTaskCount}</span>
+                )}
+              </Link>
+            )
+          })}
+        </div>
+      )}
+    </ModuleSidebar>
   )
 }

@@ -1755,7 +1755,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
   }
 
   return (
-    <Page fill className="!gap-0 !space-y-0 -mx-4 -mb-1 -mt-4 overflow-hidden sm:-mx-6 lg:-mx-8 lg:-mt-5">
+    <Page fill className="!gap-0 !space-y-0 -mx-4 -mb-1 -mt-4 overflow-hidden">
       <PageBody fill className="!space-y-0 overflow-hidden p-0">
         <div className="flex h-full min-h-0 flex-col overflow-hidden bg-surface">
           <header className="shrink-0 border-b border-border bg-surface">

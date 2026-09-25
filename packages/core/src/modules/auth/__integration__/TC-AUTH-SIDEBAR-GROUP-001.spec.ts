@@ -14,14 +14,12 @@ import { expect, test, type Page } from '@playwright/test';
  *   which is how the two are distinguished here
  * - the save action is labelled `Create variant` while the caller has no stored preference yet
  *   (`isNewVariant`) and `Save` afterwards, so both names are accepted
- * - `AppShell` drops a group once every one of its items is hidden, so the group's nav entries must
- *   disappear from the sidebar
- * - `data-testid="sidebar"` is the main nav only; a `pageContext: 'settings'` route (which the
- *   customization page is) renders `appshell-section-sidebar` in its place, so every rendered-href
- *   assertion here has to run on `BACKEND_PATH`
+ * - `AppShell` drops a group once every one of its items is hidden, so the group must disappear from
+ *   the topbar's module switcher (`module-switcher`), which lists one tile per reachable group
+ *   (`data-module-tile`) and is the only global navigation now that the rail is gone
  *
- * The sidebar renders group *entries*, not group headings, so this asserts on the set of nav links
- * shrinking rather than on a group label being absent — the latter would pass vacuously.
+ * The switcher lists a tile only for a group with a reachable main-context entry, so the baseline
+ * asserts the tile is present before hiding it — otherwise "absent" would pass vacuously.
  */
 
 const BACKEND_PATH = '/backend';
@@ -47,13 +45,16 @@ async function login(page: Page): Promise<void> {
   await expect(page).toHaveURL(/\/backend(?:\/.*)?$/);
 }
 
-async function sidebarHrefs(page: Page): Promise<string[]> {
-  const sidebar = page.getByTestId('sidebar');
-  await expect(sidebar).toBeVisible({ timeout: 30_000 });
-  const links = sidebar.getByRole('link');
-  return (await links.evaluateAll((nodes) =>
-    nodes.map((node) => node.getAttribute('href') ?? ''),
-  )).filter(Boolean);
+async function switcherModuleNames(page: Page): Promise<string[]> {
+  const trigger = page.getByTestId('module-switcher-trigger');
+  await expect(trigger).toBeVisible({ timeout: 30_000 });
+  await trigger.click();
+  const menu = page.getByTestId('module-switcher');
+  await expect(menu.locator('[data-module-tile]').first()).toBeVisible({ timeout: 30_000 });
+  const names = (await menu.locator('[data-module-tile]').allTextContents()).map((name) => name.trim());
+  await page.keyboard.press('Escape');
+  await expect(menu).toBeHidden();
+  return names;
 }
 
 type NavPayload = {
@@ -69,11 +70,7 @@ type NavPayload = {
 };
 
 /**
- * Payload-level view of a group: what `/api/auth/admin/nav` declares as visible. This is a
- * SUPERSET of what the main nav renders — `AppShell`'s `isMainItem` additionally drops any href
- * under a settings path prefix (a runtime-configurable list this spec deliberately does not
- * duplicate). Assert payload expectations against this, rendered expectations against the
- * intersection with `sidebarHrefs`.
+ * Payload-level view of a group: what `/api/auth/admin/nav` declares as visible.
  */
 async function visibleGroupHrefs(page: Page, groupName: string): Promise<string[]> {
   const responsePromise = page.waitForResponse(
@@ -92,20 +89,10 @@ async function visibleGroupHrefs(page: Page, groupName: string): Promise<string[
     .filter(Boolean);
 }
 
-async function expectGroupLinks(
-  page: Page,
-  groupHrefs: string[],
-  visible: boolean,
-): Promise<void> {
+async function expectModuleListed(page: Page, groupName: string, listed: boolean): Promise<void> {
   await expect
-    .poll(
-      async () => {
-        const renderedHrefs = await sidebarHrefs(page);
-        return groupHrefs.every((href) => renderedHrefs.includes(href) === visible);
-      },
-      { timeout: 30_000 },
-    )
-    .toBe(true);
+    .poll(async () => (await switcherModuleNames(page)).includes(groupName), { timeout: 30_000 })
+    .toBe(listed);
 }
 
 async function saveAndSettle(page: Page): Promise<void> {
@@ -117,7 +104,7 @@ async function saveAndSettle(page: Page): Promise<void> {
 }
 
 test.describe('sidebar group visibility toggle', () => {
-  test('hides a whole group in one action, persists it, and drops its entries from the sidebar', async ({ page }) => {
+  test('hides a whole group in one action, persists it, and drops it from the module switcher', async ({ page }) => {
     test.slow();
     await login(page);
 
@@ -136,12 +123,11 @@ test.describe('sidebar group visibility toggle', () => {
 
     const namedSwitch = () => page.getByRole('switch', { name: `Show ${groupName}` }).first();
 
-    // The baseline render has to be read on a main-context route: the customization page is
-    // `pageContext: 'settings'`, so its rail is the section nav, not the main nav.
     await page.goto(BACKEND_PATH);
-    const renderedBaselineHrefs = await sidebarHrefs(page);
-    const groupHrefs = declaredGroupHrefs.filter((href) => renderedBaselineHrefs.includes(href));
-    expect(groupHrefs.length, `"${groupName}" should render at least one main-nav entry`).toBeGreaterThan(0);
+    expect(
+      await switcherModuleNames(page),
+      `"${groupName}" should be listed in the module switcher before it is hidden`,
+    ).toContain(groupName);
     await page.goto(CUSTOMIZATION_PATH);
 
     try {
@@ -169,7 +155,7 @@ test.describe('sidebar group visibility toggle', () => {
         .toEqual([]);
 
       await page.goto(BACKEND_PATH);
-      await expectGroupLinks(page, groupHrefs, false);
+      await expectModuleListed(page, groupName, false);
     } finally {
       await page.goto(CUSTOMIZATION_PATH).catch(() => undefined);
       if ((await namedSwitch().getAttribute('aria-checked').catch(() => null)) === 'false') {
@@ -190,6 +176,6 @@ test.describe('sidebar group visibility toggle', () => {
       })
       .toEqual(declaredGroupHrefs);
     await page.goto(BACKEND_PATH);
-    await expectGroupLinks(page, groupHrefs, true);
+    await expectModuleListed(page, groupName, true);
   });
 });

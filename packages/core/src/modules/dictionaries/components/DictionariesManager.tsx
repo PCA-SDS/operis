@@ -390,7 +390,7 @@ export function DictionariesManager() {
   )
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
       <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold">

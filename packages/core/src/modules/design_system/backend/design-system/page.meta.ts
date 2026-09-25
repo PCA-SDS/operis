@@ -1,6 +1,7 @@
 export const metadata = {
   requireAuth: true,
   requireFeatures: ['design_system.view'],
+  moduleSidebar: false,
   pageTitle: 'Design System',
   pageTitleKey: 'design_system.nav.title',
   pageGroup: 'Developer',

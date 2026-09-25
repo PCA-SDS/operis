@@ -5,6 +5,7 @@
 import * as React from 'react'
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { AppShell, ApplyBreadcrumb } from '../AppShell'
+import { BackendModuleFrame } from '../module-nav/BackendModuleFrame'
 import { renderWithProviders } from '@open-mercato/shared/lib/testing/renderWithProviders'
 
 const mockInjectionSpot = jest.fn()
@@ -91,7 +92,14 @@ const dict = {
   'appShell.menu': 'Menu',
   'appShell.userFallback': 'User',
   'appShell.goToDashboard': 'Go to dashboard',
-  'appShell.closeMenu': 'Close',
+  'appShell.modules.title': 'Modules',
+  'appShell.modules.open': 'Open module menu',
+  'appShell.modules.openWithCurrent': 'Switch module, current: {module}',
+  'appShell.modules.searchPlaceholder': 'Search modules and pages',
+  'appShell.modules.empty': 'No modules available',
+  'appShell.modules.noResults': 'Nothing matches your search',
+  'appShell.modules.pages': 'Pages',
+  'appShell.moduleNav.label': '{module} navigation',
   'common.terms': 'Terms',
   'common.privacy': 'Privacy',
   'dashboard.title': 'Dashboard',
@@ -148,6 +156,7 @@ describe('AppShell', () => {
       ) as typeof fetch
     }
   })
+
 
   /* The topbar is a three-column grid: breadcrumb, centred slot, actions. Both
      flanks grow from a zero basis so they split the slack evenly — that even
@@ -215,14 +224,12 @@ describe('AppShell', () => {
       { dict },
     )
 
-    expect(screen.getByText('Users List')).toBeInTheDocument()
+    expect(screen.getByTestId('module-switcher-current')).toHaveTextContent('Core')
     expect(screen.getAllByText('Terms')[0]).toBeInTheDocument()
     expect(screen.getByTestId('flash-messages')).toBeInTheDocument()
     expect(screen.getByTestId('injection-spot:backend:layout:top')).toBeInTheDocument()
     expect(screen.getByTestId('injection-spot:backend:record:current')).toBeInTheDocument()
     expect(screen.getByTestId('injection-spot:backend:layout:footer')).toBeInTheDocument()
-    expect(screen.getByTestId('injection-spot:backend:sidebar:top')).toBeInTheDocument()
-    expect(screen.getByTestId('injection-spot:backend:sidebar:footer')).toBeInTheDocument()
     expect(screen.getByTestId('injection-spot:backend-mutation:global')).toBeInTheDocument()
     expect(screen.getByText('Child content')).toBeInTheDocument()
 
@@ -434,7 +441,9 @@ describe('AppShell', () => {
           },
         ]}
       >
-        <div>Settings content</div>
+        <BackendModuleFrame enabled>
+          <div>Settings content</div>
+        </BackendModuleFrame>
       </AppShell>,
       { dict },
     )
@@ -444,330 +453,6 @@ describe('AppShell', () => {
         'href',
         '/backend/entities/user/example%3Acalendar_entity/records',
       )
-    })
-  })
-
-  describe('sidebar layout contract', () => {
-    function renderRail() {
-      mockPathname = '/backend/users'
-      return renderWithProviders(
-        <AppShell email="demo@example.com" groups={groups} productName="Operis">
-          <div>Content</div>
-        </AppShell>,
-        { dict },
-      )
-    }
-
-    it('gives the brand row the same height as the topbar so the two share a centre line', () => {
-      renderRail()
-      const brand = screen.getByLabelText('Go to dashboard')
-      expect(brand.className).toContain('h-16')
-      expect(document.querySelector('header')?.className).toContain('h-16')
-    })
-
-    it('lets the nav scroll area span the same width as the search field above it', () => {
-      const { container } = renderRail()
-      const scrollArea = container.querySelector('[data-sidebar-scroll="true"]') as HTMLElement
-      // A negative margin or an extra right pad here is what made the rows 4px
-      // narrower than the search input.
-      expect(scrollArea.className).not.toMatch(/-ml-|-mr-|\bpr-\d/)
-      expect(scrollArea.className).toContain('min-h-0')
-    })
-
-    it('lets every row label shrink so long titles truncate instead of overflowing', () => {
-      renderRail()
-      const label = screen.getByText('Users List')
-      expect(label.className).toContain('min-w-0')
-      expect(label.className).toContain('truncate')
-    })
-
-    it('hides the sidebar footer entirely when no module fills its spots', () => {
-      const { container } = renderRail()
-      const footer = container.querySelector('.sticky.bottom-0') as HTMLElement
-      expect(footer.className).toContain('empty:hidden')
-    })
-
-    it('wires each group heading to the region it expands', () => {
-      renderRail()
-      const heading = screen.getByRole('button', { name: /Core/ })
-      expect(heading).toHaveAttribute('type', 'button')
-      const regionId = heading.getAttribute('aria-controls')
-      expect(regionId).toBeTruthy()
-      expect(document.getElementById(regionId as string)).not.toBeNull()
-    })
-
-    it('names the nav landmark', () => {
-      renderRail()
-      expect(screen.getByRole('navigation', { name: 'Main navigation' })).toBeInTheDocument()
-    })
-
-    it('publishes a --topbar-height that clears the topbar and its rule', () => {
-      const { container } = renderRail()
-      const shell = container.querySelector('[style*="--topbar-height"]') as HTMLElement
-      expect(shell.style.getPropertyValue('--topbar-height')).toBe('65px')
-    })
-  })
-
-  describe('sidebar loading placeholder', () => {
-    /** Render the rail with its chrome request left pending, so the skeleton stays up. */
-    async function renderLoadingRail() {
-      const previousFetch = global.fetch
-      const previousWindowFetch = window.fetch
-      const fetchMock = jest.fn(
-        () => new Promise<Response>(() => {}),
-      ) as unknown as typeof fetch
-      global.fetch = fetchMock
-      window.fetch = fetchMock
-      ;(window as Window & { __omOriginalFetch?: typeof fetch }).__omOriginalFetch = fetchMock
-
-      const view = renderWithProviders(
-        <AppShell email="demo@example.com" groups={groups} adminNavApi="/api/auth/admin/nav-loading">
-          <div>Content</div>
-        </AppShell>,
-        { dict },
-      )
-      await waitFor(() => {
-        expect(screen.getAllByTestId('backend-chrome-loading').length).toBeGreaterThan(0)
-      })
-      const restore = () => {
-        global.fetch = previousFetch
-        window.fetch = previousWindowFetch
-      }
-      const rail = screen.getAllByTestId('backend-chrome-loading')[0] as HTMLElement
-      return { view, rail, restore }
-    }
-
-    it('announces itself as busy instead of loading in silence', async () => {
-      const { rail, restore } = await renderLoadingRail()
-      try {
-        expect(rail).toHaveAttribute('role', 'status')
-        expect(rail).toHaveAttribute('aria-busy', 'true')
-        expect(rail).toHaveAttribute('aria-label', 'Loading navigation')
-      } finally {
-        restore()
-      }
-    })
-
-    it('stands its rows on the same box a real nav row uses, so nothing shifts on load', async () => {
-      const { rail, restore } = await renderLoadingRail()
-      try {
-        const rows = Array.from(rail.querySelectorAll('.h-10.px-3.gap-3'))
-        expect(rows.length).toBeGreaterThanOrEqual(7)
-        for (const row of rows) {
-          // Full-width blocks with no inner padding is what put the old
-          // placeholder 12px left of every real row icon.
-          expect(row.className).toContain('px-3')
-          expect(row.className).toContain('items-center')
-        }
-      } finally {
-        restore()
-      }
-    })
-
-    it('gives each row an icon square and a label bar, not one undifferentiated slab', async () => {
-      const { rail, restore } = await renderLoadingRail()
-      try {
-        const row = rail.querySelector('.h-10.px-3.gap-3') as HTMLElement
-        const parts = Array.from(row.children) as HTMLElement[]
-        expect(parts).toHaveLength(2)
-        expect(parts[0].className).toContain('size-5')
-        expect(parts[1].className).toMatch(/\bw-\d+\b/)
-      } finally {
-        restore()
-      }
-    })
-
-    it('varies the label widths so the column reads as names rather than a bar chart', async () => {
-      const { rail, restore } = await renderLoadingRail()
-      try {
-        const widths = Array.from(rail.querySelectorAll('.h-3'))
-          .map((node) => (node.className.match(/\bw-\d+\b/) ?? [''])[0])
-          .filter(Boolean)
-        expect(widths.length).toBeGreaterThanOrEqual(7)
-        expect(new Set(widths).size).toBeGreaterThan(1)
-      } finally {
-        restore()
-      }
-    })
-
-    it('keeps the group overline short instead of a rail-wide slab', async () => {
-      const { rail, restore } = await renderLoadingRail()
-      try {
-        const headings = Array.from(rail.querySelectorAll('.h-8.px-3'))
-        expect(headings.length).toBeGreaterThanOrEqual(2)
-        for (const heading of headings) {
-          const bar = heading.lastElementChild as HTMLElement
-          expect(bar.className).toContain('w-16')
-          expect(bar.className).not.toContain('w-full')
-        }
-      } finally {
-        restore()
-      }
-    })
-
-    it('separates its groups with the same divider the loaded rail uses', async () => {
-      const { rail, restore } = await renderLoadingRail()
-      try {
-        // One divider for two groups — between them, not after the last.
-        expect(rail.querySelectorAll('.border-t.border-sidebar-border')).toHaveLength(1)
-      } finally {
-        restore()
-      }
-    })
-
-    it('respects reduced motion rather than pulsing regardless', async () => {
-      const { rail, restore } = await renderLoadingRail()
-      try {
-        const bar = rail.querySelector('.animate-pulse') as HTMLElement
-        expect(bar.className).toContain('motion-reduce:animate-none')
-      } finally {
-        restore()
-      }
-    })
-  })
-
-  describe('sidebar scroll affordance', () => {
-    function renderScrollableRail() {
-      mockPathname = '/backend/users'
-      const many = {
-        id: 'core',
-        name: 'Core',
-        items: Array.from({ length: 40 }, (unused, index) => ({
-          href: `/backend/item-${index}`,
-          title: `Item ${index}`,
-        })),
-      }
-      const view = renderWithProviders(
-        <AppShell email="demo@example.com" groups={[many]}>
-          <div>Content</div>
-        </AppShell>,
-        { dict },
-      )
-      const scrollArea = view.container.querySelector('[data-sidebar-scroll="true"]') as HTMLElement
-      // jsdom has no layout, so the scroll geometry the affordance reads is staged here.
-      Object.defineProperty(scrollArea, 'clientHeight', { configurable: true, value: 400 })
-      Object.defineProperty(scrollArea, 'scrollHeight', { configurable: true, value: 1600 })
-      return { ...view, scrollArea }
-    }
-
-    it('fades the list only while there is more of it below', async () => {
-      const { container, scrollArea } = renderScrollableRail()
-
-      scrollArea.scrollTop = 0
-      scrollArea.dispatchEvent(new Event('scroll'))
-      await waitFor(() => {
-        expect(container.querySelector('[data-sidebar-scroll-chevron="down"]')).not.toBeNull()
-      })
-      expect(container.querySelector('.bg-gradient-to-t')).not.toBeNull()
-
-      // At the bottom there is nothing left to hint at, and a fade held on here
-      // is what washed out the last row.
-      scrollArea.scrollTop = 1200
-      scrollArea.dispatchEvent(new Event('scroll'))
-      await waitFor(() => {
-        expect(container.querySelector('[data-sidebar-scroll-chevron="up"]')).not.toBeNull()
-      })
-      expect(container.querySelector('.bg-gradient-to-t')).toBeNull()
-    })
-
-    it('reserves the affordance band so the last row can scroll clear of the chevron', async () => {
-      const { scrollArea } = renderScrollableRail()
-
-      scrollArea.scrollTop = 0
-      scrollArea.dispatchEvent(new Event('scroll'))
-      await waitFor(() => {
-        expect(scrollArea.className).toContain('pb-10')
-      })
-    })
-
-    it('reserves nothing when the nav fits without scrolling', () => {
-      mockPathname = '/backend/users'
-      const { container } = renderWithProviders(
-        <AppShell email="demo@example.com" groups={groups}>
-          <div>Content</div>
-        </AppShell>,
-        { dict },
-      )
-      const scrollArea = container.querySelector('[data-sidebar-scroll="true"]') as HTMLElement
-      expect(scrollArea.className).not.toContain('pb-10')
-      expect(container.querySelector('[data-testid="sidebar-scroll-chevron"]')).toBeNull()
-    })
-  })
-
-  describe('main-nav subpages', () => {
-    const dealsGroups = [
-      {
-        id: 'customers',
-        name: 'Customers',
-        items: [
-          {
-            href: '/backend/customers/deals',
-            title: 'Deals',
-            children: [
-              { href: '/backend/customers/deals/pipeline', title: 'Sales Pipeline' },
-              { href: '/backend/customers/deals/map', title: 'Deals Map' },
-            ],
-          },
-        ],
-      },
-    ]
-
-    it('lists subpages even when the route is nowhere near their parent', async () => {
-      mockPathname = '/backend/users'
-
-      renderWithProviders(
-        <AppShell email="demo@example.com" groups={dealsGroups}>
-          <div>Content</div>
-        </AppShell>,
-        { dict },
-      )
-
-      expect(screen.getByRole('link', { name: 'Sales Pipeline' })).toBeInTheDocument()
-      expect(screen.getByRole('link', { name: 'Deals Map' })).toBeInTheDocument()
-    })
-
-    it('indents subpages without drawing a guide line beside them', async () => {
-      mockPathname = '/backend/users'
-
-      const { container } = renderWithProviders(
-        <AppShell email="demo@example.com" groups={dealsGroups}>
-          <div>Content</div>
-        </AppShell>,
-        { dict },
-      )
-
-      const child = screen.getByRole('link', { name: 'Sales Pipeline' })
-      // One 12px step in from the parent's 12px inset, so a child icon lands
-      // where a parent label starts.
-      expect((child.firstElementChild as HTMLElement).style.paddingLeft).toBe('24px')
-      expect(container.querySelector('.bg-sidebar-border.w-px')).toBeNull()
-    })
-
-    it('keeps the parent row inactive while the route sits outside its branch', async () => {
-      mockPathname = '/backend/users'
-
-      renderWithProviders(
-        <AppShell email="demo@example.com" groups={dealsGroups}>
-          <div>Content</div>
-        </AppShell>,
-        { dict },
-      )
-
-      expect(screen.getByRole('link', { name: 'Deals' }).className).not.toContain('bg-sidebar-primary')
-    })
-
-    it('marks the subpage active, not its parent, when the route is on the subpage', async () => {
-      mockPathname = '/backend/customers/deals/pipeline'
-
-      renderWithProviders(
-        <AppShell email="demo@example.com" groups={dealsGroups}>
-          <div>Content</div>
-        </AppShell>,
-        { dict },
-      )
-
-      expect(screen.getByRole('link', { name: 'Sales Pipeline' }).className).toContain('bg-sidebar-primary')
-      expect(screen.getByRole('link', { name: 'Deals' }).className).not.toContain('bg-sidebar-primary')
     })
   })
 
@@ -870,13 +555,15 @@ describe('AppShell', () => {
           },
         ]}
       >
-        <div>Settings content</div>
+        <BackendModuleFrame enabled>
+          <div>Settings content</div>
+        </BackendModuleFrame>
       </AppShell>,
       { dict },
     )
 
     await waitFor(() => {
-      expect(screen.getByRole('link', { name: 'User Entities' })).toHaveClass('bg-sidebar-primary')
+      expect(screen.getByRole('link', { name: 'User Entities' })).toHaveAttribute('aria-current', 'page')
       expect(screen.getByRole('link', { name: 'Calendar Entity' })).toBeInTheDocument()
     })
   })
@@ -929,7 +616,9 @@ describe('AppShell', () => {
           groups={[]}
           adminNavApi="/api/auth/admin/nav"
         >
-          <div>Hydrated content</div>
+          <BackendModuleFrame enabled>
+            <div>Hydrated content</div>
+          </BackendModuleFrame>
         </AppShell>,
         { dict },
       )
@@ -947,634 +636,355 @@ describe('AppShell', () => {
     }
   })
 
-  describe('section sidebar (settings/profile mode)', () => {
-    it('swaps the section nav into the single rail, replacing the main nav', async () => {
-      mockPathname = '/backend/entities/user'
-
-      const { container } = renderWithProviders(
-        <AppShell
-          email="demo@example.com"
-          groups={groups}
-          settingsPathPrefixes={['/backend/entities/user']}
-          settingsSections={[
-            {
-              id: 'data-designer',
-              label: 'Data Designer',
-              items: [
-                { id: 'user-entities', label: 'User Entities', href: '/backend/entities/user' },
-              ],
-            },
-          ]}
-        >
-          <div>Settings content</div>
-        </AppShell>,
-        { dict },
-      )
-
-      await waitFor(() => {
-        expect(screen.getByText('User Entities')).toBeInTheDocument()
-      })
-
-      const sectionAside = screen.getByTestId('appshell-section-sidebar')
-      expect(within(sectionAside).getByText('User Entities')).toBeInTheDocument()
-      // One rail: the main nav is not rendered alongside the section nav on
-      // desktop. The mobile drawer still mounts it, so scope to the aside.
-      const desktopAside = container.querySelector('aside') as HTMLElement
-      expect(desktopAside.contains(sectionAside)).toBe(true)
-      expect(desktopAside.querySelector('a[href="/backend/users"]')).toBeNull()
-      expect(desktopAside.querySelector('a[href="/backend/roles"]')).toBeNull()
-    })
-
-    it('renders exactly one desktop sidebar column', async () => {
-      mockPathname = '/backend/entities/user'
-
-      const { container } = renderWithProviders(
-        <AppShell
-          email="demo@example.com"
-          groups={groups}
-          settingsPathPrefixes={['/backend/entities/user']}
-          settingsSections={[
-            {
-              id: 'data-designer',
-              label: 'Data Designer',
-              items: [
-                { id: 'user-entities', label: 'User Entities', href: '/backend/entities/user' },
-              ],
-            },
-          ]}
-        >
-          <div>Settings content</div>
-        </AppShell>,
-        { dict },
-      )
-
-      await waitFor(() => {
-        expect(screen.getByText('User Entities')).toBeInTheDocument()
-      })
-
-      const asides = container.querySelectorAll('aside')
-      expect(asides.length).toBe(1)
-      const shell = asides[0].parentElement as HTMLElement
-      expect(shell.style.getPropertyValue('--sidebar-rail-width')).toBe('272px')
-    })
-
-    it('section header renders chevron + title as a single Back-to-Main link', async () => {
-      mockPathname = '/backend/entities/user'
-
-      renderWithProviders(
-        <AppShell
-          email="demo@example.com"
-          groups={groups}
-          settingsSectionTitle="Settings"
-          settingsPathPrefixes={['/backend/entities/user']}
-          settingsSections={[
-            {
-              id: 'data-designer',
-              label: 'Data Designer',
-              items: [
-                { id: 'user-entities', label: 'User Entities', href: '/backend/entities/user' },
-              ],
-            },
-          ]}
-        >
-          <div>Settings content</div>
-        </AppShell>,
-        { dict },
-      )
-
-      const backLink = await screen.findByTestId('appshell-section-back-to-main')
-      expect(backLink).toHaveAttribute('href', '/backend')
-      expect(backLink).toHaveAttribute('aria-label', 'Back to Main')
-      expect(backLink.textContent).toContain('Settings')
-    })
-
-    it('renders the built-in wordmark inline, once, without repeating the name beside it', async () => {
-      mockPathname = '/backend'
-      const { container } = renderWithProviders(
-        <AppShell email="demo@example.com" groups={groups} productName="Operis">
-          <div>Content</div>
-        </AppShell>,
-        { dict },
-      )
-
-      const header = await screen.findByLabelText('Go to dashboard')
-      // Inline <svg>, not <img>: an external file cannot inherit the sidebar's ink.
-      const svg = header.querySelector('svg')
-      expect(svg).not.toBeNull()
-      expect(header.querySelector('img')).toBeNull()
-      // <title> is the lockup's accessible name, so the header still reads "Operis"...
-      expect(within(header).getByTitle('Operis')).toBeInTheDocument()
-      // ...but only once: a brand label beside it would be the same word twice.
-      expect(header.textContent).toBe('Operis')
-      expect(container.querySelectorAll('a[aria-label="Go to dashboard"]').length).toBe(1)
-    })
-
-    it('keeps the name beside the mark when the brand is whitelabelled', async () => {
-      mockPathname = '/backend'
-      renderWithProviders(
-        <AppShell email="demo@example.com" groups={groups} productName="Acme Ops">
-          <div>Content</div>
-        </AppShell>,
-        { dict },
-      )
-
-      const header = await screen.findByLabelText('Go to dashboard')
-      expect(header.textContent).toContain('Acme Ops')
-      expect(header.querySelector('svg')).not.toBeNull()
-    })
-
-    it('renders settings and profile section navs with identical chrome-row treatment', async () => {
-      const settingsSections = [
-        {
-          id: 'data-designer',
-          label: 'Data Designer',
-          items: [
-            { id: 'user-entities', label: 'User Entities', href: '/backend/entities/user' },
-            { id: 'user-records', label: 'User Records', href: '/backend/entities/records' },
-          ],
-        },
-      ]
-      const profileSections = [
-        {
-          id: 'account',
-          label: 'Account',
-          items: [
-            { id: 'security', label: 'Security', href: '/backend/profile/security' },
-            { id: 'sessions', label: 'Sessions', href: '/backend/profile/sessions' },
-          ],
-        },
-      ]
-
-      mockPathname = '/backend/entities/user'
-      const settingsRender = renderWithProviders(
-        <AppShell
-          email="demo@example.com"
-          groups={groups}
-          settingsPathPrefixes={['/backend/entities/user']}
-          settingsSections={settingsSections}
-          profileSections={profileSections}
-          profilePathPrefixes={['/backend/profile/']}
-        >
-          <div>Settings content</div>
-        </AppShell>,
-        { dict },
-      )
-
-      const settingsAside = await screen.findByTestId('appshell-section-sidebar')
-      const settingsIdle = within(settingsAside).getByText('User Records').closest('a')
-      expect(settingsIdle?.className).toContain('hover:bg-sidebar-accent')
-      expect(settingsIdle?.className).toContain('rounded-lg')
-
-      settingsRender.unmount()
-
-      mockPathname = '/backend/profile/security'
-      renderWithProviders(
-        <AppShell
-          email="demo@example.com"
-          groups={groups}
-          settingsPathPrefixes={['/backend/entities/user']}
-          settingsSections={settingsSections}
-          profileSections={profileSections}
-          profilePathPrefixes={['/backend/profile/']}
-        >
-          <div>Profile content</div>
-        </AppShell>,
-        { dict },
-      )
-
-      const profileAside = await screen.findByTestId('appshell-section-sidebar')
-      const profileIdle = within(profileAside).getByText('Sessions').closest('a')
-      expect(profileIdle?.className).toContain('hover:bg-sidebar-accent')
-      expect(profileIdle?.className).toContain('rounded-lg')
-    })
-
-    it('gives the section sidebar its own nav search now that it is the only column', async () => {
-      mockPathname = '/backend/entities/user'
-
-      renderWithProviders(
-        <AppShell
-          email="demo@example.com"
-          groups={groups}
-          settingsPathPrefixes={['/backend/entities/user']}
-          settingsSections={[
-            {
-              id: 'data-designer',
-              label: 'Data Designer',
-              items: [
-                { id: 'user-entities', label: 'User Entities', href: '/backend/entities/user' },
-              ],
-            },
-          ]}
-        >
-          <div>Settings content</div>
-        </AppShell>,
-        { dict },
-      )
-
-      const sectionAside = await screen.findByTestId('appshell-section-sidebar')
-      expect(within(sectionAside).getAllByLabelText('Search navigation').length).toBeGreaterThan(0)
-    })
-
-    it('does not render the section sidebar when on a main route', async () => {
-      mockPathname = '/backend/users'
-
-      renderWithProviders(
-        <AppShell
-          email="demo@example.com"
-          groups={groups}
-          settingsPathPrefixes={['/backend/entities/user']}
-          settingsSections={[
-            {
-              id: 'data-designer',
-              label: 'Data Designer',
-              items: [
-                { id: 'user-entities', label: 'User Entities', href: '/backend/entities/user' },
-              ],
-            },
-          ]}
-        >
-          <div>Main content</div>
-        </AppShell>,
-        { dict },
-      )
-
-      expect(screen.queryByTestId('appshell-section-sidebar')).toBeNull()
-      expect(screen.queryByTestId('appshell-section-back-to-main')).toBeNull()
-    })
+  it('has no global sidebar: the topbar carries the brand and the module switcher', () => {
+    const { container } = renderWithProviders(
+      <AppShell email="demo@example.com" groups={groups} productName="Operis">
+        <div>Content</div>
+      </AppShell>,
+      { dict },
+    )
+    expect(container.querySelector('#appshell-sidebar')).toBeNull()
+    expect(container.querySelector('aside')).toBeNull()
+    const header = document.querySelector('header') as HTMLElement
+    const brand = within(header).getByTestId('appshell-brand')
+    expect(brand).toHaveAttribute('href', '/backend')
+    expect(within(header).getByTestId('module-switcher-trigger')).toBeInTheDocument()
   })
 
-  it('renders nav icons from iconName when iconMarkup is missing', async () => {
-    const previousFetch = global.fetch
-    const previousWindowFetch = window.fetch
-    const previousOriginalFetch = (window as Window & { __omOriginalFetch?: typeof fetch }).__omOriginalFetch
-    const fetchMock = jest.fn(async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string'
-        ? input
-        : input instanceof Request
-          ? input.url
-          : input.toString()
-      if (url.includes('/api/auth/admin/nav-icon-fallback')) {
-        return new Response(JSON.stringify({
-          groups: [
-            {
-              id: 'checkout',
-              name: 'Checkout',
-              defaultName: 'Checkout',
-              items: [
-                {
-                  href: '/backend/checkout/pay-links',
-                  title: 'Pay Links',
-                  defaultTitle: 'Pay Links',
-                  enabled: true,
-                  iconName: 'ticket',
-                },
-              ],
-            },
-          ],
-          settingsSections: [],
-          settingsPathPrefixes: [],
-          profileSections: [],
-          profilePathPrefixes: ['/backend/profile/'],
-          grantedFeatures: ['checkout.view'],
-          roles: ['admin'],
-        }), { status: 200, headers: { 'content-type': 'application/json' } })
-      }
-      return new Response(JSON.stringify([]), { status: 200, headers: { 'content-type': 'application/json' } })
-    }) as unknown as typeof fetch
-    global.fetch = fetchMock
-    window.fetch = fetchMock
-    ;(window as Window & { __omOriginalFetch?: typeof fetch }).__omOriginalFetch = fetchMock
-
-    try {
-      renderWithProviders(
-        <AppShell
-          email="demo@example.com"
-          groups={[]}
-          adminNavApi="/api/auth/admin/nav-icon-fallback"
-        >
-          <div>Hydrated content</div>
-        </AppShell>,
-        { dict },
-      )
-
-      await waitFor(() => {
-        expect(screen.getByText('Pay Links')).toBeInTheDocument()
-      }, { timeout: 10_000 })
-
-      const link = screen.getByRole('link', { name: 'Pay Links' })
-      expect(link.querySelector('svg.lucide-ticket')).toBeTruthy()
-    } finally {
-      global.fetch = previousFetch
-      window.fetch = previousWindowFetch
-      ;(window as Window & { __omOriginalFetch?: typeof fetch }).__omOriginalFetch = previousOriginalFetch
-    }
+  it('publishes a --topbar-height that clears the topbar and its rule', () => {
+    const { container } = renderWithProviders(
+      <AppShell email="demo@example.com" groups={groups}>
+        <div>Content</div>
+      </AppShell>,
+      { dict },
+    )
+    const root = container.querySelector('[data-app-shell-column]')?.parentElement as HTMLElement
+    expect(root.style.getPropertyValue('--topbar-height')).toBe('64px')
   })
 
-  // Regression: #1828 — skeleton must hide stale SSR groups until chrome resolves
-  it('shows skeleton (not stale SSR groups) while chrome API is loading', async () => {
-    const previousFetch = global.fetch
-    const previousWindowFetch = window.fetch
-    const previousOriginalFetch = (window as Window & { __omOriginalFetch?: typeof fetch }).__omOriginalFetch
-    let resolveFetch: ((response: Response) => void) | null = null
-    const fetchPromise = new Promise<Response>((resolve) => {
-      resolveFetch = resolve
-    })
-    const fetchMock = jest.fn(async (input: RequestInfo | URL) => {
-      const url = typeof input === 'string'
-        ? input
-        : input instanceof Request
-          ? input.url
-          : input.toString()
-      if (url.includes('/api/auth/admin/nav-flicker-regression')) {
-        return fetchPromise
-      }
-      return new Response(JSON.stringify([]), { status: 200, headers: { 'content-type': 'application/json' } })
-    }) as unknown as typeof fetch
-    global.fetch = fetchMock
-    window.fetch = fetchMock
-    ;(window as Window & { __omOriginalFetch?: typeof fetch }).__omOriginalFetch = fetchMock
-
-    const staleGroups = [
+  describe('module sidebar', () => {
+    const moduleGroups = [
       {
-        id: 'core',
-        name: 'Stale Core',
-        items: [{ href: '/backend/stale-link', title: 'Stale Link' }],
+        id: 'customers.nav.group',
+        name: 'Customers',
+        iconName: 'users',
+        items: [
+          { href: '/backend/customers/people', title: 'People' },
+          {
+            href: '/backend/customers/deals',
+            title: 'Deals',
+            children: [
+              { href: '/backend/customers/deals/pipeline', title: 'Sales Pipeline' },
+              { href: '/backend/customers/deals/map', title: 'Deals Map' },
+            ],
+          },
+          { href: '/backend/customers/hidden', title: 'Hidden Page', hidden: true },
+        ],
+      },
+      {
+        id: 'catalog.nav.group',
+        name: 'Catalog',
+        items: [{ href: '/backend/catalog/products', title: 'Products' }],
       },
     ]
 
-    try {
-      renderWithProviders(
-        <AppShell
-          email="demo@example.com"
-          groups={staleGroups}
-          adminNavApi="/api/auth/admin/nav-flicker-regression"
-        >
-          <div>Hydrated content</div>
+    function renderModulePage(options: { enabled?: boolean; shellGroups?: typeof moduleGroups } = {}) {
+      return renderWithProviders(
+        <AppShell email="demo@example.com" groups={options.shellGroups ?? moduleGroups}>
+          <BackendModuleFrame enabled={options.enabled ?? true}>
+            <div>Page content</div>
+          </BackendModuleFrame>
         </AppShell>,
         { dict },
       )
+    }
 
-      await waitFor(() => {
-        expect(screen.getAllByTestId('backend-chrome-loading').length).toBeGreaterThan(0)
-      })
-      expect(screen.queryByText('Stale Link')).toBeNull()
-      expect(screen.getByTestId('backend-chrome-ready')).toHaveAttribute('data-ready', 'false')
+    it('lists only the pages of the module the route belongs to', () => {
+      mockPathname = '/backend/customers/people/123'
+      renderModulePage()
+      const sidebar = screen.getByTestId('module-sidebar')
+      expect(sidebar).toHaveAttribute('aria-label', 'Customers navigation')
+      expect(within(sidebar).getByText('Customers')).toBeInTheDocument()
+      expect(within(sidebar).getByRole('link', { name: 'People' })).toHaveAttribute('aria-current', 'page')
+      expect(within(sidebar).getByRole('link', { name: 'Deals' })).toBeInTheDocument()
+      expect(within(sidebar).queryByRole('link', { name: 'Products' })).toBeNull()
+      expect(within(sidebar).queryByRole('link', { name: 'Hidden Page' })).toBeNull()
+      expect(screen.getByText('Page content')).toBeInTheDocument()
+    })
 
-      resolveFetch?.(new Response(JSON.stringify({
-        groups: [
+    it('always lists subpages, and marks the subpage active rather than its parent', () => {
+      mockPathname = '/backend/customers/deals/pipeline'
+      renderModulePage()
+      const sidebar = screen.getByTestId('module-sidebar')
+      expect(within(sidebar).getByRole('link', { name: 'Deals Map' })).toBeInTheDocument()
+      expect(within(sidebar).getByRole('link', { name: 'Sales Pipeline' })).toHaveAttribute('aria-current', 'page')
+      expect(within(sidebar).getByRole('link', { name: 'Deals' })).not.toHaveAttribute('aria-current')
+    })
+
+    it('does not treat a sibling path with the same prefix as part of the branch', () => {
+      mockPathname = '/backend/customers/people-archive'
+      renderModulePage()
+      expect(screen.queryByTestId('module-sidebar')).toBeNull()
+    })
+
+    it('renders no sidebar on a page that opted out, keeping the page in the same wrapper', () => {
+      mockPathname = '/backend/customers/people'
+      renderModulePage({ enabled: false })
+      expect(screen.queryByTestId('module-sidebar')).toBeNull()
+      expect(screen.getByText('Page content').closest('[data-module-frame]')).not.toBeNull()
+    })
+
+    it('places a hidden detail route in its declared module and lights its breadcrumb parent', () => {
+      mockPathname = '/backend/customers/people-v2/123'
+      renderWithProviders(
+        <AppShell email="demo@example.com" groups={moduleGroups}>
+          <BackendModuleFrame enabled routeGroupId="customers.nav.group" routeParentHref="/backend/customers/people">
+            <div>Detail content</div>
+          </BackendModuleFrame>
+        </AppShell>,
+        { dict },
+      )
+      const sidebar = screen.getByTestId('module-sidebar')
+      expect(sidebar).toHaveAttribute('aria-label', 'Customers navigation')
+      expect(within(sidebar).getByRole('link', { name: 'People' })).toHaveAttribute('aria-current', 'page')
+      expect(screen.getByTestId('module-switcher-current')).toHaveTextContent('Customers')
+    })
+
+    it('renders no sidebar when the route belongs to no module', () => {
+      mockPathname = '/backend/unknown'
+      renderModulePage()
+      expect(screen.queryByTestId('module-sidebar')).toBeNull()
+    })
+
+    it('hosts the backend:sidebar:* injection spots so existing widgets keep a home', () => {
+      mockPathname = '/backend/customers/people'
+      renderModulePage()
+      const sidebar = screen.getByTestId('module-sidebar')
+      for (const spotId of ['backend:sidebar:top', 'backend:sidebar:nav', 'backend:sidebar:nav:footer', 'backend:sidebar:footer']) {
+        expect(within(sidebar).getByTestId(`injection-spot:${spotId}`)).toBeInTheDocument()
+      }
+    })
+
+    it('shows the settings sections, grouped, on a settings route', () => {
+      mockPathname = '/backend/config/system'
+      renderWithProviders(
+        <AppShell
+          email="demo@example.com"
+          groups={moduleGroups}
+          settingsSectionTitle="Settings"
+          settingsPathPrefixes={['/backend/config']}
+          settingsSections={[
+            { id: 'system', label: 'System', order: 1, items: [{ id: 'sys', label: 'System Status', href: '/backend/config/system' }] },
+            { id: 'auth', label: 'Auth', order: 2, items: [{ id: 'users', label: 'Users', href: '/backend/config/users' }] },
+          ]}
+        >
+          <BackendModuleFrame enabled>
+            <div>Settings content</div>
+          </BackendModuleFrame>
+        </AppShell>,
+        { dict },
+      )
+      const sidebar = screen.getByTestId('module-sidebar')
+      expect(sidebar).toHaveAttribute('aria-label', 'Settings navigation')
+      expect(within(sidebar).getByText('System')).toBeInTheDocument()
+      expect(within(sidebar).getByText('Auth')).toBeInTheDocument()
+      expect(within(sidebar).getByRole('link', { name: 'System Status' })).toHaveAttribute('aria-current', 'page')
+      expect(within(sidebar).queryByRole('link', { name: 'People' })).toBeNull()
+      expect(screen.getByTestId('module-switcher-current')).toHaveTextContent('Modules')
+    })
+
+    it('lists profile-context pages from other modules in the Profile sidebar', () => {
+      mockPathname = '/backend/profile/notification-preferences'
+      renderWithProviders(
+        <AppShell
+          email="demo@example.com"
+          groups={[
+            ...moduleGroups,
+            {
+              id: 'notifications.preferences.profileGroup',
+              name: 'Profile',
+              items: [{ href: '/backend/profile/notification-preferences', title: 'Notification Preferences', pageContext: 'profile' as const }],
+            },
+          ]}
+          profileSectionTitle="Profile"
+          profilePathPrefixes={['/backend/profile/']}
+          profileSections={[
+            { id: 'account', label: 'Account', items: [{ id: 'pw', label: 'Change Password', href: '/backend/profile/change-password' }] },
+          ]}
+        >
+          <BackendModuleFrame enabled>
+            <div>Profile content</div>
+          </BackendModuleFrame>
+        </AppShell>,
+        { dict },
+      )
+      const sidebar = screen.getByTestId('module-sidebar')
+      const links = within(sidebar).getAllByRole('link').map((link) => link.textContent)
+      expect(links).toEqual(['Change Password', 'Notification Preferences'])
+      expect(within(sidebar).getByRole('link', { name: 'Notification Preferences' })).toHaveAttribute('aria-current', 'page')
+    })
+
+    it('renders item icons from iconName when iconMarkup is missing', async () => {
+      mockPathname = '/backend/checkout/pay-links'
+      renderModulePage({
+        shellGroups: [
           {
-            id: 'core',
-            name: 'Core',
-            defaultName: 'Core',
-            items: [
-              {
-                href: '/backend/users',
-                title: 'Fresh Link',
-                defaultTitle: 'Fresh Link',
-                enabled: true,
-              },
-            ],
+            id: 'checkout',
+            name: 'Checkout',
+            items: [{ href: '/backend/checkout/pay-links', title: 'Pay Links', iconName: 'ticket' } as never],
           },
         ],
-        settingsSections: [],
-        settingsPathPrefixes: [],
-        profileSections: [],
-        profilePathPrefixes: ['/backend/profile/'],
-        grantedFeatures: ['auth.*'],
-        roles: ['admin'],
-      }), { status: 200, headers: { 'content-type': 'application/json' } }))
-
-      await waitFor(() => {
-        expect(screen.getByText('Fresh Link')).toBeInTheDocument()
       })
-      expect(screen.queryByTestId('backend-chrome-loading')).toBeNull()
-      expect(screen.queryByText('Stale Link')).toBeNull()
-    } finally {
-      global.fetch = previousFetch
-      window.fetch = previousWindowFetch
-      ;(window as Window & { __omOriginalFetch?: typeof fetch }).__omOriginalFetch = previousOriginalFetch
-    }
-  })
-
-  describe('collapsible desktop rail', () => {
-    beforeEach(() => {
-      document.cookie = 'om_sidebar_collapsed=; path=/; max-age=0'
+      const link = screen.getByRole('link', { name: 'Pay Links' })
+      expect(link.querySelector('svg.lucide-ticket')).toBeTruthy()
     })
 
-    const renderShell = (props: Partial<React.ComponentProps<typeof AppShell>> = {}) =>
-      renderWithProviders(
-        <AppShell email="demo@example.com" groups={groups} {...props}>
-          <div>Content</div>
-        </AppShell>,
-        { dict },
-      )
-
-    const railWidth = (container: HTMLElement) =>
-      (container.querySelector('aside')?.parentElement as HTMLElement).style.getPropertyValue('--sidebar-rail-width')
-
-    it('starts expanded and collapses to the icon column from the topbar toggle', async () => {
-      const { container } = renderShell()
-      const toggle = screen.getByTestId('appshell-sidebar-toggle')
-      expect(toggle).toHaveAttribute('aria-expanded', 'true')
-      expect(toggle).toHaveAttribute('aria-controls', 'appshell-sidebar')
-      expect(railWidth(container)).toBe('272px')
-
-      fireEvent.click(toggle)
-
-      expect(toggle).toHaveAttribute('aria-expanded', 'false')
-      expect(railWidth(container)).toBe('69px')
-      expect(container.querySelector('aside')).toHaveAttribute('data-collapsed', 'true')
-      expect(document.cookie).toContain('om_sidebar_collapsed=1')
-    })
-
-    it('keeps one set of rows: labels stay as accessible names and nothing re-lays out', async () => {
-      const { container } = renderShell({ sidebarCollapsedDefault: true })
-      const row = screen.getByRole('link', { name: 'Users List' })
-      const content = row.firstElementChild as HTMLElement
-      expect(row.className).toContain('overflow-hidden')
-      expect(content.className).toContain('w-[var(--sidebar-content-width,100%)]')
-      expect(within(row).getByText('Users List').className).toContain('opacity-0')
-      expect(container.querySelectorAll('a[href="/backend/users"]').length).toBe(1)
-    })
-
-    it('paints collapsed on first render when the server read the cookie', () => {
-      const { container } = renderShell({ sidebarCollapsedDefault: true })
-      expect(railWidth(container)).toBe('69px')
-      expect(screen.getByTestId('appshell-sidebar-toggle')).toHaveAttribute('aria-expanded', 'false')
-    })
-
-    it('takes hidden controls out of the tab order while collapsed', () => {
-      renderShell({ sidebarCollapsedDefault: true })
-      const heading = screen.getByRole('button', { name: 'Core' })
-      expect(heading).toHaveAttribute('tabindex', '-1')
-      const field = screen.getByRole('searchbox', { hidden: true })
-      expect(field.closest('[inert]')).not.toBeNull()
-    })
-
-    it('keeps each group heading as an icon marker while collapsed', () => {
-      renderShell({ sidebarCollapsedDefault: true })
-      const heading = screen.getByRole('button', { name: 'Core' })
-      const content = heading.firstElementChild as HTMLElement
-      const [icon, label, chevron] = Array.from(content.children) as HTMLElement[]
-      expect(icon.querySelector('svg')).not.toBeNull()
-      expect(icon.className).not.toContain('opacity-0')
-      expect(label.className).toContain('opacity-0')
-      expect(chevron.className).toContain('opacity-0')
-    })
-
-    it('does not toggle a group from its collapsed heading', () => {
-      renderShell({ sidebarCollapsedDefault: true })
-      const heading = screen.getByRole('button', { name: 'Core' })
-      fireEvent.click(heading)
-      expect(heading).toHaveAttribute('aria-expanded', 'true')
-    })
-
-    it('keeps each group open or closed across collapsing, so icons never shift', () => {
-      renderShell()
-      fireEvent.click(screen.getAllByRole('button', { name: 'Core' })[0])
-      expect(screen.getByRole('link', { name: 'Roles', hidden: true }).closest('[inert]')).not.toBeNull()
-
-      fireEvent.click(screen.getByTestId('appshell-sidebar-toggle'))
-      expect(screen.getByRole('link', { name: 'Roles', hidden: true }).closest('[inert]')).not.toBeNull()
-      expect(screen.getAllByRole('button', { name: 'Core' })[0]).toHaveAttribute('aria-expanded', 'false')
-    })
-
-    it('toggles with Ctrl/Cmd+B, but not while typing', () => {
-      const { container } = renderShell()
-      fireEvent.keyDown(window, { key: 'b', ctrlKey: true })
-      expect(railWidth(container)).toBe('69px')
-      fireEvent.keyDown(window, { key: 'B', metaKey: true })
-      expect(railWidth(container)).toBe('272px')
-
-      const field = screen.getAllByRole('searchbox')[0]
-      fireEvent.keyDown(field, { key: 'b', ctrlKey: true })
-      expect(railWidth(container)).toBe('272px')
-    })
-
-    describe('hover peek', () => {
-      beforeEach(() => jest.useFakeTimers())
-      afterEach(() => jest.useRealTimers())
-
-      const aside = (container: HTMLElement) => container.querySelector('#appshell-sidebar') as HTMLElement
-      const advance = (ms: number) => act(() => { jest.advanceTimersByTime(ms) })
-      /* jsdom has no PointerEvent, and React derives enter/leave from
-         pointerover/pointerout with the element the pointer came from. */
-      const pointer = (target: HTMLElement, type: 'pointerover' | 'pointerout', pointerType = 'mouse') => {
-        const event = new MouseEvent(type, { bubbles: true, cancelable: true, relatedTarget: document.body })
-        Object.defineProperty(event, 'pointerType', { value: pointerType })
-        act(() => { target.dispatchEvent(event) })
+    // Regression: #1828 — a placeholder, never stale SSR groups, while the nav payload loads
+    it('holds the column with a placeholder while the navigation loads, then shows fresh pages', async () => {
+      const previousFetch = global.fetch
+      const previousWindowFetch = window.fetch
+      const previousOriginalFetch = (window as Window & { __omOriginalFetch?: typeof fetch }).__omOriginalFetch
+      let resolveFetch: ((response: Response) => void) | null = null
+      const fetchPromise = new Promise<Response>((resolve) => {
+        resolveFetch = resolve
+      })
+      const fetchMock = jest.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input instanceof Request ? input.url : input.toString()
+        if (url.includes('/api/auth/admin/nav-module-sidebar-loading')) return fetchPromise
+        return new Response(JSON.stringify([]), { status: 200, headers: { 'content-type': 'application/json' } })
+      }) as unknown as typeof fetch
+      global.fetch = fetchMock
+      window.fetch = fetchMock
+      ;(window as Window & { __omOriginalFetch?: typeof fetch }).__omOriginalFetch = fetchMock
+      mockPathname = '/backend/users'
+      try {
+        const { container } = renderWithProviders(
+          <AppShell
+            email="demo@example.com"
+            groups={[{ id: 'core', name: 'Stale Core', items: [{ href: '/backend/users', title: 'Stale Link' }] }]}
+            adminNavApi="/api/auth/admin/nav-module-sidebar-loading"
+          >
+            <BackendModuleFrame enabled>
+              <div>Page content</div>
+            </BackendModuleFrame>
+          </AppShell>,
+          { dict },
+        )
+        expect(container.querySelector('[role="status"][aria-busy="true"]')).not.toBeNull()
+        expect(screen.queryByText('Stale Link')).toBeNull()
+        resolveFetch?.(new Response(JSON.stringify({
+          groups: [{ id: 'core', name: 'Core', defaultName: 'Core', items: [{ href: '/backend/users', title: 'Fresh Link', defaultTitle: 'Fresh Link', enabled: true }] }],
+          settingsSections: [],
+          settingsPathPrefixes: [],
+          profileSections: [],
+          profilePathPrefixes: [],
+          grantedFeatures: ['auth.*'],
+          roles: ['admin'],
+        }), { status: 200, headers: { 'content-type': 'application/json' } }))
+        await waitFor(() => {
+          expect(screen.getByRole('link', { name: 'Fresh Link' })).toHaveAttribute('aria-current', 'page')
+        })
+        expect(screen.queryByText('Stale Link')).toBeNull()
+      } finally {
+        global.fetch = previousFetch
+        window.fetch = previousWindowFetch
+        ;(window as Window & { __omOriginalFetch?: typeof fetch }).__omOriginalFetch = previousOriginalFetch
       }
-
-      it('opens over the page on hover without moving the content column', () => {
-        const { container } = renderShell({ sidebarCollapsedDefault: true })
-        const rail = aside(container)
-        pointer(rail, 'pointerover')
-        advance(119)
-        expect(rail).toHaveAttribute('data-peek', 'false')
-        expect(rail.className).not.toContain('lg:z-top')
-        advance(1)
-
-        expect(rail).toHaveAttribute('data-peek', 'true')
-        expect(rail).toHaveAttribute('data-collapsed', 'false')
-        expect(rail.style.width).toBe('272px')
-        expect(rail.className).toContain('lg:z-top')
-        expect(railWidth(container)).toBe('69px')
-        expect(within(rail).getByText('Users List').className).not.toContain('opacity-0')
-      })
-
-      it('closes after the pointer leaves, keeping the top layer until it has narrowed', () => {
-        const { container } = renderShell({ sidebarCollapsedDefault: true })
-        const rail = aside(container)
-        pointer(rail, 'pointerover')
-        advance(120)
-        pointer(rail, 'pointerout')
-        advance(180)
-
-        expect(rail).toHaveAttribute('data-peek', 'false')
-        expect(rail.style.width).toBe('69px')
-        expect(rail.className).toContain('lg:z-top')
-        advance(200)
-        expect(rail.className).not.toContain('lg:z-top')
-      })
-
-      it('does not open when the pointer only passes through', () => {
-        const { container } = renderShell({ sidebarCollapsedDefault: true })
-        const rail = aside(container)
-        pointer(rail, 'pointerover')
-        advance(60)
-        pointer(rail, 'pointerout')
-        advance(500)
-        expect(rail).toHaveAttribute('data-peek', 'false')
-      })
-
-      it('ignores touch, and never peeks while pinned open', () => {
-        const touch = renderShell({ sidebarCollapsedDefault: true })
-        pointer(aside(touch.container), 'pointerover', 'touch')
-        advance(500)
-        expect(aside(touch.container)).toHaveAttribute('data-peek', 'false')
-        touch.unmount()
-
-        const pinned = renderShell({ sidebarCollapsedDefault: false })
-        pointer(aside(pinned.container), 'pointerover')
-        advance(500)
-        expect(aside(pinned.container)).toHaveAttribute('data-peek', 'false')
-        expect(railWidth(pinned.container)).toBe('272px')
-      })
-
-      it('offers a pin while peeking, which gives the rail its own column', () => {
-        const { container } = renderShell({ sidebarCollapsedDefault: true })
-        const rail = aside(container)
-        const pin = screen.getByTestId('appshell-sidebar-pin')
-        expect(pin.closest('[inert]')).not.toBeNull()
-
-        pointer(rail, 'pointerover')
-        advance(120)
-        expect(pin.closest('[inert]')).toBeNull()
-
-        fireEvent.click(pin)
-        expect(railWidth(container)).toBe('272px')
-        expect(rail).toHaveAttribute('data-peek', 'false')
-        expect(rail).toHaveAttribute('data-collapsed', 'false')
-        expect(document.cookie).toContain('om_sidebar_collapsed=0')
-      })
-
-      it('closes on Escape', () => {
-        const { container } = renderShell({ sidebarCollapsedDefault: true })
-        const rail = aside(container)
-        pointer(rail, 'pointerover')
-        advance(120)
-        fireEvent.keyDown(rail, { key: 'Escape' })
-        expect(rail).toHaveAttribute('data-peek', 'false')
-      })
     })
   })
 
-  describe('group heading icons', () => {
-    it('renders the group icon the chrome payload declares', () => {
-      const { container } = renderWithProviders(
-        <AppShell
-          email="demo@example.com"
-          groups={[{ ...groups[0], iconMarkup: '<svg data-testid="core-group-icon"></svg>' }]}
-        >
+  describe('module switcher', () => {
+    const switcherGroups = [
+      {
+        id: 'customers.nav.group',
+        name: 'Customers',
+        iconName: 'users',
+        items: [
+          { href: '/backend/customers/people', title: 'People' },
+          { href: '/backend/customers/companies', title: 'Companies' },
+        ],
+      },
+      {
+        id: 'tasks.nav.group',
+        name: 'Tasks',
+        items: [
+          { href: '/backend/tasks/disabled', title: 'Disabled', enabled: false },
+          { href: '/backend/tasks/today', title: 'My Tasks' },
+        ],
+      },
+      {
+        id: 'settings-only',
+        name: 'Settings Only',
+        items: [{ href: '/backend/config/secret', title: 'Secret', pageContext: 'settings' as const }],
+      },
+    ]
+
+    function renderSwitcher(shellGroups: typeof switcherGroups | [] = switcherGroups) {
+      return renderWithProviders(
+        <AppShell email="demo@example.com" groups={shellGroups as typeof switcherGroups}>
           <div>Content</div>
         </AppShell>,
         { dict },
       )
-      const heading = within(container.querySelector('nav[data-testid="sidebar"]') as HTMLElement)
-        .getByRole('button', { name: 'Core' })
-      expect(heading.querySelector('[data-testid="core-group-icon"]')).not.toBeNull()
+    }
+
+    function openSwitcher() {
+      fireEvent.click(screen.getByTestId('module-switcher-trigger'))
+      return screen.getByTestId('module-switcher')
+    }
+
+    it('names the current module on the trigger', () => {
+      mockPathname = '/backend/customers/companies'
+      renderSwitcher()
+      expect(screen.getByTestId('module-switcher-current')).toHaveTextContent('Customers')
+      expect(screen.getByTestId('module-switcher-trigger')).toHaveAttribute('aria-label', 'Switch module, current: Customers')
     })
 
-    it('falls back to the generic group icon when none is declared', () => {
-      const { container } = renderWithProviders(
-        <AppShell email="demo@example.com" groups={groups}>
-          <div>Content</div>
-        </AppShell>,
-        { dict },
-      )
-      const heading = within(container.querySelector('nav[data-testid="sidebar"]') as HTMLElement)
-        .getByRole('button', { name: 'Core' })
-      expect(heading.firstElementChild?.firstElementChild?.querySelector('svg')).not.toBeNull()
+    it('lists each reachable module once, opening it at its first enabled page', () => {
+      mockPathname = '/backend/customers/companies'
+      renderSwitcher()
+      const menu = openSwitcher()
+      const tiles = within(menu).getAllByRole('link').filter((el) => el.hasAttribute('data-module-tile'))
+      expect(tiles.map((tile) => tile.textContent)).toEqual(['Customers', 'Tasks'])
+      expect(tiles[0]).toHaveAttribute('href', '/backend/customers/people')
+      expect(tiles[0]).toHaveAttribute('aria-current', 'page')
+      expect(tiles[1]).toHaveAttribute('href', '/backend/tasks/today')
+      expect(tiles[1]).not.toHaveAttribute('aria-current')
+      expect(tiles[0].querySelector('svg.lucide-users')).toBeTruthy()
+    })
+
+    it('filters modules by name or page title and lists matching pages', () => {
+      mockPathname = '/backend'
+      renderSwitcher()
+      const menu = openSwitcher()
+      fireEvent.change(within(menu).getByRole('searchbox'), { target: { value: 'compan' } })
+      const tiles = within(menu).getAllByRole('link').filter((el) => el.hasAttribute('data-module-tile'))
+      expect(tiles.map((tile) => tile.textContent)).toEqual(['Customers'])
+      const pageLink = within(menu).getByRole('link', { name: /Companies/ })
+      expect(pageLink).toHaveAttribute('href', '/backend/customers/companies')
+    })
+
+    it('says so when nothing matches the search', () => {
+      renderSwitcher()
+      const menu = openSwitcher()
+      fireEvent.change(within(menu).getByRole('searchbox'), { target: { value: 'zzz' } })
+      expect(within(menu).getByText('Nothing matches your search')).toBeInTheDocument()
+    })
+
+    it('shows an empty state when the viewer can reach no module', () => {
+      renderSwitcher([])
+      const menu = openSwitcher()
+      expect(within(menu).getByText('No modules available')).toBeInTheDocument()
+    })
+
+    it('moves focus from the search into the grid with the arrow keys', () => {
+      renderSwitcher()
+      const menu = openSwitcher()
+      fireEvent.keyDown(within(menu).getByRole('searchbox'), { key: 'ArrowDown' })
+      const tiles = within(menu).getAllByRole('link').filter((el) => el.hasAttribute('data-module-tile'))
+      expect(document.activeElement).toBe(tiles[0])
+      fireEvent.keyDown(tiles[0], { key: 'ArrowRight' })
+      expect(document.activeElement).toBe(tiles[1])
     })
   })
 })

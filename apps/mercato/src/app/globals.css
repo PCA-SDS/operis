@@ -1200,6 +1200,10 @@ body[data-ai-chat-open="true"] .om-demo-feedback-floating {
  * matching `FILL_WRAPPER` in `packages/ui/src/backend/Page.tsx`, which applies
  * its flex model at the same breakpoints. Narrow viewports keep natural
  * document scrolling, which is the whole point of the opt-in variants.
+ *
+ * A module sidebar sticks under the topbar on document-scrolling pages. Here
+ * `main` is the scroller, so the sidebar sticks to its top instead and is
+ * capped at its row (`module-nav/ModuleSidebar.tsx`).
  */
 [data-app-shell-column]:has([data-slot='page'][data-fill='true']) {
   height: 100svh;
@@ -1212,6 +1216,8 @@ body[data-ai-chat-open="true"] .om-demo-feedback-floating {
   min-height: 0;
   overflow-y: auto;
   padding-bottom: 0 !important;
+  --module-sidebar-top: 0px;
+  --module-sidebar-max-height: 100%;
 }
 
 @media (min-width: 40rem) {
@@ -1226,6 +1232,8 @@ body[data-ai-chat-open="true"] .om-demo-feedback-floating {
     min-height: 0;
     overflow-y: auto;
     padding-bottom: 0 !important;
+    --module-sidebar-top: 0px;
+    --module-sidebar-max-height: 100%;
   }
 }
 
@@ -1241,6 +1249,8 @@ body[data-ai-chat-open="true"] .om-demo-feedback-floating {
     min-height: 0;
     overflow-y: auto;
     padding-bottom: 0 !important;
+    --module-sidebar-top: 0px;
+    --module-sidebar-max-height: 100%;
   }
 }
 
@@ -1256,6 +1266,8 @@ body[data-ai-chat-open="true"] .om-demo-feedback-floating {
     min-height: 0;
     overflow-y: auto;
     padding-bottom: 0 !important;
+    --module-sidebar-top: 0px;
+    --module-sidebar-max-height: 100%;
   }
 }
 

@@ -13,7 +13,7 @@ export default function ChatSearchPage() {
   return (
     <Page fill>
       <PageBody fill>
-        <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col py-4">
+        <div className="flex min-h-0 w-full flex-1 flex-col">
           <GlobalChatSearch />
         </div>
       </PageBody>
