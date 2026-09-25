@@ -14,6 +14,10 @@
       "types": "./src/modules/resend/index.ts",
       "default": "./dist/modules/resend/index.js"
     },
+    "./modules/resend/contract": {
+      "types": "./src/modules/resend/contract.ts",
+      "default": "./dist/modules/resend/contract.js"
+    },
     "./modules/resend/*": null,
     "./internal/*": {
       "types": [
