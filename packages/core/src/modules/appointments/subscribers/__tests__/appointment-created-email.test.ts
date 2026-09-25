@@ -177,7 +177,7 @@ describe('appointment created email subscriber', () => {
     expect(sendEmail).not.toHaveBeenCalled()
   })
 
-  it('does not fall back to the global Resend key when tenant credentials are missing', async () => {
+  it('falls back to the global Resend key when scoped credentials are missing', async () => {
     const appointment = {
       id: 'appointment-1',
       customerName: 'Ada Lovelace',
@@ -193,16 +193,37 @@ describe('appointment created email subscriber', () => {
     }
     const stateService = { isEnabled: jest.fn().mockResolvedValue(true) }
     const credentialsService = { resolve: jest.fn().mockResolvedValue(null) }
+    const moduleConfigService = { getRecord: jest.fn().mockResolvedValue({
+      source: 'tenant',
+      value: { from: 'bookings@example.com', to: 'spa@example.com', cc: '', bcc: '', replyTo: '' },
+    }) }
     const integrationLogService = { write: jest.fn().mockResolvedValue(undefined) }
-    const ctx = {
-      resolve: (name: string) => name === 'em' ? em : name === 'integrationLogService' ? integrationLogService : name === 'integrationStateService' ? stateService : name === 'integrationCredentialsService' ? credentialsService : credentialsService,
+    const previousGlobalResendKey = process.env.RESEND_API_KEY
+    process.env.RESEND_API_KEY = 'global-resend-key'
+    try {
+      await handle(
+        { id: 'appointment-1', tenantId: 'tenant-3', organizationId: 'org-3', source: 'public_booking' },
+        { resolve: (name: string) => name === 'em' ? em : name === 'integrationLogService' ? integrationLogService : name === 'integrationStateService' ? stateService : name === 'integrationCredentialsService' ? credentialsService : moduleConfigService },
+      )
+    } finally {
+      if (previousGlobalResendKey === undefined) delete process.env.RESEND_API_KEY
+      else process.env.RESEND_API_KEY = previousGlobalResendKey
     }
 
-    await handle(
-      { id: 'appointment-1', tenantId: 'tenant-3', organizationId: 'org-3', source: 'public_booking' },
-      ctx,
-    )
-
-    expect(sendEmail).not.toHaveBeenCalled()
+    expect(sendEmail).toHaveBeenCalledTimes(2)
+    expect(sendEmail).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      apiKey: undefined,
+      to: ['spa@example.com'],
+      from: 'bookings@example.com',
+    }))
+    expect(sendEmail).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      apiKey: undefined,
+      to: 'ada@example.com',
+      from: 'bookings@example.com',
+    }))
+    expect(integrationLogService.write).toHaveBeenCalledWith(expect.objectContaining({
+      level: 'info',
+      code: 'resend.scoped_credentials_missing',
+    }), { tenantId: 'tenant-3', organizationId: 'org-3' })
   })
 })

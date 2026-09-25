@@ -157,21 +157,22 @@ export default async function handle(payload: AppointmentCreatedPayload, ctx: Re
 
   const credentialsService = ctx.resolve<CredentialsService>('integrationCredentialsService')
   const credentials = await credentialsService.resolve(RESEND_INTEGRATION_ID, scope)
-  const apiKey = typeof credentials?.apiKey === 'string' ? credentials.apiKey.trim() : ''
+  const apiKey = typeof credentials?.apiKey === 'string' && credentials.apiKey.trim().length > 0
+    ? credentials.apiKey.trim()
+    : undefined
   const defaultSender = typeof credentials?.fromEmail === 'string' ? credentials.fromEmail.trim() : ''
   if (!apiKey) {
-    logger.warn('Appointment email skipped because the tenant has no Resend credentials configured', {
+    logger.info('Appointment email is using the global Resend API key because scoped credentials are not configured', {
       appointmentId: appointment.id,
       tenantId: payload.tenantId,
       organizationId: payload.organizationId,
     })
     await writeIntegrationLog({
-      level: 'warn',
-      message: 'Appointment email skipped because Resend credentials are not configured',
-      code: 'resend.credentials_missing',
+      level: 'info',
+      message: 'Appointment email is using the global Resend API key because scoped credentials are not configured',
+      code: 'resend.scoped_credentials_missing',
       payload: { appointmentId: appointment.id },
     })
-    return
   }
 
   const configService = ctx.resolve<ModuleConfigService>('moduleConfigService')
