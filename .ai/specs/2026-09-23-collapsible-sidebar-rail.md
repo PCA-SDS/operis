@@ -1,7 +1,7 @@
 # Backend Sidebar — Collapsible Rail
 
 - **Date:** 2026-09-23
-- **Status:** Implemented
+- **Status:** Superseded by [`2026-09-25-module-switcher-and-module-sidebars.md`](2026-09-25-module-switcher-and-module-sidebars.md) — the global rail was removed
 - **Scope:** `packages/ui/src/backend/AppShell.tsx`, `packages/ui/src/backend/sidebar/{chrome,SidebarNavLink}.tsx`,
   `apps/mercato/src/app/(backend)/backend/layout.tsx`, `apps/mercato/src/i18n/*.json`
 - **Supersedes in part:** [`2026-08-24-sidebar-navy-static-rail.md`](2026-08-24-sidebar-navy-static-rail.md)
