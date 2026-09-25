@@ -20,7 +20,8 @@ import {
   runIntegrationMutationGuardAfterSuccess,
   runIntegrationMutationGuards,
 } from '../../guards'
-import { organizationScopeRequiredResponse, resolveActiveOrganizationId } from '@open-mercato/shared/lib/auth/organizationScope'
+import { organizationScopeRequiredResponse } from '@open-mercato/shared/lib/auth/organizationScope'
+import { resolveIntegrationsOrganizationIdForRequest } from '../../../lib/organization-scope'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 
 const idParamsSchema = z.object({ id: z.string().min(1) })
@@ -48,11 +49,6 @@ export async function GET(req: Request, ctx: { params?: Promise<{ id?: string }>
   if (!auth?.tenantId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
-  const organizationId = resolveActiveOrganizationId(auth)
-  if (!organizationId) {
-    return organizationScopeRequiredResponse()
-  }
-
   const rawParams = await resolveParams(ctx)
   const parsedParams = idParamsSchema.safeParse(rawParams)
   if (!parsedParams.success) {
@@ -65,6 +61,11 @@ export async function GET(req: Request, ctx: { params?: Promise<{ id?: string }>
   }
 
   const container = await createRequestContainer()
+  const organizationId = await resolveIntegrationsOrganizationIdForRequest({ container, auth, request: req })
+  if (!organizationId) {
+    return organizationScopeRequiredResponse()
+  }
+
   const credentialsService = container.resolve('integrationCredentialsService') as CredentialsService
   const scope = { organizationId: organizationId, tenantId: auth.tenantId }
 
@@ -97,11 +98,6 @@ export async function PUT(req: Request, ctx: { params?: Promise<{ id?: string }>
   if (!auth?.tenantId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
-  const organizationId = resolveActiveOrganizationId(auth)
-  if (!organizationId) {
-    return organizationScopeRequiredResponse()
-  }
-
   const rawParams = await resolveParams(ctx)
   const parsedParams = idParamsSchema.safeParse(rawParams)
   if (!parsedParams.success) {
@@ -120,6 +116,11 @@ export async function PUT(req: Request, ctx: { params?: Promise<{ id?: string }>
   }
 
   const container = await createRequestContainer()
+  const organizationId = await resolveIntegrationsOrganizationIdForRequest({ container, auth, request: req })
+  if (!organizationId) {
+    return organizationScopeRequiredResponse()
+  }
+
   const guardResult = await runIntegrationMutationGuards(
     container,
     {
