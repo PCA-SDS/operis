@@ -251,7 +251,7 @@ function normalizeStaffRoleAssignments(values: unknown): StaffRoleAssignment[] |
   }
   return Array.from(byOrganizationId.entries()).map(([organizationId, roleIds]) => ({
     organizationId,
-    roleIds: Array.from(roleIds).sort(),
+    roleIds: Array.from(roleIds).sort((left, right) => (left < right ? -1 : left > right ? 1 : 0)),
   }))
 }
 
@@ -335,7 +335,7 @@ async function syncUserOrganizationMemberships(
   if (!tenantId) return { tenantId: null, organizationIds: [] }
   const desired = new Set(normalizeOrganizationIds(organizationIds))
   const rows = await em.find(UserOrganizationMembership, { tenantId, userId, deletedAt: null })
-  if (typeof em.create !== 'function') return { tenantId, organizationIds: Array.from(desired).sort() }
+  if (typeof em.create !== 'function') return { tenantId, organizationIds: Array.from(desired).sort((left, right) => (left < right ? -1 : left > right ? 1 : 0)) }
   const byOrganizationId = new Map(rows.map((row) => [String(row.organizationId), row]))
 
   for (const organizationId of desired) {
@@ -359,7 +359,7 @@ async function syncUserOrganizationMemberships(
     if (!desired.has(String(row.organizationId))) row.isActive = false
   }
 
-  return { tenantId, organizationIds: Array.from(desired).sort() }
+  return { tenantId, organizationIds: Array.from(desired).sort((left, right) => (left < right ? -1 : left > right ? 1 : 0)) }
 }
 
 async function emitOrganizationMembershipChange(

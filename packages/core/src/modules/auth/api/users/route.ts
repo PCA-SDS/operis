@@ -344,20 +344,27 @@ export async function GET(req: Request) {
   const scopedOrganizationIds = effectiveOrganizationIds ?? []
   if (scopedOrganizationIds.length > 0) {
     const scopedUserIds = await findUserIdsForOrganizationMemberships(em, effectiveTenantId, scopedOrganizationIds)
-    if (scopedUserIds.length === 0) {
-      return NextResponse.json({ items: [], total: 0, totalPages: 1, isSuperAdmin })
-    }
-    filters.push({ id: { $in: scopedUserIds as any } })
+    filters.push(
+      scopedUserIds.length > 0
+        ? {
+            $or: [
+              { organizationId: { $in: scopedOrganizationIds as any } },
+              { id: { $in: scopedUserIds as any } },
+            ],
+          }
+        : { organizationId: { $in: scopedOrganizationIds as any } },
+    )
   }
   const scopeOrganizationId = usesSelectedTenantScope
     ? effectiveSelectedOrganizationId
     : auth.orgId ?? null
   if (organizationId) {
     const organizationUserIds = await findUserIdsForOrganizationMemberships(em, effectiveTenantId, [organizationId])
-    if (organizationUserIds.length === 0) {
-      return NextResponse.json({ items: [], total: 0, totalPages: 1, isSuperAdmin })
-    }
-    filters.push({ id: { $in: organizationUserIds as any } })
+    filters.push(
+      organizationUserIds.length > 0
+        ? { $or: [{ organizationId }, { id: { $in: organizationUserIds as any } }] }
+        : { organizationId },
+    )
   }
   // Recipient/assignee pickers scope to the caller's active organization so they never
   // suggest users outside it. A message composed here is stamped with the caller's
@@ -366,15 +373,20 @@ export async function GET(req: Request) {
   // suggestions to the same org keeps a picked recipient able to open what they were sent.
   if (scopeToActiveOrganization) {
     const activeOrganizationId = scopeOrganizationId
-    const activeOrganizationUserIds = await findUserIdsForOrganizationMemberships(
-      em,
-      effectiveTenantId ?? auth.tenantId ?? null,
-      activeOrganizationId ? [activeOrganizationId] : [],
-    )
-    if (activeOrganizationUserIds.length === 0) {
-      return NextResponse.json({ items: [], total: 0, totalPages: 1, isSuperAdmin })
+    if (activeOrganizationId) {
+      const activeOrganizationUserIds = await findUserIdsForOrganizationMemberships(
+        em,
+        effectiveTenantId ?? auth.tenantId ?? null,
+        [activeOrganizationId],
+      )
+      filters.push(
+        activeOrganizationUserIds.length > 0
+          ? { $or: [{ organizationId: activeOrganizationId }, { id: { $in: activeOrganizationUserIds as any } }] }
+          : { organizationId: activeOrganizationId },
+      )
+    } else {
+      filters.push({ organizationId: null })
     }
-    filters.push({ id: { $in: activeOrganizationUserIds as any } })
   }
   const trimmedName = typeof name === 'string' ? name.trim() : ''
   if (trimmedName) {
@@ -423,9 +435,16 @@ export async function GET(req: Request) {
         effectiveTenantId ?? auth.tenantId ?? null,
         matchingOrganizationIds,
       )
-      if (matchingOrganizationUserIds.length) {
-        searchFilters.push({ id: { $in: matchingOrganizationUserIds as any } })
-      }
+      searchFilters.push(
+        matchingOrganizationUserIds.length > 0
+          ? {
+              $or: [
+                { organizationId: { $in: matchingOrganizationIds as any } },
+                { id: { $in: matchingOrganizationUserIds as any } },
+              ],
+            }
+          : { organizationId: { $in: matchingOrganizationIds as any } },
+      )
     }
 
     searchFilters.push(buildRoleNameSearchExistsFilter(searchPattern, tenantScope))
@@ -545,7 +564,7 @@ export async function GET(req: Request) {
       name: u.name ? String(u.name) : null,
       organizationId: orgId,
       organizationIds: organizationIdsByUser[uid]?.length
-        ? Array.from(new Set(organizationIdsByUser[uid])).sort()
+        ? Array.from(new Set(organizationIdsByUser[uid])).sort((left, right) => (left < right ? -1 : left > right ? 1 : 0))
         : (orgId ? [orgId] : []),
       organizationName: orgId ? orgMap[orgId] ?? orgId : null,
       tenantId: u.tenantId ? String(u.tenantId) : null,
