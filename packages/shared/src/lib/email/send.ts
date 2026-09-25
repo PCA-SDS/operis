@@ -29,6 +29,7 @@ export function resolveEmailSendTimeoutMs(env: NodeJS.ProcessEnv = process.env):
 }
 
 export type SendEmailOptions = {
+  apiKey?: string
   to: string | string[]
   cc?: string | string[]
   bcc?: string | string[]
@@ -161,7 +162,7 @@ async function sendWithTimeout(
   )
 }
 
-export async function sendEmail({ to, cc, bcc, subject, react, from, replyTo, attachments }: SendEmailOptions) {
+export async function sendEmail({ apiKey: apiKeyOverride, to, cc, bcc, subject, react, from, replyTo, attachments }: SendEmailOptions) {
   const emailDisabled =
     parseBooleanWithDefault(process.env.OM_DISABLE_EMAIL_DELIVERY, false) ||
     parseBooleanWithDefault(process.env.OM_TEST_MODE, false)
@@ -170,7 +171,7 @@ export async function sendEmail({ to, cc, bcc, subject, react, from, replyTo, at
 
   if (emailDisabled) return
 
-  const apiKey = process.env.RESEND_API_KEY
+  const apiKey = apiKeyOverride ?? process.env.RESEND_API_KEY
   if (!apiKey) throw new Error('RESEND_API_KEY is not set')
   const resend = new Resend(apiKey)
   const fromAddr = from || resolveDefaultEmailFromAddress()
