@@ -15,6 +15,13 @@ jest.mock('@open-mercato/shared/lib/crud/enricher-runner', () => ({
 }))
 
 describe('integrations read-route UMES helpers', () => {
+  const buildContainer = () => ({
+    resolve: jest.fn((key: string) => {
+      if (key === 'rbacService') throw new Error(`unexpected resolve(${key})`)
+      return {}
+    }),
+  }) as any
+
   beforeEach(() => {
     jest.clearAllMocks()
   })
@@ -34,7 +41,7 @@ describe('integrations read-route UMES helpers', () => {
       routePath: integrationApiRoutePaths.logs,
       request,
       auth: { tenantId: 'tenant-1', orgId: 'org-1', sub: 'user-1', features: ['integrations.view'] },
-      container: { resolve: jest.fn(() => ({})) } as any,
+      container: buildContainer(),
     })
 
     expect(runApiInterceptorsBefore).toHaveBeenCalledWith(
@@ -69,7 +76,7 @@ describe('integrations read-route UMES helpers', () => {
       routePath: integrationApiRoutePaths.list,
       request: new Request('http://localhost/api/integrations'),
       auth: { tenantId: 'tenant-1', orgId: 'org-1', sub: 'user-1', features: ['integrations.view'] },
-      container: { resolve: jest.fn(() => ({})) } as any,
+      container: buildContainer(),
       interceptorRequest: {
         method: 'GET',
         url: 'http://localhost/api/integrations',
@@ -114,7 +121,7 @@ describe('integrations read-route UMES helpers', () => {
       routePath: integrationApiRoutePaths.detail,
       request: new Request('http://localhost/api/integrations/gateway_stripe'),
       auth: { tenantId: 'tenant-1', orgId: 'org-1', sub: 'user-1', features: ['integrations.view'] },
-      container: { resolve: jest.fn(() => ({})) } as any,
+      container: buildContainer(),
       interceptorRequest: {
         method: 'GET',
         url: 'http://localhost/api/integrations/gateway_stripe',

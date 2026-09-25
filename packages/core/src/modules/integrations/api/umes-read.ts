@@ -4,8 +4,9 @@ import type { AwilixContainer } from 'awilix'
 import { runApiInterceptorsAfter, runApiInterceptorsBefore, type RunInterceptorsBeforeResult } from '@open-mercato/shared/lib/crud/interceptor-runner'
 import { applyResponseEnrichers, applyResponseEnricherToRecord } from '@open-mercato/shared/lib/crud/enricher-runner'
 import type { ApiInterceptorMethod, InterceptorRequest } from '@open-mercato/shared/lib/crud/api-interceptor'
-import { resolveActiveOrganizationId } from '@open-mercato/shared/lib/auth/organizationScope'
 import { resolveGrantedFeatures } from '@open-mercato/shared/lib/auth/grantedFeatures'
+import type { AuthContext } from '@open-mercato/shared/lib/auth/server'
+import { resolveIntegrationsOrganizationIdForRequest } from '../lib/organization-scope'
 
 export const integrationApiRoutePaths = {
   list: 'integrations',
@@ -22,11 +23,7 @@ type ReadRouteFieldConfig = {
 type ReadRouteContext = {
   routePath: string
   request: Request
-  auth: {
-    tenantId: string | null
-    orgId: string | null
-    sub?: string | null
-  }
+  auth: Exclude<AuthContext, null>
   container: AwilixContainer
 }
 
@@ -69,7 +66,7 @@ function mergeAdditiveBody(
  * caller, entitled or not.
  */
 async function getEnricherContext(input: ReadRouteContext) {
-  const organizationId = resolveActiveOrganizationId(input.auth) as string
+  const organizationId = await resolveIntegrationsOrganizationIdForRequest(input) as string
   return {
     organizationId,
     tenantId: input.auth.tenantId as string,

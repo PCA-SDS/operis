@@ -70,6 +70,7 @@ const EXPECTED_DEFAULT_ENABLED_MODULE_IDS = [
   'invoice',
   'mcp',
   'planner',
+  'resend',
   'resources',
   'staff',
   'tasks',

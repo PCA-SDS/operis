@@ -1,0 +1,73 @@
+{
+  "name": "@open-mercato/email-resend",
+  "version": "0.7.0",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "jest --config jest.config.cjs",
+    "typecheck": "tsc --noEmit"
+  },
+  "exports": {
+    "./modules/resend": {
+      "types": "./src/modules/resend/index.ts",
+      "default": "./dist/modules/resend/index.js"
+    },
+    "./modules/resend/contract": {
+      "types": "./src/modules/resend/contract.ts",
+      "default": "./dist/modules/resend/contract.js"
+    },
+    "./modules/resend/*": null,
+    "./internal/*": {
+      "types": [
+        "./src/*.ts",
+        "./src/*.tsx",
+        "./src/*/index.ts",
+        "./src/*/index.tsx"
+      ],
+      "default": [
+        "./dist/*.js",
+        "./dist/*/index.js"
+      ]
+    },
+    ".": "./dist/index.js",
+    "./*.ts": {
+      "types": "./src/*.ts",
+      "default": "./dist/*.js"
+    },
+    "./*": {
+      "types": [
+        "./src/*.ts",
+        "./src/*.tsx"
+      ],
+      "default": "./dist/*.js"
+    },
+    "./*/*": {
+      "types": [
+        "./src/*/*.ts",
+        "./src/*/*.tsx"
+      ],
+      "default": "./dist/*/*.js"
+    }
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
+  },
+  "peerDependencies": {
+    "@open-mercato/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@open-mercato/shared": "workspace:*",
+    "@types/jest": "^30.0.0",
+    "esbuild": "^0.28.1",
+    "jest": "^30.4.2",
+    "ts-jest": "^29.4.12",
+    "typescript": "7.0.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/PCA-SDS/operis",
+    "directory": "packages/email-resend"
+  }
+}

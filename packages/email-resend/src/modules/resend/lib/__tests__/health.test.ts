@@ -1,4 +1,4 @@
-import { resendHealthCheck } from '../resend-health'
+import { resendHealthCheck } from '../health'
 
 describe('resendHealthCheck', () => {
   const originalFetch = global.fetch

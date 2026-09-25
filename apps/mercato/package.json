@@ -44,6 +44,7 @@
     "@open-mercato/cli": "workspace:*",
     "@open-mercato/content": "workspace:*",
     "@open-mercato/core": "workspace:*",
+    "@open-mercato/email-resend": "workspace:*",
     "@open-mercato/events": "workspace:*",
     "@open-mercato/gateway-stripe": "workspace:*",
     "@open-mercato/matrix": "workspace:*",

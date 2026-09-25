@@ -10,13 +10,14 @@ import type { ModuleConfigService } from '@open-mercato/core/modules/configs/lib
 import type { CredentialsService } from '@open-mercato/core/modules/integrations/lib/credentials-service'
 import type { IntegrationLogService } from '@open-mercato/core/modules/integrations/lib/log-service'
 import type { IntegrationStateService } from '@open-mercato/core/modules/integrations/lib/state-service'
-import { RESEND_INTEGRATION_ID } from '../integration'
 import {
   APPOINTMENT_EMAIL_SETTINGS_KEY,
   APPOINTMENT_EMAIL_SETTINGS_MODULE_ID,
   appointmentEmailSettingsSchema,
   DEFAULT_APPOINTMENT_EMAIL_SETTINGS,
 } from '../lib/email-settings'
+
+const RESEND_INTEGRATION_ID = 'resend'
 
 const logger = createLogger('appointments').child({ component: 'created-email' })
 

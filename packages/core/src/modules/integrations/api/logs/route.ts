@@ -8,7 +8,8 @@ import {
   integrationApiRoutePaths,
   runIntegrationsReadBeforeInterceptors,
 } from '../umes-read'
-import { organizationScopeRequiredResponse, resolveActiveOrganizationId } from '@open-mercato/shared/lib/auth/organizationScope'
+import { organizationScopeRequiredResponse } from '@open-mercato/shared/lib/auth/organizationScope'
+import { resolveIntegrationsOrganizationIdForRequest } from '../../lib/organization-scope'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['integrations.manage'] },
@@ -24,12 +25,12 @@ export async function GET(req: Request) {
   if (!auth?.tenantId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
-  const organizationId = resolveActiveOrganizationId(auth)
+  const container = await createRequestContainer()
+  const organizationId = await resolveIntegrationsOrganizationIdForRequest({ container, auth, request: req })
   if (!organizationId) {
     return organizationScopeRequiredResponse()
   }
 
-  const container = await createRequestContainer()
   const beforeInterceptors = await runIntegrationsReadBeforeInterceptors({
     routePath: integrationApiRoutePaths.logs,
     request: req,
