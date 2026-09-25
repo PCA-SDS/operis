@@ -31,6 +31,32 @@ export type EmailSchemaOptions = {
   message?: string
   /** Override the length cap. Prefer leaving this alone. */
   maxLength?: number
+  /** Accept an optional display name, for example `Acme <mail@example.com>`. */
+  allowDisplayName?: boolean
+}
+
+export type ParsedEmailAddress = {
+  address: string
+  displayName?: string
+}
+
+const DISPLAY_NAME_EMAIL_PATTERN = /^(?:"([^"]*)"|([^<>]*?))?\s*<([^<>]+)>$/
+
+/** Extracts the mailbox from a plain or display-name email address. */
+export function parseEmailAddress(value: string): ParsedEmailAddress | null {
+  const normalized = value.trim()
+  const displayNameMatch = DISPLAY_NAME_EMAIL_PATTERN.exec(normalized)
+  const address = (displayNameMatch?.[3] ?? normalized).trim()
+  if (!z.string().email().max(EMAIL_MAX_LENGTH).safeParse(address).success) return null
+  if (!displayNameMatch) return { address }
+
+  const displayName = (displayNameMatch[1] ?? displayNameMatch[2] ?? '').trim()
+  return displayName ? { address, displayName } : { address }
+}
+
+export function isEmailAddress(value: string, allowDisplayName = false): boolean {
+  if (!allowDisplayName) return z.string().email().max(EMAIL_MAX_LENGTH).safeParse(value.trim()).success
+  return parseEmailAddress(value) !== null
 }
 
 /**
@@ -51,7 +77,11 @@ export type EmailSchemaOptions = {
  * enforcement point — a client check is never a substitute for one.
  */
 export function emailSchema(options: EmailSchemaOptions = {}) {
-  const { message, maxLength = EMAIL_MAX_LENGTH } = options
+  const { message, maxLength = EMAIL_MAX_LENGTH, allowDisplayName = false } = options
+  if (allowDisplayName) {
+    const schema = z.string().trim().max(maxLength)
+    return message ? schema.refine((value) => isEmailAddress(value, true), message) : schema.refine((value) => isEmailAddress(value, true))
+  }
   return message
     ? z.string().trim().email(message).max(maxLength)
     : z.string().trim().email().max(maxLength)

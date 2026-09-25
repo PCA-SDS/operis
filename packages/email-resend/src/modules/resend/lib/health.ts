@@ -1,5 +1,5 @@
 import type { IntegrationScope } from '@open-mercato/shared/modules/integrations/types'
-import { z } from 'zod'
+import { parseEmailAddress } from '@open-mercato/shared/lib/validation'
 
 type ResendHealthResult = {
   status: 'healthy' | 'degraded' | 'unhealthy'
@@ -16,7 +16,8 @@ function resolveSenderEmail(credentials: Record<string, unknown>): string {
 }
 
 function resolveSenderDomain(senderEmail: string): string {
-  return senderEmail.slice(senderEmail.lastIndexOf('@') + 1).toLowerCase()
+  const address = parseEmailAddress(senderEmail)?.address
+  return address ? address.slice(address.lastIndexOf('@') + 1).toLowerCase() : ''
 }
 
 function parseDomains(payload: unknown): Array<{ name: string; status: string }> {
@@ -35,7 +36,7 @@ export const resendHealthCheck = {
   async check(credentials: Record<string, unknown>, _scope: IntegrationScope): Promise<ResendHealthResult> {
     const apiKey = resolveApiKey(credentials)
     const senderEmail = resolveSenderEmail(credentials)
-    const senderFormatValid = !senderEmail || z.string().email().safeParse(senderEmail).success
+    const senderFormatValid = !senderEmail || parseEmailAddress(senderEmail) !== null
     if (!senderFormatValid) {
       return {
         status: 'unhealthy',

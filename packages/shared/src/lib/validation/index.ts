@@ -11,7 +11,10 @@ export {
   EMAIL_MAX_LENGTH,
   LOOSE_EMAIL_PATTERN,
   emailSchema,
+  isEmailAddress,
   normalizeEmail,
+  parseEmailAddress,
+  type ParsedEmailAddress,
   type EmailSchemaOptions,
 } from './email'
 export { emptyStringToNull } from './preprocess'

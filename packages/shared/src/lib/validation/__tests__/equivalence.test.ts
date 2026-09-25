@@ -4,6 +4,7 @@ import { z } from 'zod'
 import {
   currencyCodeSchema,
   emailSchema,
+  parseEmailAddress,
   moneyAmountSchema,
   moneyDecimalStringSchema,
   paginationQuerySchema,
@@ -31,6 +32,22 @@ describe('emailSchema matches the schema it replaced', () => {
     const b = shared.safeParse(input)
     expect(b.success).toBe(a.success)
     if (a.success && b.success) expect(b.data).toBe(a.data)
+  })
+})
+
+describe('emailSchema display names', () => {
+  const schema = emailSchema({ allowDisplayName: true })
+
+  it.each(['NAM <email@example.com>', '"Nam Example" <email@example.com>', 'email@example.com'])('accepts %j', (value) => {
+    expect(schema.safeParse(value).success).toBe(true)
+  })
+
+  it('extracts the mailbox for provider domain checks', () => {
+    expect(parseEmailAddress('NAM <email@example.com>')).toEqual({ address: 'email@example.com', displayName: 'NAM' })
+  })
+
+  it.each(['NAM <not-an-email>', 'NAM email@example.com', 'email@example'])('rejects malformed sender %j', (value) => {
+    expect(schema.safeParse(value).success).toBe(false)
   })
 })
 

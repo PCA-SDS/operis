@@ -97,10 +97,16 @@ export function AppointmentEmailSettings() {
             <Label htmlFor={`appointment-email-${field.name}`}>{translate(`appointments.config.email.fields.${field.labelKey}`, field.label)}</Label>
             <Input
               id={`appointment-email-${field.name}`}
-              type={field.name === 'to' || field.name === 'cc' || field.name === 'bcc' ? 'text' : 'email'}
+              type={field.name === 'to' || field.name === 'cc' || field.name === 'bcc' || field.name === 'from' ? 'text' : 'email'}
               value={settings[field.name]}
               disabled={loading || saving}
-              placeholder={field.name === 'to' || field.name === 'cc' || field.name === 'bcc' ? 'name@example.com, team@example.com' : 'name@example.com'}
+              placeholder={
+                field.name === 'to' || field.name === 'cc' || field.name === 'bcc'
+                  ? translate('appointments.config.email.placeholders.recipients', 'name@example.com, team@example.com')
+                  : field.name === 'from'
+                    ? translate('appointments.config.email.placeholders.sender', 'Name <name@example.com>')
+                    : translate('appointments.config.email.placeholders.email', 'name@example.com')
+              }
               onChange={(event) => setSettings((current) => ({ ...current, [field.name]: event.target.value }))}
             />
             <p className="text-sm text-muted-foreground">{translate(`appointments.config.email.help.${field.helpKey}`, field.help)}</p>
