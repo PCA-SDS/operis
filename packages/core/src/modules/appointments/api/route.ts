@@ -437,6 +437,15 @@ export async function POST(req: Request) {
         {
           error: translate('appointments.create.invalidInput', 'Invalid appointment payload.'),
           code: 'INVALID_INPUT',
+          details: error.issues.map((issue) => ({
+            path: issue.path,
+            code: issue.code,
+            ...('maximum' in issue && typeof issue.maximum === 'number' ? { maximum: issue.maximum } : {}),
+            ...('minimum' in issue && typeof issue.minimum === 'number' ? { minimum: issue.minimum } : {}),
+            ...('expected' in issue && typeof issue.expected === 'string' ? { expected: issue.expected } : {}),
+            ...('received' in issue && typeof issue.received === 'string' ? { received: issue.received } : {}),
+            ...('format' in issue && typeof issue.format === 'string' ? { format: issue.format } : {}),
+          })),
         },
         { status: 400 },
       )
