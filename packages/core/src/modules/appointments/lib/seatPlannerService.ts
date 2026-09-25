@@ -12,6 +12,10 @@ import { Organization } from '@open-mercato/core/modules/directory/data/entities
 import { CatalogProductOption, CatalogProductOptionGroup } from '@open-mercato/core/modules/catalog/data/entities'
 import { parseAvailabilityRuleWindow } from '@open-mercato/core/modules/planner/lib/availabilitySchedule'
 import { PlannerAvailabilityRule } from '@open-mercato/core/modules/planner/data/entities'
+import {
+  loadOrganizationAvailabilityPolicy,
+  resolveOrganizationAvailabilityWindows,
+} from '@open-mercato/core/modules/planner/lib/organizationAvailability'
 import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { enforceCommandOptimisticLock } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
 import { StaffTeamMember } from '@open-mercato/core/modules/staff/data/entities'
@@ -80,6 +84,8 @@ export interface SeatPlannerWorkspace {
     customerSalutation: string | null
     updatedAt: string
   }>
+  timelineWindows: Array<{ startsAt: string; endsAt: string }> | null
+  bookingAcceptanceWindows: Array<{ startsAt: string; latestStartAt: string }> | null
   resources: Array<{
     id: string
     name: string
@@ -219,6 +225,28 @@ export class AppointmentSeatPlannerService {
       resourceIds: resources.resources.map((resource) => resource.id),
       range: { start: scheduleDayStart, end: scheduleDayEnd },
     })
+    const organizationAvailabilityPolicy = await loadOrganizationAvailabilityPolicy(this.em, {
+      tenantId: params.tenantId,
+      organizationIds: resourceOrganizationIds,
+    })
+    const organizationAvailabilityWindows = organizationAvailabilityPolicy
+      ? resolveOrganizationAvailabilityWindows(organizationAvailabilityPolicy, {
+          start: scheduleDayStart,
+          end: scheduleDayEnd,
+        })
+      : []
+    const timelineWindows = organizationAvailabilityPolicy && organizationAvailabilityWindows.length > 0
+      ? organizationAvailabilityWindows.map((window) => ({
+          startsAt: window.start.toISOString(),
+          endsAt: window.end.toISOString(),
+        }))
+      : null
+    const bookingAcceptanceWindows = organizationAvailabilityPolicy && organizationAvailabilityWindows.length > 0
+      ? organizationAvailabilityWindows.map((window) => ({
+          startsAt: window.start.toISOString(),
+          latestStartAt: window.latestNewBookingStart.toISOString(),
+        }))
+      : null
     const resourcesWithAvailability = resources.resources.map((resource) => {
       return {
         ...resource,
@@ -437,6 +465,8 @@ export class AppointmentSeatPlannerService {
       },
       lines: linesWithAssignments,
       allocations,
+      timelineWindows,
+      bookingAcceptanceWindows,
       resources: resourcesWithAvailability,
     }
   }
@@ -464,6 +494,13 @@ export class AppointmentSeatPlannerService {
       ;(error as Error & { code: string }).code = 'LINE_NOT_FOUND'
       throw error
     }
+
+    const appointment = await this.em.findOne(Appointment, {
+      id: params.appointmentId,
+      tenantId: params.tenantId,
+      organizationId: params.organizationId,
+      deletedAt: null,
+    })
 
     line.seatPlannerClearedAt = null
 
@@ -516,6 +553,8 @@ export class AppointmentSeatPlannerService {
       organizationIds: resourceOrganizationIds,
       excludeSourceEntityIds,
       includeDraftConflicts: true,
+      availabilityMode: 'appointment',
+      availabilityAnchorStartAt: appointment?.requestedStartAt,
       preserveState: params.preserveState,
       expectedUpdatedAt: params.expectedUpdatedAt,
     })
@@ -627,6 +666,12 @@ export class AppointmentSeatPlannerService {
     userId?: string | null
     expectedAssignments?: Array<{ lineId: string; updatedAt: string }>
   }): Promise<AssignmentDTO[]> {
+    const appointment = await this.em.findOne(Appointment, {
+      id: params.appointmentId,
+      tenantId: params.tenantId,
+      organizationId: params.organizationId,
+      deletedAt: null,
+    })
     // Load lines to get all sourceEntityIds
     const lines = await this.em.find(
       AppointmentLine,
@@ -639,6 +684,8 @@ export class AppointmentSeatPlannerService {
     )
 
     const allAssignments: AssignmentDTO[] = []
+    const resourceOrganizationIds = await resolveResourceOrganizationIds(this.em, params.tenantId, params.organizationId)
+    const allLineIds = lines.map((line) => line.id)
     const expectedByLineId = new Map(
       (params.expectedAssignments ?? []).map((assignment) => [assignment.lineId, assignment]),
     )
@@ -675,6 +722,11 @@ export class AppointmentSeatPlannerService {
         sourceEntityId: line.id,
         userId: params.userId,
         expectedUpdatedAt: expectedByLineId.get(line.id)?.updatedAt,
+        organizationIds: resourceOrganizationIds,
+        excludeSourceEntityIds: allLineIds,
+        includeDraftConflicts: true,
+        availabilityMode: 'appointment',
+        availabilityAnchorStartAt: appointment?.requestedStartAt,
       })
       if (assignments.length > 0) {
         line.seatPlannerClearedAt = null

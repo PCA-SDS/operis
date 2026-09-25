@@ -20,7 +20,7 @@ import {
   ResourcesResourceArea,
   ResourcesResourceType,
 } from '../data/entities'
-import { AssignmentConflictService } from './assignmentConflict'
+import { AssignmentConflictService, type AssignmentAvailabilityMode } from './assignmentConflict'
 
 export interface AssignmentUpsertParams {
   // Identity
@@ -38,6 +38,8 @@ export interface AssignmentUpsertParams {
   assignedMemberIds?: string[]
   title?: string
   organizationIds?: string[]
+  availabilityMode?: AssignmentAvailabilityMode
+  availabilityAnchorStartAt?: Date
 
   // Conflict exclusion (e.g., same booking's other lines can stack)
   excludeSourceEntityIds?: string[]
@@ -116,6 +118,9 @@ export class ResourceAssignmentService {
     endsAt: Date
     excludeAssignmentId?: string
     excludeSourceEntityIds?: string[]
+    organizationIds?: string[]
+    availabilityMode?: AssignmentAvailabilityMode
+    availabilityAnchorStartAt?: Date
   }) {
     return this.conflictService.validateAssignment(params)
   }
@@ -309,6 +314,8 @@ export class ResourceAssignmentService {
       startsAt: params.startsAt,
       endsAt: params.endsAt,
       organizationIds: params.organizationIds,
+      availabilityMode: params.availabilityMode,
+      availabilityAnchorStartAt: params.availabilityAnchorStartAt,
       includeDrafts: params.includeDraftConflicts,
       excludeSourceEntityIds,
     })
@@ -450,6 +457,11 @@ export class ResourceAssignmentService {
     sourceEntityId: string
     userId?: string | null
     expectedUpdatedAt?: string
+    organizationIds?: string[]
+    excludeSourceEntityIds?: string[]
+    includeDraftConflicts?: boolean
+    availabilityMode?: AssignmentAvailabilityMode
+    availabilityAnchorStartAt?: Date
   }): Promise<AssignmentDTO[]> {
     // Get all drafts for this source
     const drafts = await this.em.find(ResourcesAssignment, {
@@ -460,7 +472,7 @@ export class ResourceAssignmentService {
       sourceEntityId: params.sourceEntityId,
       state: 'draft',
       cancelledAt: null,
-    })
+    }, { populate: ['resource'] })
 
     if (drafts.length === 0) {
       if (params.expectedUpdatedAt) {
@@ -480,6 +492,34 @@ export class ResourceAssignmentService {
       current: drafts[0].updatedAt,
       expected: params.expectedUpdatedAt,
     })
+
+    for (const draft of drafts) {
+      const resourceId = draft.resource?.id
+      if (!resourceId) continue
+
+      const validation = await this.conflictService.validateAssignment({
+        tenantId: params.tenantId,
+        organizationId: params.organizationId,
+        resourceId,
+        startsAt: draft.startsAt,
+        endsAt: draft.endsAt,
+        organizationIds: params.organizationIds,
+        availabilityMode: params.availabilityMode,
+        availabilityAnchorStartAt: params.availabilityAnchorStartAt,
+        includeDrafts: params.includeDraftConflicts,
+        excludeAssignmentId: draft.id,
+        excludeSourceEntityIds: [
+          params.sourceEntityId,
+          ...(params.excludeSourceEntityIds ?? []),
+        ],
+      })
+
+      if (!validation.valid) {
+        const error = new Error(validation.error?.message ?? 'Validation failed')
+        ;(error as Error & { code: string }).code = validation.error?.code ?? 'VALIDATION_ERROR'
+        throw error
+      }
+    }
 
     // Find and cancel any existing confirmed assignments
     const confirmed = await this.em.find(ResourcesAssignment, {

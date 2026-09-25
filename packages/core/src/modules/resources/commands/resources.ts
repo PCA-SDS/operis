@@ -23,6 +23,7 @@ import {
 import { resourcesResourceCrudEvents } from '../lib/crud'
 import { ensureOrganizationScope, ensureTenantScope, extractUndoPayload } from './shared'
 import { RESOURCES_CAPACITY_UNIT_DICTIONARY_KEY } from '../lib/capacityUnits'
+import { validateResourceAvailabilityRuleSetWithinOrganization } from '@open-mercato/core/modules/planner/lib/organizationAvailability'
 import { E } from '#generated/entities.ids.generated'
 
 const resourceCrudIndexer: CrudIndexerConfig<ResourcesResource> = {
@@ -288,6 +289,22 @@ const createResourceCommand: CommandHandler<ResourcesResourceCreateInput, { reso
     ensureOrganizationScope(ctx, parsed.organizationId)
 
     const em = (ctx.container.resolve('em') as EntityManager).fork()
+
+    if (parsed.availabilityRuleSetId) {
+      const availabilityValidation = await validateResourceAvailabilityRuleSetWithinOrganization(em, {
+        tenantId: parsed.tenantId,
+        organizationId: parsed.organizationId,
+        resourceRuleSetId: parsed.availabilityRuleSetId,
+      })
+      if (!availabilityValidation.valid) {
+        throw new CrudHttpError(400, {
+          error: availabilityValidation.code === 'INVALID_RESOURCE_AVAILABILITY_RULE_SET'
+            ? 'Resource availability schedule was not found in the selected organization.'
+            : 'Resource availability cannot extend beyond organization operating hours and overflow.',
+          code: availabilityValidation.code,
+        })
+      }
+    }
     
     if (parsed.areaId) {
       const area = await em.findOne(ResourcesResourceArea, { id: parsed.areaId, deletedAt: null })
@@ -547,6 +564,22 @@ const updateResourceCommand: CommandHandler<ResourcesResourceUpdateInput, { reso
     if (!record) throw new CrudHttpError(404, { error: 'Resources resource not found.' })
     ensureTenantScope(ctx, record.tenantId)
     ensureOrganizationScope(ctx, record.organizationId)
+
+    if (parsed.availabilityRuleSetId) {
+      const availabilityValidation = await validateResourceAvailabilityRuleSetWithinOrganization(em, {
+        tenantId: record.tenantId,
+        organizationId: record.organizationId,
+        resourceRuleSetId: parsed.availabilityRuleSetId,
+      })
+      if (!availabilityValidation.valid) {
+        throw new CrudHttpError(400, {
+          error: availabilityValidation.code === 'INVALID_RESOURCE_AVAILABILITY_RULE_SET'
+            ? 'Resource availability schedule was not found in the selected organization.'
+            : 'Resource availability cannot extend beyond organization operating hours and overflow.',
+          code: availabilityValidation.code,
+        })
+      }
+    }
 
     const areaChanged = parsed.areaId !== undefined && parsed.areaId !== record.areaId
     if (areaChanged) {

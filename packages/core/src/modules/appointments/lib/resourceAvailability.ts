@@ -3,6 +3,11 @@ import { Organization } from '@open-mercato/core/modules/directory/data/entities
 import { ResourcesResource } from '@open-mercato/core/modules/resources/data/entities'
 import { PlannerAvailabilityRule } from '@open-mercato/core/modules/planner/data/entities'
 import { getMergedAvailabilityWindows } from '@open-mercato/core/modules/planner/lib/availabilityMerge'
+import {
+  intersectAvailabilityWindows,
+  loadOrganizationAvailabilityPolicy,
+  resolveOrganizationAvailabilityWindows,
+} from '@open-mercato/core/modules/planner/lib/organizationAvailability'
 
 export type ResourceAvailabilityWindow = {
   startsAt: string
@@ -66,24 +71,53 @@ export async function loadResourceAvailabilityWindows(
   }
 
   const windowsByResourceId = new Map<string, ResourceAvailabilityWindow[] | null>()
-  for (const resource of resourceRecords) {
-    const rules = [
-      ...(rulesBySubjectId.get(resource.id) ?? []),
-      ...(resource.availabilityRuleSetId ? rulesBySubjectId.get(resource.availabilityRuleSetId) ?? [] : []),
-    ]
-    const windows = resource.availabilityRuleSetId && rules.length > 0
+  await Promise.all(resourceRecords.map(async (resource) => {
+    const directResourceRules = rulesBySubjectId.get(resource.id) ?? []
+    const linkedRuleSetRules = resource.availabilityRuleSetId
+      ? rulesBySubjectId.get(resource.availabilityRuleSetId) ?? []
+      : []
+    const resourceRules = directResourceRules.length > 0 ? directResourceRules : linkedRuleSetRules
+    const resourceWindows = resourceRules.length > 0
       ? getMergedAvailabilityWindows({
-          rules: rules.map((rule) => ({
+          rules: resourceRules.map((rule) => ({
             id: rule.id,
             rrule: rule.rrule,
             exdates: rule.exdates,
             kind: rule.kind,
           })),
           range: params.range,
-        }).map((window) => ({ startsAt: window.start.toISOString(), endsAt: window.end.toISOString() }))
+        })
       : null
-    windowsByResourceId.set(resource.id, windows)
-  }
+
+    const orderedOrganizationIds = [
+      resource.organizationId,
+      ...params.organizationIds.filter((organizationId) => organizationId !== resource.organizationId),
+    ]
+    const policy = await loadOrganizationAvailabilityPolicy(em, {
+      tenantId: params.tenantId,
+      organizationIds: orderedOrganizationIds,
+    })
+    if (!policy) {
+      windowsByResourceId.set(
+        resource.id,
+        resourceWindows?.map((window) => ({ startsAt: window.start.toISOString(), endsAt: window.end.toISOString() })) ?? null,
+      )
+      return
+    }
+
+    const organizationWindows = resolveOrganizationAvailabilityWindows(policy, params.range)
+    const usesOfficialRuleSet = resource.availabilityRuleSetId === policy.operatingHoursRuleSetId
+      && directResourceRules.length === 0
+    const effectiveWindows = usesOfficialRuleSet
+      ? organizationWindows
+      : resourceWindows
+      ? intersectAvailabilityWindows(organizationWindows, resourceWindows)
+      : organizationWindows
+    windowsByResourceId.set(
+      resource.id,
+      effectiveWindows.map((window) => ({ startsAt: window.start.toISOString(), endsAt: window.end.toISOString() })),
+    )
+  }))
 
   return windowsByResourceId
 }

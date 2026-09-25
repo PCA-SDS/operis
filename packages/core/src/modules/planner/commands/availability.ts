@@ -24,6 +24,15 @@ import { resolveRedoSnapshot } from '@open-mercato/shared/lib/commands/redo'
 
 const AVAILABILITY_RULE_RESOURCE_KIND = 'planner.availability.rule'
 
+function parseAcceptanceMinutes(value?: string | null): number | null {
+  if (!value) return null
+  const [hours, minutes] = value.split(':').map((part) => Number(part))
+  if (!Number.isInteger(hours) || !Number.isInteger(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+    return null
+  }
+  return hours * 60 + minutes
+}
+
 type AvailabilityRuleSnapshot = {
   id: string
   tenantId: string
@@ -34,6 +43,9 @@ type AvailabilityRuleSnapshot = {
   rrule: string
   exdates: string[]
   kind: PlannerAvailabilityKind
+  lastCustomerBeforeCloseMinutes: number | null
+  lastCustomerAcceptanceMinutes: number | null
+  timeOverflowMinutes: number | null
   note: string | null
   unavailabilityReasonEntryId: string | null
   unavailabilityReasonValue: string | null
@@ -65,6 +77,9 @@ async function loadAvailabilityRuleSnapshot(
     rrule: record.rrule,
     exdates: [...(record.exdates ?? [])],
     kind: record.kind,
+    lastCustomerBeforeCloseMinutes: record.lastCustomerBeforeCloseMinutes ?? null,
+    lastCustomerAcceptanceMinutes: record.lastCustomerAcceptanceMinutes ?? null,
+    timeOverflowMinutes: record.timeOverflowMinutes ?? null,
     note: record.note ?? null,
     unavailabilityReasonEntryId: record.unavailabilityReasonEntryId ?? null,
     unavailabilityReasonValue: record.unavailabilityReasonValue ?? null,
@@ -85,6 +100,9 @@ async function restoreAvailabilityRuleFromSnapshot(em: EntityManager, snapshot: 
       rrule: snapshot.rrule,
       exdates: snapshot.exdates ?? [],
       kind: snapshot.kind ?? 'availability',
+      lastCustomerBeforeCloseMinutes: snapshot.lastCustomerBeforeCloseMinutes ?? null,
+      lastCustomerAcceptanceMinutes: snapshot.lastCustomerAcceptanceMinutes ?? null,
+      timeOverflowMinutes: snapshot.timeOverflowMinutes ?? null,
       note: snapshot.note ?? null,
       unavailabilityReasonEntryId: snapshot.unavailabilityReasonEntryId ?? null,
       unavailabilityReasonValue: snapshot.unavailabilityReasonValue ?? null,
@@ -99,6 +117,9 @@ async function restoreAvailabilityRuleFromSnapshot(em: EntityManager, snapshot: 
     record.rrule = snapshot.rrule
     record.exdates = snapshot.exdates ?? []
     record.kind = snapshot.kind ?? 'availability'
+    record.lastCustomerBeforeCloseMinutes = snapshot.lastCustomerBeforeCloseMinutes ?? null
+    record.lastCustomerAcceptanceMinutes = snapshot.lastCustomerAcceptanceMinutes ?? null
+    record.timeOverflowMinutes = snapshot.timeOverflowMinutes ?? null
     record.note = snapshot.note ?? null
     record.unavailabilityReasonEntryId = snapshot.unavailabilityReasonEntryId ?? null
     record.unavailabilityReasonValue = snapshot.unavailabilityReasonValue ?? null
@@ -129,6 +150,9 @@ const createAvailabilityRuleCommand: CommandHandler<PlannerAvailabilityRuleCreat
       rrule: parsed.rrule,
       exdates: parsed.exdates ?? [],
       kind,
+      lastCustomerBeforeCloseMinutes: parsed.lastCustomerBeforeCloseMinutes ?? null,
+      lastCustomerAcceptanceMinutes: parseAcceptanceMinutes(parsed.lastCustomerAcceptanceTime),
+      timeOverflowMinutes: parsed.timeOverflowMinutes ?? null,
       note: parsed.note ?? null,
       unavailabilityReasonEntryId,
       unavailabilityReasonValue,
@@ -212,6 +236,15 @@ const updateAvailabilityRuleCommand: CommandHandler<PlannerAvailabilityRuleUpdat
     if (parsed.rrule !== undefined) record.rrule = parsed.rrule
     if (parsed.exdates !== undefined) record.exdates = parsed.exdates
     if (parsed.kind !== undefined) record.kind = parsed.kind
+    if (parsed.lastCustomerBeforeCloseMinutes !== undefined) {
+      record.lastCustomerBeforeCloseMinutes = parsed.lastCustomerBeforeCloseMinutes ?? null
+    }
+    if (parsed.lastCustomerAcceptanceTime !== undefined) {
+      record.lastCustomerAcceptanceMinutes = parseAcceptanceMinutes(parsed.lastCustomerAcceptanceTime)
+    }
+    if (parsed.timeOverflowMinutes !== undefined) {
+      record.timeOverflowMinutes = parsed.timeOverflowMinutes ?? null
+    }
     if (parsed.note !== undefined) record.note = parsed.note ?? null
     const nextKind = parsed.kind ?? record.kind
     if (nextKind !== 'unavailability') {

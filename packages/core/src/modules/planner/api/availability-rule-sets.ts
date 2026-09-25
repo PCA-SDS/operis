@@ -67,8 +67,11 @@ const crud = makeCrudRoute({
       createdAt: 'created_at',
       updatedAt: 'updated_at',
     },
-    buildFilters: async (query) => {
+    buildFilters: async (query, ctx) => {
       const filters: Record<string, unknown> = {}
+      if (ctx.selectedOrganizationId) {
+        filters.organization_id = ctx.selectedOrganizationId
+      }
       const ids = parseIds(query.ids)
       if (ids.length) {
         filters.id = { $in: ids }

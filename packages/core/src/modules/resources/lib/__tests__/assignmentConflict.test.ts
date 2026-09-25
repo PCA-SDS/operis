@@ -63,3 +63,119 @@ describe('AssignmentConflictService.validateAssignment interval guard', () => {
     expect(em.findOne).toHaveBeenCalled()
   })
 })
+
+describe('AssignmentConflictService appointment availability', () => {
+  function serviceWithOfficialOrganizationRuleSet() {
+    const resource = {
+      id: 'resource-1',
+      tenantId: 'tenant-1',
+      organizationId: 'organization-1',
+      isActive: true,
+      availabilityRuleSetId: 'ruleset-1',
+      deletedAt: null,
+    }
+    const ruleSet = {
+      id: 'ruleset-1',
+      tenantId: 'tenant-1',
+      organizationId: 'organization-1',
+      timezone: 'UTC',
+      deletedAt: null,
+    }
+    const rule = {
+      id: 'rule-1',
+      rrule: 'DTSTART:20260925T090000Z\nDURATION:PT13H\nRRULE:FREQ=DAILY',
+      exdates: [],
+      kind: 'availability' as const,
+      lastCustomerAcceptanceMinutes: 1260,
+      timeOverflowMinutes: 60,
+    }
+    const settings = {
+      organizationId: 'organization-1',
+      operatingHoursRuleSetId: 'ruleset-1',
+      timezone: 'UTC',
+      lastCustomerBeforeCloseMinutes: 0,
+      timeOverflowMinutes: 0,
+    }
+    const em = {
+      findOne: jest.fn().mockImplementation(async (_entity, where) => {
+        if (where.id === resource.id) return resource
+        if (where.id === ruleSet.id) return ruleSet
+        return null
+      }),
+      find: jest.fn().mockImplementation(async (_entity, where) => {
+        if (where.subjectType === 'resource') return []
+        if (where.subjectType === 'ruleset') return [rule]
+        if (where.organizationId?.$in) return [settings]
+        return []
+      }),
+      count: jest.fn().mockResolvedValue(0),
+    }
+    return { em, service: new AssignmentConflictService(em as never) }
+  }
+
+  it('allows an appointment assignment to finish during organization overflow', async () => {
+    const { service } = serviceWithOfficialOrganizationRuleSet()
+
+    await expect(service.validateAssignment({
+      ...BASE_PARAMS,
+      startsAt: new Date('2026-09-25T21:00:00.000Z'),
+      endsAt: new Date('2026-09-25T22:30:00.000Z'),
+      availabilityMode: 'appointment',
+    })).resolves.toEqual({ valid: true })
+  })
+
+  it('rejects a new appointment that starts at operating close', async () => {
+    const { service } = serviceWithOfficialOrganizationRuleSet()
+
+    await expect(service.validateAssignment({
+      ...BASE_PARAMS,
+      startsAt: new Date('2026-09-25T22:00:00.000Z'),
+      endsAt: new Date('2026-09-25T22:30:00.000Z'),
+      availabilityMode: 'appointment',
+    })).resolves.toMatchObject({ valid: false, error: { code: 'OUTSIDE_AVAILABILITY' } })
+  })
+
+  it('rejects a new appointment after the last customer acceptance time', async () => {
+    const { service } = serviceWithOfficialOrganizationRuleSet()
+
+    await expect(service.validateAssignment({
+      ...BASE_PARAMS,
+      startsAt: new Date('2026-09-25T21:01:00.000Z'),
+      endsAt: new Date('2026-09-25T22:00:00.000Z'),
+      availabilityMode: 'appointment',
+    })).resolves.toMatchObject({ valid: false, error: { code: 'OUTSIDE_AVAILABILITY' } })
+  })
+
+  it('allows a later service in the same appointment to start in overflow', async () => {
+    const { service } = serviceWithOfficialOrganizationRuleSet()
+
+    await expect(service.validateAssignment({
+      ...BASE_PARAMS,
+      startsAt: new Date('2026-09-25T22:30:00.000Z'),
+      endsAt: new Date('2026-09-25T23:00:00.000Z'),
+      availabilityMode: 'appointment',
+      availabilityAnchorStartAt: new Date('2026-09-25T20:00:00.000Z'),
+    })).resolves.toEqual({ valid: true })
+  })
+
+  it('does not treat organization overflow as permission to start after operating close', async () => {
+    const { service } = serviceWithOfficialOrganizationRuleSet()
+
+    await expect(service.validateAssignment({
+      ...BASE_PARAMS,
+      startsAt: new Date('2026-09-25T22:15:00.000Z'),
+      endsAt: new Date('2026-09-25T22:30:00.000Z'),
+      availabilityMode: 'appointment',
+    })).resolves.toMatchObject({ valid: false, error: { code: 'OUTSIDE_AVAILABILITY' } })
+  })
+
+  it('keeps generic resource validation strict when appointment overflow mode is not requested', async () => {
+    const { service } = serviceWithOfficialOrganizationRuleSet()
+
+    await expect(service.validateAssignment({
+      ...BASE_PARAMS,
+      startsAt: new Date('2026-09-25T21:00:00.000Z'),
+      endsAt: new Date('2026-09-25T22:30:00.000Z'),
+    })).resolves.toMatchObject({ valid: false, error: { code: 'OUTSIDE_AVAILABILITY' } })
+  })
+})
