@@ -151,7 +151,7 @@ describe('CompanyDetailHeader', () => {
         entityType: 'company',
         entityId: 'company-1',
       }),
-      buttonVariant: 'outline',
+      buttonVariant: 'soft',
       buttonSize: 'icon',
     }))
   })

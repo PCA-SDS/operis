@@ -40,7 +40,7 @@ export function TaskDialog({ open, mode, onOpenChange, initialValues, onSubmit, 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-2xl" disableBodyWrap>
         <DialogHeader>
           <DialogTitle>{dialogTitle}</DialogTitle>
           {contextMessage ? <DialogDescription>{contextMessage}</DialogDescription> : null}

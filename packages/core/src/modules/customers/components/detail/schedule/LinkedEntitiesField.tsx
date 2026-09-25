@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Building2, Briefcase, FileText, X } from 'lucide-react'
+import { Building2, Briefcase, FileText, Plus, X } from 'lucide-react'
 import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
@@ -10,6 +10,8 @@ import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { Popover, PopoverContent, PopoverTrigger } from '@open-mercato/ui/primitives/popover'
+import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primitives/segmented-control'
+import { LABEL_CLASS } from '../../calendar/editor/inputs'
 import type { ActivityType, ScheduleFieldId } from './fieldConfig'
 import { isVisible, getFieldLabel } from './fieldConfig'
 import type { LinkedEntity } from './useScheduleFormState'
@@ -134,29 +136,32 @@ function EntityLinkSearchPopover({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button type="button" variant="ghost" size="sm" className="h-auto inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1.5 text-xs text-muted-foreground">
-          <span className="text-sm">+</span>
+        {/* White: a chip drawn inside the tinted linked-entities well. */}
+        <Button type="button" variant="ghost" size="sm" className="h-auto inline-flex items-center gap-1.5 rounded-full bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground shadow-sm hover:bg-surface">
+          <Plus className="size-4" />
           {t('customers.schedule.addLink', 'Add link')}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-72 p-2">
-        <div className="flex gap-1 mb-2">
+        <SegmentedControl
+          tone="inset"
+          fullWidth
+          className="mb-2"
+          aria-label={t('customers.schedule.linkType.label', 'Link type')}
+          value={linkType}
+          onValueChange={(type) => { setLinkType(type as typeof linkType); setQuery('') }}
+        >
           {ENTITY_LINK_TYPES.map((type) => (
-            <Button
+            <SegmentedControlItem
               key={type}
-              type="button"
-              variant={linkType === type ? 'default' : 'ghost'}
-              size="sm"
-              className="h-6 text-xs flex-1"
-              onClick={() => { setLinkType(type as typeof linkType); setQuery('') }}
+              value={type}
+              icon={type === 'company' ? <Building2 className="size-4" /> : type === 'deal' ? <Briefcase className="size-4" /> : <FileText className="size-4" />}
             >
-              {type === 'company' ? <Building2 className="mr-1 size-3" /> : type === 'deal' ? <Briefcase className="mr-1 size-3" /> : <FileText className="mr-1 size-3" />}
               {type === 'company' ? t('customers.schedule.linkType.company', 'Company') : type === 'deal' ? t('customers.schedule.linkType.deal', 'Deal') : t('customers.schedule.linkType.offer', 'Offer')}
-            </Button>
+            </SegmentedControlItem>
           ))}
-        </div>
+        </SegmentedControl>
         <SearchInput
-          size="sm"
           className="mb-2"
           value={query}
           onChange={setQuery}
@@ -167,8 +172,7 @@ function EntityLinkSearchPopover({
           <div className="mb-2">
             <Button
               type="button"
-              variant="outline"
-              size="sm"
+              variant="soft"
               className="w-full"
               onClick={() => {
                 onAddMany(
@@ -208,14 +212,14 @@ function EntityLinkSearchPopover({
                   alreadyLinked ? 'opacity-40 cursor-default' : 'hover:bg-accent cursor-pointer',
                 )}
               >
-                {linkType === 'company' ? <Building2 className="size-3.5 text-muted-foreground shrink-0" /> : linkType === 'deal' ? <Briefcase className="size-3.5 text-muted-foreground shrink-0" /> : <FileText className="size-3.5 text-muted-foreground shrink-0" />}
+                {linkType === 'company' ? <Building2 className="size-4 text-muted-foreground shrink-0" /> : linkType === 'deal' ? <Briefcase className="size-4 text-muted-foreground shrink-0" /> : <FileText className="size-4 text-muted-foreground shrink-0" />}
                 <span className="min-w-0 flex-1 truncate">{r.label}</span>
               </Button>
             )
           })}
           {!loading && hasMore ? (
             <div className="px-2 py-2">
-              <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => setPage((current) => current + 1)}>
+              <Button type="button" variant="soft" className="w-full" onClick={() => setPage((current) => current + 1)}>
                 {t('customers.schedule.loadMore', 'Load more')}
               </Button>
             </div>
@@ -253,24 +257,21 @@ export function LinkedEntitiesField({
 
   return (
     <div>
-      <label className="text-overline font-semibold uppercase text-muted-foreground tracking-wider">
+      <label className={LABEL_CLASS}>
         {sectionLabel}
       </label>
-      <div className="mt-2.5 flex flex-wrap content-center items-center gap-2">
+      <div className="mt-2.5 flex min-h-9 flex-wrap content-center items-center gap-2 rounded-lg border border-transparent bg-input-bg px-3 py-1.5">
         {linkedEntities.map((entity) => (
           <div
             key={entity.id}
             className={cn(
-              'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs',
-              entity.type === 'deal'
-                ? 'border-status-success-border bg-status-success-bg font-semibold text-foreground'
-                : 'border-border bg-muted text-foreground',
+              'inline-flex items-center gap-1.5 rounded-full bg-surface px-2.5 py-1 text-xs font-medium text-foreground shadow-sm',
             )}
           >
-            {entity.type === 'company' ? <Building2 className="size-3" /> : entity.type === 'deal' ? <Briefcase className="size-3" /> : <FileText className="size-3" />}
+            {entity.type === 'company' ? <Building2 className="size-4" /> : entity.type === 'deal' ? <Briefcase className="size-4" /> : <FileText className="size-4" />}
             {entity.label}
             <IconButton type="button" variant="ghost" size="sm" onClick={() => setLinkedEntities((prev) => prev.filter((e) => e.id !== entity.id))} className="h-auto text-muted-foreground hover:text-foreground p-0" aria-label={t('customers.schedule.removeLink', 'Remove link')}>
-              <X className="size-2.5" />
+              <X className="size-4" />
             </IconButton>
           </div>
         ))}

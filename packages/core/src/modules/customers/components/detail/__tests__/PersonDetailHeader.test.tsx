@@ -111,7 +111,7 @@ describe('PersonDetailHeader', () => {
         entityType: 'person',
         entityId: 'person-1',
       }),
-      buttonVariant: 'outline',
+      buttonVariant: 'soft',
       buttonSize: 'icon',
     }))
   })

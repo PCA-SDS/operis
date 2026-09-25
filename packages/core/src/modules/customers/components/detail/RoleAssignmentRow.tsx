@@ -185,7 +185,7 @@ export function RoleAssignmentRow({
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
           {role.userEmail ? (
-            <IconButton asChild variant="outline" size="sm" className="shrink-0">
+            <IconButton asChild variant="soft" size="lg" className="shrink-0">
               <a href={`mailto:${role.userEmail}`} aria-label={t('customers.roles.email', 'Send email')}>
                 <Mail className="size-4" />
               </a>
@@ -193,8 +193,8 @@ export function RoleAssignmentRow({
           ) : (
             <IconButton
               type="button"
-              variant="outline"
-              size="sm"
+              variant="soft"
+              size="lg"
               className="shrink-0"
               disabled
               aria-label={t('customers.roles.emailUnavailable', 'Email unavailable')}
@@ -203,7 +203,7 @@ export function RoleAssignmentRow({
             </IconButton>
           )}
           {role.userPhone ? (
-            <IconButton asChild variant="outline" size="sm" className="shrink-0">
+            <IconButton asChild variant="soft" size="lg" className="shrink-0">
               <a href={`tel:${role.userPhone}`} aria-label={t('customers.roles.call', 'Call')}>
                 <Phone className="size-4" />
               </a>
@@ -211,8 +211,8 @@ export function RoleAssignmentRow({
           ) : (
             <IconButton
               type="button"
-              variant="outline"
-              size="sm"
+              variant="soft"
+              size="lg"
               className="shrink-0"
               disabled
               aria-label={t('customers.roles.phoneUnavailable', 'Phone unavailable')}
@@ -223,8 +223,7 @@ export function RoleAssignmentRow({
           <Button
             type="button"
             variant="ghost"
-            size="sm"
-            className="h-auto w-full justify-start px-2 py-1 text-xs sm:ml-auto sm:w-auto"
+            className="w-full justify-start sm:ml-auto sm:w-auto"
             onClick={() => setChangingUser((current) => !current)}
           >
             {t('customers.roles.changeUser', 'Change user')}

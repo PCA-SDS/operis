@@ -12,8 +12,8 @@ import {
  * Spec: .ai/specs/2026-04-23-crm-post-upgrade-bug-fixes.md
  *
  * Covers three related fixes:
- *   1. Q6(i) — section rename to "My roles with {name}" (person) and
- *      "Roles at {name}" (company).
+ *   1. Q6(i) — "Roles at {name}" on the company page. The person page no
+ *      longer carries a roles section (2026-09-24 detail-page strip-down).
  *   2. Q6(ii) — "Manage role types" deep link visible inside AssignRoleDialog
  *      for users with `customers.settings.manage`, hidden otherwise.
  *   3. Q5(a) — (API-level regression guard) entity-roles response keeps
@@ -23,7 +23,7 @@ import {
  *      one of the name sources is non-null.
  */
 test.describe('TC-CRM-045: Role section ergonomics + API userName fallback', () => {
-  test('person section renders "My roles with {name}" + API keeps userName shape stable', async ({
+  test('company section renders "Roles at {name}", person page has none, API keeps userName shape stable', async ({
     page,
     request,
   }) => {
@@ -49,7 +49,7 @@ test.describe('TC-CRM-045: Role section ergonomics + API userName fallback', () 
       await login(page, 'admin');
       await page.setViewportSize({ width: 1600, height: 900 });
 
-      // Expand Zone 1 so the roles section is visible.
+      // Expand Zone 1 so its groups are rendered.
       await page.evaluate(() => {
         localStorage.setItem('om:zone1-collapsed:person-v2', JSON.stringify('0'));
       });
@@ -61,15 +61,9 @@ test.describe('TC-CRM-045: Role section ergonomics + API userName fallback', () 
         timeout: 15000,
       });
 
-      // (1) Person group title — "My roles with <name>"
-      // The CollapsibleGroup trigger button carries the same label, so we target
-      // that always-visible surface to avoid strict-mode churn on the duplicate.
-      await expect(
-        page
-          .getByRole('button')
-          .filter({ hasText: `My roles with ${personDisplayName}` })
-          .first(),
-      ).toBeVisible({ timeout: 10000 });
+      // (1) The person page no longer renders a roles section.
+      await expect(page.getByRole('button', { name: /Personal data/ }).first()).toBeVisible({ timeout: 10000 });
+      await expect(page.getByText(`My roles with ${personDisplayName}`)).toHaveCount(0);
 
       // (2) Company page — "Roles at <company>"
       await page.evaluate(() => {

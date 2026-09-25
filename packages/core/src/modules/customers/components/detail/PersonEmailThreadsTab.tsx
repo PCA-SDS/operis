@@ -412,7 +412,7 @@ export function PersonEmailThreadsTab({ personId, defaultRecipient }: PersonEmai
   const canCompose = channels.length > 0
 
   const composeDisabledHint = (
-    <Button asChild variant="outline" size="sm" className="gap-2">
+    <Button asChild variant="soft" className="gap-2">
       <Link href="/backend/profile/communication-channels">
         <Mail className="h-4 w-4" />
         {t('customers.email.compose.noChannel.cta', 'Connect your mailbox')}
@@ -432,6 +432,7 @@ export function PersonEmailThreadsTab({ personId, defaultRecipient }: PersonEmai
         onReply={onReply}
         onRefresh={() => { void onRefresh() }}
         onRetry={(message) => { void onRetry(message) }}
+        actionVariant="soft"
       />
       <ComposeEmailDialog
         open={dialogOpen}

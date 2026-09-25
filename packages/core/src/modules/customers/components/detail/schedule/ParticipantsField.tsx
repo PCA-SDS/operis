@@ -3,6 +3,7 @@
 import * as React from 'react'
 import { Users, X, Clock, CheckCircle2, XCircle } from 'lucide-react'
 import { cn } from '@open-mercato/shared/lib/utils'
+import { LABEL_CLASS } from '../../calendar/editor/inputs'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { hasMoreFromPage } from '@open-mercato/shared/lib/pagination/load-more'
 import { Button } from '@open-mercato/ui/primitives/button'
@@ -87,8 +88,9 @@ function ParticipantSearchPopover({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button type="button" variant="ghost" size="sm" className="h-auto inline-flex items-center gap-1.5 rounded-full border border-status-success-border bg-status-success-bg px-2.5 py-1.5 text-xs font-semibold text-foreground">
-          <Users className="size-3" />
+        {/* White: a chip drawn inside the tinted participants well. */}
+        <Button type="button" variant="ghost" size="sm" className="h-auto inline-flex items-center gap-1.5 rounded-full bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground shadow-sm hover:bg-surface">
+          <Users className="size-4" />
           {t('customers.schedule.addParticipant', 'Add participant')}
         </Button>
       </PopoverTrigger>
@@ -104,8 +106,7 @@ function ParticipantSearchPopover({
           <div className="mb-2">
             <Button
               type="button"
-              variant="outline"
-              size="sm"
+              variant="soft"
               className="w-full"
               onClick={() => {
                 onAddMany(
@@ -126,7 +127,7 @@ function ParticipantSearchPopover({
         ) : null}
         <div className="max-h-48 overflow-y-auto space-y-0.5">
           {loading && <p className="px-2 py-3 text-xs text-muted-foreground text-center">{t('customers.schedule.searching', 'Searching...')}</p>}
-          {!loading && loadError && <p className="px-2 py-3 text-xs text-destructive text-center">{loadError}</p>}
+          {!loading && loadError && <p role="alert" className="px-2 py-3 text-xs text-destructive text-center">{loadError}</p>}
           {!loading && !loadError && results.length === 0 && <p className="px-2 py-3 text-xs text-muted-foreground text-center">{t('customers.schedule.noResults', 'No results')}</p>}
           {results.map((r) => {
             const alreadyAdded = existingIds.has(r.userId)
@@ -157,7 +158,7 @@ function ParticipantSearchPopover({
           })}
           {!loading && !loadError && hasMore ? (
             <div className="px-2 py-2">
-              <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => setPage((current) => current + 1)}>
+              <Button type="button" variant="soft" className="w-full" onClick={() => setPage((current) => current + 1)}>
                 {t('customers.schedule.loadMore', 'Load more')}
               </Button>
             </div>
@@ -201,18 +202,18 @@ export function ParticipantsField({
 
   return (
     <div>
-      <label className="text-overline font-semibold uppercase text-muted-foreground tracking-wider">
+      <label className={LABEL_CLASS}>
         {sectionLabel}
       </label>
-      <div className="mt-2.5 flex flex-wrap content-center items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2.5">
+      <div className="mt-2.5 flex min-h-9 flex-wrap content-center items-center gap-2 rounded-lg border border-transparent bg-input-bg px-3 py-1.5">
         {participants.map((p) => (
-          <div key={p.userId} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 py-1.5">
+          <div key={p.userId} className="inline-flex items-center gap-1.5 rounded-full bg-surface px-2.5 py-1 shadow-sm">
             <span className={cn('inline-flex size-5 items-center justify-center rounded-full text-xs font-bold text-white', p.color ?? 'bg-primary')}>
               {p.name.charAt(0).toUpperCase()}
             </span>
             <span className="text-xs text-foreground">{p.name}</span>
             <IconButton type="button" variant="ghost" size="sm" onClick={() => removeParticipant(p.userId)} className="h-auto text-muted-foreground hover:text-foreground p-0" aria-label={t('customers.schedule.removeParticipant', 'Remove participant')}>
-              <X className="size-3" />
+              <X className="size-4" />
             </IconButton>
           </div>
         ))}
@@ -257,9 +258,9 @@ export function ParticipantsField({
         return (
           <div className="mt-2 flex items-center gap-3 text-xs">
             <span className="text-muted-foreground">{t('customers.schedule.rsvp.label', 'Responses:')}</span>
-            {accepted > 0 && <span className="flex items-center gap-1 font-medium text-status-success-text"><CheckCircle2 className="size-3.5" /> {accepted} {t('customers.schedule.rsvp.accepted', 'tak')}</span>}
-            {pending > 0 && <span className="flex items-center gap-1 font-medium text-status-warning-text"><Clock className="size-3.5" /> {pending} {t('customers.schedule.rsvp.pending', 'czeka')}</span>}
-            {declined > 0 && <span className="flex items-center gap-1 font-medium text-status-error-text"><XCircle className="size-3.5" /> {declined} {t('customers.schedule.rsvp.declined', 'nie')}</span>}
+            {accepted > 0 && <span className="flex items-center gap-1 font-medium text-status-success-text"><CheckCircle2 className="size-4" /> {accepted} {t('customers.schedule.rsvp.accepted', 'tak')}</span>}
+            {pending > 0 && <span className="flex items-center gap-1 font-medium text-status-warning-text"><Clock className="size-4" /> {pending} {t('customers.schedule.rsvp.pending', 'czeka')}</span>}
+            {declined > 0 && <span className="flex items-center gap-1 font-medium text-status-error-text"><XCircle className="size-4" /> {declined} {t('customers.schedule.rsvp.declined', 'nie')}</span>}
           </div>
         )
       })()}

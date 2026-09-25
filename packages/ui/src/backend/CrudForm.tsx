@@ -440,6 +440,24 @@ export type CrudFormProps<TValues extends Record<string, unknown>> = {
   // Pass `true` to enable with auto-generated pageType, or `{ pageType }` for explicit key.
   collapsibleGroups?: boolean | { pageType: string; chevronPosition?: 'left' | 'right' }
   /**
+   * With `collapsibleGroups`, render custom-field sections flat like their
+   * sibling groups instead of inside the tinted section panel, so their
+   * controls keep the same field fill as every other field in the form.
+   * Off by default.
+   */
+  flatCustomFieldSections?: boolean
+  /** With `collapsibleGroups`, `card` renders every group as a white card. */
+  collapsibleGroupTone?: 'default' | 'card'
+  /**
+   * Opt-in fixed dialog layout. When set, the fields and the error summary
+   * render inside a `data-dialog-form` body with these classes (give it a
+   * fixed height and `overflow-y-auto`), and the footer sits below it, unruled
+   * and not sticky — so errors appearing or fields changing never move the
+   * dialog or its buttons. Unset keeps the content-sized dialog with the
+   * sticky ruled footer.
+   */
+  dialogBodyClassName?: string
+  /**
    * Enable drag-and-drop reordering of groups with localStorage persistence.
    * NOTE: Only column-1 groups are sortable. Column-2 (sidebar) groups are fixed
    * by design and always render in their declared order.
@@ -782,6 +800,9 @@ export function CrudForm<TValues extends Record<string, unknown>>({
   injectionSpotId,
   replacementHandle,
   collapsibleGroups,
+  flatCustomFieldSections = false,
+  collapsibleGroupTone = 'default',
+  dialogBodyClassName,
   sortableGroups,
   shouldBypassUnsavedChangesGuard,
 }: CrudFormProps<TValues>) {
@@ -1404,9 +1425,20 @@ export function CrudForm<TValues extends Record<string, unknown>>({
     if (!root) return
     setIsInDialog(Boolean(root.closest('[data-dialog-content]')))
   }, [])
-  const dialogFooterClass = isInDialog
-    ? 'sticky bottom-0 left-0 right-0 z-20 -mx-6 px-6 bg-card border-t border-border/70 py-2 sm:-mx-6 sm:px-6'
-    : ''
+  const fixedDialogBody = Boolean(dialogBodyClassName)
+  const dialogFooterClass = fixedDialogBody
+    ? 'shrink-0 px-5 pt-1.5 pb-4 sm:px-6'
+    : isInDialog
+      ? 'sticky bottom-0 left-0 right-0 z-20 -mx-6 px-6 bg-card border-t border-border/70 py-2 sm:-mx-6 sm:px-6'
+      : ''
+  const renderDialogBody = (content: React.ReactNode) =>
+    fixedDialogBody ? (
+      <div data-dialog-form="true" className={cn('space-y-4', dialogBodyClassName)}>
+        {content}
+      </div>
+    ) : (
+      content
+    )
   // No bottom padding on the dialog form. The previous `pb-20` left an 80px gap below
   // the sticky footer in every dialog whose content fit the viewport (the form sized to
   // content + 80px with the footer as its last child) — visible as empty white space at
@@ -1598,11 +1630,12 @@ export function CrudForm<TValues extends Record<string, unknown>>({
       disabled={pending}
     />
   ) : null
-  const headerExtraActions = versionHistoryEnabled || headerInjectionAction || extraActions ? (
+  const headerOwnActions = embedded && fixedDialogBody ? null : extraActions
+  const headerExtraActions = versionHistoryEnabled || headerInjectionAction || headerOwnActions ? (
     <>
       {versionHistoryEnabled ? versionHistoryAction : null}
       {headerInjectionAction}
-      {extraActions}
+      {headerOwnActions}
     </>
   ) : undefined
 
@@ -3366,10 +3399,13 @@ export function CrudForm<TValues extends Record<string, unknown>>({
     )
   }
 
+  const flatCustomSections = flatCustomFieldSections && collapsibleGroupsEnabled
+  const customSectionPanelClass = flatCustomSections ? 'space-y-5' : FORM_SECTION_PANEL
+
   const renderCustomFieldsContent = React.useCallback((): React.ReactNode[] => {
     if (!customFieldLayout.length) {
       return [
-        <div key="custom-fields-empty" className={FORM_SECTION_PANEL}>
+        <div key="custom-fields-empty" className={customSectionPanelClass}>
           {customFieldsEmptyState}
         </div>,
       ]
@@ -3398,7 +3434,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
 
       if (showSelector) {
         nodes.push(
-          <div key={`custom-fields-selector-${entityLayout.entityId}`} className={FORM_SECTION_PANEL}>
+          <div key={`custom-fields-selector-${entityLayout.entityId}`} className={customSectionPanelClass}>
             <div className="flex flex-wrap items-center gap-2 text-sm">
               <label className="text-xs uppercase tracking-wide text-muted-foreground">
                 {fieldsetSelectorLabel}
@@ -3423,8 +3459,9 @@ export function CrudForm<TValues extends Record<string, unknown>>({
                 </SelectContent>
               </Select>
               <IconButton
-                variant="outline"
-                className="text-muted-foreground hover:text-foreground"
+                variant={flatCustomSections ? 'soft' : 'outline'}
+                size={flatCustomSections ? 'lg' : undefined}
+                className={flatCustomSections ? undefined : 'text-muted-foreground hover:text-foreground'}
                 onClick={() =>
                   handleOpenFieldsetEditor(entityLayout.entityId, entityLayout.activeFieldset ?? null, 'fieldset')}
                 disabled={!manageHref}
@@ -3446,11 +3483,12 @@ export function CrudForm<TValues extends Record<string, unknown>>({
               key={sectionKey}
               title={section.title}
               description={section.description}
+              panel={!flatCustomSections}
               actions={
                 <Button
                   type="button"
                   variant="muted"
-                  size="sm"
+                  size={flatCustomSections ? 'default' : 'sm'}
                   onClick={() => handleOpenFieldsetEditor(entityLayout.entityId, section.fieldsetCode, 'fieldset')}
                   disabled={manageDisabled}
                 >
@@ -3489,7 +3527,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
         })
       } else {
         nodes.push(
-          <div key={`custom-fields-empty-${entityLayout.entityId}`} className={FORM_SECTION_PANEL}>
+          <div key={`custom-fields-empty-${entityLayout.entityId}`} className={customSectionPanelClass}>
             {customFieldsEmptyState}
           </div>,
         )
@@ -3504,6 +3542,8 @@ export function CrudForm<TValues extends Record<string, unknown>>({
     defaultFieldsetLabel,
     emptyFieldsetMessage,
     fieldsetSelectorLabel,
+    flatCustomSections,
+    customSectionPanelClass,
     handleFieldsetSelectionChange,
     handleOpenFieldsetEditor,
     manageFieldsetLabel,
@@ -3619,6 +3659,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
             if (collapsibleGroupsEnabled && g.title) {
               nodes.push(
                 <CollapsibleGroup
+                  tone={collapsibleGroupTone}
                   key={`${g.id}-loading-collapsible`}
                   groupId={g.id}
                   title={t(g.title, g.title)}
@@ -3662,6 +3703,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
             )
             nodes.push(
               <CollapsibleGroup
+                tone={collapsibleGroupTone}
                 key={g.id}
                 ref={(handle) => {
                   if (handle) groupCollapseRefs.current.set(g.id, handle)
@@ -3716,6 +3758,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
         if (collapsibleGroupsEnabled && g.title) {
           nodes.push(
             <CollapsibleGroup
+              tone={collapsibleGroupTone}
               key={g.id}
               ref={(handle) => {
                 if (handle) groupCollapseRefs.current.set(g.id, handle)
@@ -3786,7 +3829,8 @@ export function CrudForm<TValues extends Record<string, unknown>>({
           className={embedded ? 'min-h-[1px]' : 'min-h-[400px]'}
         >
           {wrapFormBody(
-            <form id={formId} noValidate={disableNativeValidation} onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className={`${embedded ? 'space-y-4' : 'space-y-5'} ${dialogFormPadding}`}>
+            <form id={formId} noValidate={disableNativeValidation} onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className={`${fixedDialogBody ? '' : embedded ? 'space-y-4' : 'space-y-5'} ${dialogFormPadding}`}>
+            {renderDialogBody(<>
             {resolvedInjectionSpotId ? (
               <InjectionSpot
                 spotId={resolvedInjectionSpotId}
@@ -3814,6 +3858,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
               {hasSecondaryColumn ? <div className="space-y-3" data-crud-injection-region>{col2Content}</div> : null}
             </div>
             {formErrorSummary}
+            </>)}
             {hideFooterActions || formReadOnly ? null : (
               <FormFooter
                 embedded={embedded}
@@ -3874,8 +3919,9 @@ export function CrudForm<TValues extends Record<string, unknown>>({
             noValidate={disableNativeValidation}
             onSubmit={handleSubmit}
             onKeyDown={handleFormKeyDown}
-            className={`${embedded ? 'space-y-4' : 'space-y-5'} ${dialogFormPadding}`}
+            className={`${fixedDialogBody ? '' : embedded ? 'space-y-4' : 'space-y-5'} ${dialogFormPadding}`}
           >
+            {renderDialogBody(<>
             {resolvedInjectionSpotId ? (
               <InjectionSpot
                 spotId={resolvedInjectionSpotId}
@@ -3917,6 +3963,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
             </div>
             </SectionPanel>
             {formErrorSummary}
+            </>)}
             {hideFooterActions || formReadOnly ? null : (
               <FormFooter
                 embedded={embedded}

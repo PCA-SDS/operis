@@ -93,7 +93,7 @@ jest.mock('@open-mercato/ui/primitives/dialog', () => ({
     <div data-slot="dialog-body" className={className}>{children}</div>
   ),
   Dialog: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  DialogContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DialogContent: ({ children, onKeyDown }: { children: React.ReactNode; onKeyDown?: React.KeyboardEventHandler<HTMLDivElement> }) => <div onKeyDown={onKeyDown}>{children}</div>,
   DialogTitle: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }))
 
@@ -239,6 +239,32 @@ describe('ScheduleActivityDialog', () => {
     expect(apiCallOrThrowMock).not.toHaveBeenCalled()
     expect(screen.getByText(expectedMessage)).toBeInTheDocument()
     expect(flashMock).toHaveBeenCalledWith(expectedMessage, 'error')
+  })
+
+  it('shows a reserved title alert on Cmd+Enter with an empty title instead of submitting', async () => {
+    mockScheduleState = createScheduleState({ title: '' })
+
+    renderWithProviders(
+      <ScheduleActivityDialog
+        open
+        onClose={() => undefined}
+        entityId="person-1"
+        entityType="person"
+      />,
+    )
+
+    const titleInput = document.getElementById('schedule-activity-title') as HTMLInputElement
+    const titleAlert = document.getElementById('schedule-activity-title-error') as HTMLElement
+    expect(titleAlert).toHaveAttribute('role', 'alert')
+    expect(titleAlert).toHaveTextContent('')
+
+    await act(async () => {
+      fireEvent.keyDown(titleInput, { key: 'Enter', metaKey: true })
+    })
+
+    expect(apiCallOrThrowMock).not.toHaveBeenCalled()
+    expect(titleAlert).toHaveTextContent('Title is required')
+    expect(titleInput).toHaveAttribute('aria-invalid', 'true')
   })
 
   it('renders without crashing when editing a note activity (regression #2388)', () => {

@@ -23,6 +23,11 @@ export type FormSectionProps = {
   actions?: React.ReactNode
   /** Applied to the panel, not the wrapper, so callers can tune the fill area. */
   className?: string
+  /**
+   * Draw the filled section panel (default). `false` lays the fields out flat,
+   * for a section nested in a host that already supplies the surface.
+   */
+  panel?: boolean
   children: React.ReactNode
 }
 
@@ -41,6 +46,7 @@ export function FormSection({
   description,
   actions,
   className,
+  panel = true,
   children,
 }: FormSectionProps) {
   const hasHeader = Boolean(title || description || actions)
@@ -68,9 +74,13 @@ export function FormSection({
           {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
         </header>
       ) : null}
-      <div className={cn(FORM_SECTION_PANEL, className)} {...FORM_SECTION_ATTR}>
-        {children}
-      </div>
+      {panel ? (
+        <div className={cn(FORM_SECTION_PANEL, className)} {...FORM_SECTION_ATTR}>
+          {children}
+        </div>
+      ) : (
+        <div className={cn('space-y-5', className)}>{children}</div>
+      )}
     </section>
   )
 }

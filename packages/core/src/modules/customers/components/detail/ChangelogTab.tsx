@@ -62,6 +62,8 @@ type ChangelogEntry = {
 type ChangelogTabProps = {
   entityId: string
   entityType: 'company' | 'person' | 'deal'
+  /** Chrome for the tab's controls; see `ChangelogFilters`. */
+  tone?: 'default' | 'soft'
 }
 
 type FilterState = {
@@ -254,15 +256,17 @@ function groupEntriesByDay(entries: ChangelogEntry[], t: ReturnType<typeof useT>
   }))
 }
 
-function SortIcon({ active, dir }: { active: boolean; dir: 'asc' | 'desc' }) {
-  if (!active) return <ArrowUpDown className="size-3 text-muted-foreground" />
+function SortIcon({ active, dir, soft }: { active: boolean; dir: 'asc' | 'desc'; soft: boolean }) {
+  const size = soft ? 'size-4' : 'size-3'
+  if (!active) return <ArrowUpDown className={`${size} text-muted-foreground`} />
   return dir === 'asc'
-    ? <ChevronUp className="size-3 text-foreground" />
-    : <ChevronDown className="size-3 text-foreground" />
+    ? <ChevronUp className={`${size} text-foreground`} />
+    : <ChevronDown className={`${size} text-foreground`} />
 }
 
-export function ChangelogTab({ entityId, entityType }: ChangelogTabProps) {
+export function ChangelogTab({ entityId, entityType, tone = 'default' }: ChangelogTabProps) {
   const t = useT()
+  const soft = tone === 'soft'
   const [filters, setFilters] = React.useState<FilterState>({
     fieldNames: [],
     actorUserIds: [],
@@ -503,6 +507,7 @@ export function ChangelogTab({ entityId, entityType }: ChangelogTabProps) {
         onActorUserIdsChange={(value) => updateFilters({ actorUserIds: value })}
         onActionTypesChange={(value) => updateFilters({ actionTypes: value })}
         onExport={handleExport}
+        tone={tone}
       />
 
       <ChangelogKpiCards
@@ -542,7 +547,7 @@ export function ChangelogTab({ entityId, entityType }: ChangelogTabProps) {
                 }`}
               >
                 <span>{t(column.key, column.fallback)}</span>
-                <SortIcon active={isActive} dir={sorting.dir} />
+                <SortIcon active={isActive} dir={sorting.dir} soft={soft} />
               </Button>
             )
           })}
@@ -595,25 +600,25 @@ export function ChangelogTab({ entityId, entityType }: ChangelogTabProps) {
           <div className="flex items-center gap-2">
             <Button
               type="button"
-              variant="outline"
-              size="sm"
+              variant={soft ? 'soft' : 'outline'}
+              size={soft ? 'default' : 'sm'}
               onClick={handleNewer}
               disabled={!hasNewer || loading}
-              className="h-8 rounded-lg px-3 text-xs"
+              className={soft ? undefined : 'h-8 rounded-lg px-3 text-xs'}
             >
-              <ArrowLeft className="mr-1.5 size-3.5" />
+              <ArrowLeft className={soft ? 'size-4' : 'mr-1.5 size-3.5'} />
               {previousPageLabel}
             </Button>
             <Button
               type="button"
-              variant="outline"
-              size="sm"
+              variant={soft ? 'soft' : 'outline'}
+              size={soft ? 'default' : 'sm'}
               onClick={handleOlder}
               disabled={!hasOlder || loading}
-              className="h-8 rounded-lg px-3 text-xs"
+              className={soft ? undefined : 'h-8 rounded-lg px-3 text-xs'}
             >
               {nextPageLabel}
-              <ArrowRight className="ml-1.5 size-3.5" />
+              <ArrowRight className={soft ? 'size-4' : 'ml-1.5 size-3.5'} />
             </Button>
           </div>
         </div>

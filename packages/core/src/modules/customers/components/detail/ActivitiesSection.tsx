@@ -39,6 +39,8 @@ export type ActivitiesSectionProps = {
   onEditActivity?: (activity: InteractionSummary) => void
   /** Interaction type hidden from the timeline by default ('task' unless overridden); pass null to show every type. */
   excludeInteractionType?: string | null
+  /** Chrome for the section's toolbar; see `ActivityTimelineFilters`. */
+  tone?: 'default' | 'soft'
 }
 
 function toDateOnly(value: string | null | undefined): string {
@@ -113,6 +115,7 @@ export function ActivitiesSection({
   onEditActivity,
   runGuardedMutation,
   excludeInteractionType = 'task',
+  tone = 'default',
 }: ActivitiesSectionProps) {
   const t = useT()
   const [filterTypes, setFilterTypes] = React.useState<string[]>([])
@@ -355,7 +358,7 @@ export function ActivitiesSection({
   return (
     <div className="flex flex-col gap-3.5 rounded-lg border border-border bg-card pt-4 pb-[18px] px-[18px]">
       <div className="flex items-center gap-2">
-        <Clock className="size-[15px] text-muted-foreground" />
+        <Clock className={tone === 'soft' ? 'size-4 text-muted-foreground' : 'size-[15px] text-muted-foreground'} />
         <h3 className="text-sm font-semibold text-foreground">
           {entityName
             ? t('customers.timeline.history.title', 'Interaction history with {{name}}', { name: entityName })
@@ -370,6 +373,7 @@ export function ActivitiesSection({
         placeholder={t('customers.timeline.history.searchPlaceholder', 'Search...')}
         aria-label={t('customers.timeline.history.searchAriaLabel', 'Search interaction history')}
         shortcut={<Kbd className="hidden sm:inline-flex">⌘1</Kbd>}
+        tone={tone === 'soft' ? 'well' : undefined}
       />
 
       <ActivityTimelineFilters
@@ -385,6 +389,7 @@ export function ActivitiesSection({
           setFilterDateFrom('')
           setFilterDateTo('')
         }}
+        tone={tone}
       />
 
       {loading && totalCount === 0 ? (

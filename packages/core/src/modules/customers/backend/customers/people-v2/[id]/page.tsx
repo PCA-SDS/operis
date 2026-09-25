@@ -121,18 +121,11 @@ export default function PersonDetailV2Page({ params }: { params?: { id?: string 
     ? personDisplayName
     : t('customers.people.list.deleteFallbackName', 'this person')
 
-  const personDisplayNameForGroups = personDisplayName.trim().length
-    ? personDisplayName.trim()
-    : null
-
   const scheduleDialogCompanyName = coerceDisplayNameOrNull(
     data?.company?.displayName ?? data?.companies?.[0]?.displayName ?? null,
   )
 
-  const groups = React.useMemo(
-    () => createPersonPersonalDataGroups(t, { entityName: personDisplayNameForGroups }),
-    [t, personDisplayNameForGroups],
-  )
+  const groups = React.useMemo(() => createPersonPersonalDataGroups(t), [t])
 
   const zoneSections = React.useMemo<ZoneSectionDescriptor[]>(() => [
     { id: 'personalData', icon: User, label: t('customers.people.form.groups.personalData', 'Personal data') },
@@ -402,6 +395,8 @@ export default function PersonDetailV2Page({ params }: { params?: { id?: string 
           }
           throw err
         }
+        const loadedDisplayName = coerceDisplayName(dataRef.current?.person?.displayName).trim()
+        if (payload.displayName === loadedDisplayName) delete payload.displayName
 
         // Attach the current optimistic-lock token directly on this write path so
         // every header-field edit (displayName/status/…) carries `updatedAt`, not
@@ -579,6 +574,8 @@ export default function PersonDetailV2Page({ params }: { params?: { id?: string 
                   onDelete={handleFormDelete}
                   hideFooterActions
                   collapsibleGroups={{ pageType: 'person-v2', chevronPosition: 'right' }}
+                  flatCustomFieldSections
+                  collapsibleGroupTone="card"
                   sortableGroups={{ pageType: 'person-v2' }}
                   onDirtyChange={setIsDirty}
                 />
@@ -627,6 +624,7 @@ export default function PersonDetailV2Page({ params }: { params?: { id?: string 
                           }}
                           onActionChange={handleSectionActionChange}
                           onEditActivity={handleEditActivity}
+                          tone="soft"
                         />
                       </div>
                     )
@@ -714,6 +712,7 @@ export default function PersonDetailV2Page({ params }: { params?: { id?: string 
                     return (
                       <AttachmentsSection
                         entityId={E.customers.customer_entity}
+                        actionVariant="soft"
                         recordId={personId}
                         title={t('customers.people.detail.tabs.files', 'Files')}
                         description={t('customers.people.detail.files.subtitle', 'Upload and manage files linked to this person.')}
@@ -722,7 +721,7 @@ export default function PersonDetailV2Page({ params }: { params?: { id?: string 
                   }
 
                   if (activeTab === 'changelog') {
-                    return <ChangelogTab entityId={personId} entityType="person" />
+                    return <ChangelogTab entityId={personId} entityType="person" tone="soft" />
                   }
 
                   return null
@@ -740,6 +739,7 @@ export default function PersonDetailV2Page({ params }: { params?: { id?: string 
             ) : (
               <CollapsibleZoneLayout
                 pageType="person-v2"
+                toggleTone="soft"
                 entityName={personName}
                 isDirty={isDirty}
                 sections={zoneSections}

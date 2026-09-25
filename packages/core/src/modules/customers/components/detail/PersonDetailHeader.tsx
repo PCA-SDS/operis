@@ -22,7 +22,6 @@ import type { PersonOverview } from '../formConfig'
 import type { CustomerDictionaryMap } from '@open-mercato/core/modules/customers/lib/dictionaries'
 import { formatFallbackLabel } from './utils'
 
-const HEADER_ICON_BUTTON_CLASS = 'size-8 rounded-md'
 
 type PersonDetailHeaderProps = {
   data: PersonOverview
@@ -234,12 +233,10 @@ export function PersonDetailHeader({
             {/* Manage tags — opens dialog directly */}
             <Button
               type="button"
-              variant="outline"
-              size="sm"
-              className="h-auto rounded-sm px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+              variant="soft"
               onClick={() => setManageTagsOpen(true)}
             >
-              <Pencil className="mr-1 size-3" />
+              <Pencil className="size-4" />
               {t('customers.people.detail.actions.manageTags', 'Edit tags')}
             </Button>
           </div>
@@ -258,19 +255,19 @@ export function PersonDetailHeader({
               },
             }}
             viewHref={`/backend/customers/people-v2/${person.id}`}
-            buttonVariant="outline"
+            buttonVariant="soft"
             buttonSize="icon"
-            buttonClassName={HEADER_ICON_BUTTON_CLASS}
             buttonLabel={t('customers.people.detail.actions.sendMessage', 'Send message')}
           />
           <ObjectHistoryButton
+            tone="soft"
             resourceKind="customers.person"
             resourceId={person.id}
             organizationId={person.organizationId ?? undefined}
           />
           <IconButton
-            variant="outline"
-            size="sm"
+            variant="soft"
+            size="lg"
             type="button"
             aria-label={t('customers.people.detail.actions.delete', 'Delete')}
             onClick={() => {
@@ -281,7 +278,6 @@ export function PersonDetailHeader({
           </IconButton>
           <Button
             type="button"
-            size="sm"
             onClick={onSave}
             disabled={!isDirty || isSaving}
           >

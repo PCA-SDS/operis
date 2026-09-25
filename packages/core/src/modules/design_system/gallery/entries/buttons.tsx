@@ -167,6 +167,9 @@ const iconButtonEntry: GalleryEntry = {
           <IconButton variant="white" aria-label="Edit">
             <Pencil />
           </IconButton>
+          <IconButton variant="soft" aria-label="Edit">
+            <Pencil />
+          </IconButton>
           <IconButton variant="destructive" aria-label="Delete">
             <Trash2 />
           </IconButton>
@@ -179,6 +182,7 @@ import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 <IconButton variant="outline" aria-label="Edit"><Pencil /></IconButton>
 <IconButton variant="ghost" aria-label="More"><MoreHorizontal /></IconButton>
 <IconButton variant="white" aria-label="Edit"><Pencil /></IconButton>
+<IconButton variant="soft" aria-label="Edit"><Pencil /></IconButton>
 <IconButton variant="destructive" aria-label="Delete"><Trash2 /></IconButton>`,
     },
     {

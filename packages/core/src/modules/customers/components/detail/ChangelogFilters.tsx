@@ -26,6 +26,8 @@ type ChangelogFiltersProps = {
   onActorUserIdsChange: (value: string[]) => void
   onActionTypesChange: (value: string[]) => void
   onExport: () => void
+  /** `default` keeps the compact 32px controls; `soft` renders every control at 36px/14px on the soft family. */
+  tone?: 'default' | 'soft'
 }
 
 type FilterPopoverProps = {
@@ -34,9 +36,13 @@ type FilterPopoverProps = {
   values: string[]
   triggerLabel: string
   onChange: (value: string[]) => void
+  soft: boolean
 }
 
-function FilterPopover({ allLabel, options, values, triggerLabel, onChange }: FilterPopoverProps) {
+function FilterPopover({ allLabel, options, values, triggerLabel, onChange, soft }: FilterPopoverProps) {
+  const optionClass = soft ? 'w-full justify-start' : 'h-auto w-full justify-start px-2 py-1.5 text-xs'
+  const checkIcon = <Check className={soft ? 'size-4 text-foreground' : 'mr-2 size-3.5 text-foreground'} />
+  const checkSpacer = <span className={soft ? 'w-4 shrink-0' : 'mr-5'} />
   const t = useT()
   const [search, setSearch] = React.useState('')
   const filteredOptions = React.useMemo(() => {
@@ -57,19 +63,24 @@ function FilterPopover({ allLabel, options, values, triggerLabel, onChange }: Fi
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button type="button" variant="outline" size="sm" className="h-8 justify-between gap-2 rounded-lg px-3 text-xs">
+        <Button
+          type="button"
+          variant={soft ? 'soft' : 'outline'}
+          size={soft ? 'default' : 'sm'}
+          className={soft ? 'justify-between' : 'h-8 justify-between gap-2 rounded-lg px-3 text-xs'}
+        >
           <span className="truncate">{triggerLabel}</span>
-          <ChevronDown className="size-3.5 text-muted-foreground" />
+          <ChevronDown className={soft ? 'size-4 text-muted-foreground' : 'size-3.5 text-muted-foreground'} />
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-72 space-y-3 p-3">
         <div className="relative">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Search className={soft ? 'pointer-events-none absolute left-3 top-1/2 z-10 size-4 -translate-y-1/2 text-muted-foreground' : 'pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground'} />
           <Input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder={t('customers.changelog.filters.search', 'Search')}
-            className="h-8 pl-8 text-xs"
+            className={soft ? 'pl-9' : 'h-8 pl-8 text-xs'}
           />
         </div>
 
@@ -77,11 +88,11 @@ function FilterPopover({ allLabel, options, values, triggerLabel, onChange }: Fi
           <Button
             type="button"
             variant="ghost"
-            size="sm"
+            size={soft ? 'default' : 'sm'}
             onClick={() => onChange([])}
-            className="h-auto w-full justify-start px-2 py-1.5 text-xs"
+            className={optionClass}
           >
-            {values.length === 0 ? <Check className="mr-2 size-3.5 text-foreground" /> : <span className="mr-5" />}
+            {values.length === 0 ? checkIcon : checkSpacer}
             {allLabel}
           </Button>
           {filteredOptions.map((option) => (
@@ -89,11 +100,11 @@ function FilterPopover({ allLabel, options, values, triggerLabel, onChange }: Fi
               key={option.value}
               type="button"
               variant="ghost"
-              size="sm"
+              size={soft ? 'default' : 'sm'}
               onClick={() => toggleValue(option.value)}
-              className="h-auto w-full justify-start px-2 py-1.5 text-xs"
+              className={optionClass}
             >
-              {valuesSet.has(option.value) ? <Check className="mr-2 size-3.5 text-foreground" /> : <span className="mr-5" />}
+              {valuesSet.has(option.value) ? checkIcon : checkSpacer}
               <span className="truncate">{option.label}</span>
             </Button>
           ))}
@@ -122,8 +133,10 @@ export function ChangelogFilters({
   onActorUserIdsChange,
   onActionTypesChange,
   onExport,
+  tone = 'default',
 }: ChangelogFiltersProps) {
   const t = useT()
+  const soft = tone === 'soft'
 
   const describeSelection = React.useCallback((allLabel: string, options: FilterOption[], values: string[]) => {
     if (values.length === 0) return allLabel
@@ -143,6 +156,7 @@ export function ChangelogFilters({
           values={fieldNames}
           triggerLabel={describeSelection(t('customers.changelog.allFields', 'All fields'), fieldOptions, fieldNames)}
           onChange={onFieldNamesChange}
+          soft={soft}
         />
         <FilterPopover
           allLabel={t('customers.changelog.allUsers', 'All users')}
@@ -150,6 +164,7 @@ export function ChangelogFilters({
           values={actorUserIds}
           triggerLabel={describeSelection(t('customers.changelog.allUsers', 'All users'), userOptions, actorUserIds)}
           onChange={onActorUserIdsChange}
+          soft={soft}
         />
         <FilterPopover
           allLabel={t('customers.changelog.allActions', 'All actions')}
@@ -157,6 +172,7 @@ export function ChangelogFilters({
           values={actionTypes}
           triggerLabel={describeSelection(t('customers.changelog.allActions', 'All actions'), actionOptions, actionTypes)}
           onChange={onActionTypesChange}
+          soft={soft}
         />
       </div>
 
@@ -165,24 +181,26 @@ export function ChangelogFilters({
           <select
             value={dateRange}
             onChange={(event) => onDateRangeChange(event.target.value as '7d' | '30d' | '90d')}
-            className="h-8 min-w-32 appearance-none rounded-lg border bg-input-bg pl-3 pr-8 text-xs text-foreground outline-none ring-offset-background focus:ring-2 focus:ring-ring"
+            className={soft
+              ? 'h-9 min-w-32 appearance-none rounded-lg border border-transparent bg-input-bg pl-3 pr-9 text-sm font-medium text-foreground outline-none focus-visible:shadow-focus'
+              : 'h-8 min-w-32 appearance-none rounded-lg border bg-input-bg pl-3 pr-8 text-xs text-foreground outline-none ring-offset-background focus:ring-2 focus:ring-ring'}
           >
             <option value="7d">{t('customers.changelog.last7days', 'Last 7 days')}</option>
             <option value="30d">{t('customers.changelog.last30days', 'Last 30 days')}</option>
             <option value="90d">{t('customers.changelog.last90days', 'Last 90 days')}</option>
           </select>
-          <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <ChevronDown className={soft ? 'pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground' : 'pointer-events-none absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground'} />
         </div>
 
         <Button
           type="button"
-          variant="outline"
-          size="sm"
+          variant={soft ? 'soft' : 'outline'}
+          size={soft ? 'default' : 'sm'}
           onClick={onExport}
           disabled={exportDisabled}
-          className="h-8 rounded-lg px-3 text-xs"
+          className={soft ? undefined : 'h-8 rounded-lg px-3 text-xs'}
         >
-          <Download className="mr-1.5 size-3.5" />
+          <Download className={soft ? 'size-4' : 'mr-1.5 size-3.5'} />
           {t('customers.changelog.exportCsv', 'Export CSV')}
         </Button>
       </div>

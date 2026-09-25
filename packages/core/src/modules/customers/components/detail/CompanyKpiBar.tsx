@@ -182,7 +182,7 @@ export function CompanyKpiBar({ data }: CompanyKpiBarProps) {
               className="absolute right-2 top-2 opacity-0 transition-opacity group-hover:opacity-60"
               aria-label={t('customers.companies.dashboard.hideTile', 'Hide tile')}
             >
-              <EyeOff className="size-3.5" />
+              <EyeOff className="size-4" />
             </IconButton>
           </div>
         ))}

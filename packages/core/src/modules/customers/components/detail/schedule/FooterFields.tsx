@@ -1,7 +1,9 @@
 'use client'
 
-import { Bell, Eye, ChevronDown } from 'lucide-react'
+import { Bell, Eye } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectTriggerLeading, SelectValue } from '@open-mercato/ui/primitives/select'
+import { LABEL_CLASS } from '../../calendar/editor/inputs'
 import type { ActivityType, ScheduleFieldId } from './fieldConfig'
 import { isVisible, getFieldLabel } from './fieldConfig'
 
@@ -54,44 +56,40 @@ export function FooterFields({
   return (
     <div className="flex gap-3">
       {showReminder && (
-        <div className="flex flex-1 flex-col gap-1.5">
-          <label className="text-overline font-semibold text-muted-foreground tracking-wider">
+        <div className="flex flex-1 flex-col gap-2.5">
+          <label id="schedule-reminder-label" className={LABEL_CLASS}>
             {getFieldLabel(activityType, 'reminder', t, 'customers.schedule.reminder', 'Reminder')}
           </label>
-          <div className="flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-2.5">
-            <Bell className="size-3.5 text-muted-foreground" />
-            <select
-              value={reminderMinutes}
-              onChange={(e) => setReminderMinutes(Number(e.target.value))}
-              className="flex-1 appearance-none bg-transparent text-sm text-foreground focus:outline-none"
-            >
+          <Select value={String(reminderMinutes)} onValueChange={(next) => setReminderMinutes(Number(next))}>
+            <SelectTrigger aria-labelledby="schedule-reminder-label">
+              <SelectTriggerLeading><Bell className="text-muted-foreground" /></SelectTriggerLeading>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
               {REMINDER_OPTIONS.map((m) => (
-                <option key={m} value={m}>
+                <SelectItem key={m} value={String(m)}>
                   {formatReminderLabel(m, t)}
-                </option>
+                </SelectItem>
               ))}
-            </select>
-            <ChevronDown className="size-3.5 text-muted-foreground" />
-          </div>
+            </SelectContent>
+          </Select>
         </div>
       )}
       {showVisibility && (
-        <div className="flex flex-1 flex-col gap-1.5">
-          <label className="text-overline font-semibold text-muted-foreground tracking-wider">
+        <div className="flex flex-1 flex-col gap-2.5">
+          <label id="schedule-visibility-label" className={LABEL_CLASS}>
             {getFieldLabel(activityType, 'visibility', t, 'customers.schedule.visibility', 'Visibility')}
           </label>
-          <div className="flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-2.5">
-            <Eye className="size-3.5 text-muted-foreground" />
-            <select
-              value={visibility}
-              onChange={(e) => setVisibility(e.target.value)}
-              className="flex-1 appearance-none bg-transparent text-sm text-foreground focus:outline-none"
-            >
-              <option value="team">{t('customers.schedule.visibility.team', 'Team only')}</option>
-              <option value="public">{t('customers.schedule.visibility.public', 'Public')}</option>
-            </select>
-            <ChevronDown className="size-3.5 text-muted-foreground" />
-          </div>
+          <Select value={visibility} onValueChange={setVisibility}>
+            <SelectTrigger aria-labelledby="schedule-visibility-label">
+              <SelectTriggerLeading><Eye className="text-muted-foreground" /></SelectTriggerLeading>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="team">{t('customers.schedule.visibility.team', 'Team only')}</SelectItem>
+              <SelectItem value="public">{t('customers.schedule.visibility.public', 'Public')}</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       )}
     </div>

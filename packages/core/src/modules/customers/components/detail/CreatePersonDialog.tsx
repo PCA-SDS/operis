@@ -11,6 +11,7 @@ import { createCrudFormError } from '@open-mercato/ui/backend/utils/serverErrors
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Badge } from '@open-mercato/ui/primitives/badge'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@open-mercato/ui/primitives/dialog'
+import { DETAIL_DIALOG_BODY } from './dialogChrome'
 import { E } from '#generated/entities.ids.generated'
 import {
   buildPersonPayload,
@@ -145,11 +146,11 @@ export function CreatePersonDialog({
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose() }}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[1028px]" onKeyDown={handleKeyDown}>
+      <DialogContent className="sm:max-w-[1028px]" onKeyDown={handleKeyDown} disableBodyWrap>
         <DialogHeader>
           <DialogTitle>{t('customers.people.createDialog.title', 'Add new person')}</DialogTitle>
           <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-            <Building2 className="size-3.5" />
+            <Building2 className="size-4" />
             <span>{companyName}</span>
             <span className="text-xs">·</span>
             <span>{t('customers.people.createDialog.autoLink', 'auto-linked to company')}</span>
@@ -159,6 +160,7 @@ export function CreatePersonDialog({
         <CrudForm<PersonFormValues>
           key={`${companyId}:${formInstanceKey}`}
           embedded
+          dialogBodyClassName={DETAIL_DIALOG_BODY}
           entityIds={[E.customers.customer_entity, E.customers.customer_person_profile]}
           fields={fields}
           groups={groups}

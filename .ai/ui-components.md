@@ -143,7 +143,7 @@ MUST NOT put `destructive-solid` on a button that only *opens* a dialog, and MUS
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 ```
 
-**Variants**: `outline` (default) · `ghost` · `white` (white bg with sub-600 icon, for dark surfaces) · `modifiable` (transparent, inherits text — for ghost-on-dark headers)
+**Variants**: `outline` (default) · `ghost` · `white` (white bg with sub-600 icon, for dark surfaces) · `soft` (brand-tinted fill + floating shadow, no border — the icon-only twin of `Button variant="soft"`) · `modifiable` (transparent, inherits text — for ghost-on-dark headers)
 
 **Sizes**: `xs` (size-6 / 24px) · `sm` (size-7 / 28px) · `default` (size-8 / 32px) · `lg` (size-9 / 36px)
 

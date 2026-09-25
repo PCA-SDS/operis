@@ -21,6 +21,7 @@ import {
 import type { DictionaryEntryOption } from '@open-mercato/core/modules/dictionaries/lib/clientEntries'
 import type { RoleAssignment } from './RoleAssignmentRow'
 import { fetchAssignableStaffMembersPage } from './assignableStaff'
+import { FormFieldLabel } from '@open-mercato/ui/backend/forms/FormSection'
 
 const MANAGE_ROLE_TYPES_HREF = '/backend/config/customers'
 
@@ -348,11 +349,11 @@ export function AssignRoleDialog({
     >
       <DialogContent
         disableBodyWrap
-        className="min-h-0 max-h-[min(90vh,760px)] overflow-hidden p-0 sm:max-w-[580px]"
+        className="min-h-0 h-[min(90vh,760px)] overflow-hidden sm:h-[min(90vh,760px)] p-0 sm:max-w-[580px]"
         onKeyDown={handleKeyDown}
       >
         <DialogHeader>
-          <DialogTitle className="text-2xl font-semibold leading-none">
+          <DialogTitle>
             {t('customers.roles.dialog.title', 'Assign role')}
           </DialogTitle>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -385,23 +386,21 @@ export function AssignRoleDialog({
           />
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="space-y-5 px-6 py-5">
+        <div className="min-h-0 flex-1 overflow-y-auto" data-dialog-form="true">
+          <div className="space-y-6 px-6 py-5">
             {step === 1 ? (
               <div className="space-y-4">
                 <div className="rounded-lg bg-muted/30 px-4 py-4">
-                  <p
-                    id="assign-role-dialog-type-label"
-                    className="text-overline font-semibold uppercase tracking-[0.12em] text-muted-foreground"
-                  >
+                  <FormFieldLabel id="assign-role-dialog-type-label" className="mb-0" required>
                     {t('customers.roles.dialog.roleTypeLabel', 'Role type')}
-                  </p>
+                  </FormFieldLabel>
                   <div className="mt-2 flex items-center gap-2">
                     <select
                       aria-labelledby="assign-role-dialog-type-label"
+                      aria-required="true"
                       value={selectedRoleType}
                       onChange={(event) => setSelectedRoleType(event.target.value)}
-                      className="h-10 w-full rounded-md border border-border bg-input-bg px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/30"
+                      className="h-9 w-full rounded-lg border px-3 text-sm font-medium focus:outline-none focus-visible:shadow-focus"
                     >
                       <option value="">
                         {t('customers.roles.selectRoleType', 'Select role type...')}
@@ -427,7 +426,7 @@ export function AssignRoleDialog({
                       className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
                       data-testid="assign-role-dialog-manage-role-types"
                     >
-                      <Settings2 className="size-3.5" aria-hidden="true" />
+                      <Settings2 className="size-4" aria-hidden="true" />
                       {t('customers.roles.dialog.manageRoleTypes', 'Manage role types')}
                     </Link>
                   ) : null}
@@ -468,20 +467,19 @@ export function AssignRoleDialog({
                     </div>
                     <div className="flex items-center gap-2">
                       {canManageRoleTypes ? (
-                        <Button asChild variant="ghost" size="sm">
+                        <Button asChild variant="ghost">
                           <Link
                             href={MANAGE_ROLE_TYPES_HREF}
                             data-testid="assign-role-dialog-manage-role-types-step2"
                           >
-                            <Settings2 className="mr-1 size-3.5" aria-hidden="true" />
+                            <Settings2 className="size-4" aria-hidden="true" />
                             {t('customers.roles.dialog.manageRoleTypes', 'Manage role types')}
                           </Link>
                         </Button>
                       ) : null}
                       <Button
                         type="button"
-                        variant="outline"
-                        size="sm"
+                        variant="soft"
                         onClick={() => setStep(1)}
                       >
                         {t('customers.roles.dialog.change', 'Change')}
@@ -503,7 +501,7 @@ export function AssignRoleDialog({
                         'customers.roles.dialog.searchPlaceholder',
                         'Search by name, e-mail or team...',
                       )}
-                      className="h-10 rounded-md border-border/80 pl-9 shadow-none"
+                      className="pl-9"
                     />
                   </div>
                 </div>
@@ -515,13 +513,12 @@ export function AssignRoleDialog({
                       <Button
                         key={teamFilter.id}
                         type="button"
-                        variant={isActive ? 'default' : 'outline'}
-                        size="sm"
+                        variant={isActive ? 'default' : 'soft'}
                         onClick={() => setActiveTeam(teamFilter.id)}
-                        className="h-7 rounded-md px-2.5 text-xs"
+                        aria-pressed={isActive}
                       >
                         {teamFilter.label}
-                        <span className="rounded-full bg-background/80 px-1 text-xs text-muted-foreground">
+                        <span className="rounded-full bg-background/80 px-1.5 text-sm text-muted-foreground">
                           {teamFilter.count}
                         </span>
                       </Button>
@@ -538,7 +535,7 @@ export function AssignRoleDialog({
                       {t('customers.roles.loading', 'Loading...')}
                     </div>
                   ) : loadError ? (
-                    <div className="rounded-lg border border-dashed border-status-error-border bg-status-error-bg/70 px-4 py-8 text-center text-sm text-status-error-text">
+                    <div role="alert" className="rounded-lg border border-dashed border-status-error-border bg-status-error-bg/70 px-4 py-8 text-center text-sm text-status-error-text">
                       {loadError}
                     </div>
                   ) : filteredUsers.length === 0 ? (
@@ -602,7 +599,7 @@ export function AssignRoleDialog({
                                 : 'border-border/80 bg-surface text-transparent'
                             }`}
                           >
-                            <Check className="size-3.5" />
+                            <Check className="size-4" />
                           </span>
                         </Button>
                       )
@@ -611,7 +608,7 @@ export function AssignRoleDialog({
                   {canLoadMore && !loadError ? (
                     <Button
                       type="button"
-                      variant="outline"
+                      variant="soft"
                       onClick={handleLoadMore}
                       disabled={loadingMore}
                       className="w-full"

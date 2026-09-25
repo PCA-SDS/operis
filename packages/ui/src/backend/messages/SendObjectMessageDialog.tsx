@@ -18,7 +18,7 @@ export type SendObjectMessageDialogProps = {
   lockedType?: string | null
   requiredActionConfig?: MessageComposerRequiredActionConfig | null
   disabled?: boolean
-  buttonVariant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'muted' | 'link'
+  buttonVariant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'muted' | 'link' | 'soft'
   buttonSize?: 'default' | 'sm' | 'lg' | 'icon'
   buttonClassName?: string
   buttonLabel?: string
@@ -56,11 +56,11 @@ export function SendObjectMessageDialog({
     previewData: object.previewData ?? null,
   }), [object.entityId, object.entityModule, object.entityType, object.sourceEntityId, object.sourceEntityType, object.previewData])
 
-  const trigger = buttonSize === 'icon' && (buttonVariant === 'outline' || buttonVariant === 'ghost')
+  const trigger = buttonSize === 'icon' && (buttonVariant === 'outline' || buttonVariant === 'ghost' || buttonVariant === 'soft')
     ? (
       <IconButton
         type="button"
-        size="default"
+        size={buttonVariant === 'soft' ? 'lg' : 'default'}
         variant={buttonVariant}
         className={buttonClassName}
         disabled={disabled}

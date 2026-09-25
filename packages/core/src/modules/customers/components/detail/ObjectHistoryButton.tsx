@@ -11,6 +11,8 @@ export type ObjectHistoryButtonProps = {
   resourceIdFallback?: VersionHistoryConfig['resourceIdFallback']
   organizationId?: VersionHistoryConfig['organizationId']
   includeRelated?: VersionHistoryConfig['includeRelated']
+  /** `outline` (default) keeps the bordered 32px button; `soft` is the 36px soft icon button. */
+  tone?: 'outline' | 'soft'
 }
 
 const OUTLINE_ICON_BUTTON_CLASSES =
@@ -22,6 +24,7 @@ export function ObjectHistoryButton({
   resourceIdFallback,
   organizationId,
   includeRelated,
+  tone = 'outline',
 }: ObjectHistoryButtonProps) {
   const t = useT()
   const config = React.useMemo<VersionHistoryConfig>(
@@ -39,7 +42,9 @@ export function ObjectHistoryButton({
     <VersionHistoryAction
       config={config}
       t={t}
-      buttonClassName={OUTLINE_ICON_BUTTON_CLASSES}
+      buttonClassName={tone === 'soft' ? undefined : OUTLINE_ICON_BUTTON_CLASSES}
+      buttonVariant={tone === 'soft' ? 'soft' : 'ghost'}
+      buttonSize={tone === 'soft' ? 'lg' : 'default'}
     />
   )
 }

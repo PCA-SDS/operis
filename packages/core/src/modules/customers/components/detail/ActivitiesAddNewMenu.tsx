@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Check, Phone, Mail, Users, CheckSquare } from 'lucide-react'
+import { Plus, Phone, Mail, Users, CheckSquare } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@open-mercato/ui/primitives/popover'
@@ -39,9 +39,8 @@ export function ActivitiesAddNewMenu({ onSelect, disabled }: ActivitiesAddNewMen
           type="button"
           disabled={disabled}
           aria-label={t('customers.activities.addNew', 'Add new')}
-          className="gap-1.5 overflow-hidden rounded-md bg-primary pl-3 pr-3.5 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary-hover disabled:opacity-60"
         >
-          <Check className="size-3.5" />
+          <Plus className="size-4" />
           {t('customers.activities.addNew', 'Add new')}
         </Button>
       </PopoverTrigger>

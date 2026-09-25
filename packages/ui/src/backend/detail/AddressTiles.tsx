@@ -63,6 +63,8 @@ type AddressTilesProps<C = unknown> = {
   onAddActionChange?: (action: { openCreateForm: () => void; addDisabled: boolean } | null) => void
   emptyStateTitle?: string
   emptyStateActionLabel?: string
+  /** `outline` (default) keeps the small bordered add buttons; `soft` renders them at 36px on the soft family. */
+  actionVariant?: 'outline' | 'soft'
   labelPrefix?: string
   showCoordinateFields?: boolean
   addressTypesAdapter?: AddressTypesAdapter<C>
@@ -181,6 +183,7 @@ export function AddressTiles<C = unknown>({
   onAddActionChange,
   emptyStateTitle,
   emptyStateActionLabel,
+  actionVariant = 'outline',
   labelPrefix = 'customers.people.detail.addresses',
   showCoordinateFields = false,
   addressTypesAdapter,
@@ -529,12 +532,12 @@ export function AddressTiles<C = unknown>({
         <div className="flex justify-end">
           <Button
             type="button"
-            variant="outline"
-            size="sm"
+            variant={actionVariant === 'soft' ? 'soft' : 'outline'}
+            size={actionVariant === 'soft' ? 'default' : 'sm'}
             onClick={openCreateForm}
             disabled={addDisabled}
           >
-            <Plus className="mr-2 h-4 w-4" />
+            <Plus className={actionVariant === 'soft' ? 'size-4' : 'mr-2 h-4 w-4'} />
             {label('add', 'Add address')}
           </Button>
         </div>
@@ -607,14 +610,22 @@ export function AddressTiles<C = unknown>({
           {renderFormTile('create')}
         </div>
       ) : (
-        <TabEmptyState
-          title={emptyTitle}
-          action={{
-            label: emptyActionLabel,
-            onClick: openCreateForm,
-            disabled: addDisabled,
-          }}
-        />
+        actionVariant === 'soft' ? (
+          <TabEmptyState title={emptyTitle}>
+            <Button type="button" variant="soft" onClick={openCreateForm} disabled={addDisabled}>
+              {emptyActionLabel}
+            </Button>
+          </TabEmptyState>
+        ) : (
+          <TabEmptyState
+            title={emptyTitle}
+            action={{
+              label: emptyActionLabel,
+              onClick: openCreateForm,
+              disabled: addDisabled,
+            }}
+          />
+        )
       )}
     </div>
   )

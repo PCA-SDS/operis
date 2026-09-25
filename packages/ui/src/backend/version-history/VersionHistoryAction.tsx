@@ -13,6 +13,9 @@ export type VersionHistoryActionProps = {
   config: VersionHistoryConfig | null
   t: TranslateFn
   buttonClassName?: string
+  /** Trigger variant and size; default the quiet 32px ghost button. */
+  buttonVariant?: 'ghost' | 'soft'
+  buttonSize?: 'default' | 'lg'
   iconClassName?: string
   canUndoRedo?: boolean
   autoCheckAcl?: boolean
@@ -22,6 +25,8 @@ export function VersionHistoryAction({
   config,
   t,
   buttonClassName,
+  buttonVariant = 'ghost',
+  buttonSize = 'default',
   iconClassName,
   canUndoRedo,
   autoCheckAcl,
@@ -50,8 +55,8 @@ export function VersionHistoryAction({
     <>
       <IconButton
         type="button"
-        variant="ghost"
-        size="default"
+        variant={buttonVariant}
+        size={buttonSize}
         onClick={() => setOpen(true)}
         aria-label={t('audit_logs.version_history.title')}
         title={t('audit_logs.version_history.title')}

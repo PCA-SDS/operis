@@ -33,6 +33,12 @@ type Props = {
   showHeader?: boolean
   compact?: boolean
   onChanged?: () => void
+  /**
+   * Chrome for the section's own action buttons (Choose files, Load more).
+   * `outline` (default) keeps the small bordered buttons; `soft` renders them
+   * as 36px soft buttons for hosts built on the soft button family.
+   */
+  actionVariant?: 'outline' | 'soft'
 }
 
 function AttachmentsSectionImpl({
@@ -44,7 +50,11 @@ function AttachmentsSectionImpl({
   showHeader = true,
   compact = false,
   onChanged,
+  actionVariant = 'outline',
 }: Props) {
+  const actionButtonProps = actionVariant === 'soft'
+    ? ({ variant: 'soft', size: 'default' } as const)
+    : ({ variant: 'outline', size: 'sm' } as const)
   const t = useT()
   const [items, setItems] = React.useState<AttachmentItem[]>([])
   const [page, setPage] = React.useState(1)
@@ -263,7 +273,7 @@ function AttachmentsSectionImpl({
           <p className="mt-2 text-sm text-muted-foreground">
             {t('attachments.library.upload.dropHint', 'Drag and drop files here or click to upload.')}
           </p>
-          <Button type="button" variant="outline" size="sm" className="mt-4" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+          <Button type="button" {...actionButtonProps} className="mt-4" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
             {isUploading ? t('attachments.library.upload.submitting', 'Uploading…') : t('attachments.library.upload.choose', 'Choose files')}
           </Button>
           <input
@@ -347,8 +357,7 @@ function AttachmentsSectionImpl({
         <div className="flex justify-center">
           <Button
             type="button"
-            variant="outline"
-            size="sm"
+            {...actionButtonProps}
             onClick={() => { void load(page + 1, false) }}
             disabled={loading}
           >

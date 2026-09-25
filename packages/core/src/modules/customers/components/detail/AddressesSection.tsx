@@ -245,6 +245,7 @@ export function AddressesSection({
       addressTypesAdapter={addressTypesAdapter}
       loadFormat={loadFormat}
       showCoordinateFields
+      actionVariant="soft"
     />
   )
 }

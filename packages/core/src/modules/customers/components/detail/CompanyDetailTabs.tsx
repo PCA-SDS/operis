@@ -147,6 +147,7 @@ function DefaultCompanyDetailTabs({
           value={activeTab}
           onValueChange={(value) => onTabChange(value as CompanyTabId)}
           variant="underline"
+          reserveActiveWidth
           className="min-w-0 flex-1"
         >
           <TabsList
@@ -163,12 +164,11 @@ function DefaultCompanyDetailTabs({
         {sectionAction ? (
           <Button
             type="button"
-            size="sm"
             onClick={sectionAction.onClick}
             disabled={sectionAction.disabled}
-            className="mb-1.5 mr-1 shrink-0"
+            className="mb-1 mr-1 shrink-0"
           >
-            <Plus className="mr-1.5 h-4 w-4" />
+            <Plus className="size-4" />
             {sectionAction.label}
           </Button>
         ) : null}

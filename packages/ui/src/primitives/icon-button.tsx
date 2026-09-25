@@ -17,6 +17,11 @@ const iconButtonVariants = cva(
         ghost: 'hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50',
         white:
           'bg-surface text-muted-foreground shadow-sm hover:bg-surface-muted hover:text-foreground',
+        /* The icon-only twin of `Button variant="soft"`: brand-tinted fill and a
+           floating shadow, no hairline. The transparent border keeps the box the
+           same size as the outline variant it usually replaces. */
+        soft:
+          'border border-transparent bg-primary-soft text-foreground shadow-sm hover:bg-primary-border/60 hover:shadow-md active:shadow-xs',
         modifiable:
           'bg-transparent text-current hover:bg-foreground/10',
       },
