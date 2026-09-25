@@ -1,12 +1,13 @@
 "use client"
 
 import React, { useState, useEffect, useCallback } from 'react'
+import Link from 'next/link'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Skeleton } from '@open-mercato/ui/primitives/skeleton'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
-import { Save } from 'lucide-react'
+import { ArrowLeft, Save } from 'lucide-react'
 import {
   apiCallOrThrow,
   readApiResultOrThrow,
@@ -207,6 +208,14 @@ export default function ProductConstraintsPage({ params }: { params?: { id?: str
     <Page title={t('catalog.constraints.title', 'Constraints')}>
       <PageBody>
         <div className="flex flex-col gap-4">
+          <div>
+            <Button type="button" variant="ghost" size="sm" asChild className="gap-2 px-2">
+              <Link href={`/backend/catalog/products/${productId}`}>
+                <ArrowLeft className="h-4 w-4" />
+                {t('catalog.products.edit.actions.backToProduct', 'Back to product')}
+              </Link>
+            </Button>
+          </div>
           {loading ? (
             <div className="flex flex-col gap-4">
               {/* Header skeleton */}

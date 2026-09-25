@@ -86,6 +86,7 @@ import {
   updateDimensionValue,
   updateWeightValue,
   isConfigurableProductType,
+  normalizeVariantDraftsForProductType,
   getProductTypeSelectionUpdates,
   buildComplianceProductPayload,
 } from "@open-mercato/core/modules/catalog/components/products/productForm";
@@ -658,14 +659,14 @@ export default function CreateCatalogProductPage() {
               productPayload.customFields = customFields;
             }
 
-            const variantDrafts =
-              (Array.isArray(formValues.variants) && formValues.variants.length
-                ? formValues.variants
-                : [
-                    createVariantDraft(formValues.taxRateId ?? null, {
-                      isDefault: true,
-                    }),
-                  ]) ?? [];
+            const variantDrafts = normalizeVariantDraftsForProductType(
+              formValues.productType,
+              formValues.variants,
+              () =>
+                createVariantDraft(formValues.taxRateId ?? null, {
+                  isDefault: true,
+                }),
+            );
             const priceRequests: VariantPriceRequest[] = [];
             for (const variant of variantDrafts) {
               const { resolvedVariantTaxRateId, resolvedVariantTaxRate } =
@@ -1713,10 +1714,14 @@ function ProductBuilder({
       ? values.options
       : [];
     if (!values.hasVariants || !optionDefinitions.length) {
-      if (!values.variants || !values.variants.length) {
+      const existing = Array.isArray(values.variants) ? values.variants : [];
+      if (!existing.length) {
         setValue("variants", [
           createVariantDraft(values.taxRateId ?? null, { isDefault: true }),
         ]);
+      } else if (existing.length > 1) {
+        const defaultVariant = existing.find((variant) => variant.isDefault) ?? existing[0];
+        setValue("variants", [{ ...defaultVariant, isDefault: true }]);
       }
       return;
     }

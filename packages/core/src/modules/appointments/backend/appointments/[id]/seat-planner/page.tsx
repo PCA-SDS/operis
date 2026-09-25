@@ -7,7 +7,6 @@ import {
   Calendar,
   CalendarPlus,
   Check,
-  ChevronRight,
   Clock,
   Menu,
   MapPin,
@@ -42,6 +41,7 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useAppEvent } from '@open-mercato/ui/backend/injection/useAppEvent'
 import { resolveRegisteredLucideIconNode } from '@open-mercato/ui/backend/icons/lucideRegistry'
 import { AppointmentServicePicker, type AppointmentBookableService, type AppointmentServiceSelection } from '@open-mercato/core/modules/appointments/components/AppointmentServicePicker'
+import { groupSeatPlannerOptions } from '@open-mercato/core/modules/appointments/lib/seatPlannerOptions'
 import { AppointmentEditForm } from '../edit/page'
 
 const START_HOUR = 8
@@ -61,6 +61,7 @@ type SeatPlannerLine = {
   id: string
   productId: string
   productTitle: string
+  productCategory: string | null
   durationMinutes: number | null
   options: Array<{ groupName: string | null; name: string }>
   seatPlannerCleared: boolean
@@ -77,6 +78,43 @@ type SeatPlannerLine = {
     assignedMemberNames?: string[]
     updatedAt: string
   }
+}
+
+function SeatPlannerOptions(props: { options: SeatPlannerLine['options']; compact?: boolean }) {
+  const groups = groupSeatPlannerOptions(props.options)
+  if (groups.length === 0) return null
+
+  if (props.compact) {
+    return (
+      <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+        {groups.map((group, groupIndex) => (
+          <span key={group.groupName ?? 'option'} className="flex items-center">
+            {groupIndex > 0 && <span className="mr-2 opacity-40">•</span>}
+            {group.groupName ? <span className="mr-1 opacity-70">{group.groupName}:</span> : null}
+            <span className="font-medium text-foreground">{group.names.join(', ')}</span>
+          </span>
+        ))}
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-2 text-xs text-foreground">
+      {groups.map((group) => (
+        <div key={group.groupName ?? 'option'} className="flex flex-col gap-0.5">
+          {group.groupName ? <p className="font-medium text-muted-foreground">{group.groupName}</p> : null}
+          <div className={group.groupName ? 'pl-3' : undefined}>
+            {group.names.map((name, optionIndex) => (
+              <span key={name} className="mr-2 inline-flex items-center">
+                {optionIndex > 0 && <span className="mr-1 opacity-40">•</span>}
+                <span className="font-medium">{name}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 type Resource = {
@@ -124,6 +162,7 @@ type PlannerAllocation = {
   resourceId: string
   resourceName?: string | null
   serviceName: string
+  productCategory: string | null
   customerName: string
   customerSalutation?: string | null
   startsAt: string
@@ -610,7 +649,10 @@ function BookingSidebar(props: {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-2">
-                          <p className="line-clamp-2 text-sm font-medium">{line.productTitle}</p>
+                          <div className="min-w-0">
+                            {line.productCategory ? <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{line.productCategory}</p> : null}
+                            <p className="line-clamp-2 text-sm font-medium">{line.productTitle}</p>
+                          </div>
                           <div className="flex shrink-0 items-center gap-1">
                             {line.currentAssignment ? <Check className="mt-0.5 size-4 text-status-success-icon" /> : null}
                             {canManage ? (
@@ -631,17 +673,7 @@ function BookingSidebar(props: {
                             ) : null}
                           </div>
                         </div>
-                        {line.options.length > 0 ? (
-                          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                            {line.options.map((option, i) => (
-                              <span key={`${option.groupName ?? 'option'}-${option.name}`} className="flex items-center">
-                                {i > 0 && <span className="mr-2 opacity-40">•</span>}
-                                {option.groupName ? <span className="mr-1 opacity-70">{option.groupName}:</span> : null}
-                                <span className="font-medium text-foreground">{option.name}</span>
-                              </span>
-                            ))}
-                          </div>
-                        ) : null}
+                        <SeatPlannerOptions options={line.options} compact />
                         <Tag variant="neutral" className="mt-2 h-5 px-1.5 text-[11px] leading-none">
                           <Clock className="mr-1 inline-block size-3 opacity-70" />
                           {lineDuration(line)} {t('appointments.seatPlanner.minutesShort', 'min')}
@@ -758,8 +790,9 @@ function DraftPopover(props: {
     >
       <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border bg-muted/20 px-4 py-3">
         <div className="min-w-0 flex-1">
+          {isOwn && allocation.productCategory ? <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{allocation.productCategory}</p> : null}
           <h3 className="truncate text-sm font-semibold">{isOwn ? allocation.serviceName : customerDisplayName}</h3>
-          {!isOwn ? <p className="mt-0.5 truncate text-xs text-muted-foreground">{allocation.serviceName}</p> : null}
+          {!isOwn ? <p className="mt-0.5 truncate text-xs text-muted-foreground">{[allocation.productCategory, allocation.serviceName].filter(Boolean).join(' · ')}</p> : null}
           <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
             <MapPin className="size-3.5 shrink-0" />
             <span className="truncate font-medium text-foreground">{allocation.resourceName ?? line?.currentAssignment?.resourceName}</span>
@@ -817,15 +850,7 @@ function DraftPopover(props: {
           {line && line.options.length > 0 ? (
             <div className="flex flex-col gap-1.5">
               <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{t('appointments.seatPlanner.options', 'Options')}</p>
-              <div className="flex flex-col gap-1 text-xs text-foreground">
-                {line.options.map((option, i) => (
-                  <span key={`${option.groupName ?? 'option'}-${option.name}`} className="flex items-center">
-                    {i > 0 && <ChevronRight className="mx-1 size-3 shrink-0 opacity-40" />}
-                    {option.groupName ? <span className="mr-1 shrink-0 opacity-70">{option.groupName}:</span> : null}
-                    <span className="font-medium">{option.name}</span>
-                  </span>
-                ))}
-              </div>
+              <SeatPlannerOptions options={line.options} />
             </div>
           ) : null}
         </div>
@@ -1231,6 +1256,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
         resourceId: line.currentAssignment.resourceId,
         resourceName: line.currentAssignment.resourceName,
         serviceName: line.productTitle,
+        productCategory: line.productCategory,
         customerName: workspace.appointment.customerName,
         startsAt: line.currentAssignment.startsAt,
         endsAt: line.currentAssignment.endsAt,
@@ -1410,6 +1436,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
 
   const clearDraft = React.useCallback(async (lineId: string) => {
     if (!workspace) return
+    setPopoverState(null)
     const confirmed = await confirm({
       title: t('appointments.seatPlanner.clearDraftTitle', 'Clear assignment?'),
       description: t('appointments.seatPlanner.clearDraftDescription', 'Are you sure you want to clear the scheduled time and seat for this service?'),
@@ -1445,6 +1472,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
     if (!workspace || workspace.lines.length <= 1) return
     const line = workspace.lines.find((entry) => entry.id === lineId)
     if (!line) return
+    setPopoverState(null)
     const confirmed = await confirm({
       title: t('appointments.seatPlanner.removeServiceTitle', 'Remove service?'),
       description: t('appointments.seatPlanner.removeServiceDescription', 'This will remove the service and clear its scheduled resource, time, and staff.'),
@@ -1693,6 +1721,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
         resourceId: assignment.resourceId,
         resourceName: assignment.resourceName,
         serviceName: workspace.lines.find((line) => line.id === lineId)?.productTitle ?? '',
+        productCategory: workspace.lines.find((line) => line.id === lineId)?.productCategory ?? null,
         customerName: workspace.appointment.customerName,
         startsAt: assignment.startsAt,
         endsAt: assignment.endsAt,
@@ -1749,10 +1778,14 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                 >
                   <ArrowLeft className="size-4" />
                 </IconButton>
-                <IconButton type="button" variant="outline" className="lg:hidden" aria-label={t('appointments.seatPlanner.openSidebar', 'Open booking details')} onClick={() => setMobileSidebarOpen(true)}>
+                <IconButton type="button" variant="outline" className="lg:hidden" aria-label={t('appointments.seatPlanner.openSidebar', 'Open booking details')} onClick={() => {
+                  setPopoverState(null)
+                  setMobileSidebarOpen(true)
+                }}>
                   <Menu className="size-4" />
                 </IconButton>
                 <div className="min-w-0 flex-1">
+                  {activeLine?.productCategory ? <p className="truncate text-xs font-medium uppercase tracking-wide text-muted-foreground">{activeLine.productCategory}</p> : null}
                   <h1 className="truncate text-base font-semibold">{activeLine?.productTitle ?? t('appointments.seatPlanner.resourcesTitle', 'Resources')}</h1>
                 </div>
                 <IconButton type="button" variant="outline" className="shrink-0 lg:hidden" aria-label={t('appointments.seatPlanner.confirmSchedule', 'Confirm schedule')} disabled={!canConfirm} onClick={() => void handleConfirmAll()}>
@@ -1782,9 +1815,13 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                   onSelectLine={handleLineSelect}
                   onClearLine={(lineId) => void clearDraft(lineId)}
                   onRemoveLine={(lineId) => void removeLine(lineId)}
-                  onEdit={() => setIsEditDialogOpen(true)}
+                  onEdit={() => {
+                    setPopoverState(null)
+                    setIsEditDialogOpen(true)
+                  }}
                   onPayment={() => flash(t('appointments.seatPlanner.frontendPreview', 'This action is wired as a frontend preview for now.'), 'info')}
                   onAddService={() => {
+                    setPopoverState(null)
                     setSelectedServices([])
                     setIsAddServiceOpen(true)
                   }}
@@ -1827,7 +1864,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                 </div>
               </div>
 
-              <div ref={timelineRef} className="min-h-0 flex-1 overflow-auto bg-muted/20">
+              <div ref={timelineRef} className="isolate min-h-0 flex-1 overflow-auto bg-muted/20">
                 {seatColumns.length === 0 ? (
                   <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">{t('appointments.seatPlanner.noSeats', 'No resources are available for this organization.')}</div>
                 ) : (
@@ -2003,6 +2040,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
             onClear={() => void clearDraft(livePopoverState.allocation.lineId)}
             onDurationChange={(nextDuration) => void handleDurationChange(livePopoverState.allocation, nextDuration)}
             onOpenStaff={() => {
+              setPopoverState(null)
               staffAvailabilityRangeRef.current = {
                 startsAt: livePopoverState.allocation.startsAt,
                 endsAt: livePopoverState.allocation.endsAt,
@@ -2034,7 +2072,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
         ) : null}
 
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent size="xl" className="max-h-[90dvh] overflow-x-hidden overflow-y-auto px-4 sm:px-6" disableBodyWrap>
+          <DialogContent elevated size="xl" className="max-h-[90dvh] overflow-x-hidden overflow-y-auto px-4 sm:px-6" disableBodyWrap>
             <AppointmentEditForm
               params={{ id: workspace.appointment.id }}
               embedded
@@ -2053,7 +2091,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
             if (!open) setSelectedServices([])
           }}
         >
-          <DialogContent size="lg" className="max-h-[90dvh] overflow-hidden" disableBodyWrap>
+          <DialogContent elevated size="lg" className="max-h-[90dvh] overflow-hidden" disableBodyWrap>
             <DialogHeader>
               <DialogTitle>{t('appointments.seatPlanner.addServiceTitle', 'Add service')}</DialogTitle>
               <p className="text-sm text-muted-foreground">{t('appointments.seatPlanner.addServiceHint', 'Choose one or more services to add to this booking.')}</p>

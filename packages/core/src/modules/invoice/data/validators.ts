@@ -268,11 +268,21 @@ export const invoiceListQuerySchema = z.object({
   sortField: invoiceSortFieldSchema.default('invoiceDate'),
   sortDir: invoiceSortDirectionSchema.default('desc'),
 })
+const invoiceManualPositiveMoneySchema = moneyDecimalStringSchema({
+  message: 'invoice.form.validation.positiveNumber',
+}).refine((value) => Number(value) > 0, 'invoice.form.validation.positiveNumber')
+const invoiceManualNonNegativeMoneySchema = moneyDecimalStringSchema({
+  message: 'invoice.form.validation.nonNegativeNumber',
+})
+const invoiceManualPercentSchema = z.coerce
+  .number({ error: 'invoice.form.validation.number' })
+  .min(INVOICE_INSTALLMENT_INTEREST_RATE_MIN, 'invoice.form.validation.percentageRange')
+  .max(INVOICE_INSTALLMENT_INTEREST_RATE_MAX, 'invoice.form.validation.percentageRange')
 const invoiceManualOptionalMoneySchema = z.preprocess((value) => {
   if (typeof value !== 'string') return value
   const trimmed = value.trim()
   return trimmed.length > 0 ? trimmed : undefined
-}, invoiceNonNegativeMoneySchema.optional())
+}, invoiceManualNonNegativeMoneySchema.optional())
 const invoiceManualNullableDateSchema = z.preprocess((value) => {
   if (value === null) return null
   if (typeof value !== 'string') return value
@@ -280,19 +290,19 @@ const invoiceManualNullableDateSchema = z.preprocess((value) => {
   return trimmed.length > 0 ? trimmed : null
 }, invoiceDateSchema.nullable().optional())
 export const invoiceManualLineItemInputSchema = z.object({
-  name: z.string().trim().min(1).max(500),
-  unit: nullableTrimmedString(80),
-  quantity: invoicePositiveMoneySchema.refine((value) => Number(value) > 0, 'Must be greater than zero'),
-  unitPrice: invoicePositiveMoneySchema.refine((value) => Number(value) > 0, 'Must be greater than zero'),
+  name: z.string().trim().min(1, 'invoice.form.validation.lineNameRequired').max(500, 'invoice.form.validation.lineNameTooLong'),
+  unit: z.string().trim().max(80, 'invoice.form.validation.unitTooLong').nullable().optional(),
+  quantity: invoiceManualPositiveMoneySchema,
+  unitPrice: invoiceManualPositiveMoneySchema,
   discountAmount: invoiceManualOptionalMoneySchema,
-  discountPercent: invoicePercentSchema.optional(),
-  vatRate: invoicePercentSchema.optional(),
+  discountPercent: invoiceManualPercentSchema.optional(),
+  vatRate: invoiceManualPercentSchema.optional(),
 }).strict().superRefine((item, ctx) => {
   if (item.discountAmount !== undefined && item.discountPercent !== undefined) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['discountPercent'],
-      message: 'Use discount amount or discount percent, not both',
+      message: 'invoice.form.validation.discountModeExclusive',
     })
   }
 })
@@ -306,7 +316,9 @@ export const invoiceManualWriteBaseSchema = z.object({
   invoiceDate: invoiceDateSchema,
   dueDate: invoiceManualNullableDateSchema,
   currencyCode: invoiceCurrencyCodeSchema.default('VND'),
-  lineItems: z.array(invoiceManualLineItemInputSchema).min(1).max(INVOICE_LINE_ITEMS_MAX),
+  lineItems: z.array(invoiceManualLineItemInputSchema)
+    .min(1, 'invoice.form.validation.lineRequired')
+    .max(INVOICE_LINE_ITEMS_MAX, 'invoice.form.validation.lineLimit'),
 }).strip()
 
 const validateManualInvoicePartner = (input: z.infer<typeof invoiceManualWriteBaseSchema>, ctx: z.RefinementCtx) => {

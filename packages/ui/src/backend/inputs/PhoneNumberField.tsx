@@ -19,8 +19,41 @@ export type PhoneCountry = {
   dialCode: string
   /** Human-readable country name (English). Override per surface for i18n. */
   label: string
-  /** Emoji flag (no asset dependency). */
+  /** Emoji fallback for environments where the SVG asset cannot be loaded. */
   flag: string
+}
+
+export type PhoneCountryFlagAssetResolver = (country: PhoneCountry) => string | null | undefined
+
+const defaultPhoneCountryFlagAssetResolver: PhoneCountryFlagAssetResolver = (country) =>
+  `/assets/flags/${country.iso2.toLowerCase()}.svg`
+
+function PhoneCountryFlag({
+  country,
+  className,
+  assetResolver = defaultPhoneCountryFlagAssetResolver,
+}: {
+  country: PhoneCountry
+  className?: string
+  assetResolver?: PhoneCountryFlagAssetResolver
+}) {
+  const [assetFailed, setAssetFailed] = React.useState(false)
+  const assetUrl = assetResolver(country)
+
+  if (assetFailed || !assetUrl) {
+    return <span className={className}>{country.flag}</span>
+  }
+
+  return (
+    <img
+      src={assetUrl}
+      alt={`${country.label} flag`}
+      className={cn('block object-cover', className)}
+      loading="lazy"
+      decoding="async"
+      onError={() => setAssetFailed(true)}
+    />
+  )
 }
 
 /**
@@ -44,7 +77,8 @@ function iso2ToFlagEmoji(iso2: string): string {
  * ITU / Wikipedia list of telephone country codes.
  *
  * Rules baked into this data:
- * - Labels are English; flags are derived from the ISO code (`iso2ToFlagEmoji`).
+ * - Labels are English; the SVG flag asset is resolved from the ISO code and
+ *   the generated emoji remains available as a rendering fallback.
  * - Non-geographic / international service codes (`+800`, `+808`, `+870`,
  *   `+881`, `+882`, …) are intentionally excluded.
  * - North American Numbering Plan territories carry their full `+1<NPA>` dial
@@ -311,11 +345,14 @@ export const PHONE_COUNTRIES: PhoneCountry[] = RAW_PHONE_COUNTRIES
  * `label`, and the dial code and ISO code through `keywords` — typing "44",
  * "+44", "gb" or "United King" all reach the United Kingdom.
  */
-export function buildPhoneCountryOptions(countries: PhoneCountry[]): DropdownOption<string>[] {
+export function buildPhoneCountryOptions(
+  countries: PhoneCountry[],
+  assetResolver?: PhoneCountryFlagAssetResolver,
+): DropdownOption<string>[] {
   return countries.map((country) => ({
     value: country.iso2,
     label: country.label,
-    leading: <span className="text-base leading-none">{country.flag}</span>,
+    leading: <PhoneCountryFlag country={country} assetResolver={assetResolver} className="h-5 w-7 rounded-sm" />,
     trailing: (
       <span className="text-xs text-muted-foreground tabular-nums">{country.dialCode}</span>
     ),
@@ -418,6 +455,14 @@ export type PhoneNumberFieldProps = {
    * in both tones.
    */
   tone?: 'default' | 'well'
+  /** Raise the country dropdown when the field is rendered inside an elevated surface. */
+  dropdownElevated?: boolean
+  /** Optional portal target for the country dropdown. */
+  dropdownPortalContainer?: Element | null
+  /** Additional classes for the bordered phone field surface. */
+  fieldClassName?: string
+  /** Resolve flag assets for the host application's public/static asset layout. */
+  flagAssetResolver?: PhoneCountryFlagAssetResolver
 }
 
 const DEFAULT_MIN_DIGITS = 6
@@ -444,6 +489,10 @@ export function PhoneNumberField({
   countries: countriesProp,
   defaultCountryIso2,
   tone = 'default',
+  dropdownElevated = false,
+  dropdownPortalContainer,
+  fieldClassName,
+  flagAssetResolver,
 }: PhoneNumberFieldProps) {
   const t = useT()
   const resolvedInvalidLabel = invalidLabel ?? t(
@@ -462,8 +511,10 @@ export function PhoneNumberField({
   const countries = countriesProp ?? PHONE_COUNTRIES
   // Reuse the prebuilt list unless a surface passed its own countries.
   const countryOptions = React.useMemo(
-    () => (countriesProp ? buildPhoneCountryOptions(countriesProp) : PHONE_COUNTRY_OPTIONS),
-    [countriesProp],
+    () => (countriesProp
+      ? buildPhoneCountryOptions(countriesProp, flagAssetResolver)
+      : buildPhoneCountryOptions(PHONE_COUNTRIES, flagAssetResolver)),
+    [countriesProp, flagAssetResolver],
   )
   const fallbackCountry = React.useMemo(
     () => (defaultCountryIso2 && findCountryByIso(defaultCountryIso2)) || DEFAULT_COUNTRY,
@@ -618,6 +669,7 @@ export function PhoneNumberField({
           tone === 'well'
             ? 'flex h-9 items-stretch w-full rounded-lg border bg-input-bg transition-colors'
             : 'flex items-stretch w-full rounded-md border bg-surface shadow-xs transition-colors',
+          fieldClassName,
           disabled
             ? 'bg-bg-disabled border-border-disabled cursor-not-allowed'
             : focused
@@ -640,7 +692,9 @@ export function PhoneNumberField({
           placeholder={t('ui.phone.countryCode', 'Country code')}
           disabled={disabled}
           align="start"
-          triggerLeading={<span className="text-base leading-none" aria-hidden="true">{country.flag}</span>}
+          elevated={dropdownElevated}
+          portalContainer={dropdownPortalContainer}
+          triggerLeading={<PhoneCountryFlag country={country} assetResolver={flagAssetResolver} className="h-5 w-7 rounded-sm" />}
           triggerLabel={<span className="text-sm text-foreground tabular-nums">{country.dialCode}</span>}
           triggerClassName={cn(
             'h-auto w-auto shrink-0 gap-1.5 rounded-none rounded-l-md border-0 bg-transparent px-2.5 py-2 shadow-none',

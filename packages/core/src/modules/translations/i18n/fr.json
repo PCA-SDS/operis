@@ -41,5 +41,6 @@
   "translations.widgets.translationManager.customFieldLabels": "Custom fields translations",
   "translations.widgets.translationManager.fullManager": "Translation manager",
   "translations.widgets.translationManager.groupDescription": "Manage translations for this record across supported locales.",
-  "translations.widgets.translationManager.groupLabel": "Translations"
+  "translations.widgets.translationManager.groupLabel": "Translations",
+  "translations.widgets.translationManager.manage": "Manage translations"
 }

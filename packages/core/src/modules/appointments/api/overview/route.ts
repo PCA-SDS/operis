@@ -7,12 +7,15 @@ import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
+import { CatalogProductOption, CatalogProductOptionGroup } from '@open-mercato/core/modules/catalog/data/entities'
 import { StaffTeamMember } from '@open-mercato/core/modules/staff/data/entities'
 import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { ResourcesAssignment } from '@open-mercato/core/modules/resources/data/entities'
 import { ResourceAssignmentService } from '@open-mercato/core/modules/resources/lib/resourceAssignmentService'
-import { Appointment, AppointmentLine } from '../../data/entities'
+import { Appointment, AppointmentLine, AppointmentLineOptionGroup } from '../../data/entities'
 import { deriveScheduleConfirmationStatus } from '../../lib/scheduleTracking'
+import { normalizeLineOptions } from '../../lib/lineOptionSnapshot'
+import { loadResourceAvailabilityWindows, resolveResourceOrganizationIds } from '../../lib/resourceAvailability'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['appointments.view'] },
@@ -25,6 +28,11 @@ function toDayBounds(date: string) {
     start: new Date(`${date}T00:00:00.000Z`),
     end: new Date(`${date}T23:59:59.999Z`),
   }
+}
+
+function assignedMemberIdsFor(assignment: { assignedMemberIds?: string[] | null; assignedMemberId?: string | null }) {
+  if (Array.isArray(assignment.assignedMemberIds) && assignment.assignedMemberIds.length > 0) return assignment.assignedMemberIds
+  return assignment.assignedMemberId ? [assignment.assignedMemberId] : []
 }
 
 export async function GET(req: Request) {
@@ -45,6 +53,7 @@ export async function GET(req: Request) {
     const organizationId = scope.selectedId ?? auth.orgId ?? null
     if (!organizationId) return NextResponse.json({ error: 'Organization scope is required', code: 'ORGANIZATION_SCOPE_REQUIRED' }, { status: 400 })
     const { start, end } = toDayBounds(date)
+    const resourceOrganizationIds = await resolveResourceOrganizationIds(em, auth.tenantId, organizationId)
 
     const resourceAssignmentService = new ResourceAssignmentService(em)
     const [organization, resourceWorkspace, appointments, allAppointments] = await Promise.all([
@@ -55,6 +64,7 @@ export async function GET(req: Request) {
         sourceModule: 'appointment',
         sourceEntityType: 'appointment_line',
         sourceEntityId: null,
+        organizationIds: resourceOrganizationIds,
       }),
       em.find(Appointment, {
         tenantId: auth.tenantId,
@@ -81,6 +91,45 @@ export async function GET(req: Request) {
     const allLines = allAppointmentIds.length > 0
       ? await em.find(AppointmentLine, { appointment: { $in: allAppointmentIds }, tenantId: auth.tenantId, deletedAt: null }, { orderBy: { sortOrder: 'asc' } })
       : []
+    const lineOptionGroups = lines.length > 0
+      ? await em.find(AppointmentLineOptionGroup, { line: { $in: lines.map((line) => line.id) } }, { populate: ['options'], orderBy: { sortOrder: 'asc' } })
+      : []
+    const lineOptions = new Map<string, Array<{ groupName: string | null; name: string }>>()
+    const snapshotLineIds = new Set<string>()
+    for (const group of lineOptionGroups) {
+      const lineId = String(group.line.id)
+      snapshotLineIds.add(lineId)
+      const options = group.options.map((option) => ({
+        groupName: group.breadcrumbPath ?? group.groupName,
+        name: option.optionName,
+      }))
+      lineOptions.set(lineId, [...(lineOptions.get(lineId) ?? []), ...options])
+    }
+    const legacyOptionLines = lines.filter((line) => line.selectedOptions)
+    const catalogGroups = legacyOptionLines.length > 0
+      ? await em.find(CatalogProductOptionGroup, {
+          tenantId: auth.tenantId,
+          organizationId: { $in: resourceOrganizationIds },
+          product: { $in: legacyOptionLines.map((line) => line.productId) },
+          isActive: true,
+          deletedAt: null,
+        })
+      : []
+    const catalogGroupIds = catalogGroups.map((group) => group.id)
+    const catalogOptions = catalogGroupIds.length > 0
+      ? await em.find(CatalogProductOption, {
+          tenantId: auth.tenantId,
+          organizationId: { $in: resourceOrganizationIds },
+          group: { $in: catalogGroupIds },
+          isActive: true,
+          deletedAt: null,
+        })
+      : []
+    const catalogGroupNames = new Map(catalogGroups.map((group) => [group.id, group.name]))
+    const catalogOptionNames = new Map(catalogOptions.map((option) => [option.id, {
+      groupName: typeof option.group === 'string' ? catalogGroupNames.get(option.group) ?? null : option.group.name,
+      name: option.name,
+    }]))
     const allLinesByAppointment = new Map<string, AppointmentLine[]>()
     for (const line of allLines) {
       const appointmentId = String(line.appointment.id)
@@ -91,7 +140,7 @@ export async function GET(req: Request) {
       organizationId,
       sourceModule: 'appointment',
       sourceEntityType: 'appointment_line',
-      state: { $in: ['draft', 'confirmed'] },
+      state: 'confirmed',
       cancelledAt: null,
       startsAt: { $lt: end },
       endsAt: { $gt: start },
@@ -113,11 +162,17 @@ export async function GET(req: Request) {
       : []
     const assignmentLineById = new Map(assignmentLines.map((line) => [line.id, line]))
     const appointmentById = new Map(appointments.map((appointment) => [appointment.id, appointment]))
-    const memberIds = Array.from(new Set(assignments.map((assignment) => assignment.assignedMemberId).filter((id): id is string => Boolean(id))))
+    const memberIds = Array.from(new Set(assignments.flatMap(assignedMemberIdsFor)))
     const members = memberIds.length > 0
       ? await findWithDecryption(em, StaffTeamMember, { id: { $in: memberIds }, tenantId: auth.tenantId, deletedAt: null })
       : []
     const memberNames = new Map(members.map((member) => [member.id, member.displayName]))
+    const resourceAvailabilityWindows = await loadResourceAvailabilityWindows(em, {
+      tenantId: auth.tenantId,
+      organizationIds: resourceOrganizationIds,
+      resourceIds: resourceWorkspace.resources.map((resource) => resource.id),
+      range: { start, end },
+    })
 
     const blocks = assignments.flatMap((assignment) => {
       const line = assignmentLineById.get(assignment.sourceEntityId)
@@ -129,8 +184,10 @@ export async function GET(req: Request) {
         lineId: line.id,
         resourceId: assignment.resource?.id ?? null,
         resourceName: assignment.resource?.name ?? null,
-        assignedMemberId: assignment.assignedMemberId ?? null,
-        assignedMemberName: assignment.assignedMemberId ? memberNames.get(assignment.assignedMemberId) ?? null : null,
+        assignedMemberIds: assignedMemberIdsFor(assignment),
+        assignedMemberNames: assignedMemberIdsFor(assignment).map((memberId) => memberNames.get(memberId)).filter((name): name is string => Boolean(name)),
+        assignedMemberId: assignedMemberIdsFor(assignment)[0] ?? null,
+        assignedMemberName: assignedMemberIdsFor(assignment)[0] ? memberNames.get(assignedMemberIdsFor(assignment)[0]) ?? null : null,
         startsAt: assignment.startsAt.toISOString(),
         endsAt: assignment.endsAt.toISOString(),
         state: assignment.state,
@@ -187,6 +244,7 @@ export async function GET(req: Request) {
         typeIcon: resource.typeIcon ?? null,
         typeColor: resource.typeColor ?? null,
         areaName: resource.areaName ?? null,
+        availabilityWindows: resourceAvailabilityWindows.get(resource.id) ?? null,
       })),
       appointments: appointments.map((appointment) => ({
         id: appointment.id,
@@ -197,7 +255,16 @@ export async function GET(req: Request) {
         statusCode: appointment.statusCode,
         requestedStartAt: appointment.requestedStartAt.toISOString(),
         requestedEndAt: appointment.requestedEndAt?.toISOString() ?? null,
-        lines: (linesByAppointment.get(appointment.id) ?? []).map((line) => ({ id: line.id, productId: line.productId, productTitle: line.productTitle, productCategory: line.productCategory ?? null, durationMinutes: line.durationMinutes ?? null })),
+        lines: (linesByAppointment.get(appointment.id) ?? []).map((line) => ({
+          id: line.id,
+          productId: line.productId,
+          productTitle: line.productTitle,
+          productCategory: line.productCategory ?? null,
+          durationMinutes: line.durationMinutes ?? null,
+          options: snapshotLineIds.has(line.id)
+            ? lineOptions.get(line.id) ?? []
+            : normalizeLineOptions(line.selectedOptions, catalogGroupNames, catalogOptionNames),
+        })),
       })),
       blocks,
       unassignedAppointmentIds: unassigned.map((appointment) => appointment.id),

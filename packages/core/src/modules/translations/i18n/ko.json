@@ -41,5 +41,6 @@
   "translations.widgets.translationManager.customFieldLabels": "커스텀 필드 번역",
   "translations.widgets.translationManager.fullManager": "번역 관리자",
   "translations.widgets.translationManager.groupDescription": "지원되는 로케일 전반에서 이 레코드의 번역을 관리합니다.",
-  "translations.widgets.translationManager.groupLabel": "번역"
+  "translations.widgets.translationManager.groupLabel": "번역",
+  "translations.widgets.translationManager.manage": "Manage translations"
 }

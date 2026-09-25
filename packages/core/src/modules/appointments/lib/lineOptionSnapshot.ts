@@ -13,6 +13,43 @@ export interface SelectedOptionsInput {
   selectedOptions?: Record<string, unknown> | Record<string, unknown>[] | null
 }
 
+export function normalizeLineOptions(
+  value: Record<string, unknown> | Record<string, unknown>[] | null | undefined,
+  groupNames: Map<string, string>,
+  optionNames: Map<string, { groupName: string | null; name: string }>,
+): Array<{ groupName: string | null; name: string }> {
+  const values = Array.isArray(value)
+    ? value
+    : value && typeof value === 'object'
+      ? Object.entries(value).flatMap(([groupId, selected]) => {
+          const selectedValues = Array.isArray(selected) ? selected : [selected]
+          return selectedValues.map((optionId) => ({
+            groupName: groupNames.get(groupId) ?? null,
+            name: typeof optionId === 'string' ? optionNames.get(optionId)?.name ?? optionId : '',
+          }))
+        })
+      : []
+  return values.flatMap((option) => {
+    if (option.name && typeof option.name === 'string') {
+      return [{
+        groupName: typeof option.groupName === 'string' ? option.groupName : null,
+        name: option.name,
+      }]
+    }
+    const record = option as Record<string, unknown>
+    const name = typeof record.label === 'string'
+      ? record.label
+      : typeof record.value === 'string'
+        ? record.value
+        : null
+    if (!name) return []
+    return [{
+      groupName: typeof record.groupName === 'string' ? record.groupName : null,
+      name,
+    }]
+  })
+}
+
 /**
  * Build a breadcrumb path for a group by traversing up to root.
  */
@@ -291,13 +328,7 @@ export async function snapshotLineOptions(
   }
 }
 
-/**
- * Load option group and option snapshots for a line (for display in seat planner).
- */
-export async function loadLineOptionSnapshots(
-  em: EntityManager,
-  lineId: string,
-): Promise<{
+export type LineOptionSnapshots = {
   groups: Array<{
     id: string
     catalogGroupId: string | null
@@ -309,38 +340,67 @@ export async function loadLineOptionSnapshots(
       optionName: string
       code: string | null
       note: string | null
-        priceFlat: string | null
-        durationValue: number | null
-        durationUnit: string | null
-        isAddon: boolean
+      priceFlat: string | null
+      durationValue: number | null
+      durationUnit: string | null
+      isAddon: boolean
     }>
   }>
-}> {
-  const groups = await em.find(
-    AppointmentLineOptionGroup,
-    { line: lineId },
-    { populate: ['options'], orderBy: { sortOrder: 'asc' } },
-  )
+}
 
+function mapOptionGroupSnapshot(group: AppointmentLineOptionGroup): LineOptionSnapshots['groups'][number] {
   return {
-    groups: groups.map((g) => ({
-      id: g.id,
-      catalogGroupId: g.catalogGroupId ?? null,
-      groupName: g.groupName,
-      breadcrumbPath: g.breadcrumbPath ?? null,
-      isRootGroup: g.isRootGroup,
-      options: g.options.map((o) => ({
-        id: o.id,
-        optionName: o.optionName,
-        code: o.code ?? null,
-        note: o.note ?? null,
-        priceFlat: o.priceFlat ?? null,
-        durationValue: o.durationValue ?? null,
-        durationUnit: o.durationUnit ?? null,
-        isAddon: o.isAddon,
-      })),
+    id: group.id,
+    catalogGroupId: group.catalogGroupId ?? null,
+    groupName: group.groupName,
+    breadcrumbPath: group.breadcrumbPath ?? null,
+    isRootGroup: group.isRootGroup,
+    options: group.options.map((option) => ({
+      id: option.id,
+      optionName: option.optionName,
+      code: option.code ?? null,
+      note: option.note ?? null,
+      priceFlat: option.priceFlat ?? null,
+      durationValue: option.durationValue ?? null,
+      durationUnit: option.durationUnit ?? null,
+      isAddon: option.isAddon,
     })),
   }
+}
+
+export async function loadLineOptionSnapshotsForLines(
+  em: EntityManager,
+  lineIds: string[],
+): Promise<Map<string, LineOptionSnapshots>> {
+  const uniqueLineIds = [...new Set(lineIds)]
+  if (uniqueLineIds.length === 0) return new Map()
+
+  const groups = await em.find(
+    AppointmentLineOptionGroup,
+    { line: { $in: uniqueLineIds } },
+    { populate: ['options'], orderBy: { sortOrder: 'asc' } },
+  )
+  const snapshotsByLineId = new Map<string, LineOptionSnapshots>()
+
+  for (const group of groups) {
+    const lineId = group.line.id
+    const snapshots = snapshotsByLineId.get(lineId) ?? { groups: [] }
+    snapshots.groups.push(mapOptionGroupSnapshot(group))
+    snapshotsByLineId.set(lineId, snapshots)
+  }
+
+  return snapshotsByLineId
+}
+
+/**
+ * Load option group and option snapshots for a line (for display in seat planner).
+ */
+export async function loadLineOptionSnapshots(
+  em: EntityManager,
+  lineId: string,
+): Promise<LineOptionSnapshots> {
+  const snapshotsByLineId = await loadLineOptionSnapshotsForLines(em, [lineId])
+  return snapshotsByLineId.get(lineId) ?? { groups: [] }
 }
 
 /**

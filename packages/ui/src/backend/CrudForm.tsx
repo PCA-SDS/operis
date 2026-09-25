@@ -293,6 +293,7 @@ export type CrudCustomFieldRenderProps = {
   id: string
   value: unknown
   error?: string
+  errors?: Record<string, string>
   autoFocus?: boolean
   disabled?: boolean
   values?: Record<string, unknown>
@@ -325,6 +326,7 @@ export type CrudFormSubmitContext = {
 
 export type CrudFormProps<TValues extends Record<string, unknown>> = {
   schema?: z.ZodType<TValues>
+  disableNativeValidation?: boolean
   fields: CrudField[]
   initialValues?: Partial<TValues>
   /**
@@ -757,6 +759,7 @@ function SortableGroupItem({ id, children, disabled }: { id: string; children: R
 
 export function CrudForm<TValues extends Record<string, unknown>>({
   schema,
+  disableNativeValidation = false,
   fields,
   initialValues,
   disableInitialFocus = false,
@@ -3376,6 +3379,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
               field={f}
               value={readRenderedFieldValue(values as Record<string, unknown>, f.id)}
               error={errors[f.id]}
+              errors={errors}
               options={fieldOptionsById.get(f.id) || EMPTY_OPTIONS}
               setValue={setValue}
               onBlurRequest={onBlurRequest}
@@ -3386,6 +3390,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
               wrapperClassName={wrapperClassName}
               entityIdForField={primaryEntityId ?? undefined}
               recordId={recordId}
+              embedded={embedded}
               markRequired={widgetRequiredFieldIds.has(f.id)}
             />
           )
@@ -3445,7 +3450,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
                 <SelectTrigger className="w-auto min-w-[10rem]">
                   <SelectValue placeholder={defaultFieldsetLabel} />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className={embedded ? 'z-top' : undefined}>
                   {entityLayout.availableFieldsets.map((fs) => (
                     <SelectItem key={fs.code} value={fs.code}>
                       {fs.label}
@@ -3824,7 +3829,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
           className={embedded ? 'min-h-[1px]' : 'min-h-[400px]'}
         >
           {wrapFormBody(
-            <form id={formId} onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className={`${fixedDialogBody ? '' : embedded ? 'space-y-4' : 'space-y-5'} ${dialogFormPadding}`}>
+            <form id={formId} noValidate={disableNativeValidation} onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className={`${fixedDialogBody ? '' : embedded ? 'space-y-4' : 'space-y-5'} ${dialogFormPadding}`}>
             {renderDialogBody(<>
             {resolvedInjectionSpotId ? (
               <InjectionSpot
@@ -3911,6 +3916,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
           <div>
           <form
             id={formId}
+            noValidate={disableNativeValidation}
             onSubmit={handleSubmit}
             onKeyDown={handleFormKeyDown}
             className={`${fixedDialogBody ? '' : embedded ? 'space-y-4' : 'space-y-5'} ${dialogFormPadding}`}
@@ -3938,6 +3944,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
                     field={f}
                     value={values[f.id]}
                     error={errors[f.id]}
+                    errors={errors}
                     options={fieldOptionsById.get(f.id) || EMPTY_OPTIONS}
                     setValue={setValue}
                     onBlurRequest={onBlurRequest}
@@ -3948,6 +3955,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
                     wrapperClassName={wrapperClassName}
                     entityIdForField={primaryEntityId ?? undefined}
                     recordId={recordId}
+                    embedded={embedded}
                     markRequired={widgetRequiredFieldIds.has(f.id)}
                   />
                 )
@@ -4385,6 +4393,7 @@ type FieldControlProps = {
   field: CrudField
   value: unknown
   error?: string
+  errors: Record<string, string>
   options: CrudFieldOption[]
   setValue: (id: string, v: unknown) => void
   onBlurRequest: (fieldId: string) => void
@@ -4395,6 +4404,7 @@ type FieldControlProps = {
   wrapperClassName?: string
   entityIdForField?: string
   recordId?: string
+  embedded?: boolean
   markRequired?: boolean
 }
 
@@ -4499,6 +4509,7 @@ const FieldControl = React.memo(function FieldControlImpl({
   field,
   value,
   error,
+  errors,
   options,
   setValue,
   onBlurRequest,
@@ -4509,6 +4520,7 @@ const FieldControl = React.memo(function FieldControlImpl({
   wrapperClassName,
   entityIdForField,
   recordId,
+  embedded,
   markRequired,
 }: FieldControlProps) {
   const t = useT()
@@ -4680,6 +4692,7 @@ const FieldControl = React.memo(function FieldControlImpl({
           displayFormat={builtin?.displayFormat}
           closeOnSelect={builtin?.closeOnSelect}
           locale={builtin?.locale}
+          popoverClassName={embedded ? 'z-top' : undefined}
         />
       )}
       {field.type === 'datetime-local' && (
@@ -4694,6 +4707,7 @@ const FieldControl = React.memo(function FieldControlImpl({
           maxDate={builtin?.maxDate}
           displayFormat={builtin?.displayFormat}
           locale={builtin?.locale}
+          popoverClassName={embedded ? 'z-top' : undefined}
         />
       )}
       {field.type === 'datepicker' && (
@@ -4708,6 +4722,7 @@ const FieldControl = React.memo(function FieldControlImpl({
           displayFormat={builtin?.displayFormat}
           closeOnSelect={builtin?.closeOnSelect}
           locale={builtin?.locale}
+          popoverClassName={embedded ? 'z-top' : undefined}
         />
       )}
       {field.type === 'datetime' && (
@@ -4722,6 +4737,7 @@ const FieldControl = React.memo(function FieldControlImpl({
           maxDate={builtin?.maxDate}
           displayFormat={builtin?.displayFormat}
           locale={builtin?.locale}
+          popoverClassName={embedded ? 'z-top' : undefined}
         />
       )}
       {field.type === 'time' && (
@@ -4732,6 +4748,7 @@ const FieldControl = React.memo(function FieldControlImpl({
           readOnly={readOnly}
           placeholder={placeholder}
           minuteStep={builtin?.minuteStep}
+          elevated={embedded}
         />
       )}
       {field.type === 'textarea' && (
@@ -4828,7 +4845,7 @@ const FieldControl = React.memo(function FieldControlImpl({
               {singleSelectLabel}
             </SelectValue>
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className={embedded ? 'z-top' : undefined}>
             {!field.required && value != null && value !== '' && (
               <SelectItem value={SELECT_CLEAR_SENTINEL}>
                 {t('ui.forms.select.clearOption', '— Clear —')}
@@ -4902,6 +4919,7 @@ const FieldControl = React.memo(function FieldControlImpl({
             id: field.id,
             value,
             error,
+            errors,
             setValue: fieldSetValue,
             setFormValue,
             values,
@@ -4933,6 +4951,7 @@ const FieldControl = React.memo(function FieldControlImpl({
   prev.markRequired === next.markRequired &&
   prev.value === next.value &&
   prev.error === next.error &&
+  prev.errors === next.errors &&
   prev.options === next.options &&
   prev.loadFieldOptions === next.loadFieldOptions &&
   prev.autoFocus === next.autoFocus &&

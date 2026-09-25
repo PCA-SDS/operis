@@ -1,4 +1,5 @@
 import { ResourceAssignmentService } from '../resourceAssignmentService'
+import { AssignmentConflictService } from '../assignmentConflict'
 
 describe('ResourceAssignmentService.confirmDrafts', () => {
   it('leaves an existing confirmed assignment untouched when there is no draft', async () => {
@@ -41,6 +42,59 @@ describe('ResourceAssignmentService.confirmDrafts', () => {
     })).rejects.toMatchObject({ status: 409 })
 
     expect(em.flush).not.toHaveBeenCalled()
+  })
+})
+
+describe('ResourceAssignmentService.upsertDraft', () => {
+  it('preserves a confirmed assignment when requested', async () => {
+    const confirmed = {
+      id: 'assignment-1',
+      tenantId: 'tenant-1',
+      organizationId: 'organization-1',
+      sourceModule: 'appointment',
+      sourceEntityType: 'appointment_line',
+      sourceEntityId: 'line-1',
+      resource: { id: 'resource-1' },
+      state: 'confirmed' as const,
+      startsAt: new Date('2026-09-21T09:00:00.000Z'),
+      endsAt: new Date('2026-09-21T10:00:00.000Z'),
+      assignedMemberId: 'member-1',
+      assignedMemberIds: ['member-1'],
+      title: 'Service',
+      createdAt: new Date('2026-09-21T08:00:00.000Z'),
+      updatedAt: new Date('2026-09-21T08:00:00.000Z'),
+    }
+    const em = {
+      find: jest.fn().mockResolvedValue([confirmed]),
+      assign: jest.fn((target, values) => Object.assign(target, values)),
+      flush: jest.fn(),
+      refresh: jest.fn(),
+    }
+    const validation = jest.spyOn(AssignmentConflictService.prototype, 'validateAssignment').mockResolvedValue({ valid: true })
+
+    try {
+      const service = new ResourceAssignmentService(em as never)
+      const result = await service.upsertDraft({
+        tenantId: 'tenant-1',
+        organizationId: 'organization-1',
+        sourceModule: 'appointment',
+        sourceEntityType: 'appointment_line',
+        sourceEntityId: 'line-1',
+        resourceId: 'resource-2',
+        startsAt: new Date('2026-09-21T10:00:00.000Z'),
+        endsAt: new Date('2026-09-21T11:00:00.000Z'),
+        assignedMemberId: 'member-2',
+        preserveState: true,
+      })
+
+      expect(result.state).toBe('confirmed')
+      expect(confirmed.state).toBe('confirmed')
+      expect(confirmed.startsAt.toISOString()).toBe('2026-09-21T10:00:00.000Z')
+      expect(confirmed.endsAt.toISOString()).toBe('2026-09-21T11:00:00.000Z')
+      expect(em.flush).toHaveBeenCalledTimes(1)
+    } finally {
+      validation.mockRestore()
+    }
   })
 })
 

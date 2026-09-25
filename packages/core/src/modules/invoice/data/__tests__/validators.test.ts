@@ -26,6 +26,7 @@ import {
   invoicePaymentConfirmationRequestSchema,
   invoicePublicTokenSchema,
   invoiceInstallmentStatusSchema,
+  invoiceManualLineItemInputSchema,
   invoiceOriginSchema,
   invoiceSettlementStatusSchema,
   invoiceStatusSchema,
@@ -114,5 +115,38 @@ describe('invoice validators', () => {
       recipientEmail: 'supplier@example.com',
       tenantId: 'forged-tenant',
     }).success).toBe(false)
+  })
+
+  it('allows zero and positive decimals but rejects negative VAT and discounts', () => {
+    const baseLine = { name: 'Line', quantity: '1', unitPrice: '10' }
+
+    expect(invoiceManualLineItemInputSchema.safeParse({ ...baseLine, vatRate: '0' }).success).toBe(true)
+    expect(invoiceManualLineItemInputSchema.safeParse({ ...baseLine, vatRate: '12.5' }).success).toBe(true)
+    expect(invoiceManualLineItemInputSchema.safeParse({ ...baseLine, vatRate: '-1' }).success).toBe(false)
+    expect(invoiceManualLineItemInputSchema.safeParse({ ...baseLine, vatRate: '101' }).success).toBe(false)
+    expect(invoiceManualLineItemInputSchema.safeParse({ ...baseLine, vatRate: 'abc' }).success).toBe(false)
+
+    expect(invoiceManualLineItemInputSchema.safeParse({ ...baseLine, discountPercent: '0' }).success).toBe(true)
+    expect(invoiceManualLineItemInputSchema.safeParse({ ...baseLine, discountPercent: '12.5' }).success).toBe(true)
+    expect(invoiceManualLineItemInputSchema.safeParse({ ...baseLine, discountPercent: '-1' }).success).toBe(false)
+    expect(invoiceManualLineItemInputSchema.safeParse({ ...baseLine, discountPercent: '101' }).success).toBe(false)
+
+    expect(invoiceManualLineItemInputSchema.safeParse({ ...baseLine, discountAmount: '0' }).success).toBe(true)
+    expect(invoiceManualLineItemInputSchema.safeParse({ ...baseLine, discountAmount: '12.5' }).success).toBe(true)
+    expect(invoiceManualLineItemInputSchema.safeParse({ ...baseLine, discountAmount: '-1' }).success).toBe(false)
+    expect(invoiceManualLineItemInputSchema.safeParse({ ...baseLine, discountAmount: 'abc' }).success).toBe(false)
+  })
+
+  it('validates required line-item values and their limits', () => {
+    const baseLine = { name: 'Line', quantity: '1', unitPrice: '10' }
+
+    expect(invoiceManualLineItemInputSchema.safeParse(baseLine).success).toBe(true)
+    expect(invoiceManualLineItemInputSchema.safeParse({ ...baseLine, name: '' }).success).toBe(false)
+    expect(invoiceManualLineItemInputSchema.safeParse({ ...baseLine, unit: 'x'.repeat(80) }).success).toBe(true)
+    expect(invoiceManualLineItemInputSchema.safeParse({ ...baseLine, unit: 'x'.repeat(81) }).success).toBe(false)
+    expect(invoiceManualLineItemInputSchema.safeParse({ ...baseLine, quantity: '0' }).success).toBe(false)
+    expect(invoiceManualLineItemInputSchema.safeParse({ ...baseLine, quantity: '-1' }).success).toBe(false)
+    expect(invoiceManualLineItemInputSchema.safeParse({ ...baseLine, unitPrice: '0' }).success).toBe(false)
+    expect(invoiceManualLineItemInputSchema.safeParse({ ...baseLine, unitPrice: '-1' }).success).toBe(false)
   })
 })
