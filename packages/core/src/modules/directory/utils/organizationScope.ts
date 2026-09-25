@@ -1,7 +1,7 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
 import type { FilterQuery } from '@mikro-orm/core'
 import type { AwilixContainer } from 'awilix'
-import { Organization } from '@open-mercato/core/modules/directory/data/entities'
+import { Organization, UserOrganizationMembership } from '@open-mercato/core/modules/directory/data/entities'
 import { isAllOrganizationsSelection } from '@open-mercato/core/modules/directory/constants'
 import type { RbacService } from '@open-mercato/core/modules/auth/services/rbacService'
 import type { AuthContext } from '@open-mercato/shared/lib/auth/server'
@@ -262,6 +262,32 @@ function expandWithDescendants(map: OrgDescendantMap, ids: string[]): Set<string
   return set
 }
 
+async function loadUserMembershipOrganizationIds(
+  em: EntityManager,
+  tenantId: string,
+  userId: string,
+): Promise<string[]> {
+  // Keep the membership lookup on its repository so the organization query
+  // remains the single `em.find` used by scope expansion. This also keeps
+  // lightweight EntityManager test doubles that only model organizations
+  // compatible with the migration-safe home-organization fallback.
+  if (typeof em.getRepository !== 'function') return []
+  const memberships = await em.getRepository(UserOrganizationMembership).find(
+    {
+      tenantId,
+      userId,
+      isActive: true,
+      deletedAt: null,
+    },
+    { fields: ['organizationId'] },
+  )
+  return Array.from(new Set(
+    memberships
+      .map((membership) => normalizeOrganizationId(membership.organizationId))
+      .filter((value): value is string => value !== null),
+  ))
+}
+
 export async function resolveOrganizationScope({
   em,
   rbac,
@@ -310,11 +336,15 @@ export async function resolveOrganizationScope({
         .map((value) => normalizeOrganizationId(value))
         .filter((value): value is string => value !== null)
       : null
-  const accessibleList = effectiveSuperAdmin
+  const aclOrganizationIds = effectiveSuperAdmin
     ? null
     : normalizedAccessible && normalizedAccessible.some((value) => isAllOrganizationsSelection(value))
       ? null
       : normalizedAccessible?.filter((value) => !isAllOrganizationsSelection(value)) ?? null
+
+  const membershipOrganizationIds = effectiveSuperAdmin
+    ? []
+    : await loadUserMembershipOrganizationIds(em, tenantId, auth.sub)
 
   const accountOrgId = actorTenantId && actorTenantId === tenantId ? normalizeOrganizationId(auth.orgId) : null
   const fallbackOrgId = accountOrgId ?? null
@@ -323,7 +353,8 @@ export async function resolveOrganizationScope({
   // org, and the requested selection — is known up front, so fetch them all in
   // a single `organizations` query and expand from the in-memory map.
   const candidateIds = [
-    ...(accessibleList ?? []),
+    ...(aclOrganizationIds ?? []),
+    ...membershipOrganizationIds,
     ...(fallbackOrgId ? [fallbackOrgId] : []),
     ...(normalizedSelectedId ? [normalizedSelectedId] : []),
   ]
@@ -331,23 +362,30 @@ export async function resolveOrganizationScope({
   const loadFallbackSet = (): Set<string> | null =>
     fallbackOrgId ? expandWithDescendants(orgDescendants, [fallbackOrgId]) : null
 
+  const aclSet = aclOrganizationIds === null
+    ? null
+    : expandWithDescendants(orgDescendants, aclOrganizationIds)
+  const membershipSet = membershipOrganizationIds.length > 0
+    ? expandWithDescendants(orgDescendants, membershipOrganizationIds)
+    : null
+  const hasMembershipScope = membershipSet !== null
   let allowedSet: Set<string> | null = null
-  if (accessibleList === null) {
-    allowedSet = null
-  } else if (accessibleList.length === 0) {
-    allowedSet = new Set()
+  if (membershipSet !== null) {
+    allowedSet = aclSet === null
+      ? membershipSet
+      : new Set(Array.from(aclSet).filter((organizationId) => membershipSet.has(organizationId)))
   } else {
-    allowedSet = expandWithDescendants(orgDescendants, accessibleList)
+    allowedSet = aclSet
   }
 
-  if (allowedSet && allowedSet.size === 0 && fallbackOrgId) {
+  if (allowedSet && allowedSet.size === 0 && fallbackOrgId && !hasMembershipScope) {
     const computed = loadFallbackSet()
     if (computed && computed.size > 0) {
       allowedSet = computed
     }
   }
 
-  const hasUnrestrictedAccess = effectiveSuperAdmin || (accessibleList === null)
+  const hasUnrestrictedAccess = effectiveSuperAdmin || (aclOrganizationIds === null && !hasMembershipScope)
   const noOrgSelection = normalizedSelectedId === null && !explicitAllOrgsChoice
   const widenToAllOrgs =
     (explicitAllOrgsChoice && hasUnrestrictedAccess)
@@ -389,7 +427,7 @@ export async function resolveOrganizationScope({
     }
   }
 
-  if ((!filterSet || filterSet.size === 0) && fallbackOrgId && !widenToAllOrgs) {
+  if ((!filterSet || filterSet.size === 0) && fallbackOrgId && !widenToAllOrgs && !hasMembershipScope) {
     const computed = loadFallbackSet()
     if (computed && computed.size > 0) {
       filterSet = computed

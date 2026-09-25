@@ -3,7 +3,7 @@
 import { DELETE, GET, POST, PUT } from '@open-mercato/core/modules/auth/api/users/route'
 import { RawQueryFragment } from '@mikro-orm/core'
 import { Role, RoleAcl, User, UserAcl, UserRole } from '@open-mercato/core/modules/auth/data/entities'
-import { Organization } from '@open-mercato/core/modules/directory/data/entities'
+import { Organization, UserOrganizationMembership } from '@open-mercato/core/modules/directory/data/entities'
 
 const mockGetAuthFromRequest = jest.fn()
 const mockLoadAcl = jest.fn()
@@ -608,6 +608,66 @@ describe('GET /api/auth/users', () => {
       { organizationId: expect.anything() },
     ]))
     expect(body.isSuperAdmin).toBe(true)
+  })
+
+  test('hydrates memberships for an unscoped superadmin across all returned tenants', async () => {
+    const otherTenantId = '123e4567-e89b-12d3-a456-426614174777'
+    const firstUserId = '523e4567-e89b-12d3-a456-426614174301'
+    const secondUserId = '523e4567-e89b-12d3-a456-426614174302'
+    const firstOrganizationId = '223e4567-e89b-12d3-a456-426614174301'
+    const secondOrganizationId = '223e4567-e89b-12d3-a456-426614174302'
+    const firstSecondaryOrganizationId = '223e4567-e89b-12d3-a456-426614174303'
+    const secondSecondaryOrganizationId = '223e4567-e89b-12d3-a456-426614174304'
+
+    mockGetAuthFromRequest.mockResolvedValueOnce({
+      sub: 'user-1',
+      tenantId: tenantId,
+      orgId: organizationId,
+      roles: ['superadmin'],
+      isSuperAdmin: true,
+    })
+    mockLoadAcl.mockResolvedValueOnce({ isSuperAdmin: true })
+    mockEm.findAndCount.mockResolvedValueOnce([
+      [
+        { id: firstUserId, email: 'first-cross-tenant@example.com', tenantId, organizationId: firstOrganizationId },
+        { id: secondUserId, email: 'second-cross-tenant@example.com', tenantId: otherTenantId, organizationId: secondOrganizationId },
+      ],
+      2,
+    ])
+    mockEm.find.mockImplementation(async (entity: unknown, where: Record<string, unknown>) => {
+      if (entity === UserOrganizationMembership) {
+        if (!where.tenantId || typeof where.tenantId !== 'string') {
+          return [
+            { userId: firstUserId, organizationId: firstOrganizationId },
+            { userId: firstUserId, organizationId: firstSecondaryOrganizationId },
+            { userId: secondUserId, organizationId: secondOrganizationId },
+            { userId: secondUserId, organizationId: secondSecondaryOrganizationId },
+          ]
+        }
+        return []
+      }
+      return []
+    })
+
+    const response = await GET(makeRequest('/api/auth/users?page=1&pageSize=50'))
+    const body = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(body.items).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: firstUserId,
+        organizationIds: expect.arrayContaining([firstOrganizationId, firstSecondaryOrganizationId]),
+      }),
+      expect.objectContaining({
+        id: secondUserId,
+        organizationIds: expect.arrayContaining([secondOrganizationId, secondSecondaryOrganizationId]),
+      }),
+    ]))
+    const membershipLookup = mockEm.find.mock.calls.find(([entity]) => entity === UserOrganizationMembership)
+    expect(membershipLookup?.[1]).toEqual(expect.objectContaining({
+      tenantId: { $in: [tenantId, otherTenantId] },
+      userId: { $in: [firstUserId, secondUserId] },
+    }))
   })
 
   test('superadmin selected organization scopes the users list by organization descendants', async () => {
