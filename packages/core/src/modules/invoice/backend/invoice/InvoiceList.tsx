@@ -32,7 +32,10 @@ type FilterOption = { value: string; label: string }
 
 function InvoiceFilter({ value, options, onChange, ariaLabel }: { value: string; options: FilterOption[]; onChange: (value: string) => void; ariaLabel: string }) {
   const selected = options.find((option) => option.value === value)
-  return <Dropdown value={value} options={options} onChange={(next) => onChange(next ?? 'all')} placeholder={selected?.label ?? options[0]?.label ?? ''} triggerLabel={selected?.label ?? options[0]?.label} ariaLabel={ariaLabel} triggerLeading={false} variant="filter" size="default" />
+  const triggerClassName = value === 'all'
+    ? '!border-border !text-foreground shadow-sm hover:!bg-surface-muted'
+    : 'shadow-sm'
+  return <Dropdown value={value} options={options} onChange={(next) => onChange(next ?? 'all')} placeholder={selected?.label ?? options[0]?.label ?? ''} triggerLabel={selected?.label ?? options[0]?.label} ariaLabel={ariaLabel} triggerLeading={false} variant="filter" size="default" triggerClassName={triggerClassName} />
 }
 
 export function InvoiceList({ direction, showSyncButton = false }: { direction?: 'AP' | 'AR'; showSyncButton?: boolean }) {
