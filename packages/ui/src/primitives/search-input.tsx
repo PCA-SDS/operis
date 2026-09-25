@@ -59,6 +59,9 @@ const searchInputWrapperVariants = cva(
            — the command-palette convention. A ring would draw a box around a
            row that deliberately has no box. */
         plain: 'rounded-none bg-transparent px-0',
+        /* The field well: the same `--input-bg` fill every other field takes, for
+           a search that sits among fields and dropdowns rather than as chrome. */
+        well: 'bg-input-bg hover:bg-primary-soft focus-within:shadow-focus',
       },
     },
     defaultVariants: {
@@ -84,6 +87,7 @@ const searchInputElementVariants = cva(
         raised: 'text-foreground placeholder:text-disabled-foreground',
         sidebar: 'text-sidebar-foreground placeholder:text-sidebar-muted-foreground',
         plain: 'text-foreground placeholder:text-muted-foreground',
+        well: 'text-foreground placeholder:text-disabled-foreground',
       },
     },
     defaultVariants: {
@@ -113,6 +117,7 @@ const searchInputAdornmentVariants = cva(
         raised: 'text-disabled-foreground',
         sidebar: 'text-sidebar-muted-foreground',
         plain: 'text-muted-foreground',
+        well: 'text-disabled-foreground',
       },
     },
     defaultVariants: {
@@ -136,6 +141,7 @@ const searchInputClearVariants = cva(
         raised: 'text-disabled-foreground hover:bg-modal-muted hover:text-foreground',
         sidebar: 'text-sidebar-muted-foreground hover:text-sidebar-accent-foreground',
         plain: 'text-muted-foreground hover:text-foreground',
+        well: 'text-disabled-foreground hover:bg-primary-soft hover:text-foreground',
       },
     },
     defaultVariants: {

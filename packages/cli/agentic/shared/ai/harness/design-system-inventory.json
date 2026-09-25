@@ -23,7 +23,7 @@
       "messages"
     ],
     "itemCount": 114,
-    "variantCount": 315,
+    "variantCount": 316,
     "installedImplementationCount": 107,
     "localTokenItemCount": 6,
     "externalImplementationCount": 1,
@@ -2388,7 +2388,8 @@
         "loading",
         "tone-raised",
         "tone-sidebar",
-        "tone-plain"
+        "tone-plain",
+        "tone-well"
       ],
       "route": "/backend/design-system?family=inputs&entry=search-input",
       "availabilityByPreset": {

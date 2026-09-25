@@ -6,6 +6,7 @@ import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn, slugifyTagLabel } from '@open-mercato/shared/lib/utils'
+import { useDialogKeyHandler } from '@open-mercato/ui/hooks/useDialogKeyHandler'
 import { apiCall, apiCallOrThrow, readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
@@ -334,13 +335,15 @@ function TagChip({
       variant="ghost"
       size="sm"
       onClick={onClick}
+      aria-pressed={active}
       className={cn(
-        'inline-flex h-auto items-center gap-1 rounded-full border px-2.5 py-1.5 transition-colors',
+        // One weight in both states, so selecting a chip never changes its width.
+        'inline-flex h-auto items-center gap-1 rounded-full border border-transparent px-2.5 py-1.5 font-medium transition-colors',
         active
           ? activeColorStyle
-            ? 'font-semibold hover:opacity-90'
-            : 'border-transparent bg-muted font-semibold text-foreground hover:bg-muted'
-          : 'border-border bg-transparent font-normal text-muted-foreground hover:bg-muted/60 hover:text-foreground',
+            ? 'hover:opacity-90'
+            : 'bg-primary text-primary-foreground hover:bg-primary-hover'
+          : 'bg-input-bg text-foreground hover:bg-primary-soft',
       )}
       style={activeColorStyle}
     >
@@ -351,7 +354,7 @@ function TagChip({
         />
       ) : null}
       <span className="text-xs">{label}</span>
-      {active ? <X className="size-2.5 shrink-0" /> : null}
+      {active ? <X className="size-4 shrink-0" /> : null}
     </Button>
   )
 }
@@ -1119,12 +1122,20 @@ export function EntityTagsDialog({
     ? selectedValues[activeCategory.kind] ?? new Set<string>()
     : new Set<string>()
 
+  const handleDialogKeyDown = useDialogKeyHandler({
+    onConfirm: () => { void handleSave() },
+    disabled: saving || !hasChanges,
+  })
+
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose() }}>
+      {/* A FIXED height: switching categories swaps panels of different
+          lengths, and a content-sized dialog moved its footer every time. */}
       <DialogContent
         disableBodyWrap
-        className="flex max-h-[85vh] flex-col overflow-hidden border-border bg-surface p-0 shadow-[0px_16px_40px_0px_rgba(0,0,0,0.14)] sm:max-w-[760px] sm:rounded-xl [&>[data-dialog-close]]:hidden"
+        className="flex h-[min(85vh,40rem)] flex-col sm:h-[min(85vh,40rem)] overflow-hidden border-border bg-surface p-0 shadow-xl sm:max-w-[760px] sm:rounded-xl [&>[data-dialog-close]]:hidden"
         aria-describedby={undefined}
+        onKeyDown={handleDialogKeyDown}
       >
         <VisuallyHidden>
           <DialogTitle>{t('customers.personTags.title', 'Edit tags')}</DialogTitle>
@@ -1140,12 +1151,10 @@ export function EntityTagsDialog({
           <div className="flex items-center gap-2">
             <Button
               type="button"
-              variant="outline"
-              size="sm"
-              className="h-auto gap-2 rounded-lg px-3.5 py-2 text-sm font-medium"
+              variant="soft"
               onClick={() => setManageTagsOpen(true)}
             >
-              <SlidersHorizontal className="size-3.5" />
+              <SlidersHorizontal className="size-4" />
               {t('customers.personTags.settingsButton', 'Tag settings')}
             </Button>
             <CloseButton
@@ -1155,7 +1164,7 @@ export function EntityTagsDialog({
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-hidden bg-background">
+        <div className="min-h-0 flex-1 overflow-hidden" data-dialog-form="true">
           {loading ? (
             <div className="flex h-full items-center justify-center px-6 py-8 text-center text-sm text-muted-foreground">
               {t('customers.personTags.loading', 'Loading...')}
@@ -1170,18 +1179,15 @@ export function EntityTagsDialog({
                     <Button
                       key={category.kind}
                       type="button"
-                      variant={isActive ? 'secondary' : 'ghost'}
-                      size="sm"
-                      className={cn(
-                        'h-auto min-w-[140px] justify-between rounded-lg px-3 py-2 text-left md:w-full',
-                        isActive ? 'border border-border bg-muted text-foreground' : 'border border-transparent text-muted-foreground',
-                      )}
+                      variant={isActive ? 'default' : 'soft'}
+                      aria-pressed={isActive}
+                      className="min-w-[140px] justify-between text-left md:w-full"
                       onClick={() => setActiveCategoryKind(category.kind)}
                     >
-                      <span className="truncate text-xs font-medium">
+                      <span className="truncate">
                         {category.label}
                       </span>
-                      <span className="ml-3 shrink-0 rounded-full bg-background px-2 py-0.5 text-xs font-semibold text-muted-foreground">
+                      <span className="ml-3 shrink-0 rounded-full bg-surface px-2 py-0.5 text-xs font-medium text-muted-foreground">
                         {count}
                       </span>
                     </Button>
@@ -1249,9 +1255,7 @@ export function EntityTagsDialog({
                           {(activeCategory.source === 'tags' || activeCategory.source === 'labels') && activeCategoryPage < activeCategoryTotalPages ? (
                             <Button
                               type="button"
-                              variant="outline"
-                              size="sm"
-                              className="rounded-lg px-3 text-xs"
+                              variant="soft"
                               onClick={() => setActiveCategoryPage((current) => current + 1)}
                             >
                               {t('customers.activities.loadMore', 'Load more')}
@@ -1279,7 +1283,7 @@ export function EntityTagsDialog({
                       {activeCategory.supportsCreate ? (
                         <div>
                           {newEntryInputByKind[activeCategory.kind] !== null ? (
-                            <div className="inline-flex items-center rounded-full border border-dashed border-status-success-border bg-status-success-bg/70 px-2.5 py-1">
+                            <div className="inline-flex h-9 items-center rounded-lg bg-input-bg px-3">
                               <input
                                 type="text"
                                 autoFocus
@@ -1322,14 +1326,13 @@ export function EntityTagsDialog({
                                     ? t('customers.people.detail.tags.placeholder', 'Type to add tags')
                                     : t('customers.personTags.newLabelPlaceholder', 'Label name...')
                                 }
-                                className="w-[150px] bg-transparent text-xs font-semibold text-status-success-text outline-none placeholder:text-status-success-text/60 disabled:cursor-wait disabled:opacity-70"
+                                className="w-[180px] bg-transparent text-sm font-medium text-foreground outline-none placeholder:text-muted-foreground disabled:cursor-wait disabled:opacity-70"
                               />
                             </div>
                           ) : (
                             <Button
                               type="button"
-                              variant="ghost"
-                              size="sm"
+                              variant="soft"
                               disabled={creatingKind === activeCategory.kind}
                               onClick={() =>
                                 setNewEntryInputByKind((previous) => ({
@@ -1337,10 +1340,9 @@ export function EntityTagsDialog({
                                   [activeCategory.kind]: '',
                                 }))
                               }
-                              className="inline-flex h-auto items-center gap-1 rounded-full border border-dashed border-status-success-border bg-transparent px-2.5 py-1.5 font-semibold text-status-success-text hover:bg-status-success-bg disabled:opacity-60"
                             >
-                              <Plus className="size-2.5" />
-                              <span className="text-xs">
+                              <Plus className="size-4" />
+                              <span>
                                 {activeCategory.kind === 'tags'
                                   ? t('customers.personTags.newTag', 'New tag')
                                   : t('customers.personTags.newLabel', 'New label')}
@@ -1365,7 +1367,7 @@ export function EntityTagsDialog({
           <span className="text-xs text-muted-foreground">
             {t('customers.personTags.activeCount', '{{count}} selected', { count: activeCount })}
           </span>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2">
             <Button
               type="button"
               variant="soft"
@@ -1377,9 +1379,8 @@ export function EntityTagsDialog({
               type="button"
               onClick={() => { void handleSave() }}
               disabled={saving || !hasChanges}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary-hover"
             >
-              <Check className="mr-2 size-3.5" />
+              <Check className="size-4" />
               {saving
                 ? t('customers.personTags.saving', 'Saving...')
                 : t('customers.personTags.save', 'Save')}

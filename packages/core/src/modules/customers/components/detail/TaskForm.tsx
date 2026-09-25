@@ -29,6 +29,7 @@ import { CUSTOMER_INTERACTION_ENTITY_ID } from '../../lib/interactionCompatibili
 import type { TaskFormPayload } from './hooks/usePersonTasks'
 import { normalizeCustomFieldSubmitValue } from './customFieldUtils'
 import { useCustomerDictionary } from './hooks/useCustomerDictionary'
+import { DETAIL_DIALOG_BODY } from './dialogChrome'
 
 export type TaskFormProps = {
   mode: 'create' | 'edit'
@@ -136,6 +137,7 @@ export function TaskForm({
     <div ref={containerRef} onKeyDown={handleKeyDown}>
       <CrudForm
         embedded
+        dialogBodyClassName={DETAIL_DIALOG_BODY}
         entityId={formEntityId}
         fields={fields}
         groups={groups}
@@ -143,7 +145,7 @@ export function TaskForm({
         submitLabel={resolvedSubmitLabel}
         onSubmit={handleSubmit}
         extraActions={
-          <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
+          <Button type="button" variant="soft" onClick={onCancel} disabled={isSubmitting}>
             {resolvedCancelLabel}
           </Button>
         }

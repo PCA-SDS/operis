@@ -16,6 +16,8 @@ export interface CollapsibleGroupProps {
   fieldCount?: number
   chevronPosition?: 'left' | 'right'
   icon?: React.ReactNode
+  /** `card` keeps the group a white raised card whether open or closed. */
+  tone?: 'default' | 'card'
   children: React.ReactNode
 }
 
@@ -24,7 +26,7 @@ export interface CollapsibleGroupHandle {
 }
 
 export const CollapsibleGroup = React.forwardRef<CollapsibleGroupHandle, CollapsibleGroupProps>(
-  function CollapsibleGroup({ groupId, title, pageType, defaultExpanded = true, errorCount = 0, fieldCount, chevronPosition = 'right', icon, children }, ref) {
+  function CollapsibleGroup({ groupId, title, pageType, defaultExpanded = true, errorCount = 0, fieldCount, chevronPosition = 'right', icon, tone = 'default', children }, ref) {
     const t = useT()
     const { expanded, toggle, setExpanded, isHydrated } = useGroupCollapse(pageType, groupId, defaultExpanded)
     const contentId = `collapsible-group-${groupId}`
@@ -84,12 +86,15 @@ export const CollapsibleGroup = React.forwardRef<CollapsibleGroupHandle, Collaps
           !isHydrated && 'invisible',
           errorCount > 0
             ? 'border-destructive'
-            : expanded
+            : tone === 'card'
+              ? 'border-transparent bg-surface shadow-xs'
+              : expanded
               ? 'border-transparent bg-muted shadow-none'
               : 'border-border shadow-xs hover:border-transparent hover:bg-muted hover:shadow-none',
         )}
         data-collapsible-group-id={groupId}
         data-state={expanded ? 'open' : 'closed'}
+        data-tone={tone}
         data-persistence-hydrated={isHydrated ? 'true' : 'false'}
         aria-hidden={isHydrated ? undefined : true}
       >

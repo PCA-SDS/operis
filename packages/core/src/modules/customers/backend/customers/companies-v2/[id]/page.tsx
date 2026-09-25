@@ -507,6 +507,7 @@ export default function CompanyDetailV2Page({ params }: { params?: { id?: string
           {/* Two-zone layout: zone1 = form, zone2 = tabs */}
           <CollapsibleZoneLayout
             pageType="company-v2"
+            toggleTone="soft"
             entityName={companyName}
             isDirty={isDirty}
             sections={zoneSections}
@@ -526,6 +527,8 @@ export default function CompanyDetailV2Page({ params }: { params?: { id?: string
                   optimisticLockUpdatedAt={(data?.company as { updatedAt?: string } | undefined)?.updatedAt}
                   hideFooterActions
                   collapsibleGroups={{ pageType: 'company-v2', chevronPosition: 'right' }}
+                  flatCustomFieldSections
+                  collapsibleGroupTone="card"
                   sortableGroups={{ pageType: 'company-v2' }}
                   onDirtyChange={setIsDirty}
                 />
@@ -617,12 +620,13 @@ export default function CompanyDetailV2Page({ params }: { params?: { id?: string
                 )}
 
                 {activeTab === 'changelog' && companyId && (
-                  <ChangelogTab entityId={companyId} entityType="company" />
+                  <ChangelogTab entityId={companyId} entityType="company" tone="soft" />
                 )}
 
                 {activeTab === 'files' && (
                   <AttachmentsSection
                     entityId={E.customers.customer_entity}
+                    actionVariant="soft"
                     recordId={companyId}
                     title={t('customers.companies.detail.tabs.files', 'Files')}
                     description={t('customers.companies.detail.files.subtitle', 'Upload and manage files linked to this company.')}

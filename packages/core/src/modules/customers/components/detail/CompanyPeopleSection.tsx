@@ -567,11 +567,10 @@ export function CompanyPeopleSection({
   const linkAction = (
     <Button
       type="button"
-      variant="outline"
-      size="sm"
+      variant="soft"
       onClick={() => setLinkDialogOpen(true)}
     >
-      <Link2 className="mr-1.5 h-4 w-4" />
+      <Link2 className="size-4" />
       {translate(
         'customers.companies.detail.people.linkAction',
         'Link existing person',
@@ -579,8 +578,8 @@ export function CompanyPeopleSection({
     </Button>
   )
   const addPersonAction = (
-    <Button type="button" size="sm" onClick={() => setCreateDialogOpen(true)}>
-      <Plus className="mr-1.5 h-4 w-4" />
+    <Button type="button" onClick={() => setCreateDialogOpen(true)}>
+      <Plus className="size-4" />
       {addActionLabel}
     </Button>
   )
@@ -591,11 +590,17 @@ export function CompanyPeopleSection({
         <EmptyState
           icon={<Users className="h-10 w-10 text-muted-foreground" />}
           title={emptyState.title}
-          actionLabel={emptyState.actionLabel}
-          onAction={() => setCreateDialogOpen(true)}
+          actions={(
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              {linkAction}
+              <Button type="button" onClick={() => setCreateDialogOpen(true)}>
+                <Plus className="size-4" />
+                {emptyState.actionLabel}
+              </Button>
+            </div>
+          )}
         >
           <p className="text-sm text-muted-foreground">{emptyLabel}</p>
-          <div className="mt-4">{linkAction}</div>
         </EmptyState>
         <LinkEntityDialog
           open={linkDialogOpen}
@@ -663,8 +668,10 @@ export function CompanyPeopleSection({
 
             {totalLinkedPeople > 0 ? (
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-                {filtersOpen ? (
-                  <div className="min-w-0 flex-1">
+                {/* Always laid out, only hidden: opening Filters must not move
+                    the toolbar, so the search and sort keep their space while
+                    closed (`invisible` also drops them from focus and a11y). */}
+                <div className={filtersOpen ? 'min-w-0 flex-1' : 'invisible min-w-0 flex-1'}>
                     <input
                       type="text"
                       value={searchQuery}
@@ -673,31 +680,28 @@ export function CompanyPeopleSection({
                         'customers.companies.detail.people.searchPlaceholder',
                         'Search by name, role, email...',
                       )}
-                      className="h-10 w-full rounded-md border bg-input-bg px-3 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                      className="h-9 w-full rounded-lg border border-transparent bg-input-bg px-3 text-sm placeholder:text-muted-foreground focus:outline-none focus-visible:shadow-focus"
                     />
-                  </div>
-                ) : null}
+                </div>
                 <div className="flex flex-wrap items-center gap-2 lg:justify-end">
                   <Button
                     type="button"
-                    variant="outline"
-                    size="sm"
+                    variant="soft"
                     onClick={() => setFiltersOpen((current) => !current)}
-                    className="h-10"
+                    aria-expanded={filtersOpen}
                   >
-                    <Filter className="mr-1.5 h-4 w-4" />
+                    <Filter className="size-4" />
                     {translate(
                       'customers.companies.detail.people.filter',
                       'Filters',
                     )}
                   </Button>
-                  {filtersOpen ? (
-                    <select
+                  <select
                       value={sortMode}
                       onChange={(event) =>
                         setSortMode(event.target.value as 'name-asc' | 'name-desc' | 'recent')
                       }
-                      className="h-10 min-w-[11rem] rounded-md border bg-input-bg px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                      className={`h-9 min-w-[11rem] rounded-lg border border-transparent bg-input-bg px-3 text-sm font-medium focus:outline-none focus-visible:shadow-focus${filtersOpen ? '' : ' invisible'}`}
                     >
                       <option value="name-asc">
                         {translate(
@@ -718,7 +722,6 @@ export function CompanyPeopleSection({
                         )}
                       </option>
                     </select>
-                  ) : null}
                 </div>
               </div>
             ) : null}
@@ -760,8 +763,7 @@ export function CompanyPeopleSection({
                     <div className="flex items-center gap-2">
                       <Button
                         type="button"
-                        variant="outline"
-                        size="sm"
+                        variant="soft"
                         onClick={() => setListPage((current) => Math.max(1, current - 1))}
                         disabled={listPage <= 1}
                       >
@@ -769,8 +771,7 @@ export function CompanyPeopleSection({
                       </Button>
                       <Button
                         type="button"
-                        variant="outline"
-                        size="sm"
+                        variant="soft"
                         onClick={() =>
                           setListPage((current) => Math.min(listTotalPages, current + 1))
                         }

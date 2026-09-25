@@ -20,6 +20,7 @@ import {
 import { coerceDisplayName, deriveDisplayName, isDerivedDisplayName } from '../lib/displayName'
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -27,6 +28,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@open-mercato/ui/primitives/dialog'
+import { useDialogKeyHandler } from '@open-mercato/ui/hooks/useDialogKeyHandler'
+import { FormFieldLabel } from '@open-mercato/ui/backend/forms/FormSection'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { apiCall, apiCallOrThrow, readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { collectCustomFieldValues } from '@open-mercato/ui/backend/utils/customFieldValues'
@@ -132,6 +135,7 @@ type DictionarySelectFieldProps = {
   showManage?: boolean
   showLabelInput?: boolean
   showActiveAppearance?: boolean
+  addButtonVariant?: 'outline' | 'soft'
 }
 
 export { CUSTOMER_DICTIONARIES_MANAGE_HREF, getCustomerDictionaryManageHref }
@@ -164,6 +168,7 @@ export function DictionarySelectField({
   showManage = false,
   showLabelInput = true,
   showActiveAppearance = true,
+  addButtonVariant = 'outline',
 }: DictionarySelectFieldProps) {
   const t = useT()
   const queryClient = useQueryClient()
@@ -279,6 +284,7 @@ export function DictionarySelectField({
       showLabelInput={showLabelInput}
       sortOptions="none"
       showActiveAppearance={showActiveAppearance}
+      addButtonVariant={addButtonVariant}
     />
   )
 }
@@ -470,6 +476,7 @@ const createPrimaryPhoneField = (t: Translator, defaultCountryIso2?: string): Cr
         duplicateLabel={(match) => t('customers.people.form.phoneDuplicateNotice', undefined, { name: match.label })}
         duplicateLinkLabel={t('customers.people.form.phoneDuplicateLink')}
         invalidLabel={t('customers.people.form.primaryPhone.invalid', 'Enter a valid phone number with country code (e.g. +1 212 555 1234)')}
+        tone="well"
         minDigits={7}
         onDuplicateLookup={!disabled && !error ? duplicateLookup : undefined}
         defaultCountryIso2={defaultCountryIso2}
@@ -654,6 +661,11 @@ export function CompanySelectField({ value, onChange, labels }: CompanySelectFie
 
   const disabled = loading || saving
   const selectedOption = value ? options.find((option) => option.value === value) : null
+  const newCompanyInputId = React.useId()
+  const handleDialogKeyDown = useDialogKeyHandler({
+    onConfirm: () => { handleDialogSubmit().catch(() => {}) },
+    disabled: saving || !newCompany.trim(),
+  })
 
   return (
     <div className="space-y-2">
@@ -678,24 +690,28 @@ export function CompanySelectField({ value, onChange, labels }: CompanySelectFie
           <DialogTrigger asChild>
             <Button
               type="button"
-              variant="outline"
+              variant="soft"
               size="icon"
               disabled={disabled}
               aria-label={labels.addLabel}
               title={labels.addLabel}
             >
-              <Plus className="h-4 w-4" aria-hidden />
+              <Plus className="size-4" aria-hidden />
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-sm">
+          <DialogContent className="sm:max-w-sm" onKeyDown={handleDialogKeyDown}>
             <DialogHeader>
               <DialogTitle>{labels.dialogTitle}</DialogTitle>
               {labels.addPrompt ? <DialogDescription>{labels.addPrompt}</DialogDescription> : null}
             </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-sm font-medium">{labels.inputLabel}</label>
+            {/* Tinted wells via `[data-dialog-form]`; the error line is always laid
+                out, so the message appearing never pushes the footer down. */}
+            <DialogBody data-dialog-form="true" className="space-y-6">
+              <div className="flex flex-col gap-2.5">
+                <FormFieldLabel htmlFor={newCompanyInputId} className="mb-0" required>{labels.inputLabel}</FormFieldLabel>
                 <Input
+                  id={newCompanyInputId}
+                  aria-required="true"
                   placeholder={labels.inputPlaceholder}
                   value={newCompany}
                   onChange={(event) => {
@@ -707,9 +723,10 @@ export function CompanySelectField({ value, onChange, labels }: CompanySelectFie
                   disabled={saving}
                 />
               </div>
-              {formError ? <p className="text-sm text-status-error-text">{formError}</p> : null}
+              <p role="alert" className="min-h-5 text-sm text-status-error-text">{formError ?? ''}</p>
+            </DialogBody>
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
+                <Button type="button" variant="soft" onClick={() => setDialogOpen(false)} disabled={saving}>
                   {labels.cancelLabel}
                 </Button>
                 <Button
@@ -722,7 +739,6 @@ export function CompanySelectField({ value, onChange, labels }: CompanySelectFie
                   {saving ? `${labels.saveLabel}…` : labels.saveLabel}
                 </Button>
               </DialogFooter>
-            </div>
           </DialogContent>
         </Dialog>
       </div>
@@ -870,7 +886,7 @@ export const createDisplayNameSection = (t: Translator) =>
               <div className="mt-1 text-base font-medium">{previewValue || placeholder}</div>
             )}
           </div>
-          <Button type="button" variant="ghost" size="sm" onClick={toggleEditing}>
+          <Button type="button" variant="ghost" onClick={toggleEditing}>
             {editing ? (
               <>
                 <Check className="mr-2 h-4 w-4" />
@@ -886,7 +902,7 @@ export const createDisplayNameSection = (t: Translator) =>
         </div>
         {manualOverride ? (
           <div className="mt-3">
-            <Button type="button" variant="ghost" size="sm" onClick={handleReset} disabled={!derived}>
+            <Button type="button" variant="ghost" onClick={handleReset} disabled={!derived}>
               {t('customers.people.form.displayName.reset')}
             </Button>
           </div>
@@ -906,6 +922,7 @@ export const createPersonFormFields = (t: Translator, options?: { defaultCountry
     layout: definition.layout ?? 'third',
     component: ({ value, setValue }: CrudCustomFieldRenderProps) => (
       <DictionarySelectField
+        addButtonVariant="soft"
         kind={definition.kind}
         value={typeof value === 'string' ? value : undefined}
         onChange={(next) => setValue(next)}
@@ -928,6 +945,7 @@ export const createPersonFormFields = (t: Translator, options?: { defaultCountry
       layout: 'half',
       component: ({ value, setValue }: CrudCustomFieldRenderProps) => (
         <DictionarySelectField
+          addButtonVariant="soft"
           kind="salutations"
           value={typeof value === 'string' ? value : undefined}
           onChange={(next) => setValue(next)}
@@ -962,6 +980,7 @@ export const createPersonFormFields = (t: Translator, options?: { defaultCountry
       layout: 'half',
       component: ({ value, setValue }: CrudCustomFieldRenderProps) => (
         <DictionarySelectField
+          addButtonVariant="soft"
           kind="job-titles"
           value={typeof value === 'string' ? value : undefined}
           onChange={(next) => setValue(next)}
@@ -1371,6 +1390,7 @@ export const createCompanyFormFields = (t: Translator, options?: { defaultCountr
     layout: definition.layout ?? 'third',
     component: ({ value, setValue }: CrudCustomFieldRenderProps) => (
       <DictionarySelectField
+        addButtonVariant="soft"
         kind={definition.kind}
         value={typeof value === 'string' ? value : undefined}
         onChange={(next) => setValue(next)}
@@ -1410,6 +1430,7 @@ export const createCompanyFormFields = (t: Translator, options?: { defaultCountr
           invalidLabel={t('customers.people.form.primaryPhone.invalid', 'Enter a valid phone number with country code (e.g. +1 212 555 1234)')}
           minDigits={7}
           defaultCountryIso2={defaultCountryIso2}
+          tone="well"
         />
       ),
     } as CrudField,
@@ -1877,6 +1898,7 @@ export const createCompanyEditFields = (t: Translator, options?: { defaultCountr
         layout: 'half',
         component: ({ value, setValue }: CrudCustomFieldRenderProps) => (
           <DictionarySelectField
+            addButtonVariant="soft"
             kind={'industries' as CustomerDictionaryKind}
             value={typeof value === 'string' ? value : undefined}
             onChange={(next) => setValue(next)}
@@ -2080,56 +2102,26 @@ export const createPersonEditGroups = (t: Translator): CrudFormGroup[] => [
  * Groups for the Person v2 "Dane osobowe" Figma layout (SPEC-048 mockup).
  * All groups in column 1 (Zone 1). Notes handled separately in Zone 2 tabs.
  */
-export const createPersonPersonalDataGroups = (
-  t: Translator,
-  options?: { entityName?: string | null },
-): CrudFormGroup[] => {
-  const entityName = options?.entityName?.trim() || null
-  const rolesTitle = entityName
-    ? t('customers.roles.groupTitle.person', 'My roles with {{name}}', { name: entityName })
-    : t('customers.people.form.groups.roles', 'My roles')
-  return [
-    {
-      id: 'personalDataDisplay',
-      title: t('customers.people.form.groups.displayName', 'Display name'),
-      column: 1,
-      bare: true,
-      component: createDisplayNameSection(t),
-    },
-    {
-      id: 'personalData',
-      title: t('customers.people.form.groups.personalData', 'Personal data'),
-      column: 1,
-      fields: ['firstName', 'lastName', 'salutation', 'jobTitle', 'primaryEmail', 'primaryPhone'],
-    },
-    {
-      id: 'companyRole',
-      title: t('customers.people.form.groups.companyRole', 'Company & role'),
-      column: 1,
-      fields: ['companyEntityId', 'status', 'lifecycleStage', 'source'],
-    },
-    {
-      id: 'customFields',
-      title: t('customers.people.form.groups.customAttributes', 'Custom attributes'),
-      column: 1,
-      kind: 'customFields',
-    },
-    {
-      id: 'roles',
-      title: rolesTitle,
-      column: 1,
-      component: ({ values }: CrudFormGroupComponentProps) => (
-        values.id ? (
-          <RolesSection
-            entityType="person"
-            entityId={values.id as string}
-            entityName={typeof values.displayName === 'string' ? values.displayName : null}
-          />
-        ) : null
-      ),
-    },
-  ]
-}
+export const createPersonPersonalDataGroups = (t: Translator): CrudFormGroup[] => [
+  {
+    id: 'personalData',
+    title: t('customers.people.form.groups.personalData', 'Personal data'),
+    column: 1,
+    fields: ['firstName', 'lastName', 'salutation', 'jobTitle', 'primaryEmail', 'primaryPhone'],
+  },
+  {
+    id: 'companyRole',
+    title: t('customers.people.form.groups.companyRole', 'Company & role'),
+    column: 1,
+    fields: ['companyEntityId', 'status', 'lifecycleStage', 'source'],
+  },
+  {
+    id: 'customFields',
+    title: t('customers.people.form.groups.customAttributes', 'Custom attributes'),
+    column: 1,
+    kind: 'customFields',
+  },
+]
 
 // ---------------------------------------------------------------------------
 // Edit-mode payload builders

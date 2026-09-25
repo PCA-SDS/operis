@@ -60,23 +60,21 @@ function Pagination({
       <div className="flex items-center gap-2">
         <Button
           type="button"
-          variant="outline"
-          size="sm"
+          variant="soft"
           onClick={() => onPageChange(Math.max(1, page - 1))}
           disabled={page <= 1}
         >
-          <ArrowLeft className="mr-1.5 size-3.5" />
+          <ArrowLeft className="size-4" />
           Previous
         </Button>
         <Button
           type="button"
-          variant="outline"
-          size="sm"
+          variant="soft"
           onClick={() => onPageChange(Math.min(totalPages, page + 1))}
           disabled={page >= totalPages}
         >
           Next
-          <ArrowRight className="ml-1.5 size-3.5" />
+          <ArrowRight className="size-4" />
         </Button>
       </div>
     </div>
@@ -402,11 +400,10 @@ export function PersonCompaniesSection({
             />
             <Button
               type="button"
-              variant="outline"
-              size="sm"
+              variant="soft"
               onClick={() => setDialogOpen(true)}
             >
-              <Link2 className="mr-2 size-4" />
+              <Link2 className="size-4" />
               {t('customers.people.detail.companies.manageAction', 'Manage links')}
             </Button>
           </div>
@@ -418,7 +415,7 @@ export function PersonCompaniesSection({
             onChange={(event) =>
               setSort(event.target.value as 'name-asc' | 'name-desc' | 'recent')
             }
-            className="h-10 rounded-md border bg-input-bg px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            className="h-9 rounded-lg border border-transparent bg-input-bg px-3 text-sm font-medium focus:outline-none focus-visible:shadow-focus"
           >
             <option value="name-asc">
               {t('customers.people.detail.companies.sortNameAsc', 'Sort: Name A-Z')}

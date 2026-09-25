@@ -20,7 +20,6 @@ import type { CompanyOverview } from '../formConfig'
 import type { CustomerDictionaryMap } from '@open-mercato/core/modules/customers/lib/dictionaries'
 import { formatFallbackLabel } from './utils'
 
-const HEADER_ICON_BUTTON_CLASS = 'size-8 rounded-md'
 
 type CompanyDetailHeaderProps = {
   data: CompanyOverview
@@ -186,12 +185,10 @@ export function CompanyDetailHeader({
             ) : null}
             <Button
               type="button"
-              variant="outline"
-              size="sm"
-              className="h-auto rounded-sm px-2 py-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+              variant="soft"
               onClick={() => setManageTagsOpen(true)}
             >
-              <Pencil className="mr-1 size-3" />
+              <Pencil className="size-4" />
               {t('customers.companies.detail.actions.manageTags', 'Edit tags')}
             </Button>
           </div>
@@ -211,19 +208,19 @@ export function CompanyDetailHeader({
                 },
               }}
               viewHref={`/backend/customers/companies-v2/${company.id}`}
-              buttonVariant="outline"
+              buttonVariant="soft"
               buttonSize="icon"
-              buttonClassName={HEADER_ICON_BUTTON_CLASS}
               buttonLabel={t('customers.companies.detail.actions.sendMessage', 'Send message')}
             />
             <ObjectHistoryButton
+              tone="soft"
               resourceKind="customers.company"
               resourceId={company.id}
               organizationId={company.organizationId ?? undefined}
             />
             <IconButton
-              variant="outline"
-              size="sm"
+              variant="soft"
+              size="lg"
               type="button"
               aria-label={t('customers.companies.detail.actions.delete', 'Delete company')}
               onClick={() => {
@@ -234,7 +231,6 @@ export function CompanyDetailHeader({
             </IconButton>
             <Button
               type="button"
-              size="sm"
               onClick={onSave}
               disabled={!isDirty || isSaving}
             >

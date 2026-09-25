@@ -1163,6 +1163,14 @@ const [query, setQuery] = React.useState('')
   <SearchInput tone="plain" value={query} onChange={setQuery} />
 </div>`,
     },
+    {
+      id: 'tone-well',
+      title: 'tone="well" (among fields and dropdowns)',
+      render: () => <DemoSearchInput tone="well" initial="" />,
+      code: `import { SearchInput } from '@open-mercato/ui/primitives/search-input'
+
+<SearchInput tone="well" value={query} onChange={setQuery} />`,
+    },
   ],
 }
 

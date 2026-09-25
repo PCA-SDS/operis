@@ -367,6 +367,7 @@ export function ActivityHistorySection({
               value={searchInput}
               onChange={setSearchInput}
               loading={searchInput.trim() !== search}
+              tone="well"
               placeholder={t('customers.activityLog.searchPlaceholder', 'Search by title, note, or author')}
             />
           </div>
@@ -381,10 +382,9 @@ export function ActivityHistorySection({
                 <Button
                   key={filter.value}
                   type="button"
-                  variant={isActive ? 'default' : 'outline'}
-                  size="sm"
+                  variant={isActive ? 'default' : 'soft'}
                   onClick={() => handleTypeToggle(filter.value)}
-                  className="h-auto rounded-full px-2.5 py-1 text-xs"
+                  aria-pressed={isActive}
                 >
                   {t(filter.labelKey, filter.fallback)}
                   <span className={isActive ? 'ml-1 text-primary-foreground/80' : 'ml-1 text-muted-foreground'}>
@@ -401,7 +401,6 @@ export function ActivityHistorySection({
               }}
             >
               <SelectTrigger
-                size="sm"
                 aria-label={t('customers.activityLog.filters.dateRangeLabel', 'Date range')}
                 className="w-auto"
               >
@@ -421,7 +420,6 @@ export function ActivityHistorySection({
               }}
             >
               <SelectTrigger
-                size="sm"
                 aria-label={t('customers.activityLog.filters.sortLabel', 'Sort order')}
                 className="w-auto"
               >

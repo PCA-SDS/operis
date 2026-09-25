@@ -30,6 +30,7 @@ type TabsContextValue = {
   onValueChange: (value: string) => void
   variant: 'pill' | 'underline'
   orientation: 'horizontal' | 'vertical'
+  reserveActiveWidth: boolean
 }
 
 export const TabsContext = createContext<TabsContextValue | undefined>(undefined)
@@ -59,6 +60,13 @@ export type TabsProps = {
    * supports both; the underline variant supports only `horizontal`
    * (per Figma — vertical underline is not a documented pattern). */
   orientation?: TabsOrientation
+  /**
+   * Underline variant only. The selected label is semibold and the rest are
+   * medium, so selecting a tab changes its width and shifts every tab after
+   * it. When true, each label reserves its semibold width in every state, so
+   * switching tabs moves nothing. Off by default.
+   */
+  reserveActiveWidth?: boolean
   children: React.ReactNode
   className?: string
 }
@@ -69,6 +77,7 @@ export function Tabs({
   onValueChange,
   variant = 'pill',
   orientation = 'horizontal',
+  reserveActiveWidth = false,
   children,
   className,
 }: TabsProps) {
@@ -87,8 +96,8 @@ export function Tabs({
   )
 
   const contextValue = React.useMemo<TabsContextValue>(
-    () => ({ value, onValueChange: handleValueChange, variant, orientation }),
-    [value, handleValueChange, variant, orientation],
+    () => ({ value, onValueChange: handleValueChange, variant, orientation, reserveActiveWidth }),
+    [value, handleValueChange, variant, orientation, reserveActiveWidth],
   )
 
   return (
@@ -164,7 +173,7 @@ export function TabsTrigger({
   leading,
   count,
 }: TabsTriggerProps) {
-  const { value: selectedValue, onValueChange, variant, orientation } = useTabsContext()
+  const { value: selectedValue, onValueChange, variant, orientation, reserveActiveWidth } = useTabsContext()
   const isSelected = selectedValue === value
 
   if (variant === 'underline') {
@@ -211,7 +220,19 @@ export function TabsTrigger({
             {leading}
           </span>
         ) : null}
-        <span className="min-w-0 truncate">{children}</span>
+        {reserveActiveWidth && orientation !== 'vertical' && (typeof children === 'string' || typeof children === 'number') ? (
+          // The semibold width is reserved by a hidden, zero-height `::after`
+          // carrying the same label, so it never reaches textContent or the
+          // accessible name the way a second DOM copy would.
+          <span
+            data-label={children}
+            className="inline-flex min-w-0 flex-col truncate after:invisible after:h-0 after:overflow-hidden after:font-semibold after:content-[attr(data-label)] after:select-none"
+          >
+            {children}
+          </span>
+        ) : (
+          <span className="min-w-0 truncate">{children}</span>
+        )}
         {count !== undefined ? (
           <span
             data-slot="tabs-trigger-count"

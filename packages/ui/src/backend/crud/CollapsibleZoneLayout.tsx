@@ -45,6 +45,12 @@ export interface CollapsibleZoneLayoutProps {
   isDirty?: boolean
   /** Section descriptors for the collapsed rail icon sidebar. When omitted the rail shows the legacy minimal view. */
   sections?: ZoneSectionDescriptor[]
+  /**
+   * Chrome for the collapse/expand toggles and the collapsed rail. `default`
+   * keeps the outline toggles; `soft` renders them as 36px soft icon buttons
+   * with no bordered rail card, matching pages built on the soft button family.
+   */
+  toggleTone?: 'default' | 'soft'
 }
 
 function subscribeViewport(callback: () => void) {
@@ -70,7 +76,9 @@ export function CollapsibleZoneLayout({
   errorCount = 0,
   isDirty = false,
   sections,
+  toggleTone = 'default',
 }: CollapsibleZoneLayoutProps) {
+  const soft = toggleTone === 'soft'
   const t = useT()
   const { collapsed, setCollapsed, isHydrated } = useZoneCollapse(pageType)
   const canCollapse = React.useSyncExternalStore(
@@ -181,6 +189,31 @@ export function CollapsibleZoneLayout({
     })
   }, [canCollapse, setCollapsed])
 
+  const renderCollapseToggle = (extraClassName?: string) =>
+    soft ? (
+      <IconButton
+        type="button"
+        variant="soft"
+        size="lg"
+        onClick={handleCollapse}
+        className={extraClassName}
+        aria-label={t('ui.zone.collapse', 'Collapse form panel')}
+      >
+        <ChevronsLeft className="size-4" />
+      </IconButton>
+    ) : (
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={handleCollapse}
+        className={cn(extraClassName, 'h-auto rounded-md border bg-card px-1.5 py-2')}
+        aria-label={t('ui.zone.collapse', 'Collapse form panel')}
+      >
+        <ChevronsLeft className="size-4" />
+      </Button>
+    )
+
   return (
     <div
       ref={layoutRef}
@@ -196,19 +229,32 @@ export function CollapsibleZoneLayout({
       {showCollapsedRail ? (
         <>
           <div className="hidden lg:flex shrink-0 flex-col items-center gap-3">
-            <Button
-              ref={expandButtonRef}
-              type="button"
-              variant="default"
-              size="sm"
-              onClick={handleExpand}
-              className="h-auto rounded-lg px-1.5 py-2 shadow-sm"
-              aria-label={t('ui.zone.expand', 'Expand form panel')}
-            >
-              <ChevronsRight className="size-4" />
-            </Button>
+            {soft ? (
+              <IconButton
+                ref={expandButtonRef}
+                type="button"
+                variant="primary"
+                size="lg"
+                onClick={handleExpand}
+                aria-label={t('ui.zone.expand', 'Expand form panel')}
+              >
+                <ChevronsRight className="size-4" />
+              </IconButton>
+            ) : (
+              <Button
+                ref={expandButtonRef}
+                type="button"
+                variant="default"
+                size="sm"
+                onClick={handleExpand}
+                className="h-auto rounded-lg px-1.5 py-2 shadow-sm"
+                aria-label={t('ui.zone.expand', 'Expand form panel')}
+              >
+                <ChevronsRight className="size-4" />
+              </Button>
+            )}
             {sections?.length ? (
-              <div className="flex flex-col items-center gap-2 rounded-xl border border-border/70 bg-card px-2 py-3">
+              <div className={soft ? 'flex flex-col items-center gap-2' : 'flex flex-col items-center gap-2 rounded-xl border border-border/70 bg-card px-2 py-3'}>
                 {sections.map((section) => {
                   const SectionIcon = section.icon
                   const hasErrors = Boolean(section.errorCount && section.errorCount > 0)
@@ -216,10 +262,10 @@ export function CollapsibleZoneLayout({
                     <IconButton
                       key={section.id}
                       type="button"
-                      variant="ghost"
-                      size="default"
+                      variant={soft ? 'soft' : 'ghost'}
+                      size={soft ? 'lg' : 'default'}
                       onClick={() => handleSectionActivate(section)}
-                      className="relative size-9 rounded-lg border border-transparent bg-muted/70 text-muted-foreground hover:border-border hover:bg-accent hover:text-accent-foreground"
+                      className={soft ? 'relative' : 'relative size-9 rounded-lg border border-transparent bg-muted/70 text-muted-foreground hover:border-border hover:bg-accent hover:text-accent-foreground'}
                       title={section.label}
                       aria-label={section.ariaLabel ?? section.label}
                     >
@@ -243,16 +289,7 @@ export function CollapsibleZoneLayout({
           <div className="w-full space-y-2">
             {canCollapse ? (
               <div className="flex justify-end">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleCollapse}
-                  className="h-auto rounded-md border bg-card px-1.5 py-2"
-                  aria-label={t('ui.zone.collapse', 'Collapse form panel')}
-                >
-                  <ChevronsLeft className="size-4" />
-                </Button>
+                {renderCollapseToggle()}
               </div>
             ) : null}
             <div className="w-full">
@@ -277,16 +314,7 @@ export function CollapsibleZoneLayout({
           {/* Divider with collapse toggle */}
           <div className="hidden lg:flex relative shrink-0 w-8 items-start justify-center pt-4">
             <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border" />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleCollapse}
-              className="relative z-10 h-auto rounded-md border bg-card px-1.5 py-2"
-              aria-label={t('ui.zone.collapse', 'Collapse form panel')}
-            >
-              <ChevronsLeft className="size-4" />
-            </Button>
+            {renderCollapseToggle('relative z-10')}
           </div>
 
           {/* Zone 2 — Tabs / related data area */}
