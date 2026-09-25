@@ -59,6 +59,20 @@ describe('sendEmail', () => {
     )
   })
 
+  it('passes a display-name sender to the Resend SDK payload', async () => {
+    await sendEmail({
+      to: 'user@example.com',
+      subject: 'Hello',
+      react: React.createElement('div', null, 'Hi'),
+      from: 'NAM <from@example.com>',
+    })
+
+    expect(sendMock).toHaveBeenCalledWith(
+      expect.objectContaining({ from: 'NAM <from@example.com>' }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    )
+  })
+
   it('uses a caller-provided API key instead of the global key', async () => {
     await sendEmail({
       apiKey: 'tenant-key',

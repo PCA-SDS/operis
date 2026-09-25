@@ -1,6 +1,5 @@
 import type { IntegrationBundle, IntegrationDefinition } from '@open-mercato/shared/modules/integrations/types'
-
-export const RESEND_INTEGRATION_ID = 'resend'
+import { RESEND_INTEGRATION_ID } from './index'
 
 export const integration: IntegrationDefinition = {
   id: RESEND_INTEGRATION_ID,
@@ -10,7 +9,7 @@ export const integration: IntegrationDefinition = {
   providerKey: 'resend',
   icon: 'mail',
   docsUrl: 'https://resend.com/docs',
-  package: '@open-mercato/core',
+  package: '@open-mercato/email-resend',
   tags: ['email', 'resend', 'transactional'],
   defaultState: { isEnabled: true },
   healthCheck: { service: 'resendHealthCheck' },
@@ -26,10 +25,10 @@ export const integration: IntegrationDefinition = {
       },
       {
         key: 'fromEmail',
-        label: 'Default sender email',
+        label: 'Default sender',
         type: 'text',
-        placeholder: 'noreply@example.com',
-        helpText: 'Used when a feature does not provide its own sender email.',
+        placeholder: 'Name <noreply@example.com>',
+        helpText: 'Used when a feature does not provide its own sender. You may include a display name.',
       },
     ],
   },

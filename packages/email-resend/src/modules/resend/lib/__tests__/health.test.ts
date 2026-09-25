@@ -1,4 +1,4 @@
-import { resendHealthCheck } from '../resend-health'
+import { resendHealthCheck } from '../health'
 
 describe('resendHealthCheck', () => {
   const originalFetch = global.fetch
@@ -43,6 +43,19 @@ describe('resendHealthCheck', () => {
       status: 'healthy',
       message: 'Connected to Resend and default sender domain is verified',
       details: { provider: 'resend', httpStatus: 200, senderConfigured: true, senderFormatValid: true, senderDomainVerified: true },
+    })
+  })
+
+  it('accepts a display-name sender and verifies its mailbox domain', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ data: [{ name: 'example.com', status: 'verified' }] }),
+    }) as typeof fetch
+
+    await expect(resendHealthCheck.check({ apiKey: 'tenant-key', fromEmail: 'NAM <noreply@example.com>' }, { tenantId: 'tenant-1', organizationId: 'org-1' })).resolves.toMatchObject({
+      status: 'healthy',
+      details: { senderConfigured: true, senderFormatValid: true, senderDomainVerified: true },
     })
   })
 

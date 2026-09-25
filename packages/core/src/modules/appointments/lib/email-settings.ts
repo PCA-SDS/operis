@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { emailSchema } from '@open-mercato/shared/lib/validation'
 
 export const APPOINTMENT_EMAIL_SETTINGS_MODULE_ID = 'appointments'
 export const APPOINTMENT_EMAIL_SETTINGS_KEY = 'public_booking_email'
@@ -9,7 +10,7 @@ const emailListSchema = z.string().trim().refine((value) => {
 }, 'Enter valid email addresses separated by commas.')
 
 export const appointmentEmailSettingsSchema = z.object({
-  from: z.string().trim().email().or(z.literal('')),
+  from: emailSchema({ allowDisplayName: true }).or(z.literal('')),
   to: emailListSchema,
   cc: emailListSchema,
   bcc: emailListSchema,
