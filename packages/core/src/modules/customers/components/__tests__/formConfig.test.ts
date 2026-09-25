@@ -55,11 +55,9 @@ describe('detail page zone1 group layouts', () => {
     const groups = createPersonPersonalDataGroups(t)
 
     expect(groups.map((group) => group.id)).toEqual([
-      'personalDataDisplay',
       'personalData',
       'companyRole',
       'customFields',
-      'roles',
     ])
     expect(groups.every((group) => group.column === 1)).toBe(true)
   })

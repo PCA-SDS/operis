@@ -528,6 +528,7 @@ export default function CompanyDetailV2Page({ params }: { params?: { id?: string
                   hideFooterActions
                   collapsibleGroups={{ pageType: 'company-v2', chevronPosition: 'right' }}
                   flatCustomFieldSections
+                  collapsibleGroupTone="card"
                   sortableGroups={{ pageType: 'company-v2' }}
                   onDirtyChange={setIsDirty}
                 />

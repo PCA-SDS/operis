@@ -5,48 +5,31 @@ import { createCompanyFixture, createPersonFixture, deleteEntityIfExists, readJs
 import { fillControlledInput } from '@open-mercato/core/modules/core/__integration__/helpers/ui';
 
 /**
- * TC-CRM-018: Person Display Name Edit And Undo
+ * TC-CRM-018: Person Display Name Follows The Name Fields, With Undo
  *
- * Rewritten for people-v2. The original drove v1's per-field inline editor — click
- * a `Display name <value>` summary button, then a per-field `Save`. v2 replaced
- * that with a single CrudForm and one header Save (SPEC-046), and display name
- * became a derived preview behind an "Edit name" toggle. The interaction changed;
- * what this asserts did not. It still proves the edit round-trips to the server
- * and that the operation banner's Undo reverts it.
+ * people-v2 no longer carries a display-name preview or an "Edit name" override
+ * (2026-09-24 detail-page strip-down, see
+ * .ai/specs/2026-09-24-customer-detail-ui-consistency.md). The page omits an
+ * unchanged displayName from the update, so the server re-derives a derived name
+ * from first/last name. This proves a last-name edit round-trips to the stored
+ * display name and that the operation banner's Undo reverts it.
  */
 
 /**
- * Reveal the editable display-name input on people-v2.
- *
- * Two things differ from v1. The CrudForm lives inside a `CollapsibleZoneLayout`
- * that starts collapsed to an icon rail at the default 1280px viewport, so the
- * form mounts hidden until "Expand form panel" is clicked (mirrors
- * `openPersonFormLastNameInput` in TC-LOCK-OSS-015). And display name is not a
- * plain field: it renders as a read-only "Display name preview" derived from
- * first/last name, with an "Edit name" button that swaps in an input and marks
- * the value as a manual override.
+ * The CrudForm lives inside a `CollapsibleZoneLayout` that starts collapsed to an
+ * icon rail at the default 1280px viewport (mirrors `openPersonFormLastNameInput`
+ * in TC-LOCK-OSS-015).
  */
-async function openDisplayNameInput(page: Page) {
-  const previewLabel = page.getByText(/display name preview/i).first();
-  if (!(await previewLabel.isVisible().catch(() => false))) {
+async function openLastNameInput(page: Page) {
+  const lastNameInput = page.locator('[data-crud-field-id="lastName"] input:visible').first();
+  if (!(await lastNameInput.isVisible().catch(() => false))) {
     const expandPanel = page.getByRole('button', { name: /expand form panel/i });
     await expect(expandPanel).toBeVisible({ timeout: 15_000 });
     await expandPanel.click();
   }
-  await expect(previewLabel).toBeVisible({ timeout: 15_000 });
-
-  const editNameButton = page.getByRole('button', { name: /^edit name$/i }).first();
-  await expect(editNameButton).toBeVisible({ timeout: 15_000 });
-  await editNameButton.click();
-
-  const input = page.getByPlaceholder('Enter display name').first();
-  await expect(input).toBeVisible({ timeout: 15_000 });
-  // Clicking "Edit name" seeds the input from the derived value. Wait for that
-  // before typing: editing while it is still empty makes the typed text the dirty
-  // baseline, so the form never registers dirty and Save stays disabled — the
-  // load race documented in TC-LOCK-OSS-014.
-  await expect(input).not.toHaveValue('', { timeout: 15_000 });
-  return input;
+  await expect(lastNameInput).toBeVisible({ timeout: 15_000 });
+  await expect(lastNameInput).not.toHaveValue('', { timeout: 15_000 });
+  return lastNameInput;
 }
 
 async function saveForm(page: Page) {
@@ -55,19 +38,21 @@ async function saveForm(page: Page) {
   await saveButton.click();
 }
 
-test.describe('TC-CRM-018: Person Display Name Edit And Undo', () => {
-  test('should edit person display name and undo the update', async ({ page, request }) => {
+test.describe('TC-CRM-018: Person Display Name Follows The Name Fields', () => {
+  test('should re-derive the display name from a last-name edit and undo it', async ({ page, request }) => {
     let token: string | null = null;
     let companyId: string | null = null;
     let personId: string | null = null;
 
     try {
       token = await getAuthToken(request);
-      const originalName = `QA TC-CRM-018 Person ${Date.now()}`;
-      companyId = await createCompanyFixture(request, token, `QA TC-CRM-018 Company ${Date.now()}`);
+      const stamp = Date.now();
+      const originalLastName = `TCCRM018 ${stamp}`;
+      const originalName = `QA ${originalLastName}`;
+      companyId = await createCompanyFixture(request, token, `QA TC-CRM-018 Company ${stamp}`);
       personId = await createPersonFixture(request, token, {
         firstName: 'QA',
-        lastName: 'TCCRM018',
+        lastName: originalLastName,
         displayName: originalName,
         companyEntityId: companyId,
       });
@@ -75,9 +60,11 @@ test.describe('TC-CRM-018: Person Display Name Edit And Undo', () => {
       await login(page, 'admin');
       await page.goto(`/backend/customers/people-v2/${personId}`);
 
-      const input = await openDisplayNameInput(page);
-      const updatedName = `${originalName} QA`;
-      await fillControlledInput(input, updatedName);
+      await expect(page.getByText(/display name preview/i)).toHaveCount(0);
+      const input = await openLastNameInput(page);
+      const updatedLastName = `${originalLastName} Edited`;
+      const updatedName = `QA ${updatedLastName}`;
+      await fillControlledInput(input, updatedLastName);
       await saveForm(page);
 
       // Read the persisted value from the server rather than the form the edit was
@@ -94,7 +81,7 @@ test.describe('TC-CRM-018: Person Display Name Edit And Undo', () => {
         return (body?.person?.displayName ?? '').replace(/\s+/g, ' ').trim();
       };
 
-      await expect.poll(readPersistedDisplayName, { timeout: 15_000 }).toContain(updatedName);
+      await expect.poll(readPersistedDisplayName, { timeout: 15_000 }).toBe(updatedName);
 
       await page.getByRole('button', { name: /^Undo(?: last action)?$/ }).click();
       await expect.poll(readPersistedDisplayName, { timeout: 15_000 }).toBe(originalName);

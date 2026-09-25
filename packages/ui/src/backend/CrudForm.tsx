@@ -444,6 +444,8 @@ export type CrudFormProps<TValues extends Record<string, unknown>> = {
    * Off by default.
    */
   flatCustomFieldSections?: boolean
+  /** With `collapsibleGroups`, `card` renders every group as a white card. */
+  collapsibleGroupTone?: 'default' | 'card'
   /**
    * Opt-in fixed dialog layout. When set, the fields and the error summary
    * render inside a `data-dialog-form` body with these classes (give it a
@@ -796,6 +798,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
   replacementHandle,
   collapsibleGroups,
   flatCustomFieldSections = false,
+  collapsibleGroupTone = 'default',
   dialogBodyClassName,
   sortableGroups,
   shouldBypassUnsavedChangesGuard,
@@ -3651,6 +3654,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
             if (collapsibleGroupsEnabled && g.title) {
               nodes.push(
                 <CollapsibleGroup
+                  tone={collapsibleGroupTone}
                   key={`${g.id}-loading-collapsible`}
                   groupId={g.id}
                   title={t(g.title, g.title)}
@@ -3694,6 +3698,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
             )
             nodes.push(
               <CollapsibleGroup
+                tone={collapsibleGroupTone}
                 key={g.id}
                 ref={(handle) => {
                   if (handle) groupCollapseRefs.current.set(g.id, handle)
@@ -3748,6 +3753,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
         if (collapsibleGroupsEnabled && g.title) {
           nodes.push(
             <CollapsibleGroup
+              tone={collapsibleGroupTone}
               key={g.id}
               ref={(handle) => {
                 if (handle) groupCollapseRefs.current.set(g.id, handle)

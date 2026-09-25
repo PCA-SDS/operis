@@ -39,6 +39,7 @@ footer rules and silent validation.
 | `ui/primitives/tabs` | `reserveActiveWidth` — reserves the semibold label width via `::after` |
 | `ui/backend/CrudForm` | `flatCustomFieldSections`; `dialogBodyClassName` (fixed `data-dialog-form` body, unruled footer below it; `extraActions` render only in that footer) |
 | `ui/backend/forms/FormSection` | `panel={false}` |
+| `ui/backend/crud/CollapsibleGroup` + `CrudForm` | `tone="card"` / `collapsibleGroupTone="card"` — groups stay white (`bg-surface`) open and closed |
 | `ui/backend/crud/CollapsibleZoneLayout` | `toggleTone="soft"` |
 | `ui/backend/detail/AttachmentsSection`, `AddressTiles`, `messages/EmailThreadsPanel` | `actionVariant="soft"` |
 | `ui/backend/messages/SendObjectMessageDialog` | `buttonVariant="soft"` |
@@ -50,10 +51,17 @@ footer rules and silent validation.
 
 ### Customers surfaces
 
-Headers, tabs, form zone, roles, activity feed, emails, companies, addresses, tasks, change log,
+Headers, tabs, form zone (reorderable groups are white cards), activity feed, emails, companies, addresses, tasks, change log,
 company people and KPI bar: `outline sm` → `soft` default size; icon-only → `IconButton soft lg`;
 icons `size-4`; primary actions stay `default`. Conditional controls stay laid out (`invisible`)
 so showing them moves nothing.
+
+The person page no longer shows the "My roles with {name}" group or the display-name preview
+("Edit name" override): the detail page is being reduced to basic details first. Without the
+preview nothing on the page edits `displayName`, so the page drops an unchanged `displayName`
+from the update payload; `updatePersonCommand` then re-derives a derived name from first/last
+name and leaves a custom one untouched. TC-CRM-018 now covers that round-trip and its Undo. `RolesSection` itself stays (the company People tab still renders
+"Roles at {name}"); TC-CRM-045 now asserts the person page has no roles section.
 
 ### Dialogs
 
@@ -105,3 +113,5 @@ history panel, and the rich-text editor toolbar.
 ## Changelog
 
 - 2026-09-24 — Implemented on branch `fix-client-page`.
+- 2026-09-24 — White reorderable group cards; removed the person-page roles group.
+- 2026-09-24 — Removed the person-page display-name preview; unchanged displayName is omitted on save.
