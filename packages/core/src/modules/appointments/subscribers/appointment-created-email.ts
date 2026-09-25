@@ -7,6 +7,10 @@ import AppointmentNoti from '../emails/AppointmentNoti'
 import AppointmentConfirmationEmail from '../emails/AppointmentConfirmationEmail'
 import type { AppointmentEmailData, EmailOptionDetail, EmailServiceSelection, Price } from '../emails/appointment-email'
 import type { ModuleConfigService } from '@open-mercato/core/modules/configs/lib/module-config-service'
+import type { CredentialsService } from '@open-mercato/core/modules/integrations/lib/credentials-service'
+import type { IntegrationLogService } from '@open-mercato/core/modules/integrations/lib/log-service'
+import type { IntegrationStateService } from '@open-mercato/core/modules/integrations/lib/state-service'
+import { RESEND_INTEGRATION_ID } from '../integration'
 import {
   APPOINTMENT_EMAIL_SETTINGS_KEY,
   APPOINTMENT_EMAIL_SETTINGS_MODULE_ID,
@@ -31,6 +35,13 @@ type AppointmentCreatedPayload = {
 
 type ResolverContext = {
   resolve: <T = unknown>(name: string) => T
+}
+
+type AppointmentEmailLog = {
+  level: 'info' | 'warn' | 'error'
+  message: string
+  code: string
+  payload?: Record<string, unknown>
 }
 
 function parseEmailList(value: string): string[] | undefined {
@@ -115,6 +126,54 @@ export default async function handle(payload: AppointmentCreatedPayload, ctx: Re
   })
   const emailData = toEmailData(appointment, organization?.name?.trim() || payload.organizationId)
 
+  const scope = { tenantId: payload.tenantId, organizationId: payload.organizationId }
+  const integrationLogService = ctx.resolve<IntegrationLogService>('integrationLogService')
+  const writeIntegrationLog = async (entry: AppointmentEmailLog): Promise<void> => {
+    try {
+      await integrationLogService.write({ integrationId: RESEND_INTEGRATION_ID, ...entry }, scope)
+    } catch (error) {
+      logger.error('Could not write appointment email integration log', {
+        appointmentId: appointment.id,
+        err: error,
+      })
+    }
+  }
+
+  const stateService = ctx.resolve<IntegrationStateService>('integrationStateService')
+  if (!await stateService.isEnabled(RESEND_INTEGRATION_ID, scope)) {
+    logger.info('Appointment email skipped because the Resend integration is disabled', {
+      appointmentId: appointment.id,
+      tenantId: payload.tenantId,
+      organizationId: payload.organizationId,
+    })
+    await writeIntegrationLog({
+      level: 'info',
+      message: 'Appointment email skipped because the Resend integration is disabled',
+      code: 'resend.disabled',
+      payload: { appointmentId: appointment.id },
+    })
+    return
+  }
+
+  const credentialsService = ctx.resolve<CredentialsService>('integrationCredentialsService')
+  const credentials = await credentialsService.resolve(RESEND_INTEGRATION_ID, scope)
+  const apiKey = typeof credentials?.apiKey === 'string' ? credentials.apiKey.trim() : ''
+  const defaultSender = typeof credentials?.fromEmail === 'string' ? credentials.fromEmail.trim() : ''
+  if (!apiKey) {
+    logger.warn('Appointment email skipped because the tenant has no Resend credentials configured', {
+      appointmentId: appointment.id,
+      tenantId: payload.tenantId,
+      organizationId: payload.organizationId,
+    })
+    await writeIntegrationLog({
+      level: 'warn',
+      message: 'Appointment email skipped because Resend credentials are not configured',
+      code: 'resend.credentials_missing',
+      payload: { appointmentId: appointment.id },
+    })
+    return
+  }
+
   const configService = ctx.resolve<ModuleConfigService>('moduleConfigService')
   const settingsRecord = await configService.getRecord(
     APPOINTMENT_EMAIL_SETTINGS_MODULE_ID,
@@ -124,45 +183,85 @@ export default async function handle(payload: AppointmentCreatedPayload, ctx: Re
   const rawSettings = settingsRecord?.source === 'tenant' ? settingsRecord.value : null
   const parsedSettings = appointmentEmailSettingsSchema.safeParse(rawSettings)
   const settings = parsedSettings.success ? parsedSettings.data : DEFAULT_APPOINTMENT_EMAIL_SETTINGS
+  const sender = settings.from || defaultSender || undefined
 
-  const sends: Array<Promise<unknown>> = []
+  const sends: Array<{ recipientType: 'internal' | 'customer'; task: Promise<unknown> }> = []
   const internalRecipients = parseEmailList(settings.to)
   if (internalRecipients?.length) {
-    sends.push(sendEmail({
-      to: internalRecipients,
-      cc: parseEmailList(settings.cc),
-      bcc: parseEmailList(settings.bcc),
-      from: settings.from || undefined,
-      replyTo: settings.replyTo || undefined,
-      subject: `[TPS][BR] from ${emailData.salutation}. ${emailData.customerName} - ${emailData.location}`,
-      react: AppointmentNoti(emailData),
-    }))
+    sends.push({
+      recipientType: 'internal',
+      task: sendEmail({
+        apiKey,
+        to: internalRecipients,
+        cc: parseEmailList(settings.cc),
+        bcc: parseEmailList(settings.bcc),
+        from: sender,
+        replyTo: settings.replyTo || undefined,
+        subject: `[TPS][BR] from ${emailData.salutation}. ${emailData.customerName} - ${emailData.location}`,
+        react: AppointmentNoti(emailData),
+      }),
+    })
   } else {
     logger.warn('Internal appointment email skipped because the tenant has no recipients configured', {
       appointmentId: appointment.id,
       tenantId: payload.tenantId,
     })
+    await writeIntegrationLog({
+      level: 'warn',
+      message: 'Internal appointment email skipped because no recipients are configured',
+      code: 'resend.internal_recipient_missing',
+      payload: { appointmentId: appointment.id },
+    })
   }
 
   if (emailData.customerEmail.trim()) {
-    sends.push(sendEmail({
-      to: emailData.customerEmail,
-      from: settings.from || undefined,
-      replyTo: settings.replyTo || undefined,
-      subject: 'Your booking has been recorded – The Privé Spa',
-      react: AppointmentConfirmationEmail(emailData),
-    }))
+    sends.push({
+      recipientType: 'customer',
+      task: sendEmail({
+        apiKey,
+        to: emailData.customerEmail,
+        from: sender,
+        replyTo: settings.replyTo || undefined,
+        subject: 'Your booking has been recorded – The Privé Spa',
+        react: AppointmentConfirmationEmail(emailData),
+      }),
+    })
   }
 
   if (sends.length === 0) {
     logger.warn('Appointment emails skipped because no recipients are configured', { appointmentId: appointment.id })
+    await writeIntegrationLog({
+      level: 'warn',
+      message: 'Appointment emails skipped because no recipients are configured',
+      code: 'resend.no_recipients',
+      payload: { appointmentId: appointment.id },
+    })
     return
   }
 
-  const results = await Promise.allSettled(sends)
+  const results = await Promise.allSettled(sends.map((send) => send.task))
   for (const [index, result] of results.entries()) {
+    const send = sends[index]
+    if (!send) continue
     if (result.status === 'rejected') {
       logger.error('Appointment email delivery failed', { appointmentId: appointment.id, recipientIndex: index, err: result.reason })
+      await writeIntegrationLog({
+        level: 'error',
+        message: `Appointment ${send.recipientType} email delivery failed`,
+        code: 'resend.email_failed',
+        payload: {
+          appointmentId: appointment.id,
+          recipientType: send.recipientType,
+          error: result.reason instanceof Error ? result.reason.message : 'Unknown email delivery error',
+        },
+      })
+      continue
     }
+    await writeIntegrationLog({
+      level: 'info',
+      message: `Appointment ${send.recipientType} email delivered`,
+      code: 'resend.email_sent',
+      payload: { appointmentId: appointment.id, recipientType: send.recipientType },
+    })
   }
 }
