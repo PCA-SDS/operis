@@ -659,7 +659,7 @@ describe('AppShell', () => {
       { dict },
     )
     const root = container.querySelector('[data-app-shell-column]')?.parentElement as HTMLElement
-    expect(root.style.getPropertyValue('--topbar-height')).toBe('65px')
+    expect(root.style.getPropertyValue('--topbar-height')).toBe('64px')
   })
 
   describe('module sidebar', () => {
@@ -791,6 +791,37 @@ describe('AppShell', () => {
       expect(within(sidebar).getByRole('link', { name: 'System Status' })).toHaveAttribute('aria-current', 'page')
       expect(within(sidebar).queryByRole('link', { name: 'People' })).toBeNull()
       expect(screen.getByTestId('module-switcher-current')).toHaveTextContent('Modules')
+    })
+
+    it('lists profile-context pages from other modules in the Profile sidebar', () => {
+      mockPathname = '/backend/profile/notification-preferences'
+      renderWithProviders(
+        <AppShell
+          email="demo@example.com"
+          groups={[
+            ...moduleGroups,
+            {
+              id: 'notifications.preferences.profileGroup',
+              name: 'Profile',
+              items: [{ href: '/backend/profile/notification-preferences', title: 'Notification Preferences', pageContext: 'profile' as const }],
+            },
+          ]}
+          profileSectionTitle="Profile"
+          profilePathPrefixes={['/backend/profile/']}
+          profileSections={[
+            { id: 'account', label: 'Account', items: [{ id: 'pw', label: 'Change Password', href: '/backend/profile/change-password' }] },
+          ]}
+        >
+          <BackendModuleFrame enabled>
+            <div>Profile content</div>
+          </BackendModuleFrame>
+        </AppShell>,
+        { dict },
+      )
+      const sidebar = screen.getByTestId('module-sidebar')
+      const links = within(sidebar).getAllByRole('link').map((link) => link.textContent)
+      expect(links).toEqual(['Change Password', 'Notification Preferences'])
+      expect(within(sidebar).getByRole('link', { name: 'Notification Preferences' })).toHaveAttribute('aria-current', 'page')
     })
 
     it('renders item icons from iconName when iconMarkup is missing', async () => {

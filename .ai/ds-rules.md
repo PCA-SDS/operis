@@ -122,6 +122,16 @@ Elevation is carried by the shadow scale, not by stacking borders. A list-view c
 `rounded-xl bg-surface shadow-md` with **no border** — a border plus a shadow reads as two
 competing edges.
 
+## Page gutter
+
+Every backend page spans the full width of the content column. The shell's `main` owns the only page
+gutter: `px-4 pt-4` (16px sides and top) at every screen size, with no `max-w-*` cap.
+
+- A page MUST NOT add its own outer padding, margin or width cap (`max-w-*`, `mx-auto`, `px-*`/`pt-*` on
+  its root or on a wrapper around all of its content). Width caps belong on self-contained pieces only: a
+  dialog, a line of prose, an image preview.
+- A full-bleed page (an editor canvas) undoes exactly the gutter: `-mx-4 -mt-4`.
+
 ## Navigation: module switcher and module sidebars
 
 There is **no global sidebar**. The topbar's `ModuleSwitcher` lists the modules the viewer can reach; each

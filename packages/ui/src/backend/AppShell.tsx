@@ -111,6 +111,43 @@ type Breadcrumb = Array<{ label: string; href?: string }>
 
 const EMPTY_SECTIONS: SectionNavGroup[] = []
 
+/**
+ * Profile pages that other modules register as `pageContext: 'profile'` nav
+ * items (notification preferences, communication channels) are not part of the
+ * auth module's profile sections, so the Profile sidebar would never list them.
+ * They are appended to the first section, after its own entries.
+ */
+function withProfileContextPages(sections: SectionNavGroup[], groups: NavGroup[]): SectionNavGroup[] {
+  const listed = new Set<string>()
+  const collect = (items: SectionNavGroup['items']) => {
+    for (const item of items) {
+      listed.add(item.href)
+      if (item.children) collect(item.children)
+    }
+  }
+  sections.forEach((section) => collect(section.items))
+  const extra: SectionNavGroup['items'] = []
+  for (const group of groups) {
+    for (const item of group.items) {
+      if (item.pageContext !== 'profile' || item.hidden === true || listed.has(item.href)) continue
+      listed.add(item.href)
+      extra.push({
+        id: item.id ?? item.href,
+        label: item.title,
+        href: item.href,
+        icon: item.icon,
+        iconName: item.iconName,
+        iconMarkup: item.iconMarkup,
+        order: 10_000 + extra.length,
+      })
+    }
+  }
+  if (extra.length === 0) return sections
+  if (sections.length === 0) return [{ id: 'profile', label: '', items: extra }]
+  const [first, ...rest] = sections
+  return [{ ...first, items: [...first.items, ...extra] }, ...rest]
+}
+
 function isUnderAnyPrefix(path: string, prefixes: string[], root: string): boolean {
   if (path === root) return true
   return prefixes.some((prefix) => path.startsWith(prefix))
@@ -243,8 +280,11 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
     [resolvedSettingsSections, settingsSidebarInjectedMenuItems, t],
   )
   const mergedProfileSections = React.useMemo(
-    () => mergeSectionGroupsWithInjected(resolvedProfileSections, profileSidebarInjectedMenuItems, t),
-    [resolvedProfileSections, profileSidebarInjectedMenuItems, t],
+    () => withProfileContextPages(
+      mergeSectionGroupsWithInjected(resolvedProfileSections, profileSidebarInjectedMenuItems, t),
+      resolvedGroups,
+    ),
+    [resolvedGroups, resolvedProfileSections, profileSidebarInjectedMenuItems, t],
   )
   const [routeGroupHint, setRouteGroupHint] = React.useState<string | null>(null)
   const activeGroup = React.useMemo(() => {
@@ -326,10 +366,11 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
     <HeaderContext.Provider value={headerCtxValue}>
     <BackendNavigationProvider value={navigation}>
     {/* `--topbar-height` is what Sheet anchors drawers to, and what module
-        sidebars stick beneath. The topbar is `h-16` plus its 1px rule. */}
+        sidebars stick beneath. It is the topbar's full box: `h-16` is
+        border-box, so its 1px rule is already inside the 64px. */}
     <div
       className="relative min-h-svh"
-      style={{ '--topbar-height': '65px' } as React.CSSProperties}
+      style={{ '--topbar-height': '64px' } as React.CSSProperties}
     >
       {/* `data-app-shell-column` is a styling hook only. `globals.css` uses it
           to pin the shell to the viewport for pages that opted into
@@ -459,7 +500,10 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
           </div>
         </header>
         <ProgressTopBar t={t} className="sticky top-0 z-sticky" completedAutoHideMs={progressCompletedAutoHideMs} />
-        <main className="mx-auto flex min-w-0 w-full max-w-screen-2xl flex-1 flex-col px-4 pb-8 pt-4 sm:px-6 lg:px-8 lg:pt-5">
+        {/* The one page gutter: every page spans the full width inside the same 16px
+            sides and top, at every screen size. Pages must not add their own
+            outer padding or width cap; full-bleed pages undo exactly `px-4 pt-4`. */}
+        <main className="flex min-w-0 w-full flex-1 flex-col px-4 pb-8 pt-4">
           <InjectionSpot spotId={BACKEND_LAYOUT_TOP_INJECTION_SPOT_ID} context={injectionContext} />
           <FlashMessages />
           <PartialIndexBanner />
