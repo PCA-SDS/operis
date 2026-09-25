@@ -48,11 +48,11 @@ test('blocks nothing the app actually needs', async ({ page }) => {
     '/backend/users',
   ]) {
     await page.goto(path)
-    // Hydration actually ran: the rail is rendered by client React, so seeing it
-    // proves scripts executed rather than just that HTML arrived. Matched by
-    // landmark, not by test id — a settings-scoped page swaps in its own nav,
-    // which does not carry the main navigation's id.
-    await expect(page.getByRole('complementary').first()).toBeVisible({ timeout: 30_000 })
+    // Hydration actually ran: the shell's ready marker only flips to `true` once
+    // client React has fetched the navigation, so seeing it proves scripts
+    // executed rather than just that HTML arrived. The dashboard has no sidebar
+    // landmark to wait for since the global rail was removed.
+    await expect(page.getByTestId('backend-chrome-ready')).toHaveAttribute('data-ready', 'true', { timeout: 30_000 })
     await expect(page.getByRole('main')).toBeVisible({ timeout: 30_000 })
     await page.waitForTimeout(1500)
   }
