@@ -25,10 +25,10 @@ export const integration: IntegrationDefinition = {
       },
       {
         key: 'fromEmail',
-        label: 'Default sender email',
+        label: 'Default sender',
         type: 'text',
-        placeholder: 'noreply@example.com',
-        helpText: 'Used when a feature does not provide its own sender email.',
+        placeholder: 'Name <noreply@example.com>',
+        helpText: 'Used when a feature does not provide its own sender. You may include a display name.',
       },
     ],
   },

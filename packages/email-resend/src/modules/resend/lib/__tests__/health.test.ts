@@ -46,6 +46,19 @@ describe('resendHealthCheck', () => {
     })
   })
 
+  it('accepts a display-name sender and verifies its mailbox domain', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ data: [{ name: 'example.com', status: 'verified' }] }),
+    }) as typeof fetch
+
+    await expect(resendHealthCheck.check({ apiKey: 'tenant-key', fromEmail: 'NAM <noreply@example.com>' }, { tenantId: 'tenant-1', organizationId: 'org-1' })).resolves.toMatchObject({
+      status: 'healthy',
+      details: { senderConfigured: true, senderFormatValid: true, senderDomainVerified: true },
+    })
+  })
+
   it('reports rejected credentials without exposing the API key', async () => {
     global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 401 }) as typeof fetch
 

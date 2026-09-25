@@ -58,7 +58,7 @@ describe('appointment email settings route', () => {
   })
 
   it('validates and persists addresses to the authenticated tenant', async () => {
-    const settings = { from: 'from@example.com', to: 'spa@example.com,manager@example.com', cc: '', bcc: '', replyTo: 'reply@example.com' }
+    const settings = { from: 'NAM <from@example.com>', to: 'spa@example.com,manager@example.com', cc: '', bcc: '', replyTo: 'reply@example.com' }
     const response = await PUT(makePutRequest(settings))
     expect(response.status).toBe(200)
     expect(setValueMock).toHaveBeenCalledWith('appointments', 'public_booking_email', settings, { tenantId })
