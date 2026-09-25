@@ -3,6 +3,8 @@
 import * as React from 'react'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
+import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
+import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
@@ -12,6 +14,7 @@ type SettingsResponse = {
   operatingHoursRuleSetId: string | null
   lastCustomerBeforeCloseMinutes: number
   timeOverflowMinutes: number
+  updatedAt: string | null
 }
 
 export function OrganizationAvailabilityPolicyCard({ ruleSetId }: { ruleSetId: string }) {
@@ -19,8 +22,6 @@ export function OrganizationAvailabilityPolicyCard({ ruleSetId }: { ruleSetId: s
   const scopeVersion = useOrganizationScopeVersion()
   const [settings, setSettings] = React.useState<SettingsResponse | null>(null)
   const [isLoading, setIsLoading] = React.useState(true)
-  const [isSaving, setIsSaving] = React.useState(false)
-
   const labels = React.useMemo(() => ({
     title: t('planner.organizationAvailability.policy.title', 'Organization operating hours'),
     description: t('planner.organizationAvailability.policy.description', 'Mark this existing schedule as the organization operating-hours baseline. Last-customer and overflow values are configured on each window in Availability.'),
@@ -30,45 +31,61 @@ export function OrganizationAvailabilityPolicyCard({ ruleSetId }: { ruleSetId: s
     loadError: t('planner.organizationAvailability.errors.load', 'Unable to load booking policy.'),
     saveError: t('planner.organizationAvailability.errors.save', 'Unable to save booking policy.'),
   }), [t])
+  const { runMutation, retryLastMutation, isPending: isSaving } = useGuardedMutation({
+    contextId: 'planner-organization-availability-settings',
+    blockedMessage: labels.saveError,
+  })
 
   React.useEffect(() => {
     let cancelled = false
+    const controller = new AbortController()
     setIsLoading(true)
     readApiResultOrThrow<SettingsResponse>(
       '/api/planner/organization-availability-settings',
-      undefined,
+      { signal: controller.signal },
       { errorMessage: labels.loadError },
     ).then((nextSettings) => {
       if (cancelled) return
       setSettings(nextSettings)
     }).catch(() => {
-      if (!cancelled) flash(labels.loadError, 'error')
+      if (!cancelled && !controller.signal.aborted) flash(labels.loadError, 'error')
     }).finally(() => {
       if (!cancelled) setIsLoading(false)
     })
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
   }, [labels.loadError, ruleSetId, scopeVersion])
 
   const save = async () => {
-    setIsSaving(true)
     try {
-      const nextSettings = await readApiResultOrThrow<SettingsResponse>(
-        '/api/planner/organization-availability-settings',
-        {
-          method: 'PUT',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({
-            operatingHoursRuleSetId: ruleSetId,
-          }),
+      const nextSettings = await runMutation({
+        operation: () => readApiResultOrThrow<SettingsResponse>(
+          '/api/planner/organization-availability-settings',
+          {
+            method: 'PUT',
+            headers: {
+              'content-type': 'application/json',
+              ...buildOptimisticLockHeader(settings?.updatedAt),
+            },
+            body: JSON.stringify({
+              operatingHoursRuleSetId: ruleSetId,
+            }),
+          },
+          { errorMessage: labels.saveError },
+        ),
+        context: {
+          formId: 'planner-organization-availability-settings',
+          resourceKind: 'planner.organization-availability-settings',
+          retryLastMutation,
         },
-        { errorMessage: labels.saveError },
-      )
+        mutationPayload: { operatingHoursRuleSetId: ruleSetId },
+      })
       setSettings(nextSettings)
       flash(labels.saved, 'success')
     } catch {
       flash(labels.saveError, 'error')
-    } finally {
-      setIsSaving(false)
     }
   }
 

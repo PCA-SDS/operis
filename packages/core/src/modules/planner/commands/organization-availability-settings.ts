@@ -2,6 +2,7 @@ import type { CommandHandler } from '@open-mercato/shared/lib/commands'
 import { registerCommand } from '@open-mercato/shared/lib/commands'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
+import { enforceCommandOptimisticLock } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
 import { PlannerAvailabilityRuleSet, PlannerOrganizationAvailabilitySettings } from '../data/entities'
 import {
   plannerOrganizationAvailabilitySettingsSchema,
@@ -37,6 +38,12 @@ const saveOrganizationAvailabilitySettingsCommand: CommandHandler<
       tenantId: parsed.tenantId,
       organizationId: parsed.organizationId,
       deletedAt: null,
+    })
+    enforceCommandOptimisticLock({
+      resourceKind: 'planner.organization-availability-settings',
+      resourceId: parsed.organizationId,
+      current: settings?.updatedAt ?? null,
+      request: ctx.request,
     })
     if (!settings) {
       const now = new Date()
