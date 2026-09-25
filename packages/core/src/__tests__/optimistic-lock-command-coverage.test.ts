@@ -59,6 +59,8 @@ const COMMAND_GUARD_ALLOWLIST: Record<string, string> = {
     'OSS-only — global feature-toggle command (feature_toggles.global), instance-level admin config added on develop; OSS floor guards concurrent edits. Enterprise record_locks migration deferred.',
   'packages/core/src/modules/planner/commands/availability-weekly.ts':
     'OSS-only — weekly availability rule-set edit (sibling of the allowlisted availability-date-specific site) added on develop; OSS floor guards concurrent edits. Enterprise record_locks migration deferred.',
+  'packages/core/src/modules/planner/commands/organization-availability-settings.ts':
+    'OSS-only — organization operating-hours policy is single-owner admin configuration; the OSS updated_at floor guards concurrent edits. Enterprise record_locks migration deferred.',
   'packages/core/src/modules/messages/api/[id]/route.ts':
     'OSS-only — draft update/send (PATCH) + delete (DELETE) of messages.message enforce the synchronous OSS updated_at floor in the hand-written route (no makeCrudRoute decorator); the 409 surfaces on the shared conflict banner (#3260). Enterprise record_locks migration deferred.',
   'packages/core/src/modules/messages/commands/actions.ts':
