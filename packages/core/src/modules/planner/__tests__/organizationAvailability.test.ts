@@ -1,5 +1,6 @@
 import {
   resolveOrganizationAvailabilityWindows,
+  validateResourceAvailabilityRuleSetWithinOrganization,
   validateBookingRuntimeAgainstOrganizationAvailability,
   validateBookingAgainstOrganizationAvailability,
 } from '../lib/organizationAvailability'
@@ -106,6 +107,52 @@ describe('organization availability policy', () => {
     expect(windows[0]?.end.toISOString()).toBe('2026-09-25T23:00:00.000Z')
   })
 
+  it('keeps separate date-specific windows with their own acceptance and overflow policy', () => {
+    const windows = resolveOrganizationAvailabilityWindows({
+      ...policy,
+      rules: [
+        {
+          ...policy.rules[0],
+          id: 'morning-rule',
+          rrule: 'DTSTART:20260925T090000Z\nDURATION:PT2H\nRRULE:FREQ=DAILY;COUNT=1',
+          lastCustomerAcceptanceMinutes: 10 * 60,
+          timeOverflowMinutes: 15,
+        },
+        {
+          ...policy.rules[0],
+          id: 'afternoon-rule',
+          rrule: 'DTSTART:20260925T140000Z\nDURATION:PT2H\nRRULE:FREQ=DAILY;COUNT=1',
+          lastCustomerAcceptanceMinutes: 15 * 60,
+          timeOverflowMinutes: 60,
+        },
+      ],
+    }, {
+      start: new Date('2026-09-25T00:00:00.000Z'),
+      end: new Date('2026-09-26T00:00:00.000Z'),
+    })
+
+    expect(windows).toHaveLength(2)
+    expect(windows.map((window) => ({
+      start: window.start.toISOString(),
+      operatingEnd: window.operatingEnd.toISOString(),
+      latestNewBookingStart: window.latestNewBookingStart.toISOString(),
+      end: window.end.toISOString(),
+    }))).toEqual([
+      {
+        start: '2026-09-25T09:00:00.000Z',
+        operatingEnd: '2026-09-25T11:00:00.000Z',
+        latestNewBookingStart: '2026-09-25T10:00:00.000Z',
+        end: '2026-09-25T11:15:00.000Z',
+      },
+      {
+        start: '2026-09-25T14:00:00.000Z',
+        operatingEnd: '2026-09-25T16:00:00.000Z',
+        latestNewBookingStart: '2026-09-25T15:00:00.000Z',
+        end: '2026-09-25T17:00:00.000Z',
+      },
+    ])
+  })
+
   it('uses an absolute acceptance time when configured on the window', () => {
     const windows = resolveOrganizationAvailabilityWindows({
       ...policy,
@@ -153,5 +200,63 @@ describe('organization availability policy', () => {
 
     expect(windows[0]?.operatingEnd.toISOString()).toBe('2026-09-25T15:00:00.000Z')
     expect(windows[0]?.latestNewBookingStart.toISOString()).toBe('2026-09-25T14:00:00.000Z')
+  })
+
+  it('validates a child resource ruleset against an inherited organization policy', async () => {
+    const resourceRuleSet = {
+      id: 'resource-ruleset',
+      tenantId: 'tenant-1',
+      organizationId: 'child-organization',
+      timezone: 'UTC',
+      deletedAt: null,
+    }
+    const organizationRuleSet = {
+      id: 'organization-ruleset',
+      tenantId: 'tenant-1',
+      organizationId: 'parent-organization',
+      timezone: 'UTC',
+      deletedAt: null,
+    }
+    const settings = {
+      organizationId: 'parent-organization',
+      operatingHoursRuleSetId: 'organization-ruleset',
+      lastCustomerBeforeCloseMinutes: 0,
+      timeOverflowMinutes: 0,
+    }
+    const organizationRule = {
+      id: 'organization-rule',
+      rrule: 'DTSTART:20260925T090000Z\nDURATION:PT8H\nRRULE:FREQ=DAILY',
+      exdates: [],
+      kind: 'availability' as const,
+    }
+    const resourceRule = {
+      id: 'resource-rule',
+      rrule: 'DTSTART:20260925T090000Z\nDURATION:PT9H\nRRULE:FREQ=DAILY',
+      exdates: [],
+      kind: 'availability' as const,
+    }
+    const em = {
+      findOne: jest.fn().mockImplementation(async (_entity, where) => {
+        if (where.id === resourceRuleSet.id) return resourceRuleSet
+        if (where.id === organizationRuleSet.id) return organizationRuleSet
+        return null
+      }),
+      find: jest.fn().mockImplementation(async (_entity, where) => {
+        if (!where.subjectType) return [settings]
+        if (where.subjectId === organizationRuleSet.id) return [organizationRule]
+        if (where.subjectId === resourceRuleSet.id) return [resourceRule]
+        return []
+      }),
+    }
+
+    await expect(validateResourceAvailabilityRuleSetWithinOrganization(em as never, {
+      tenantId: 'tenant-1',
+      organizationId: 'child-organization',
+      organizationIds: ['child-organization', 'parent-organization'],
+      resourceRuleSetId: 'resource-ruleset',
+    })).resolves.toEqual({
+      valid: false,
+      code: 'RESOURCE_AVAILABILITY_EXCEEDS_STORE_HOURS',
+    })
   })
 })

@@ -83,7 +83,7 @@ describe('DefaultPlannerAvailabilityService', () => {
 
     expect(windows).toEqual([
       { start: '2024-01-02T09:00:00.000Z', end: '2024-01-02T11:00:00.000Z', ruleId: 'availability' },
-      { start: '2024-01-03T00:00:00.000Z', end: '2024-01-04T00:00:00.000Z', ruleId: undefined },
+      { start: '2024-01-03T09:00:00.000Z', end: '2024-01-03T10:00:00.000Z', ruleId: 'once' },
     ])
   })
 })

@@ -1,7 +1,6 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { PlannerAvailabilityRule, PlannerAvailabilityRuleSet, PlannerOrganizationAvailabilitySettings } from '../data/entities'
 import { getMergedAvailabilityWindows, type AvailabilityWindow } from './availabilityMerge'
-import { parseAvailabilityRuleWindow } from './availabilitySchedule'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -81,12 +80,6 @@ export async function loadOrganizationAvailabilityPolicy(
   }
 }
 
-function dateKey(value: Date): string {
-  return [value.getFullYear(), value.getMonth() + 1, value.getDate()]
-    .map((part) => String(part).padStart(2, '0'))
-    .join('-')
-}
-
 function resolveLocalDateParts(value: Date, timezone: string): { year: number; month: number; day: number } {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: timezone,
@@ -159,13 +152,6 @@ export function resolveOrganizationAvailabilityWindows(
     range,
   })
   const rulesById = new Map(policy.rules.map((rule) => [rule.id, rule]))
-  const oneOffRulesByDate = new Map<string, OrganizationAvailabilityPolicy['rules'][number]>()
-  policy.rules.forEach((rule) => {
-    const parsed = parseAvailabilityRuleWindow(rule)
-    if (parsed.repeat === 'once' && rule.kind === 'availability') {
-      oneOffRulesByDate.set(dateKey(parsed.startAt), rule)
-    }
-  })
   const uniqueOperatingWindows = new Map<string, typeof operatingWindows[number]>()
   operatingWindows.forEach((window) => {
     const key = `${window.start.getTime()}:${window.end.getTime()}`
@@ -181,7 +167,7 @@ export function resolveOrganizationAvailabilityWindows(
     if (candidateUpdatedAt > existingUpdatedAt) uniqueOperatingWindows.set(key, window)
   })
   return Array.from(uniqueOperatingWindows.values()).map((window) => {
-    const matchingRule = rulesById.get(window.ruleId ?? '') ?? oneOffRulesByDate.get(dateKey(window.start))
+    const matchingRule = rulesById.get(window.ruleId ?? '')
     const timeOverflowMinutes = matchingRule?.timeOverflowMinutes ?? policy.timeOverflowMinutes
     return {
       start: window.start,
@@ -292,7 +278,7 @@ export function validateResourceWindowsWithinOrganization(
 
 export async function validateResourceAvailabilityRuleSetWithinOrganization(
   em: EntityManager,
-  params: { tenantId: string; organizationId: string; resourceRuleSetId: string },
+  params: { tenantId: string; organizationId: string; organizationIds?: string[]; resourceRuleSetId: string },
 ): Promise<{ valid: boolean; code?: 'INVALID_RESOURCE_AVAILABILITY_RULE_SET' | 'RESOURCE_AVAILABILITY_EXCEEDS_STORE_HOURS' }> {
   const ruleSet = await em.findOne(PlannerAvailabilityRuleSet, {
     id: params.resourceRuleSetId,
@@ -304,7 +290,7 @@ export async function validateResourceAvailabilityRuleSetWithinOrganization(
 
   const policy = await loadOrganizationAvailabilityPolicy(em, {
     tenantId: params.tenantId,
-    organizationIds: [params.organizationId],
+    organizationIds: params.organizationIds ?? [params.organizationId],
   })
   if (!policy) return { valid: true }
 

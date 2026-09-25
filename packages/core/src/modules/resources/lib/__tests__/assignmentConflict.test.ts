@@ -178,4 +178,108 @@ describe('AssignmentConflictService appointment availability', () => {
       endsAt: new Date('2026-09-25T22:30:00.000Z'),
     })).resolves.toMatchObject({ valid: false, error: { code: 'OUTSIDE_AVAILABILITY' } })
   })
+
+  it('uses direct resource rules instead of widening them with the linked ruleset', async () => {
+    const resource = {
+      id: 'resource-1',
+      tenantId: 'tenant-1',
+      organizationId: 'organization-1',
+      isActive: true,
+      availabilityRuleSetId: 'ruleset-1',
+      deletedAt: null,
+    }
+    const directRule = {
+      id: 'direct-rule',
+      rrule: 'DTSTART:20260925T100000Z\nDURATION:PT2H\nRRULE:FREQ=DAILY',
+      exdates: [],
+      kind: 'availability' as const,
+    }
+    const ruleSetRule = {
+      id: 'ruleset-rule',
+      rrule: 'DTSTART:20260925T090000Z\nDURATION:PT8H\nRRULE:FREQ=DAILY',
+      exdates: [],
+      kind: 'availability' as const,
+    }
+    const em = {
+      findOne: jest.fn().mockResolvedValue(resource),
+      find: jest.fn().mockImplementation(async (_entity, where) => {
+        if (where.subjectType === 'resource') return [directRule]
+        if (where.subjectType === 'ruleset') return [ruleSetRule]
+        return []
+      }),
+      count: jest.fn().mockResolvedValue(0),
+    }
+    const service = new AssignmentConflictService(em as never)
+
+    await expect(service.validateAssignment({
+      ...BASE_PARAMS,
+      startsAt: new Date('2026-09-25T09:00:00.000Z'),
+      endsAt: new Date('2026-09-25T10:00:00.000Z'),
+    })).resolves.toMatchObject({ valid: false, error: { code: 'OUTSIDE_AVAILABILITY' } })
+  })
+
+  it('enforces an inherited organization policy during assignment validation', async () => {
+    const resource = {
+      id: 'resource-1',
+      tenantId: 'tenant-1',
+      organizationId: 'child-organization',
+      isActive: true,
+      availabilityRuleSetId: 'resource-ruleset',
+      deletedAt: null,
+    }
+    const organizationRuleSet = {
+      id: 'organization-ruleset',
+      tenantId: 'tenant-1',
+      organizationId: 'parent-organization',
+      timezone: 'UTC',
+      deletedAt: null,
+    }
+    const resourceRule = {
+      id: 'resource-rule',
+      rrule: 'DTSTART:20260925T090000Z\nDURATION:PT15H\nRRULE:FREQ=DAILY',
+      exdates: [],
+      kind: 'availability' as const,
+    }
+    const organizationRule = {
+      id: 'organization-rule',
+      rrule: 'DTSTART:20260925T090000Z\nDURATION:PT13H\nRRULE:FREQ=DAILY',
+      exdates: [],
+      kind: 'availability' as const,
+      lastCustomerAcceptanceMinutes: 21 * 60,
+      timeOverflowMinutes: 60,
+    }
+    const settings = {
+      organizationId: 'parent-organization',
+      operatingHoursRuleSetId: 'organization-ruleset',
+      lastCustomerBeforeCloseMinutes: 0,
+      timeOverflowMinutes: 0,
+    }
+    const em = {
+      findOne: jest.fn().mockImplementation(async (_entity, where) => {
+        if (where.id === resource.id) return resource
+        if (where.id === organizationRuleSet.id) return organizationRuleSet
+        return null
+      }),
+      find: jest.fn().mockImplementation(async (_entity, where) => {
+        if (where.subjectType === 'resource') return []
+        if (where.subjectType === 'ruleset' && where.subjectId === 'resource-ruleset') return [resourceRule]
+        if (where.subjectType === 'ruleset' && where.subjectId === 'organization-ruleset') return [organizationRule]
+        if (where.organizationId?.$in) return [settings]
+        return []
+      }),
+      count: jest.fn().mockResolvedValue(0),
+    }
+    const service = new AssignmentConflictService(em as never)
+
+    await expect(service.validateAssignment({
+      tenantId: 'tenant-1',
+      organizationId: 'child-organization',
+      organizationIds: ['child-organization', 'parent-organization'],
+      resourceId: 'resource-1',
+      startsAt: new Date('2026-09-25T23:00:00.000Z'),
+      endsAt: new Date('2026-09-25T23:30:00.000Z'),
+      availabilityMode: 'appointment',
+      availabilityAnchorStartAt: new Date('2026-09-25T20:00:00.000Z'),
+    })).resolves.toMatchObject({ valid: false, error: { code: 'OUTSIDE_AVAILABILITY' } })
+  })
 })

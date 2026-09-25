@@ -6,6 +6,7 @@ const isoDateString = z.string().refine((value) => !Number.isNaN(Date.parse(valu
 
 const availabilitySubjectSchema = z.enum(['member', 'resource', 'ruleset'])
 const availabilityKindSchema = z.enum(['availability', 'unavailability'])
+const timeOfDaySchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/)
 
 const scopedCreateFields = {
   tenantId: z.string().uuid(),
@@ -51,7 +52,7 @@ export const plannerAvailabilityRuleCreateSchema = z.object({
   exdates: z.array(isoDateString).optional().default([]),
   kind: availabilityKindSchema.optional().default('availability'),
   lastCustomerBeforeCloseMinutes: z.number().int().min(0).max(24 * 60).optional().nullable(),
-  lastCustomerAcceptanceTime: z.string().regex(/^\d{2}:\d{2}$/).optional().nullable(),
+  lastCustomerAcceptanceTime: timeOfDaySchema.optional().nullable(),
   timeOverflowMinutes: z.number().int().min(0).max(24 * 60).optional().nullable(),
   note: z.string().trim().max(200).optional().nullable(),
   unavailabilityReasonEntryId: z.string().uuid().optional().nullable(),
@@ -67,7 +68,7 @@ export const plannerAvailabilityRuleUpdateSchema = z.object({
   exdates: z.array(isoDateString).optional(),
   kind: availabilityKindSchema.optional(),
   lastCustomerBeforeCloseMinutes: z.number().int().min(0).max(24 * 60).optional().nullable(),
-  lastCustomerAcceptanceTime: z.string().regex(/^\d{2}:\d{2}$/).optional().nullable(),
+  lastCustomerAcceptanceTime: timeOfDaySchema.optional().nullable(),
   timeOverflowMinutes: z.number().int().min(0).max(24 * 60).optional().nullable(),
   note: z.string().trim().max(200).optional().nullable(),
   unavailabilityReasonEntryId: z.string().uuid().optional().nullable(),
@@ -92,16 +93,16 @@ function validateAcceptanceTimeBeforeClose(
 
 const weeklyWindowSchema = z.object({
   weekday: z.number().int().min(0).max(6),
-  start: z.string().regex(/^\d{2}:\d{2}$/),
-  end: z.string().regex(/^\d{2}:\d{2}$/),
-  lastCustomerAcceptanceTime: z.string().regex(/^\d{2}:\d{2}$/).optional().nullable(),
+  start: timeOfDaySchema,
+  end: timeOfDaySchema,
+  lastCustomerAcceptanceTime: timeOfDaySchema.optional().nullable(),
   timeOverflowMinutes: z.number().int().min(0).max(24 * 60).optional().nullable(),
 }).superRefine(validateAcceptanceTimeBeforeClose)
 
 const dateSpecificWindowSchema = z.object({
-  start: z.string().regex(/^\d{2}:\d{2}$/),
-  end: z.string().regex(/^\d{2}:\d{2}$/),
-  lastCustomerAcceptanceTime: z.string().regex(/^\d{2}:\d{2}$/).optional().nullable(),
+  start: timeOfDaySchema,
+  end: timeOfDaySchema,
+  lastCustomerAcceptanceTime: timeOfDaySchema.optional().nullable(),
   timeOverflowMinutes: z.number().int().min(0).max(24 * 60).optional().nullable(),
 }).superRefine(validateAcceptanceTimeBeforeClose)
 

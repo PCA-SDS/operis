@@ -11,6 +11,7 @@ import type { DataEngine } from '@open-mercato/shared/lib/data/engine'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import type { CrudIndexerConfig } from '@open-mercato/shared/lib/crud/types'
 import { Dictionary, DictionaryEntry } from '@open-mercato/core/modules/dictionaries/data/entities'
+import { Organization } from '@open-mercato/core/modules/directory/data/entities'
 import { ResourcesResource, ResourcesResourceTag, ResourcesResourceTagAssignment, ResourcesResourceArea } from '../data/entities'
 import {
   resourcesResourceCreateSchema,
@@ -67,6 +68,19 @@ type ResourceUndoPayload = {
   after?: ResourceSnapshot | null
   customBefore?: CustomFieldSnapshot | null
   customAfter?: CustomFieldSnapshot | null
+}
+
+async function resolveAvailabilityPolicyOrganizationIds(
+  em: EntityManager,
+  tenantId: string,
+  organizationId: string,
+): Promise<string[]> {
+  const organization = await em.findOne(Organization, {
+    id: organizationId,
+    tenant: tenantId,
+    deletedAt: null,
+  })
+  return Array.from(new Set([organizationId, ...(organization?.ancestorIds ?? [])]))
 }
 
 type ResourceReorderSnapshot = {
@@ -291,9 +305,11 @@ const createResourceCommand: CommandHandler<ResourcesResourceCreateInput, { reso
     const em = (ctx.container.resolve('em') as EntityManager).fork()
 
     if (parsed.availabilityRuleSetId) {
+      const organizationIds = await resolveAvailabilityPolicyOrganizationIds(em, parsed.tenantId, parsed.organizationId)
       const availabilityValidation = await validateResourceAvailabilityRuleSetWithinOrganization(em, {
         tenantId: parsed.tenantId,
         organizationId: parsed.organizationId,
+        organizationIds,
         resourceRuleSetId: parsed.availabilityRuleSetId,
       })
       if (!availabilityValidation.valid) {
@@ -566,9 +582,11 @@ const updateResourceCommand: CommandHandler<ResourcesResourceUpdateInput, { reso
     ensureOrganizationScope(ctx, record.organizationId)
 
     if (parsed.availabilityRuleSetId) {
+      const organizationIds = await resolveAvailabilityPolicyOrganizationIds(em, record.tenantId, record.organizationId)
       const availabilityValidation = await validateResourceAvailabilityRuleSetWithinOrganization(em, {
         tenantId: record.tenantId,
         organizationId: record.organizationId,
+        organizationIds,
         resourceRuleSetId: parsed.availabilityRuleSetId,
       })
       if (!availabilityValidation.valid) {

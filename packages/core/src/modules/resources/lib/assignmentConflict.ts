@@ -113,6 +113,7 @@ export class AssignmentConflictService {
       params.endsAt,
       params.availabilityMode,
       params.availabilityAnchorStartAt,
+      [resourceOrganizationId, ...scopedOrganizationIds.filter((id) => id !== resourceOrganizationId)],
     )
     if (!availabilityCheck.valid) {
       return availabilityCheck
@@ -209,6 +210,7 @@ export class AssignmentConflictService {
     endsAt: Date,
     availabilityMode: AssignmentAvailabilityMode = 'resource',
     availabilityAnchorStartAt?: Date,
+    organizationIds: string[] = [organizationId],
   ): Promise<ValidationResult> {
     const resource = await this.em.findOne(ResourcesResource, {
       id: resourceId,
@@ -234,7 +236,7 @@ export class AssignmentConflictService {
                 deletedAt: null,
               })
       : []
-    const rules = [...directRules, ...ruleSetRules]
+    const rules = directRules.length > 0 ? directRules : ruleSetRules
     const availabilityRange = {
       start: new Date(startsAt.getTime() - DAY_MS),
       end: new Date(endsAt.getTime() + DAY_MS),
@@ -252,7 +254,7 @@ export class AssignmentConflictService {
       : null
     const policy = await loadOrganizationAvailabilityPolicy(this.em, {
       tenantId,
-      organizationIds: [organizationId],
+      organizationIds,
     })
 
     if (availabilityMode === 'appointment' && policy) {

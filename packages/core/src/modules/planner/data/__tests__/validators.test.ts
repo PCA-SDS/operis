@@ -50,6 +50,31 @@ describe('Planner validators', () => {
     ).toThrow()
   })
 
+  test('availability schemas reject out-of-range clock values', () => {
+    expect(() =>
+      plannerAvailabilityRuleCreateSchema.parse({
+        tenantId,
+        organizationId,
+        subjectType: 'ruleset',
+        subjectId: '123e4567-e89b-12d3-a456-426614174004',
+        timezone: 'UTC',
+        rrule: 'FREQ=WEEKLY;BYDAY=MO',
+        lastCustomerAcceptanceTime: '99:99',
+      }),
+    ).toThrow()
+
+    expect(() =>
+      plannerAvailabilityWeeklyReplaceSchema.parse({
+        tenantId,
+        organizationId,
+        subjectType: 'ruleset',
+        subjectId: '123e4567-e89b-12d3-a456-426614174004',
+        timezone: 'UTC',
+        windows: [{ weekday: 1, start: '24:00', end: '25:00' }],
+      }),
+    ).toThrow()
+  })
+
   test('plannerAvailabilityDateSpecificReplaceSchema requires date or dates', () => {
     expect(() =>
       plannerAvailabilityDateSpecificReplaceSchema.parse({
