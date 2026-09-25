@@ -295,6 +295,7 @@ export default function EditUserPage({ params }: { params?: { id?: string } }) {
           }
         }
       } catch (err) {
+        if (cancelled || controller.signal.aborted) return
         logger.error('Failed to load user', { err })
         if (!cancelled) setError(tRef.current('auth.users.form.errors.load', 'Failed to load user data'))
         if (!cancelled) setCustomFieldValues({})
@@ -314,6 +315,7 @@ export default function EditUserPage({ params }: { params?: { id?: string } }) {
         )
         if (!cancelled) setCanEditOrgs(Boolean(featureCheck.result?.ok))
       } catch (err) {
+        if (cancelled || controller.signal.aborted) return
         logger.error('Failed to check features', { err })
       }
     }
