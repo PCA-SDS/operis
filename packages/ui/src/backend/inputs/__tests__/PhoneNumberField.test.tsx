@@ -89,6 +89,19 @@ describe('PhoneNumberField', () => {
     // picker only offers the restricted list.
     expect(screen.getByText('+383')).toBeInTheDocument()
   })
+
+  it('uses the host-provided flag asset resolver', () => {
+    render(
+      <PhoneFieldHarness
+        flagAssetResolver={(country) => `/custom-flags/${country.iso2.toLowerCase()}.svg`}
+      />,
+    )
+
+    expect(screen.getByRole('img', { name: 'United States flag' })).toHaveAttribute(
+      'src',
+      '/custom-flags/us.svg',
+    )
+  })
 })
 
 describe('PhoneNumberField country dictionary', () => {

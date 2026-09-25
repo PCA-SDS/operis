@@ -3357,6 +3357,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
               wrapperClassName={wrapperClassName}
               entityIdForField={primaryEntityId ?? undefined}
               recordId={recordId}
+              embedded={embedded}
               markRequired={widgetRequiredFieldIds.has(f.id)}
             />
           )
@@ -3413,7 +3414,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
                 <SelectTrigger className="w-auto min-w-[10rem]">
                   <SelectValue placeholder={defaultFieldsetLabel} />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className={embedded ? 'z-top' : undefined}>
                   {entityLayout.availableFieldsets.map((fs) => (
                     <SelectItem key={fs.code} value={fs.code}>
                       {fs.label}
@@ -3908,6 +3909,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
                     wrapperClassName={wrapperClassName}
                     entityIdForField={primaryEntityId ?? undefined}
                     recordId={recordId}
+                    embedded={embedded}
                     markRequired={widgetRequiredFieldIds.has(f.id)}
                   />
                 )
@@ -4355,6 +4357,7 @@ type FieldControlProps = {
   wrapperClassName?: string
   entityIdForField?: string
   recordId?: string
+  embedded?: boolean
   markRequired?: boolean
 }
 
@@ -4470,6 +4473,7 @@ const FieldControl = React.memo(function FieldControlImpl({
   wrapperClassName,
   entityIdForField,
   recordId,
+  embedded,
   markRequired,
 }: FieldControlProps) {
   const t = useT()
@@ -4641,6 +4645,7 @@ const FieldControl = React.memo(function FieldControlImpl({
           displayFormat={builtin?.displayFormat}
           closeOnSelect={builtin?.closeOnSelect}
           locale={builtin?.locale}
+          popoverClassName={embedded ? 'z-top' : undefined}
         />
       )}
       {field.type === 'datetime-local' && (
@@ -4655,6 +4660,7 @@ const FieldControl = React.memo(function FieldControlImpl({
           maxDate={builtin?.maxDate}
           displayFormat={builtin?.displayFormat}
           locale={builtin?.locale}
+          popoverClassName={embedded ? 'z-top' : undefined}
         />
       )}
       {field.type === 'datepicker' && (
@@ -4669,6 +4675,7 @@ const FieldControl = React.memo(function FieldControlImpl({
           displayFormat={builtin?.displayFormat}
           closeOnSelect={builtin?.closeOnSelect}
           locale={builtin?.locale}
+          popoverClassName={embedded ? 'z-top' : undefined}
         />
       )}
       {field.type === 'datetime' && (
@@ -4683,6 +4690,7 @@ const FieldControl = React.memo(function FieldControlImpl({
           maxDate={builtin?.maxDate}
           displayFormat={builtin?.displayFormat}
           locale={builtin?.locale}
+          popoverClassName={embedded ? 'z-top' : undefined}
         />
       )}
       {field.type === 'time' && (
@@ -4693,6 +4701,7 @@ const FieldControl = React.memo(function FieldControlImpl({
           readOnly={readOnly}
           placeholder={placeholder}
           minuteStep={builtin?.minuteStep}
+          elevated={embedded}
         />
       )}
       {field.type === 'textarea' && (
@@ -4789,7 +4798,7 @@ const FieldControl = React.memo(function FieldControlImpl({
               {singleSelectLabel}
             </SelectValue>
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className={embedded ? 'z-top' : undefined}>
             {!field.required && value != null && value !== '' && (
               <SelectItem value={SELECT_CLEAR_SENTINEL}>
                 {t('ui.forms.select.clearOption', '— Clear —')}

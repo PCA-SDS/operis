@@ -881,5 +881,11 @@
   "customers~catalog.errors.organization_required": "조직 컨텍스트가 필요합니다.",
   "customers~catalog.errors.tenant_required": "테넌트 컨텍스트가 필요합니다.",
   "customers~catalog.nav.group": "카탈로그",
+  "catalog.products.edit.actions.backToProduct": "Back to product",
+  "catalog.products.edit.translations.baseTitle": "Base title",
+  "catalog.products.edit.translations.currentLocaleTitle": "Translation ({{locale}})",
+  "catalog.products.edit.translations.empty": "Not set",
+  "catalog.products.edit.translations.missing": "Not translated",
+  "catalog.products.edit.translations.title": "Translations",
   "notifications.categories.catalog": "카탈로그"
 }

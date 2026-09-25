@@ -329,6 +329,8 @@ export type DropdownProps<T> = DropdownTriggerVariants & {
   /** Render the menu above modals and drawers (`z-top`). Use for a dropdown
    *  inside an already-elevated surface that must not be covered. */
   elevated?: boolean
+  /** Render the portalled menu into a supplied surface when the surface owns scroll locking. */
+  portalContainer?: Element | null
 
   /* -- search -- */
   /** Adds a search field inside the menu. Pass a string for the placeholder. */
@@ -455,6 +457,7 @@ export function Dropdown<T>({
   matchTriggerWidth,
   maxListHeight = DEFAULT_MAX_LIST_HEIGHT,
   elevated = false,
+  portalContainer,
   searchable = false,
   filterOption,
   onSearchChange,
@@ -946,7 +949,7 @@ export function Dropdown<T>({
       exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: enterOffset, scale: 0.98 }}
       transition={{ duration: reduceMotion ? 0 : 0.16, ease: [0.4, 0, 0.2, 1] }}
       className={cn(
-        'flex flex-col overflow-hidden rounded-xl border border-border bg-surface p-2 shadow-lg outline-none',
+        'pointer-events-auto flex touch-pan-y flex-col overscroll-contain overflow-hidden rounded-xl border border-border bg-surface p-2 shadow-lg outline-none',
         side === 'bottom' ? 'origin-top' : 'origin-bottom',
         elevated ? 'z-top' : 'z-popover',
         menuClassName,
@@ -983,7 +986,7 @@ export function Dropdown<T>({
         </div>
       ) : null}
 
-      <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto" data-slot="dropdown-list">
+      <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain" data-slot="dropdown-list">
         {isLoading ? (
           <p className="flex items-center justify-center gap-2 px-3 py-6 text-xs text-muted-foreground">
             <Spinner size="sm" className="size-3.5" />
@@ -1226,7 +1229,7 @@ export function Dropdown<T>({
         ) : null}
       </button>
 
-      {mounted ? createPortal(<AnimatePresence>{isOpen ? menu : null}</AnimatePresence>, document.body) : null}
+      {mounted ? createPortal(<AnimatePresence>{isOpen ? menu : null}</AnimatePresence>, portalContainer ?? document.body) : null}
     </div>
   )
 }

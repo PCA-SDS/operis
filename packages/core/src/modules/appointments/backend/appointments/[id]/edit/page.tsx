@@ -543,6 +543,7 @@ export function AppointmentEditForm({
                 invalidLabel={t('appointments.create.field.phone.invalid')}
                 minDigits={7}
                 defaultCountryIso2="VN"
+                dropdownElevated={embedded}
               />
             </div>
             <Button
@@ -620,6 +621,7 @@ export function AppointmentEditForm({
               loadingLabel: t('customers.people.form.dictionary.loading'),
               manageTitle: t('customers.people.form.dictionary.manage'),
             }}
+            selectContentClassName={embedded ? 'z-top' : undefined}
             allowInlineCreate
             showManage
             showActiveAppearance={false}
@@ -681,7 +683,7 @@ export function AppointmentEditForm({
                   )}
                 />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className={embedded ? 'z-top' : undefined}>
                 {locationOptions.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
@@ -786,6 +788,7 @@ export function AppointmentEditForm({
       locationsLoading,
       lookupLoading,
       lookupCustomer,
+      embedded,
     ],
   )
 

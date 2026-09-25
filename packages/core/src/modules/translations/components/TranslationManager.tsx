@@ -37,6 +37,7 @@ type TranslationManagerProps = {
   translatableFields?: string[]
   mode?: 'standalone' | 'embedded'
   compact?: boolean
+  onSaved?: () => void
 }
 
 type EntityOption = { entityId: string; label?: string; source?: string }
@@ -70,6 +71,7 @@ export function TranslationManager({
   translatableFields: propTranslatableFields,
   mode = 'standalone',
   compact = false,
+  onSaved,
 }: TranslationManagerProps) {
   const t = useT()
   const scopeVersion = useOrganizationScopeVersion()
@@ -306,6 +308,7 @@ export function TranslationManager({
       hasUserEditedRef.current = false
       setHasUserEdited(false)
       void refetchTranslation()
+      onSaved?.()
     },
     onError: (err: unknown) => {
       if (surfaceRecordConflict(err, t)) return

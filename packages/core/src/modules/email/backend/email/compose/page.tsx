@@ -19,6 +19,7 @@ import {
   renderHtmlPreviewWithSamples,
   renderWithSamples,
 } from '../../../components/templateHtml'
+import { mergeEmailTemplateVariables, withoutReservedEmailSystemVariables } from '../../../lib/accountingDefaults'
 
 type EmailTemplateRow = {
   id: string
@@ -36,6 +37,11 @@ type EmailTemplateRow = {
 
 type ListResponse = {
   items?: EmailTemplateRow[]
+}
+
+type AccountingDefaultsResponse = {
+  placeholders?: Record<string, unknown>
+  link_placeholders?: Record<string, unknown>
 }
 
 type EmailDraftPart = 'recipients' | 'subject' | 'body'
@@ -115,6 +121,7 @@ export default function EmailComposePreviewPage() {
   const [recipientEmails, setRecipientEmails] = React.useState('')
   const [greeting, setGreeting] = React.useState('')
   const [accountingRows, setAccountingRows] = React.useState<KeyValueRow[]>([])
+  const [accountingDefaults, setAccountingDefaults] = React.useState<Record<string, string>>({})
   const [copiedPart, setCopiedPart] = React.useState<EmailDraftPart | null>(null)
 
   const greetingFromPeople = React.useCallback((people: CompanyPerson[]) => {
@@ -144,6 +151,25 @@ export default function EmailComposePreviewPage() {
       setIsLoading(false)
     }
     void loadTemplates()
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
+  }, [])
+
+  React.useEffect(() => {
+    const controller = new AbortController()
+    let cancelled = false
+    async function loadAccountingDefaults() {
+      const response = await apiCall<AccountingDefaultsResponse>('/api/email/accounting-defaults', { signal: controller.signal })
+        .catch(() => ({ ok: false as const, result: undefined }))
+      if (cancelled || !response.ok) return
+      setAccountingDefaults({
+        ...withoutReservedEmailSystemVariables(response.result?.placeholders),
+        ...withoutReservedEmailSystemVariables(response.result?.link_placeholders),
+      })
+    }
+    void loadAccountingDefaults()
     return () => {
       cancelled = true
       controller.abort()
@@ -246,18 +272,16 @@ export default function EmailComposePreviewPage() {
     })
   }, [selectedTemplate])
 
-  const templateDefaults = selectedTemplate?.accounting_metadata?.defaultValues ?? {}
+  const templateDefaults = withoutReservedEmailSystemVariables(selectedTemplate?.accounting_metadata?.defaultValues)
   const effectiveRecipientEmails = recipientEmails.trim() || companyEmail.trim()
-  const mergedSamples = {
+  const mergedSamples = mergeEmailTemplateVariables({
     companyName,
     companyCode,
     companyEmail,
     contactNames,
     recipientEmails: effectiveRecipientEmails,
     greeting,
-    ...templateDefaults,
-    ...rowsToRecord(accountingRows),
-  }
+  }, accountingDefaults, templateDefaults, rowsToRecord(accountingRows))
   const variableTypes = parseVariableTypes(JSON.stringify(selectedTemplate?.accounting_metadata?.variableTypes ?? {}))
   // Same reader as the builder, including the `design.body.html` fallback for
   // migrated rows — compose used to read `blocks` only, so a template with a

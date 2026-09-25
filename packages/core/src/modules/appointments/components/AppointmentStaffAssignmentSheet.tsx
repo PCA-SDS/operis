@@ -15,12 +15,15 @@ export type AppointmentStaffAssignmentTarget = {
   endsAt: string
   assignedMemberId?: string | null
   assignedMemberName?: string | null
+  assignedMemberIds?: string[]
+  assignedMemberNames?: string[]
 }
 
 export type AppointmentAssignableStaff = {
   id: string
   displayName: string
   roleLabel: string
+  roleLabels?: string[]
 }
 
 const SLOT_MINUTES = 15
@@ -33,6 +36,11 @@ function formatTime(value: string) {
 
 function durationMinutes(target: AppointmentStaffAssignmentTarget) {
   return Math.max(MIN_DURATION, Math.round((new Date(target.endsAt).getTime() - new Date(target.startsAt).getTime()) / 60000))
+}
+
+function assignedMemberIdsFor(target: AppointmentStaffAssignmentTarget) {
+  if (Array.isArray(target.assignedMemberIds) && target.assignedMemberIds.length > 0) return target.assignedMemberIds
+  return target.assignedMemberId ? [target.assignedMemberId] : []
 }
 
 export function AppointmentStaffAssignmentSheet({
@@ -66,10 +74,11 @@ export function AppointmentStaffAssignmentSheet({
   const [query, setQuery] = React.useState('')
   const resultsRef = React.useRef<HTMLDivElement>(null)
   const duration = target ? durationMinutes(target) : MIN_DURATION
+  const assignedMemberIds = target ? assignedMemberIdsFor(target) : []
   const filteredStaff = React.useMemo(() => {
     const value = query.trim().toLowerCase()
     if (!value) return staff
-    return staff.filter((member) => `${member.displayName} ${member.roleLabel}`.toLowerCase().includes(value))
+    return staff.filter((member) => `${member.displayName} ${member.roleLabel} ${(member.roleLabels ?? []).join(' ')}`.toLowerCase().includes(value))
   }, [query, staff])
 
   React.useEffect(() => {
@@ -84,7 +93,7 @@ export function AppointmentStaffAssignmentSheet({
   if (!target) return null
 
   return (
-    <div className={`fixed inset-0 z-50 flex justify-end bg-foreground/20 transition-opacity duration-150 ease-out ${isVisible ? 'opacity-100' : 'opacity-0'}`} onClick={onClose}>
+    <div data-appointment-staff-assignment-sheet="true" className={`fixed inset-0 z-50 flex justify-end bg-foreground/20 transition-opacity duration-150 ease-out ${isVisible ? 'opacity-100' : 'opacity-0'}`} onClick={onClose}>
       <aside className={`flex h-full w-full max-w-md flex-col bg-surface shadow-lg transition-transform duration-150 ease-out will-change-transform ${isVisible ? 'translate-x-0' : 'translate-x-full'}`} onClick={(event) => event.stopPropagation()}>
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-4 py-3">
           <div className="min-w-0">
@@ -110,11 +119,11 @@ export function AppointmentStaffAssignmentSheet({
               <IconButton type="button" size="sm" variant="outline" aria-label={t('appointments.staffAssignment.increaseDuration', 'Increase duration')} disabled={duration >= MAX_DURATION || isSaving} onClick={() => onDurationChange(Math.min(MAX_DURATION, duration + SLOT_MINUTES))}><Plus className="size-4" /></IconButton>
             </div>
           </div>
-          {target.assignedMemberId ? (
+          {assignedMemberIds.length > 0 ? (
             <div className="mt-2 flex items-center justify-between gap-3 rounded-md border border-border bg-surface px-3 py-1.5">
               <div className="min-w-0">
                 <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{t('appointments.staffAssignment.assigned', 'Staff assigned')}</p>
-                <p className="truncate text-sm font-semibold">{target.assignedMemberName ?? t('appointments.staffAssignment.member', 'Staff member')}</p>
+                <p className="line-clamp-2 break-words text-sm font-semibold leading-tight">{(target.assignedMemberNames ?? (target.assignedMemberName ? [target.assignedMemberName] : [])).join(', ') || t('appointments.staffAssignment.member', 'Staff member')}</p>
               </div>
               <IconButton type="button" size="sm" variant="ghost" aria-label={t('appointments.staffAssignment.remove', 'Remove staff')} disabled={isSaving} onClick={() => onAssign(null)}><X className="size-4" /></IconButton>
             </div>
@@ -134,10 +143,14 @@ export function AppointmentStaffAssignmentSheet({
             {!isLoadingStaff && filteredStaff.length === 0 ? <div className="flex min-h-40 flex-col items-center justify-center gap-2 px-4 text-center text-muted-foreground"><span className="flex size-10 items-center justify-center rounded-full bg-muted"><Users className="size-5" /></span><p className="text-sm">{t('appointments.staffAssignment.empty', 'No assignable staff found.')}</p></div> : null}
             {filteredStaff.map((member) => {
               const busy = busyStaffIds.has(member.id)
-              const active = target.assignedMemberId === member.id
-              return <Button key={member.id} type="button" variant="ghost" aria-pressed={active} className={`h-auto w-full justify-start gap-3 rounded-md border p-3 text-left ${active ? 'border-primary bg-primary/5' : 'border-border bg-surface hover:bg-muted/40'}`} disabled={isSaving || (busy && !active)} onClick={() => onAssign(active ? null : member.id)}>
+              const active = assignedMemberIds.includes(member.id)
+              return <Button key={member.id} type="button" variant="ghost" aria-pressed={active} className={`h-auto w-full justify-start gap-3 rounded-md border p-3 text-left ${active ? 'border-primary bg-primary/5' : 'border-border bg-surface hover:bg-muted/40'}`} disabled={isSaving} onClick={() => onAssign(member.id)}>
                 <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">{member.displayName.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()}</span>
-                <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{member.displayName}</span><span className="mt-1 flex flex-wrap gap-1"><Tag variant={busy ? 'warning' : 'neutral'}>{busy ? t('appointments.staffAssignment.busy', 'Busy') : member.roleLabel}</Tag></span></span>
+                <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{member.displayName}</span><span className="mt-1 flex flex-wrap gap-1">
+                  {busy ? <Tag variant="warning">{t('appointments.staffAssignment.busy', 'Busy')}</Tag> : null}
+                  {!busy && (member.roleLabels ?? []).length > 0 ? (member.roleLabels ?? []).map((role) => <Tag key={role} variant="neutral">{role}</Tag>) : null}
+                  {!busy && (member.roleLabels ?? []).length === 0 ? <Tag variant="neutral">{member.roleLabel}</Tag> : null}
+                </span></span>
                 <span className={`flex size-5 shrink-0 items-center justify-center rounded-sm border ${active ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-surface'}`}>{active ? <Check className="size-3.5" /> : null}</span>
               </Button>
             })}

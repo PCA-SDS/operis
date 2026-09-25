@@ -437,6 +437,22 @@ export const BASE_INITIAL_VALUES: ProductFormValues = {
 export const isConfigurableProductType = (type: string): boolean =>
   (CATALOG_CONFIGURABLE_PRODUCT_TYPES as readonly string[]).includes(type);
 
+export function normalizeVariantDraftsForProductType(
+  productType: string | null | undefined,
+  variants: VariantDraft[] | null | undefined,
+  createFallback: () => VariantDraft,
+): VariantDraft[] {
+  const allVariants = Array.isArray(variants) && variants.length
+    ? variants
+    : [createFallback()];
+
+  if (isConfigurableProductType(productType ?? "simple")) return allVariants;
+
+  const selectedVariant =
+    allVariants.find((variant) => variant.isDefault) ?? allVariants[0];
+  return [{ ...selectedVariant, isDefault: true }];
+}
+
 export function getProductTypeSelectionUpdates(
   nextType: string,
   values: Pick<ProductFormValues, 'hasVariants'>,
