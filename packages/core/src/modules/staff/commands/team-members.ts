@@ -11,6 +11,7 @@ import { withAtomicFlush } from '@open-mercato/shared/lib/commands/flush'
 import type { DataEngine } from '@open-mercato/shared/lib/data/engine'
 import type { CrudIndexerConfig } from '@open-mercato/shared/lib/crud/types'
 import { User } from '@open-mercato/core/modules/auth/data/entities'
+import { UserOrganizationMembership } from '@open-mercato/core/modules/directory/data/entities'
 import { ResourcesAssignment } from '@open-mercato/core/modules/resources/data/entities'
 import {
   StaffEmployeeProfile,
@@ -130,6 +131,7 @@ function teamMemberSeedFromSnapshot(snapshot: TeamMemberSnapshot): Record<string
     displayName: snapshot.displayName,
     description: snapshot.description ?? null,
     userId: snapshot.userId ?? null,
+    isAutoProvisioned: false,
     roleIds: Array.isArray(snapshot.roleIds) ? snapshot.roleIds : [],
     tags: Array.isArray(snapshot.tags) ? snapshot.tags : [],
     availabilityRuleSetId: null,
@@ -175,7 +177,14 @@ async function ensureUserExists(em: EntityManager, userId: string, tenantId: str
   if (user.tenantId && user.tenantId !== tenantId) {
     throw new CrudHttpError(400, { error: 'User does not belong to this tenant.' })
   }
-  if (user.organizationId && user.organizationId !== organizationId) {
+  const membership = await em.findOne(UserOrganizationMembership, {
+    tenantId,
+    userId,
+    organizationId,
+    isActive: true,
+    deletedAt: null,
+  })
+  if (!membership && user.organizationId && user.organizationId !== organizationId) {
     throw new CrudHttpError(400, { error: 'User does not belong to this organization.' })
   }
 }
@@ -276,6 +285,7 @@ const createTeamMemberCommand: CommandHandler<StaffTeamMemberCreateInput, { memb
       displayName: parsed.displayName,
       description: parsed.description ?? null,
       userId: parsed.userId ?? null,
+      isAutoProvisioned: false,
       roleIds,
       tags,
       availabilityRuleSetId: parsed.availabilityRuleSetId ?? null,
@@ -635,6 +645,7 @@ const deleteTeamMemberCommand: CommandHandler<{ id?: string; force?: boolean }, 
         displayName: before.displayName,
         description: before.description ?? null,
         userId: before.userId ?? null,
+        isAutoProvisioned: false,
         roleIds: before.roleIds ?? [],
         tags: before.tags ?? [],
         isActive: before.isActive,

@@ -415,6 +415,7 @@ async function migrateStaff(
         roleIds,
         tags: ['tps'],
         isActive: true,
+        isAutoProvisioned: false,
         createdAt: new Date(),
         updatedAt: new Date(),
       })

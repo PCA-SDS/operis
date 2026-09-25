@@ -9,6 +9,8 @@ import { collectCustomFieldValues } from '@open-mercato/ui/backend/utils/customF
 import { OrganizationSelect } from '@open-mercato/core/modules/directory/components/OrganizationSelect'
 import { TenantSelect } from '@open-mercato/core/modules/directory/components/TenantSelect'
 import { fetchRoleOptions } from '@open-mercato/core/modules/auth/backend/users/roleOptions'
+import { fetchOrganizationOptions } from '@open-mercato/core/modules/auth/backend/users/organizationOptions'
+import { StaffRoleAssignmentsField, type StaffRoleAssignment } from '@open-mercato/core/modules/auth/backend/users/staffRoleAssignmentsField'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
 import { RadioGroup } from '@open-mercato/ui/primitives/radio'
 import { RadioField } from '@open-mercato/ui/primitives/radio-field'
@@ -25,6 +27,8 @@ type CreateUserFormValues = {
   password: string
   tenantId: string | null
   organizationId: string | null
+  organizationIds: string[]
+  staffRoleAssignments?: StaffRoleAssignment[]
   roles: string[]
 } & Record<string, unknown>
 
@@ -186,6 +190,11 @@ export default function CreateUserPage() {
     return fetchRoleOptions(query)
   }, [actorIsSuperAdmin, actorResolved, selectedTenantId])
 
+  const loadOrganizationOptions = React.useCallback(
+    (query?: string) => fetchOrganizationOptions(selectedTenantId, query),
+    [selectedTenantId],
+  )
+
   const fields: CrudField[] = React.useMemo(() => {
     const items: CrudField[] = [
       { id: 'email', label: t('auth.users.form.field.email', 'Email'), type: 'text', required: true },
@@ -258,14 +267,30 @@ export default function CreateUserPage() {
         )
       },
     })
+    items.push({
+      id: 'organizationIds',
+      label: t('auth.users.form.field.organizations', 'Assigned organizations'),
+      type: 'select',
+      multiple: true,
+      listbox: true,
+      loadOptions: loadOrganizationOptions,
+      description: t('auth.users.form.field.organizationsHint', 'The user will be available in each selected organization.'),
+    })
+    items.push({
+      id: 'staffRoleAssignments',
+      label: t('auth.users.form.field.staffRoles', 'Staff roles by organization'),
+      type: 'custom',
+      component: (props) => <StaffRoleAssignmentsField {...props} tenantId={selectedTenantId} />,
+      description: t('auth.users.form.field.staffRolesHint', 'Assign staff roles for every organization without opening each team member.'),
+    })
     items.push({ id: 'roles', label: t('auth.users.form.field.roles', 'Roles'), type: 'tags', loadOptions: loadRoleOptions })
     return items
-  }, [actorIsSuperAdmin, loadRoleOptions, passwordDescription, selectedTenantId, sendInviteEmail, t])
+  }, [actorIsSuperAdmin, loadOrganizationOptions, loadRoleOptions, passwordDescription, selectedTenantId, sendInviteEmail, t])
 
   const detailFieldIds = React.useMemo(() => {
     const base: string[] = sendInviteEmail
-      ? ['email', 'name', 'sendInviteEmail', 'organizationId', 'roles']
-      : ['email', 'name', 'sendInviteEmail', 'password', 'organizationId', 'roles']
+      ? ['email', 'name', 'sendInviteEmail', 'organizationId', 'organizationIds', 'staffRoleAssignments', 'roles']
+      : ['email', 'name', 'sendInviteEmail', 'password', 'organizationId', 'organizationIds', 'staffRoleAssignments', 'roles']
     if (actorIsSuperAdmin) {
       const orgIdx = base.indexOf('organizationId')
       base.splice(orgIdx, 0, 'tenantId')
@@ -311,6 +336,8 @@ export default function CreateUserPage() {
       password: '',
       tenantId: null,
       organizationId: null,
+      organizationIds: [],
+      staffRoleAssignments: undefined,
       roles: [],
     }),
     [],
@@ -339,6 +366,12 @@ export default function CreateUserPage() {
               email: values.email,
               name: normalizeDisplayNameInput(values.name),
               organizationId: values.organizationId ? values.organizationId : null,
+              ...(Array.isArray(values.organizationIds) && values.organizationIds.length > 0
+                ? { organizationIds: values.organizationIds }
+                : {}),
+              ...(Array.isArray(values.staffRoleAssignments)
+                ? { staffRoleAssignments: values.staffRoleAssignments }
+                : {}),
               roles: Array.isArray(values.roles) ? values.roles : [],
               ...(Object.keys(customFields).length ? { customFields } : {}),
             }

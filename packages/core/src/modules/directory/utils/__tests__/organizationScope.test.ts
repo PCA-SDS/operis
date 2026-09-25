@@ -11,7 +11,13 @@ import { resolveOrganizationScope, resolveOrganizationScopeForRequest } from '..
  * Creates a mock EntityManager whose `find` returns Organization-like rows
  * that match the requested ids.
  */
-function createMockEm(rows: Array<{ id: string; descendantIds: string[] }>) {
+function createMockEm(
+  rows: Array<{ id: string; descendantIds: string[] }>,
+  memberships: Array<{ organizationId: string }> = [],
+) {
+  const membershipRepository = {
+    find: jest.fn(async () => memberships),
+  }
   return {
     find: jest.fn((_entity: unknown, filter: { id?: { $in: string[] }; tenant?: string }) => {
       const requestedIds = filter?.id?.$in ?? []
@@ -19,6 +25,7 @@ function createMockEm(rows: Array<{ id: string; descendantIds: string[] }>) {
         rows.filter((row) => requestedIds.includes(row.id)),
       )
     }),
+    getRepository: jest.fn(() => membershipRepository),
   } as unknown as EntityManager
 }
 
@@ -40,6 +47,8 @@ function createAuth(overrides: Partial<AuthContext> & { sub: string }): AuthCont
 const ORG_HOME = { id: 'org-home', descendantIds: ['org-home-child'] }
 const ORG_A = { id: 'org-a', descendantIds: [] }
 const ORG_B = { id: 'org-b', descendantIds: ['org-b-child'] }
+const ORG_PARENT = { id: 'org-parent', descendantIds: ['org-child'] }
+const ORG_CHILD = { id: 'org-child', descendantIds: [] }
 const ALL_ORGS = [ORG_HOME, ORG_A, ORG_B]
 
 describe('resolveOrganizationScope', () => {
@@ -218,6 +227,48 @@ describe('resolveOrganizationScope', () => {
       })
       expect(result.selectedId).not.toBe('org-b')
       expect(result.filterIds).toEqual(expect.arrayContaining(['org-a']))
+    })
+
+    it('intersects ACL and membership scopes after expanding descendants', async () => {
+      const em = createMockEm(
+        [ORG_PARENT, ORG_CHILD],
+        [{ organizationId: ORG_PARENT.id }],
+      )
+      const rbac = createMockRbac({
+        isSuperAdmin: false,
+        features: ['some.feature'],
+        organizations: [ORG_CHILD.id],
+      })
+      const result = await resolveOrganizationScope({
+        em,
+        rbac,
+        auth: createAuth({ sub: 'user-1', orgId: null }),
+        selectedId: ORG_CHILD.id,
+      })
+
+      expect(result.selectedId).toBe(ORG_CHILD.id)
+      expect(result.filterIds).toEqual([ORG_CHILD.id])
+      expect(result.allowedIds).toEqual([ORG_CHILD.id])
+    })
+
+    it('does not fall back to the home organization when ACL and membership scopes do not intersect', async () => {
+      const em = createMockEm(
+        [ORG_HOME, ORG_PARENT, ORG_CHILD],
+        [{ organizationId: ORG_PARENT.id }],
+      )
+      const rbac = createMockRbac({
+        isSuperAdmin: false,
+        features: ['some.feature'],
+        organizations: [ORG_A.id],
+      })
+      const result = await resolveOrganizationScope({
+        em,
+        rbac,
+        auth: createAuth({ sub: 'user-1', orgId: ORG_HOME.id }),
+      })
+
+      expect(result.filterIds).toEqual([])
+      expect(result.allowedIds).toEqual([])
     })
   })
 

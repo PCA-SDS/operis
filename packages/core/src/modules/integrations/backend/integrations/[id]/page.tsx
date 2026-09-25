@@ -175,6 +175,8 @@ const HEALTH_STATUS_ICONS: Record<string, React.ElementType> = {
   unconfigured: AlertTriangle,
 }
 
+const INTEGRATION_LOG_POLL_INTERVAL_MS = 10_000
+
 function formatRunStatusLabel(status: DataSyncRunDetail['status'], t: ReturnType<typeof useT>): string {
   switch (status) {
     case 'pending':
@@ -512,21 +514,25 @@ export default function IntegrationDetailPage({ params }: IntegrationDetailPageP
     }
   }, [resolveCurrentIntegrationId])
 
-  const loadLogs = React.useCallback(async () => {
+  const loadLogs = React.useCallback(async (options?: { showLoading?: boolean }) => {
     const currentIntegrationId = resolveCurrentIntegrationId()
     if (!currentIntegrationId) return
-    setIsLoadingLogs(true)
+    const showLoading = options?.showLoading ?? true
+    if (showLoading) setIsLoadingLogs(true)
     const params = new URLSearchParams({ integrationId: currentIntegrationId, pageSize: '50' })
     if (logLevel) params.set('level', logLevel)
-    const call = await apiCall<{ items: LogEntry[] }>(
-      `/api/integrations/logs?${params.toString()}`,
-      undefined,
-      { fallback: { items: [] } },
-    )
-    if (call.ok && call.result) {
-      setLogs(call.result.items)
+    try {
+      const call = await apiCall<{ items: LogEntry[] }>(
+        `/api/integrations/logs?${params.toString()}`,
+        undefined,
+        { fallback: { items: [] } },
+      )
+      if (call.ok && call.result) {
+        setLogs(call.result.items)
+      }
+    } finally {
+      if (showLoading) setIsLoadingLogs(false)
     }
-    setIsLoadingLogs(false)
   }, [logLevel, resolveCurrentIntegrationId])
 
   const detailWidgetSpotId = React.useMemo(
@@ -669,6 +675,13 @@ export default function IntegrationDetailPage({ params }: IntegrationDetailPageP
   React.useEffect(() => { void loadDetail() }, [loadDetail])
   React.useEffect(() => { void loadCredentials() }, [loadCredentials])
   React.useEffect(() => { void loadLogs() }, [loadLogs])
+  React.useEffect(() => {
+    if (activeTab !== 'logs') return
+    const intervalId = window.setInterval(() => {
+      void loadLogs({ showLoading: false })
+    }, INTEGRATION_LOG_POLL_INTERVAL_MS)
+    return () => window.clearInterval(intervalId)
+  }, [activeTab, loadLogs])
 
   const handleToggleState = React.useCallback(async (enabled: boolean) => {
     const currentIntegrationId = resolveCurrentIntegrationId()
@@ -1437,10 +1450,10 @@ export default function IntegrationDetailPage({ params }: IntegrationDetailPageP
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => void refreshRunActivity({ showLoading: true })}
-                disabled={isRefreshingRunActivity || !runIdFromUrl}
+                onClick={() => void loadLogs()}
+                disabled={isLoadingLogs}
               >
-                {isRefreshingRunActivity ? <Spinner className="mr-2 h-4 w-4" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                {isLoadingLogs ? <Spinner className="mr-2 h-4 w-4" /> : <RefreshCw className="mr-2 h-4 w-4" />}
                 {t('integrations.detail.runActivity.refresh', 'Refresh')}
               </Button>
             </div>

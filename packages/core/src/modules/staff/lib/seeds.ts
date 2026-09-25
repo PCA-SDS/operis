@@ -876,6 +876,7 @@ export async function seedStaffTeamExamples(
       roleIds,
       tags: seed.tags ?? [],
       isActive: true,
+      isAutoProvisioned: false,
       createdAt: now,
       updatedAt: now,
     })

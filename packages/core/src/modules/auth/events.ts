@@ -10,6 +10,7 @@ const events = [
   { id: 'auth.user.created', label: 'User Created', entity: 'user', category: 'crud' },
   { id: 'auth.user.updated', label: 'User Updated', entity: 'user', category: 'crud' },
   { id: 'auth.user.deleted', label: 'User Deleted', entity: 'user', category: 'crud' },
+  { id: 'auth.user.organization_memberships_changed', label: 'User Organization Memberships Changed', entity: 'user', category: 'lifecycle' },
 
   // Roles
   { id: 'auth.role.created', label: 'Role Created', entity: 'role', category: 'crud' },

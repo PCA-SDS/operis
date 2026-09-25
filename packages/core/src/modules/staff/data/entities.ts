@@ -114,6 +114,9 @@ export class StaffTeamMember {
   @Property({ name: 'user_id', type: 'uuid', nullable: true })
   userId?: string | null
 
+  @Property({ name: 'is_auto_provisioned', type: 'boolean', default: false })
+  isAutoProvisioned: boolean = false
+
   @Property({ name: 'role_ids', type: 'jsonb', default: [] })
   roleIds: string[] = []
 

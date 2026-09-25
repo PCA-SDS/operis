@@ -8,7 +8,7 @@ import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { User, UserRole } from '@open-mercato/core/modules/auth/data/entities'
 import type { RbacService } from '@open-mercato/core/modules/auth/services/rbacService'
-import { Organization, Tenant } from '@open-mercato/core/modules/directory/data/entities'
+import { Organization, Tenant, UserOrganizationMembership } from '@open-mercato/core/modules/directory/data/entities'
 import { E } from '#generated/entities.ids.generated'
 import { loadCustomFieldValues } from '@open-mercato/shared/lib/crud/custom-fields'
 import type { EntityManager } from '@mikro-orm/postgresql'
@@ -63,6 +63,11 @@ const userCreateSchema = z.object({
   password: passwordSchema.optional(),
   sendInviteEmail: z.boolean().optional(),
   organizationId: z.string().uuid(),
+  organizationIds: z.array(z.string().uuid()).min(1).optional(),
+  staffRoleAssignments: z.array(z.object({
+    organizationId: z.string().uuid(),
+    roleIds: z.array(z.string().uuid()),
+  })).optional(),
   roles: z.array(z.string()).optional(),
 }).refine(
   (data) => data.password || data.sendInviteEmail,
@@ -75,6 +80,11 @@ const userUpdateSchema = z.object({
   name: displayNameSchema,
   password: passwordSchema.optional(),
   organizationId: z.string().uuid().optional(),
+  organizationIds: z.array(z.string().uuid()).min(1).optional(),
+  staffRoleAssignments: z.array(z.object({
+    organizationId: z.string().uuid(),
+    roleIds: z.array(z.string().uuid()),
+  })).optional(),
   roles: z.array(z.string()).optional(),
   isConfirmed: z.boolean().optional(),
 })
@@ -84,6 +94,7 @@ const userListItemSchema = z.object({
   email: z.string().email(),
   name: z.string().nullable(),
   organizationId: z.string().uuid().nullable(),
+  organizationIds: z.array(z.string().uuid()),
   organizationName: z.string().nullable(),
   tenantId: z.string().uuid().nullable(),
   tenantName: z.string().nullable(),
@@ -107,6 +118,22 @@ const errorResponseSchema = z.object({ error: z.string() })
 
 type CrudInput = Record<string, unknown>
 type UserListFilter = Record<string, unknown>
+
+async function findUserIdsForOrganizationMemberships(
+  em: EntityManager,
+  tenantId: string | null,
+  organizationIds: string[],
+): Promise<string[]> {
+  if (organizationIds.length === 0) return []
+  const tenantFilter = tenantId ? { tenantId } : {}
+  const memberships = await em.find(UserOrganizationMembership, {
+    ...tenantFilter,
+    organizationId: { $in: organizationIds },
+    isActive: true,
+    deletedAt: null,
+  }, { fields: ['userId'] as any })
+  return Array.from(new Set(memberships.map((membership) => String(membership.userId))))
+}
 
 // Role membership is expressed as a correlated EXISTS on the page query rather than by
 // loading every matching `user_roles` row into JS and re-injecting the ids as
@@ -315,19 +342,53 @@ export async function GET(req: Request) {
   if (effectiveTenantId) {
     filters.push({ tenantId: effectiveTenantId })
   }
-  if (effectiveOrganizationIds) {
-    filters.push({ organizationId: { $in: effectiveOrganizationIds as any } })
+  const scopedOrganizationIds = effectiveOrganizationIds ?? []
+  if (scopedOrganizationIds.length > 0) {
+    const scopedUserIds = await findUserIdsForOrganizationMemberships(em, effectiveTenantId, scopedOrganizationIds)
+    filters.push(
+      scopedUserIds.length > 0
+        ? {
+            $or: [
+              { organizationId: { $in: scopedOrganizationIds as any } },
+              { id: { $in: scopedUserIds as any } },
+            ],
+          }
+        : { organizationId: { $in: scopedOrganizationIds as any } },
+    )
   }
   const scopeOrganizationId = usesSelectedTenantScope
     ? effectiveSelectedOrganizationId
     : auth.orgId ?? null
-  if (organizationId) filters.push({ organizationId })
+  if (organizationId) {
+    const organizationUserIds = await findUserIdsForOrganizationMemberships(em, effectiveTenantId, [organizationId])
+    filters.push(
+      organizationUserIds.length > 0
+        ? { $or: [{ organizationId }, { id: { $in: organizationUserIds as any } }] }
+        : { organizationId },
+    )
+  }
   // Recipient/assignee pickers scope to the caller's active organization so they never
   // suggest users outside it. A message composed here is stamped with the caller's
   // active org (auth.orgId), and the message detail endpoint enforces
   // hasOrganizationAccess(scope.organizationId, message.organizationId); scoping the
   // suggestions to the same org keeps a picked recipient able to open what they were sent.
-  if (scopeToActiveOrganization) filters.push({ organizationId: auth.orgId ?? null })
+  if (scopeToActiveOrganization) {
+    const activeOrganizationId = scopeOrganizationId
+    if (activeOrganizationId) {
+      const activeOrganizationUserIds = await findUserIdsForOrganizationMemberships(
+        em,
+        effectiveTenantId,
+        [activeOrganizationId],
+      )
+      filters.push(
+        activeOrganizationUserIds.length > 0
+          ? { $or: [{ organizationId: activeOrganizationId }, { id: { $in: activeOrganizationUserIds as any } }] }
+          : { organizationId: activeOrganizationId },
+      )
+    } else {
+      filters.push({ organizationId: null })
+    }
+  }
   const trimmedName = typeof name === 'string' ? name.trim() : ''
   if (trimmedName) {
     const searchPattern = `%${escapeLikePattern(trimmedName)}%`
@@ -370,7 +431,21 @@ export async function GET(req: Request) {
       .map((org) => (org?.id ? String(org.id) : null))
       .filter((orgId): orgId is string => typeof orgId === 'string' && orgId.length > 0)
     if (matchingOrganizationIds.length) {
-      searchFilters.push({ organizationId: { $in: matchingOrganizationIds as any } })
+      const matchingOrganizationUserIds = await findUserIdsForOrganizationMemberships(
+        em,
+        effectiveTenantId,
+        matchingOrganizationIds,
+      )
+      searchFilters.push(
+        matchingOrganizationUserIds.length > 0
+          ? {
+              $or: [
+                { organizationId: { $in: matchingOrganizationIds as any } },
+                { id: { $in: matchingOrganizationUserIds as any } },
+              ],
+            }
+          : { organizationId: { $in: matchingOrganizationIds as any } },
+      )
     }
 
     searchFilters.push(buildRoleNameSearchExistsFilter(searchPattern, tenantScope))
@@ -387,6 +462,31 @@ export async function GET(req: Request) {
   const where = filters.length > 1 ? { $and: filters } : filters[0]
   const [rows, count] = await em.findAndCount(User, where, { limit: pageSize, offset: (page - 1) * pageSize })
   const userIds = rows.map((u: any) => u.id)
+  const userTenantIds = Array.from(new Set(
+    rows
+      .map((u: any) => (u.tenantId ? String(u.tenantId) : null))
+      .filter((tenantId): tenantId is string => !!tenantId),
+  ))
+  const membershipTenantFilter = effectiveTenantId
+    ? { tenantId: effectiveTenantId }
+    : userTenantIds.length
+      ? { tenantId: { $in: userTenantIds } }
+      : {}
+  const memberships = userIds.length
+    ? await em.find(UserOrganizationMembership, {
+        ...membershipTenantFilter,
+        userId: { $in: userIds as any },
+        isActive: true,
+        deletedAt: null,
+      }, { fields: ['userId', 'organizationId'] as any })
+    : []
+  const organizationIdsByUser: Record<string, string[]> = {}
+  for (const membership of memberships) {
+    const uid = String(membership.userId)
+    const organizationId = String(membership.organizationId)
+    if (!organizationIdsByUser[uid]) organizationIdsByUser[uid] = []
+    organizationIdsByUser[uid].push(organizationId)
+  }
   const links = userIds.length
     ? await findWithDecryption(
         em,
@@ -429,10 +529,7 @@ export async function GET(req: Request) {
       return acc
     }, {})
   }
-  const tenantIds = rows
-    .map((u: any) => (u.tenantId ? String(u.tenantId) : null))
-    .filter((id): id is string => !!id)
-  const uniqueTenantIds = Array.from(new Set(tenantIds))
+  const uniqueTenantIds = userTenantIds
   let tenantMap: Record<string, string> = {}
   if (uniqueTenantIds.length) {
     const tenants = await em.find(
@@ -474,6 +571,9 @@ export async function GET(req: Request) {
       email: String(u.email),
       name: u.name ? String(u.name) : null,
       organizationId: orgId,
+      organizationIds: organizationIdsByUser[uid]?.length
+        ? Array.from(new Set(organizationIdsByUser[uid])).sort((left, right) => (left < right ? -1 : left > right ? 1 : 0))
+        : (orgId ? [orgId] : []),
       organizationName: orgId ? orgMap[orgId] ?? orgId : null,
       tenantId: u.tenantId ? String(u.tenantId) : null,
       tenantName: u.tenantId ? tenantMap[String(u.tenantId)] ?? String(u.tenantId) : null,

@@ -223,7 +223,7 @@ export function TeamMemberForm(props: TeamMemberFormProps) {
     const controller = new AbortController()
     async function loadSelectedUser() {
       try {
-        const call = await apiCall<UsersResponse>(`/api/auth/users?id=${encodeURIComponent(userId)}`, { signal: controller.signal })
+        const call = await apiCall<UsersResponse>(`/api/auth/users?id=${encodeURIComponent(userId)}&scopeToActiveOrganization=true`, { signal: controller.signal })
         const entry = Array.isArray(call.result?.items) ? call.result.items[0] : null
         const entryId = typeof entry?.id === 'string' ? entry.id : null
         const entryEmail = typeof entry?.email === 'string' ? entry.email : null
@@ -271,6 +271,7 @@ export function TeamMemberForm(props: TeamMemberFormProps) {
 
   const fetchUserOptions = React.useCallback(async (query?: string): Promise<LookupSelectItem[]> => {
     const params = new URLSearchParams({ page: '1', pageSize: '50' })
+    params.set('scopeToActiveOrganization', 'true')
     if (query && query.trim().length) params.set('search', query.trim())
     const call = await apiCall<UsersResponse>(`/api/auth/users?${params.toString()}`)
     const items = Array.isArray(call.result?.items) ? call.result.items : []

@@ -12,6 +12,8 @@ import { AclEditor, type AclData } from '@open-mercato/core/modules/auth/compone
 import { OrganizationSelect } from '@open-mercato/core/modules/directory/components/OrganizationSelect'
 import { TenantSelect } from '@open-mercato/core/modules/directory/components/TenantSelect'
 import { fetchRoleOptions } from '@open-mercato/core/modules/auth/backend/users/roleOptions'
+import { fetchOrganizationOptions } from '@open-mercato/core/modules/auth/backend/users/organizationOptions'
+import { StaffRoleAssignmentsField, type StaffRoleAssignment } from '@open-mercato/core/modules/auth/backend/users/staffRoleAssignmentsField'
 import { WidgetVisibilityEditor, type WidgetVisibilityEditorHandle } from '@open-mercato/core/modules/dashboards/components/WidgetVisibilityEditor'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
@@ -32,6 +34,8 @@ type EditUserFormValues = {
   password: string
   tenantId: string | null
   organizationId: string | null
+  organizationIds: string[]
+  staffRoleAssignments?: StaffRoleAssignment[]
   roles: string[]
   updatedAt?: string | null
 } & Record<string, unknown>
@@ -41,6 +45,7 @@ type LoadedUser = {
   email: string
   name: string | null
   organizationId: string | null
+  organizationIds: string[]
   tenantId: string | null
   tenantName: string | null
   organizationName: string | null
@@ -56,6 +61,7 @@ type UserApiItem = {
   email?: string | null
   name?: string | null
   organizationId?: string | null
+  organizationIds?: unknown
   tenantId?: string | null
   tenantName?: string | null
   organizationName?: string | null
@@ -267,6 +273,9 @@ export default function EditUserPage({ params }: { params?: { id?: string } }) {
               email: item.email ? String(item.email) : '',
               name: item.name ? String(item.name) : null,
               organizationId: item.organizationId ? String(item.organizationId) : null,
+              organizationIds: Array.isArray(item.organizationIds)
+                ? item.organizationIds.filter((organizationId): organizationId is string => typeof organizationId === 'string')
+                : (item.organizationId ? [String(item.organizationId)] : []),
               tenantId: item.tenantId ? String(item.tenantId) : null,
               tenantName: item.tenantName ? String(item.tenantName) : null,
               organizationName: item.organizationName ? String(item.organizationName) : null,
@@ -286,6 +295,7 @@ export default function EditUserPage({ params }: { params?: { id?: string } }) {
           }
         }
       } catch (err) {
+        if (cancelled || controller.signal.aborted) return
         logger.error('Failed to load user', { err })
         if (!cancelled) setError(tRef.current('auth.users.form.errors.load', 'Failed to load user data'))
         if (!cancelled) setCustomFieldValues({})
@@ -305,6 +315,7 @@ export default function EditUserPage({ params }: { params?: { id?: string } }) {
         )
         if (!cancelled) setCanEditOrgs(Boolean(featureCheck.result?.ok))
       } catch (err) {
+        if (cancelled || controller.signal.aborted) return
         logger.error('Failed to check features', { err })
       }
     }
@@ -332,6 +343,11 @@ export default function EditUserPage({ params }: { params?: { id?: string } }) {
     }
     return fetchRoleOptions(query)
   }, [actorIsSuperAdmin, actorResolved, selectedTenantId])
+
+  const loadOrganizationOptions = React.useCallback(
+    (query?: string) => fetchOrganizationOptions(selectedTenantId, query),
+    [selectedTenantId],
+  )
 
   const userHasPassword = initialUser?.hasPassword !== false
   const fields: CrudField[] = React.useMemo(() => {
@@ -400,6 +416,22 @@ export default function EditUserPage({ params }: { params?: { id?: string } }) {
       },
     })
     items.push({
+      id: 'organizationIds',
+      label: t('auth.users.form.field.organizations', 'Assigned organizations'),
+      type: 'select',
+      multiple: true,
+      listbox: true,
+      loadOptions: loadOrganizationOptions,
+      description: t('auth.users.form.field.organizationsHint', 'The user will be available in each selected organization.'),
+    })
+    items.push({
+      id: 'staffRoleAssignments',
+      label: t('auth.users.form.field.staffRoles', 'Staff roles by organization'),
+      type: 'custom',
+      component: (props) => <StaffRoleAssignmentsField {...props} tenantId={selectedTenantId} userId={id} />,
+      description: t('auth.users.form.field.staffRolesHint', 'Assign staff roles for every organization without opening each team member.'),
+    })
+    items.push({
       id: 'roles',
       label: t('auth.users.form.field.roles', 'Roles'),
       type: 'tags',
@@ -416,10 +448,10 @@ export default function EditUserPage({ params }: { params?: { id?: string } }) {
       ),
     })
     return items
-  }, [actorIsSuperAdmin, initialRoleOptions, loadRoleOptions, passwordDescription, preloadedTenants, selectedOrgId, selectedTenantId, t, userHasPassword])
+  }, [actorIsSuperAdmin, id, initialRoleOptions, loadOrganizationOptions, loadRoleOptions, passwordDescription, preloadedTenants, selectedOrgId, selectedTenantId, t, userHasPassword])
 
   const detailFieldIds = React.useMemo(() => {
-    const base: string[] = ['email', 'name', 'password', 'organizationId', 'roles', 'isConfirmed']
+    const base: string[] = ['email', 'name', 'password', 'organizationId', 'organizationIds', 'staffRoleAssignments', 'roles', 'isConfirmed']
     if (actorIsSuperAdmin) base.splice(2, 0, 'tenantId')
     return base
   }, [actorIsSuperAdmin])
@@ -479,6 +511,8 @@ export default function EditUserPage({ params }: { params?: { id?: string } }) {
         password: '',
         tenantId: initialUser.tenantId,
         organizationId: initialUser.organizationId,
+        organizationIds: initialUser.organizationIds,
+        staffRoleAssignments: undefined,
         roles: initialUser.roleIds,
         isConfirmed: initialUser.isConfirmed,
         updatedAt: initialUser.updatedAt,
@@ -491,6 +525,8 @@ export default function EditUserPage({ params }: { params?: { id?: string } }) {
       password: '',
       tenantId: selectedTenantId ?? null,
       organizationId: null,
+      organizationIds: [],
+      staffRoleAssignments: undefined,
       roles: [],
       ...customFieldValues,
     }
@@ -571,6 +607,10 @@ export default function EditUserPage({ params }: { params?: { id?: string } }) {
               name: normalizeDisplayNameInput(values.name),
               password: values.password && values.password.trim() ? values.password : undefined,
               organizationId: values.organizationId ? values.organizationId : undefined,
+              organizationIds: Array.isArray(values.organizationIds) ? values.organizationIds : undefined,
+              ...(Array.isArray(values.staffRoleAssignments)
+                ? { staffRoleAssignments: values.staffRoleAssignments }
+                : {}),
               roles: Array.isArray(values.roles) ? values.roles : [],
               // Only sent when the checkbox actually resolved to a boolean — never
               // default a missing value to `false`, which would silently deactivate.

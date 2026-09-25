@@ -35,6 +35,7 @@ type AvailabilityAccessResolver = {
 | Route | Owner | Notes |
 |-------|-------|-------|
 | `GET /api/staff/team-members/assignable` | staff | Canonical URL for listing assignable staff candidates from customer flows. RBAC is customer-driven (`customers.roles.view` page guard + `customers.roles.manage` OR `customers.activities.manage` handler check) — see the route file for details. |
+| `GET /api/staff/user-assignments` | staff | Loads organization-scoped staff role options and existing team-member role assignments for the auth user-management form. Requires `staff.manage_team`; tenant and organization scope are enforced by the route. |
 
 Replaces the deprecated `GET /api/customers/assignable-staff`, which now returns `308 Permanent Redirect` and will be removed no earlier than the next major release.
 

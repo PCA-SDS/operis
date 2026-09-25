@@ -59,6 +59,17 @@ describe('sendEmail', () => {
     )
   })
 
+  it('uses a caller-provided API key instead of the global key', async () => {
+    await sendEmail({
+      apiKey: 'tenant-key',
+      to: 'user@example.com',
+      subject: 'Hello',
+      react: React.createElement('div', null, 'Hi'),
+    })
+
+    expect(ResendMock).toHaveBeenCalledWith('tenant-key')
+  })
+
   it('omits replyTo when it is not provided', async () => {
     await sendEmail({
       to: 'user@example.com',
