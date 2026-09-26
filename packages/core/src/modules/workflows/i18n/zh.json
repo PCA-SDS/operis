@@ -904,7 +904,7 @@
   "workflows.mobile.validate": "Validate",
   "workflows.mobile.viewFullGraph": "View Full Graph",
   "workflows.module.description": "Orchestrate business processes",
-  "workflows.module.name": "Workflow Engine",
+  "workflows.module.name": "Automation",
   "workflows.nav.graphTest": "Graph Test",
   "workflows.nodeEditor.endStepsNotEditable": "END steps cannot be edited. They represent fixed workflow exit points.",
   "workflows.nodeEditor.jsonSchemaFormat": "This form uses JSON Schema format. Fields have been converted for visual editing. When you save, it will be converted to the simplified format. To preserve the original JSON Schema, edit it in the \"Advanced Configuration (JSON)\" section below.",
