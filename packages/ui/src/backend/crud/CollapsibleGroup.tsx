@@ -115,7 +115,7 @@ export const CollapsibleGroup = React.forwardRef<CollapsibleGroupHandle, Collaps
                 // row toggles to `bg-muted` together (Figma Accordion behaviour)
                 // instead of stacking a second hover layer over the trigger
                 // button.
-                'flex-1 rounded-md px-2 py-1 text-sm font-medium hover:bg-transparent dark:hover:bg-transparent',
+                'flex-1 rounded-md px-2 py-1 text-sm font-medium hover:bg-transparent',
                 chevronPosition === 'left' ? 'justify-start gap-2' : 'justify-between',
               )}
               aria-expanded={expanded}

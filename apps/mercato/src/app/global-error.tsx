@@ -7,6 +7,7 @@
 // keeps the error screen on-brand.
 import './globals.css'
 import { Button } from '@open-mercato/ui/primitives/button'
+import { ThemeProvider } from '@open-mercato/ui/theme'
 import { useEffect, useState } from 'react'
 import { reloadPage } from './global-error-reload'
 
@@ -77,19 +78,24 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
   return (
     <html className="bg-background text-foreground">
       <body className="bg-background text-foreground">
-        <main
-          role="alert"
-          aria-live="assertive"
-          className="flex min-h-screen items-start justify-center bg-background px-6 py-16 text-foreground"
-        >
-          <div className="w-full max-w-xl space-y-4 rounded-lg border border-border bg-card p-6 shadow-sm">
-            <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
-            <p className="text-sm leading-6 text-muted-foreground">{description}</p>
-            <Button type="button" onClick={handleRetry}>
-              {buttonLabel}
-            </Button>
-          </div>
-        </main>
+        {/* The root layout's theme script does not run here, and a script injected
+            by a client render never executes, so the provider re-applies the
+            saved theme once this boundary mounts. */}
+        <ThemeProvider>
+          <main
+            role="alert"
+            aria-live="assertive"
+            className="flex min-h-screen items-start justify-center bg-background px-6 py-16 text-foreground"
+          >
+            <div className="w-full max-w-xl space-y-4 rounded-lg border border-border bg-card p-6 shadow-sm">
+              <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+              <p className="text-sm leading-6 text-muted-foreground">{description}</p>
+              <Button type="button" onClick={handleRetry}>
+                {buttonLabel}
+              </Button>
+            </div>
+          </main>
+        </ThemeProvider>
       </body>
     </html>
   )

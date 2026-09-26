@@ -59,12 +59,29 @@ describe('GlobalError component', () => {
 
   beforeEach(() => {
     reloadMock.mockClear()
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      value: (query: string) => ({
+        matches: false,
+        media: query,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      }),
+    })
   })
 
   afterEach(() => {
     if (originalOnLine) {
       Object.defineProperty(window.navigator, 'onLine', originalOnLine)
     }
+    window.localStorage.clear()
+    document.documentElement.classList.remove('dark')
+  })
+
+  it('applies the saved dark theme, which the root layout script cannot do for this boundary', () => {
+    window.localStorage.setItem('om-theme', 'dark')
+    render(<GlobalError error={new Error('boom')} reset={jest.fn()} />)
+    expect(document.documentElement).toHaveClass('dark')
   })
 
   it('renders generic crash UI for non-network errors', () => {

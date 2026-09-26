@@ -890,7 +890,7 @@ export const RichEditorColorButton = React.forwardRef<HTMLButtonElement, RichEdi
             {...props}
           >
             <span
-              className="inline-block size-4 shrink-0 rounded-full border border-black/10"
+              className="inline-block size-4 shrink-0 rounded-full border border-border"
               style={{ backgroundColor: swatchColor }}
               data-slot="rich-editor-color-swatch"
               aria-hidden="true"
@@ -958,7 +958,7 @@ export function RichEditorColorPalette({ value, onChange, labels, palette, class
             data-color-key={key}
           >
             <span
-              className="size-4 shrink-0 rounded-full border border-black/10"
+              className="size-4 shrink-0 rounded-full border border-border"
               style={{ backgroundColor: RICH_EDITOR_COLOR_PALETTE[key] }}
               aria-hidden="true"
             />

@@ -14,7 +14,7 @@ const iconButtonVariants = cva(
           'bg-destructive text-white shadow-xs hover:bg-destructive/90',
         outline:
           'border border-border bg-surface text-foreground shadow-sm hover:bg-surface-muted',
-        ghost: 'hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50',
+        ghost: 'hover:bg-accent hover:text-accent-foreground',
         white:
           'bg-surface text-muted-foreground shadow-sm hover:bg-surface-muted hover:text-foreground',
         /* The icon-only twin of `Button variant="soft"`: brand-tinted fill and a
