@@ -751,6 +751,20 @@ describe('AppShell', () => {
       expect(screen.getByTestId('module-switcher-current')).toHaveTextContent('Customers')
     })
 
+    it('reserves every switcher label so changing module never resizes the trigger', () => {
+      mockPathname = '/backend/catalog/products'
+      renderModulePage()
+      const trigger = screen.getByTestId('module-switcher-trigger')
+      const reserved = Array.from(trigger.querySelectorAll<HTMLElement>('[data-label]'))
+      expect(reserved.map((node) => node.getAttribute('data-label')).sort()).toEqual(['Catalog', 'Customers', 'Modules'])
+      for (const node of reserved) {
+        expect(node).toHaveAttribute('aria-hidden', 'true')
+        expect(node.textContent).toBe('')
+      }
+      expect(screen.getByTestId('module-switcher-current')).toHaveTextContent('Catalog')
+      expect(within(trigger).getAllByText('Catalog')).toHaveLength(1)
+    })
+
     it('renders no sidebar when the route belongs to no module', () => {
       mockPathname = '/backend/unknown'
       renderModulePage()

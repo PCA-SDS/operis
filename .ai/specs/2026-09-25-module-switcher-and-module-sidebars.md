@@ -72,7 +72,9 @@ works per module: pick a module, then move around inside it, the way the Task Ma
   showed multi-organization users the default order outside their home organization.
 - **Brand.** The logo moved from the rail to the topbar (`ShellBrandLogo tone="surface"`), shown from `xl`.
 - **Topbar fit.** Below `xl` the trigger is a 36px icon button (its accessible name carries the current
-  module); from `xl` it also shows the module name. The left topbar column keeps `min-w-9`, so the switcher
+  module); from `xl` it also shows the module name, in a label cell as wide as the longest name it can show
+  (every module plus the "Modules" fallback, stacked invisibly), so changing module never moves the
+  breadcrumb beside it. The left topbar column keeps `min-w-9`, so the switcher
   stays reachable even where the centre search and action cluster overflow a 768px topbar (a pre-existing
   overflow this change does not address).
 - **Injection spots.** `backend:sidebar:top|nav|nav:footer|footer` and `global:sidebar:status-badges` keep
@@ -116,3 +118,6 @@ filtered nav payload contains; nothing client-side decides access.
   payload now reads that preference under the key it is saved with. Unit coverage in
   `module-nav/__tests__/useModuleOrder.test.tsx`, `__tests__/AppShell.test.tsx` and
   `auth/lib/__tests__/backendChrome.current-organization.test.ts`; integration in `TC-AUTH-MODULE-NAV-002`.
+- 2026-09-27 — The switcher trigger is as wide as its longest label, so switching modules no longer shifts the
+  topbar. Unit coverage in `__tests__/AppShell.test.tsx`. "Reset order" drops to the `2xs` button so its text
+  matches the footer's "Drag to rearrange" hint.
