@@ -19,7 +19,7 @@ import {
 } from '@dnd-kit/core'
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { ChevronLeft, ChevronRight, Layers, Plus, SlidersHorizontal, Workflow } from 'lucide-react'
-import { Page, PageBody } from '@open-mercato/ui/backend/Page'
+import { Page, PageBody, PAGE_TITLE_CLASS } from '@open-mercato/ui/backend/Page'
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -2588,7 +2588,7 @@ export default function DealsKanbanPage(): React.ReactElement {
                 host the rich board-summary content (LaneCurrencyBreakdown popover) that
                 lives directly under the title.
               */}
-              <h1 className="text-2xl font-normal leading-tight text-foreground sm:text-3xl">
+              <h1 className={PAGE_TITLE_CLASS}>
                 {translateWithFallback(t, 'customers.deals.kanban.pageTitle', 'Deals')}
               </h1>
               {boardSummary && boardSummary.rows.length > 0 ? (

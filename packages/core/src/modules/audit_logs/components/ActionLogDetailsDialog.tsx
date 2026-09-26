@@ -48,7 +48,7 @@ export function ActionLogDetailsDialog({ item, onClose }: { item: ActionLogItem;
         closeAriaLabel={t('audit_logs.actions.details.close')}
       >
         <DialogHeader>
-          <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+          <p className="text-overline font-semibold uppercase tracking-widest text-muted-foreground">
             {t('audit_logs.actions.details.title')}
           </p>
           <DialogTitle className="truncate">

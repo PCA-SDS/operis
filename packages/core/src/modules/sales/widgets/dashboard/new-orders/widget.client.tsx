@@ -232,13 +232,13 @@ const SalesNewOrdersWidget: React.FC<DashboardWidgetComponentProps<SalesNewOrder
   }
 
   return (
-    <ul className="space-y-3">
+    <ul className="divide-y divide-border">
       {items.map((item) => {
         const detailHref = resolveDetailHref(item)
         const amountLabel = formatAmount(item.grossAmount, item.currency, locale)
         const createdLabel = formatRelativeTime(item.createdAt) ?? ''
         return (
-          <li key={item.id} className="rounded-md border p-3">
+          <li key={item.id} className="py-3 first:pt-0 last:pb-0">
             <div className="flex items-start justify-between gap-3">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">

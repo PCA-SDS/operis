@@ -10,6 +10,10 @@ import { clearAllOperations } from '@open-mercato/ui/backend/operations/store'
 import { notifyAuthIdentityChange } from '@open-mercato/ui/backend/AuthSessionGuard'
 import { clearAllPerspectiveState } from '@open-mercato/ui/backend/perspectiveState'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
+import { buttonVariants } from '@open-mercato/ui/primitives/button'
+import { FORM_FIELD_LABEL } from '@open-mercato/ui/backend/forms/formChrome'
+import { PAGE_TITLE_CLASS } from '@open-mercato/ui/backend/Page'
+import { cn } from '@open-mercato/shared/lib/utils'
 import { Eye, EyeOff, X } from 'lucide-react'
 import { InjectionSpot } from '@open-mercato/ui/backend/injection/InjectionSpot'
 import { useRegisteredComponent } from '@open-mercato/ui/backend/injection/useRegisteredComponent'
@@ -333,15 +337,13 @@ export default function LoginPage() {
   // bottom of the viewport and overlay whatever is under them; without a
   // reserve the submit button sat underneath them and could not be clicked.
   //
-  // Fields, labels, checkbox, error box and button reproduce the reference's
-  // component styling. Email/password replace its single workspace field
-  // (Operis authenticates with a password, not an OIDC redirect) and reuse the
-  // same field treatment, as do the Operis-only tenant banners and ACL notices.
+  // Labels, fields and the submit button take the shared form chrome: the
+  // `FORM_FIELD_LABEL` type, the `Input` field treatment (fill, hover, and the
+  // quiet focus edge) at a 44px touch height, and the shared large `Button`.
   const fieldClass =
-    'w-full rounded-lg border border-transparent bg-surface-muted px-3.5 py-3 text-sm text-foreground placeholder:text-disabled-foreground transition-all outline-none ring-0 focus:outline-none focus:ring-0 focus:border-transparent'
-  const fieldLabelClass = 'mb-2.5 block text-xs font-bold uppercase tracking-wide text-muted-foreground'
-  const primaryButtonClass =
-    'inline-flex w-full items-center justify-center gap-2 rounded-lg border border-transparent bg-primary px-3.5 py-2.5 text-sm font-medium text-primary-foreground transition hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-focus-ring/30 disabled:cursor-not-allowed disabled:opacity-60'
+    'h-11 w-full rounded-lg border border-input bg-input-bg px-3.5 text-sm text-foreground placeholder:text-input-placeholder transition-colors outline-none hover:bg-modal-muted focus-visible:border-input-border-focus focus-visible:bg-modal-muted focus-visible:shadow-focus'
+  const fieldLabelClass = FORM_FIELD_LABEL
+  const primaryButtonClass = cn(buttonVariants({ size: 'lg' }), 'w-full')
   const noticeClass = 'rounded-lg px-3 py-2 text-sm leading-5'
 
   return (
@@ -378,7 +380,7 @@ export default function LoginPage() {
             <p className="mb-3 text-xs font-bold uppercase tracking-wider text-accent-strong">
               {translate('auth.login.eyebrow', 'Operis ERP')}
             </p>
-            <h2 className="text-3xl font-bold leading-tight tracking-tight text-foreground">
+            <h2 className={PAGE_TITLE_CLASS}>
               {translate('auth.login.workspaceTitle', 'Sign in to Your Workspace')}
             </h2>
           </header>
@@ -390,7 +392,7 @@ export default function LoginPage() {
               ) : null}
 
               {!!translatedRoles.length && (
-                <div className={`${noticeClass} border border-status-info-border bg-status-info-bg text-status-info-text`}>
+                <div className={`${noticeClass} bg-status-info-bg text-status-info-text`}>
                   {translate(
                     translatedRoles.length > 1 ? 'auth.login.requireRolesMessage' : 'auth.login.requireRoleMessage',
                     translatedRoles.length > 1
@@ -401,7 +403,7 @@ export default function LoginPage() {
                 </div>
               )}
               {!!translatedFeatures.length && (
-                <div className={`${noticeClass} border border-status-info-border bg-status-info-bg text-status-info-text`}>
+                <div className={`${noticeClass} bg-status-info-bg text-status-info-text`}>
                   {translate('auth.login.featureDenied', "You don't have access to this feature ({feature}). Please contact your administrator.", {
                     feature: translatedFeatures.join(', '),
                   })}
@@ -419,7 +421,7 @@ export default function LoginPage() {
               ) : null}
 
               {showTenantInvalid ? (
-                <div className={`${noticeClass} border border-status-error-border bg-status-error-bg text-status-error-text`}>
+                <div className={`${noticeClass} bg-status-error-bg text-status-error-text`}>
                   <div className="font-medium">{translate('auth.login.errors.tenantInvalid', 'Tenant not found. Clear the tenant selection and try again.')}</div>
                   <button type="button" onClick={handleClearTenant} className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium underline underline-offset-4">
                     <X className="size-3.5" aria-hidden="true" />
@@ -427,7 +429,7 @@ export default function LoginPage() {
                   </button>
                 </div>
               ) : tenantId ? (
-                <div className={`${noticeClass} border border-status-success-border bg-status-success-bg text-status-success-text`}>
+                <div className={`${noticeClass} bg-status-success-bg text-status-success-text`}>
                   <div className="font-medium">
                     {tenantLoading
                       ? translate('auth.login.tenantLoading', 'Loading tenant details...')
@@ -482,7 +484,7 @@ export default function LoginPage() {
                       aria-pressed={isPasswordVisible}
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => setIsPasswordVisible((current) => !current)}
-                      className="absolute right-3 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition hover:text-foreground focus:outline-none focus:ring-2 focus:ring-focus-ring/40"
+                      className="absolute right-3 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring/40"
                     >
                       {isPasswordVisible
                         ? <EyeOff aria-hidden="true" size={18} strokeWidth={2} />
@@ -504,7 +506,7 @@ export default function LoginPage() {
                 aria-hidden={!(error && !showTenantInvalid)}
               >
                 {error && !showTenantInvalid ? (
-                  <div role="alert" aria-live="polite" className={`${noticeClass} border border-status-error-border bg-status-error-bg text-status-error-text`}>
+                  <div role="alert" aria-live="polite" className={`${noticeClass} bg-status-error-bg text-status-error-text`}>
                     {error}
                   </div>
                 ) : null}

@@ -93,7 +93,7 @@ export function AppointmentStaffAssignmentSheet({
   if (!target) return null
 
   return (
-    <div data-appointment-staff-assignment-sheet="true" className={`fixed inset-0 z-50 flex justify-end bg-foreground/20 transition-opacity duration-150 ease-out ${isVisible ? 'opacity-100' : 'opacity-0'}`} onClick={onClose}>
+    <div data-appointment-staff-assignment-sheet="true" className={`fixed inset-0 z-50 flex justify-end bg-scrim transition-opacity duration-150 ease-out ${isVisible ? 'opacity-100' : 'opacity-0'}`} onClick={onClose}>
       <aside className={`flex h-full w-full max-w-md flex-col bg-surface shadow-lg transition-transform duration-150 ease-out will-change-transform ${isVisible ? 'translate-x-0' : 'translate-x-full'}`} onClick={(event) => event.stopPropagation()}>
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-4 py-3">
           <div className="min-w-0">

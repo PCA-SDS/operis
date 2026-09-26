@@ -165,14 +165,14 @@ const CustomerTodosWidget: React.FC<DashboardWidgetComponentProps<CustomerTodoWi
       ) : items.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t('customers.widgets.todos.empty')}</p>
       ) : (
-        <ul className="space-y-3">
+        <ul className="divide-y divide-border">
           {items.map((item) => {
             const createdLabel = formatDate(item.createdAt, locale)
             const href = resolveDetailHref(item.entity)
             const exampleHref = resolveExampleIntegrationHref(item)
             const taskHref = exampleHref ?? resolveTodoHref(item.todoSource, item.todoId)
             return (
-              <li key={item.id} className="rounded-md border p-3">
+              <li key={item.id} className="py-3 first:pt-0 last:pb-0">
                 <div className="flex items-start justify-between gap-3 text-sm font-medium">
                   <span>{item.entity.displayName ?? t('customers.widgets.common.unknown')}</span>
                   <span className="text-xs text-muted-foreground">{createdLabel || t('customers.widgets.common.unknownDate')}</span>

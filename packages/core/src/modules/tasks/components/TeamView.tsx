@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from 'react'
+import { PAGE_TITLE_CLASS } from '@open-mercato/ui/backend/Page'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { LayoutGrid, List } from 'lucide-react'
 import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
@@ -60,7 +61,7 @@ export function TeamView() {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       <div className="shrink-0">
-        <h1 className="text-2xl font-normal text-foreground">{t('tasks.team.title', 'Team')}</h1>
+        <h1 className={PAGE_TITLE_CLASS}>{t('tasks.team.title', 'Team')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {t('tasks.team.description', 'See tasks for everyone in your organization.')}
         </p>
