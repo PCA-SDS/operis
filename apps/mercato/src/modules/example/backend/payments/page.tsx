@@ -134,9 +134,9 @@ function StripePaymentForm({
 
   React.useEffect(() => {
     setPalette({
-      text: resolveThemeColor('hsl(var(--foreground))', DEFAULT_STRIPE_ELEMENT_PALETTE.text),
-      placeholder: resolveThemeColor('hsl(var(--muted-foreground))', DEFAULT_STRIPE_ELEMENT_PALETTE.placeholder),
-      danger: resolveThemeColor('hsl(var(--destructive))', DEFAULT_STRIPE_ELEMENT_PALETTE.danger),
+      text: resolveThemeColor('var(--foreground)', DEFAULT_STRIPE_ELEMENT_PALETTE.text),
+      placeholder: resolveThemeColor('var(--muted-foreground)', DEFAULT_STRIPE_ELEMENT_PALETTE.placeholder),
+      danger: resolveThemeColor('var(--destructive)', DEFAULT_STRIPE_ELEMENT_PALETTE.danger),
     })
   }, [])
 

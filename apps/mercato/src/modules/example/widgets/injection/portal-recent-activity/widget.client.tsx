@@ -10,11 +10,11 @@ const MOCK_ACTIVITY = [
 
 function ActivityIcon({ type }: { type: string }) {
   const colors: Record<string, string> = {
-    login: 'bg-status-success-bg text-status-success-icon dark:text-status-success-icon',
-    profile: 'bg-status-info-bg text-status-info-icon dark:text-status-info-icon',
-    order: 'bg-status-warning-bg text-status-warning-icon dark:text-status-warning-icon',
+    login: 'bg-status-success-bg text-status-success-icon',
+    profile: 'bg-status-info-bg text-status-info-icon',
+    order: 'bg-status-warning-bg text-status-warning-icon',
     download: 'bg-status-pink-bg text-status-pink-icon',
-    security: 'bg-status-error-bg text-status-error-icon dark:text-status-error-icon',
+    security: 'bg-status-error-bg text-status-error-icon',
   }
   return (
     <div className={`flex size-8 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${colors[type] ?? 'bg-muted text-muted-foreground'}`}>

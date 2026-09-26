@@ -75,7 +75,7 @@ export function CommandFooter({
 
         {/* Session authorization indicator */}
         {isSessionAuthorized && (
-          <div className="flex items-center gap-1 text-xs text-status-success-icon dark:text-status-success-icon">
+          <div className="flex items-center gap-1 text-xs text-status-success-icon">
             <ShieldCheck className="h-3 w-3" />
             <span>Authorized</span>
           </div>
