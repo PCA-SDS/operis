@@ -59,7 +59,7 @@ export function JsonDisplay({
   }, [jsonString])
 
   const containerClasses = cn(
-    'rounded-xl border border-border bg-surface shadow-sm p-6',
+    'rounded-xl border border-transparent bg-surface shadow-sm p-6',
     className
   )
 

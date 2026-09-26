@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from 'react'
+import { entityColorStyle } from '../../primitives/tag'
 import { Pencil, X } from 'lucide-react'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { TagsInput } from '@open-mercato/ui/backend/inputs/TagsInput'
@@ -373,7 +374,7 @@ function TagsSectionImpl({
       </div>
 
       {editing ? (
-        <div className="rounded-xl border border-border bg-surface shadow-sm p-4 space-y-3">
+        <div className="rounded-xl border border-transparent bg-surface shadow-sm p-4 space-y-3">
           <DataLoader
             isLoading={loadingOptions}
             loadingMessage={labels.loading}
@@ -439,8 +440,8 @@ function TagsSectionImpl({
               {tags.map((tag) => (
                 <span
                   key={tag.id}
-                  className="inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium"
-                  style={tag.color ? { borderColor: tag.color, color: tag.color } : undefined}
+                  className="inline-flex items-center rounded-full border border-transparent bg-surface-muted px-3 py-1 text-xs font-medium"
+                  style={entityColorStyle(tag.color)}
                 >
                   {tag.label}
                 </span>

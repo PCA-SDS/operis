@@ -84,7 +84,7 @@ export function PortalNotificationPanel({
   return (
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 z-modal bg-foreground/40" onClick={onClose} />
+      <div className="fixed inset-0 z-modal bg-scrim" onClick={onClose} />
 
       {/* Panel */}
       <div

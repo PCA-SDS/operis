@@ -31,7 +31,7 @@ export function ErrorMessage({ label, description, action, className, iconClassN
   return (
     <div
       className={cn(
-        'flex items-start gap-3 rounded border border-status-error-border bg-status-error-bg px-3 py-2 text-sm text-status-error-text',
+        'flex items-start gap-3 rounded-lg border border-transparent bg-status-error-bg px-4 py-3 text-sm text-status-error-text',
         className
       )}
       role="alert"

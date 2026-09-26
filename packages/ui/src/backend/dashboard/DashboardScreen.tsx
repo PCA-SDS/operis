@@ -670,8 +670,8 @@ function DashboardWidgetCard({
   return (
     <div
       className={cn(
-        'group relative flex h-full flex-col rounded-lg border bg-surface shadow-sm transition',
-        isDragOver ? 'border-primary ring-2 ring-primary/20' : 'hover:border-primary/40',
+        'group relative flex h-full flex-col rounded-xl border border-transparent bg-surface shadow-sm transition-[box-shadow,border-color]',
+        isDragOver ? 'border-primary ring-2 ring-primary/20' : 'border-transparent hover:shadow-md',
         editing ? 'cursor-grab' : 'cursor-default',
         sizeClass
       )}
@@ -712,11 +712,11 @@ function DashboardWidgetCard({
         onDragLeave()
       }}
     >
-      <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
+      <div className="flex items-center justify-between gap-2 px-4 pt-3">
         <div className="flex items-center gap-2">
           {editing && <GripVertical className="h-4 w-4 text-muted-foreground" />}
           <div>
-            <div className="text-sm font-medium leading-none">{title}</div>
+            <div className="text-sm font-semibold leading-none">{title}</div>
             {description ? <div className="mt-1 text-xs text-muted-foreground">{description}</div> : null}
           </div>
         </div>
@@ -754,7 +754,7 @@ function DashboardWidgetCard({
           )}
         </div>
       </div>
-      <div className="flex-1 p-4">
+      <div className="flex-1 px-4 pb-4 pt-3">
         {loading && (
           <div className="flex h-full min-h-[120px] items-center justify-center">
             <Spinner />

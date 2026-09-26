@@ -204,7 +204,7 @@ export function ConfirmDialog({
         // Reset dialog defaults
         "m-0 p-0 max-w-none bg-transparent border-none pointer-events-auto",
         // Backdrop — the canonical modal scrim (no blur).
-        "backdrop:bg-foreground/40 backdrop:transition-opacity",
+        "backdrop:bg-scrim backdrop:transition-opacity",
         // Mobile: bottom sheet
         "fixed inset-x-0 bottom-0 top-auto w-full",
         // Desktop: centered
