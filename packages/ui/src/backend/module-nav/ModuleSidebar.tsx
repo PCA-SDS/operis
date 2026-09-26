@@ -21,11 +21,11 @@ import { Button } from '../../primitives/button'
 const ITEM =
   'flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition-colors focus:outline-none focus-visible:shadow-focus'
 const ITEM_ACTIVE = 'bg-primary-soft text-primary'
-const ITEM_IDLE = 'text-muted-foreground hover:bg-surface-strong hover:text-foreground'
+const ITEM_IDLE = 'text-muted-foreground hover:bg-surface-muted hover:text-foreground'
 
 /** Sidebar column beside the page; one row above it on a phone. */
 export const MODULE_LAYOUT =
-  'grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)] gap-4 text-foreground md:grid-cols-[14rem_minmax(0,1fr)] md:grid-rows-1 md:gap-6'
+  'grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)] gap-4 text-foreground md:grid-cols-[14rem_minmax(0,1fr)] md:grid-rows-1 md:gap-8'
 
 const STICKY_STYLE: React.CSSProperties = {
   top: 'var(--module-sidebar-top, calc(var(--topbar-height, 4rem) + 1rem))',
@@ -70,10 +70,10 @@ export function ModuleSidebar({
     <aside aria-label={label} className="min-w-0 md:sticky md:flex md:self-start md:flex-col" style={STICKY_STYLE} {...rest}>
       <nav
         ref={navRef}
-        className="flex items-center gap-1 overflow-x-auto rounded-xl bg-surface-muted p-2 md:min-h-0 md:flex-col md:items-stretch md:gap-1 md:overflow-y-auto md:overflow-x-hidden"
+        className="flex items-center gap-1 overflow-x-auto rounded-xl p-2 md:min-h-0 md:flex-col md:items-stretch md:gap-1 md:overflow-y-auto md:overflow-x-hidden"
       >
         {title ? (
-          <p className="hidden truncate px-3 pb-1 pt-2 text-sm font-semibold uppercase tracking-widest text-muted-foreground md:block">
+          <p className="hidden shrink-0 truncate px-3 pb-2 pt-1 text-sm font-semibold text-foreground md:block">
             {title}
           </p>
         ) : null}
@@ -150,12 +150,12 @@ export function ModuleSidebarAction({
 }
 
 export function ModuleSidebarDivider() {
-  return <hr aria-hidden="true" className="hidden border-t border-border md:my-2 md:block" />
+  return <hr aria-hidden="true" className="hidden shrink-0 border-t border-border md:my-2 md:block" />
 }
 
 export function ModuleSidebarSectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="hidden truncate px-3 pb-1 pt-1 text-overline font-semibold uppercase tracking-widest text-muted-foreground md:block">
+    <p className="hidden shrink-0 truncate px-3 pb-1 pt-1 text-xs font-semibold text-muted-foreground md:block">
       {children}
     </p>
   )
@@ -171,7 +171,7 @@ export function ModuleSidebarSkeleton({ label }: { label: string }) {
         role="status"
         aria-busy="true"
         aria-label={label}
-        className="flex items-center gap-1 overflow-hidden rounded-xl bg-surface-muted p-2 md:flex-col md:items-stretch"
+        className="flex items-center gap-1 overflow-hidden rounded-xl p-2 md:flex-col md:items-stretch"
       >
         <span aria-hidden="true" className="hidden px-3 pb-1 pt-2 md:block">
           <span className="block h-3 w-20 animate-pulse rounded bg-surface-strong motion-reduce:animate-none" />
