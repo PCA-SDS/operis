@@ -747,12 +747,12 @@
     },
     "font-geist-sans": {
       "kind": "fontStack",
-      "light": "-apple-system, BlinkMacSystemFont, \"Inter\", ui-sans-serif, system-ui, \"Segoe UI\", sans-serif",
+      "light": "-apple-system, BlinkMacSystemFont, \"SF Pro Display\", \"SF Pro Text\", \"Helvetica Neue\", \"Inter\", Arial, sans-serif",
       "dark": null,
       "themeInvariant": true,
       "themeAlias": "font-sans",
       "figma": null,
-      "note": "Apple's SF Pro FIRST, then Inter. `-apple-system` / `BlinkMacSystemFont` are Apple-only CSS keywords: on macOS, iOS and iPadOS they resolve to the real SF Pro already installed on the OS — including its automatic SF Pro Text / SF Pro Display optical switching — and on every other platform they match nothing and fall straight through. SF Pro is NOT self-hosted and must not be: Apple's font license covers designing and developing software for Apple platforms, not redistributing the files as a webfont to arbitrary browsers. Inter therefore stays as the self-hosted face every non-Apple client gets; it is the closest open equivalent to SF and keeps Windows/Linux from falling back to Segoe UI or Cantarell. Inter / DM Mono are self-hosted (see ./fonts.css) because the app's CSP is `style-src 'self' 'unsafe-inline'` with no external hosts, so a Google Fonts <link> is blocked at runtime."
+      "note": "Apple's SF Pro FIRST, then Inter. `-apple-system` / `BlinkMacSystemFont` are Apple-only CSS keywords: on macOS, iOS and iPadOS they resolve to the real SF Pro already installed on the OS — including its automatic SF Pro Text / SF Pro Display optical switching — and on every other platform they match nothing and fall straight through. SF Pro is NOT self-hosted and must not be: Apple's font license covers designing and developing software for Apple platforms, not redistributing the files as a webfont to arbitrary browsers. Inter therefore stays as the self-hosted face every non-Apple client gets; it is the closest open equivalent to SF and keeps Windows/Linux from falling back to Segoe UI or Cantarell. Inter / DM Mono are self-hosted (see ./fonts.css) because the app's CSP is `style-src 'self' 'unsafe-inline'` with no external hosts, so a Google Fonts <link> is blocked at runtime. \"SF Pro Display\" / \"SF Pro Text\" / \"Helvetica Neue\" name locally installed faces only — nothing is downloaded — and Arial is the last resort if Inter ever fails to load."
     },
     "font-mono": {
       "kind": "reference",
@@ -1083,7 +1083,7 @@
     },
     "radius-2xl": {
       "kind": "dimension",
-      "value": "16px",
+      "value": "18px",
       "figma": {
         "name": "radius/2xl",
         "type": "FLOAT"
@@ -1091,7 +1091,7 @@
     },
     "radius-lg": {
       "kind": "dimension",
-      "value": "8px",
+      "value": "10px",
       "figma": {
         "name": "radius/lg",
         "type": "FLOAT"
@@ -1099,7 +1099,7 @@
     },
     "radius-md": {
       "kind": "dimension",
-      "value": "6px",
+      "value": "8px",
       "figma": {
         "name": "radius/md",
         "type": "FLOAT"
@@ -1112,11 +1112,11 @@
         "name": "radius/sm",
         "type": "FLOAT"
       },
-      "note": "═══ Design System: Radius Scale ═══ Explicit values rather than offsets from a single `--radius`, so each step is a decision instead of a side effect: sm = inline chips and checkboxes, md = compact buttons and menu items, lg = default controls (button, input, nav item), xl = cards, tables and popovers, 2xl = modals."
+      "note": "═══ Design System: Radius Scale ═══ Explicit values rather than offsets from a single `--radius`, so each step is a decision instead of a side effect: sm = inline chips and checkboxes, md = compact buttons and menu items, lg = default controls (button, input, nav item), xl = cards, tables and popovers, 2xl = modals and sheets. The steps are concentric: a menu row (md) inside a menu's 6px padding lands exactly on the menu's own corner (xl)."
     },
     "radius-xl": {
       "kind": "dimension",
-      "value": "12px",
+      "value": "14px",
       "figma": {
         "name": "radius/xl",
         "type": "FLOAT"
@@ -1136,6 +1136,22 @@
         "name": "ring",
         "type": "COLOR"
       }
+    },
+    "scrim": {
+      "kind": "color",
+      "light": "rgba(0, 0, 0, 0.32)",
+      "dark": "rgba(0, 0, 0, 0.6)",
+      "hex": {
+        "light": "#00000052",
+        "dark": "#00000099"
+      },
+      "themeInvariant": false,
+      "themeAlias": "color-scrim",
+      "figma": {
+        "name": "scrim",
+        "type": "COLOR"
+      },
+      "note": "Dimming layer behind modal surfaces."
     },
     "secondary": {
       "kind": "color",
@@ -1168,11 +1184,52 @@
       }
     },
     "shadow-2xl": {
+      "kind": "expression",
+      "value": "var(--shadow-elevation-2xl)",
+      "figma": null
+    },
+    "shadow-elevation-2xl": {
       "kind": "shadow",
-      "value": "0 32px 64px rgb(0 0 0 / 0.18)",
-      "dark": "0 25px 50px rgb(0 0 0 / 0.80)",
+      "light": "0 0 0 0.5px rgb(0 0 0 / 0.06), 0 12px 32px rgb(0 0 0 / 0.10), 0 32px 72px rgb(0 0 0 / 0.18)",
+      "dark": "0 0 0 0.5px rgb(255 255 255 / 0.12), 0 12px 32px rgb(0 0 0 / 0.55), 0 32px 72px rgb(0 0 0 / 0.70)",
       "themeInvariant": false,
       "figma": null
+    },
+    "shadow-elevation-lg": {
+      "kind": "shadow",
+      "light": "0 0 0 0.5px rgb(0 0 0 / 0.06), 0 4px 12px rgb(0 0 0 / 0.06), 0 16px 40px rgb(0 0 0 / 0.10)",
+      "dark": "0 0 0 0.5px rgb(255 255 255 / 0.10), 0 4px 12px rgb(0 0 0 / 0.45), 0 16px 40px rgb(0 0 0 / 0.55)",
+      "themeInvariant": false,
+      "figma": null
+    },
+    "shadow-elevation-md": {
+      "kind": "shadow",
+      "light": "0 2px 6px rgb(0 0 0 / 0.04), 0 8px 24px rgb(0 0 0 / 0.07)",
+      "dark": "0 2px 6px rgb(0 0 0 / 0.40), 0 8px 24px rgb(0 0 0 / 0.45)",
+      "themeInvariant": false,
+      "figma": null
+    },
+    "shadow-elevation-sm": {
+      "kind": "shadow",
+      "light": "0 1px 2px rgb(0 0 0 / 0.04), 0 2px 8px rgb(0 0 0 / 0.04)",
+      "dark": "0 1px 2px rgb(0 0 0 / 0.40), 0 2px 8px rgb(0 0 0 / 0.30)",
+      "themeInvariant": false,
+      "figma": null
+    },
+    "shadow-elevation-xl": {
+      "kind": "shadow",
+      "light": "0 0 0 0.5px rgb(0 0 0 / 0.06), 0 8px 24px rgb(0 0 0 / 0.08), 0 24px 56px rgb(0 0 0 / 0.14)",
+      "dark": "0 0 0 0.5px rgb(255 255 255 / 0.10), 0 8px 24px rgb(0 0 0 / 0.50), 0 24px 56px rgb(0 0 0 / 0.60)",
+      "themeInvariant": false,
+      "figma": null
+    },
+    "shadow-elevation-xs": {
+      "kind": "shadow",
+      "light": "0 1px 2px rgb(0 0 0 / 0.05)",
+      "dark": "0 1px 2px rgb(0 0 0 / 0.40)",
+      "themeInvariant": false,
+      "figma": null,
+      "note": "Elevation values behind the `shadow-*` scale (see the Shadow Scale note in `@theme`). The floating steps open with a 0.5px edge in place of a border."
     },
     "shadow-focus": {
       "kind": "shadow",
@@ -1181,24 +1238,18 @@
       "note": "Focus indicator — ONE mechanism for the whole product. The design reference suppresses focus rings entirely; we keep them (a keyboard user must be able to see where they are) but adopt the intent: quiet. A 2px ground-coloured inner ring separates the halo from the control, then a 4px blue halo at low alpha. Because it is a token, the whole app's focus treatment moves as one decision."
     },
     "shadow-lg": {
-      "kind": "shadow",
-      "value": "0 12px 32px rgb(0 0 0 / 0.10), 0 2px 6px rgb(0 0 0 / 0.04)",
-      "dark": "0 12px 28px rgb(0 0 0 / 0.60)",
-      "themeInvariant": false,
+      "kind": "expression",
+      "value": "var(--shadow-elevation-lg)",
       "figma": null
     },
     "shadow-md": {
-      "kind": "shadow",
-      "value": "0 4px 16px rgb(0 0 0 / 0.06), 0 1px 3px rgb(0 0 0 / 0.04)",
-      "dark": "0 4px 12px rgb(0 0 0 / 0.50)",
-      "themeInvariant": false,
+      "kind": "expression",
+      "value": "var(--shadow-elevation-md)",
       "figma": null
     },
     "shadow-sm": {
-      "kind": "shadow",
-      "value": "0 1px 3px rgb(0 0 0 / 0.06), 0 1px 2px rgb(0 0 0 / 0.04)",
-      "dark": "0 1px 3px rgb(0 0 0 / 0.40), 0 1px 2px rgb(0 0 0 / 0.30)",
-      "themeInvariant": false,
+      "kind": "expression",
+      "value": "var(--shadow-elevation-sm)",
       "figma": null
     },
     "shadow-switch-thumb": {
@@ -1210,19 +1261,15 @@
       "note": "Switch thumb: thin drop shadow + hairline outline (matches Figma switch spec)."
     },
     "shadow-xl": {
-      "kind": "shadow",
-      "value": "0 20px 48px rgb(0 0 0 / 0.12)",
-      "dark": "0 20px 40px rgb(0 0 0 / 0.70)",
-      "themeInvariant": false,
+      "kind": "expression",
+      "value": "var(--shadow-elevation-xl)",
       "figma": null
     },
     "shadow-xs": {
-      "kind": "shadow",
-      "value": "0 1px 2px rgb(0 0 0 / 0.04)",
-      "dark": "0 1px 2px rgb(0 0 0 / 0.30)",
-      "themeInvariant": false,
+      "kind": "expression",
+      "value": "var(--shadow-elevation-xs)",
       "figma": null,
-      "note": "═══ Design System: Shadow Scale ═══ Apple-style elevation: neutral black at low alpha with a wide, soft blur, so a raised surface floats rather than carrying a hard edge. Dark overrides in .dark. xs → flat controls (button, input, icon-button) sm → cards, panels, sections md → the list-view card (a table carries elevation instead of a border) lg → menus, popovers, dropdowns xl → floating panels (drawers, side sheets) 2xl → top-level modals, command palette"
+      "note": "═══ Design System: Shadow Scale ═══ Apple-style elevation: neutral black at low alpha with a wide, soft blur, so a raised surface floats rather than carrying a hard edge. xs → flat controls (button, input, icon-button) sm → cards, table cards, panels md → hover lift, the floating search field, toasts lg → menus, popovers, dropdowns xl → floating panels (drawers, side sheets) 2xl → top-level modals, command palette The floating levels (lg and up) open with a 0.5px edge, the hairline a menu shows on macOS, so a surface needs no border to hold its shape on a white page. Each step points at a `--shadow-elevation-*` value defined per theme in `:root` / `.dark`. `@theme inline` bakes a literal value into the utility, so a shadow written here directly could never change with the theme."
     },
     "sidebar": {
       "kind": "color",
@@ -1989,11 +2036,11 @@
     },
     "table-header": {
       "kind": "color",
-      "light": "#F5F5F7",
-      "dark": "#2C2C2E",
+      "light": "#FFFFFF",
+      "dark": "#1C1C1E",
       "hex": {
-        "light": "#f5f5f7",
-        "dark": "#2c2c2e"
+        "light": "#ffffff",
+        "dark": "#1c1c1e"
       },
       "themeInvariant": false,
       "themeAlias": "color-table-header",
@@ -2001,7 +2048,7 @@
         "name": "table-header",
         "type": "COLOR"
       },
-      "note": "Table family — a list view is the most-used surface in the product, so its parts are named instead of expressed as opacity math at call sites."
+      "note": "Table family — a list view is the most-used surface in the product, so its parts are named instead of expressed as opacity math at call sites. The header shares the card's white, as in Finder's list view: the column labels carry it, with one hairline under the header strip."
     },
     "table-row-hover": {
       "kind": "color",
@@ -2047,6 +2094,17 @@
         "name": "text-disabled",
         "type": "COLOR"
       }
+    },
+    "text-large-title": {
+      "kind": "dimension",
+      "value": "2rem",
+      "figma": null,
+      "note": "═══ Design System: Type Scale ═══ Tailwind's scale covers every step of the hierarchy except the page title, which sits between `text-3xl` (30px) and `text-4xl` (36px). One token for it, used by `PageHeader`, so every page title lands on the same size."
+    },
+    "text-large-title--line-height": {
+      "kind": "dimension",
+      "value": "2.5rem",
+      "figma": null
     },
     "z-index-banner": {
       "kind": "number",

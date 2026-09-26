@@ -109,6 +109,10 @@ TODO: Fix that latter to have reference by the package names
   --color-border-strong: var(--border-strong);
   --color-disabled-foreground: var(--disabled-foreground);
 
+  /* Scrim — the dimming layer behind a dialog, sheet or drawer. Black in both
+     themes: `bg-foreground/40` would turn into a light veil in dark mode. */
+  --color-scrim: var(--scrim);
+
   /* Primary family — CTA fill plus its soft/border companions for selected
      rows, tinted chips and emphasis edges. */
   --color-primary-active: var(--primary-active);
@@ -151,12 +155,21 @@ TODO: Fix that latter to have reference by the package names
      Explicit values rather than offsets from a single `--radius`, so each step
      is a decision instead of a side effect: sm = inline chips and checkboxes,
      md = compact buttons and menu items, lg = default controls (button, input,
-     nav item), xl = cards, tables and popovers, 2xl = modals. */
+     nav item), xl = cards, tables and popovers, 2xl = modals and sheets.
+     The steps are concentric: a menu row (md) inside a menu's 6px padding
+     lands exactly on the menu's own corner (xl). */
   --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
-  --radius-xl: 12px;
-  --radius-2xl: 16px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-2xl: 18px;
+
+  /* ═══ Design System: Type Scale ═══
+     Tailwind's scale covers every step of the hierarchy except the page title,
+     which sits between `text-3xl` (30px) and `text-4xl` (36px). One token for
+     it, used by `PageHeader`, so every page title lands on the same size. */
+  --text-large-title: 2rem;
+  --text-large-title--line-height: 2.5rem;
 
   /* ═══ Design System: Semantic Status Colors ═══ */
   --color-status-error-bg: var(--status-error-bg);
@@ -245,21 +258,26 @@ TODO: Fix that latter to have reference by the package names
 
   /* ═══ Design System: Shadow Scale ═══
      Apple-style elevation: neutral black at low alpha with a wide, soft blur,
-     so a raised surface floats rather than carrying a hard edge. Dark
-     overrides in .dark.
+     so a raised surface floats rather than carrying a hard edge.
      xs  → flat controls (button, input, icon-button)
-     sm  → cards, panels, sections
-     md  → the list-view card (a table carries elevation instead of a border)
+     sm  → cards, table cards, panels
+     md  → hover lift, the floating search field, toasts
      lg  → menus, popovers, dropdowns
      xl  → floating panels (drawers, side sheets)
      2xl → top-level modals, command palette
-  */
-  --shadow-xs:  0 1px 2px rgb(0 0 0 / 0.04);
-  --shadow-sm:  0 1px 3px rgb(0 0 0 / 0.06), 0 1px 2px rgb(0 0 0 / 0.04);
-  --shadow-md:  0 4px 16px rgb(0 0 0 / 0.06), 0 1px 3px rgb(0 0 0 / 0.04);
-  --shadow-lg:  0 12px 32px rgb(0 0 0 / 0.10), 0 2px 6px rgb(0 0 0 / 0.04);
-  --shadow-xl:  0 20px 48px rgb(0 0 0 / 0.12);
-  --shadow-2xl: 0 32px 64px rgb(0 0 0 / 0.18);
+     The floating levels (lg and up) open with a 0.5px edge, the hairline a
+     menu shows on macOS, so a surface needs no border to hold its shape on a
+     white page.
+
+     Each step points at a `--shadow-elevation-*` value defined per theme in
+     `:root` / `.dark`. `@theme inline` bakes a literal value into the utility,
+     so a shadow written here directly could never change with the theme. */
+  --shadow-xs:  var(--shadow-elevation-xs);
+  --shadow-sm:  var(--shadow-elevation-sm);
+  --shadow-md:  var(--shadow-elevation-md);
+  --shadow-lg:  var(--shadow-elevation-lg);
+  --shadow-xl:  var(--shadow-elevation-xl);
+  --shadow-2xl: var(--shadow-elevation-2xl);
 
   /* Focus indicator — ONE mechanism for the whole product.
      The design reference suppresses focus rings entirely; we keep them (a
@@ -287,8 +305,11 @@ TODO: Fix that latter to have reference by the package names
      it is the closest open equivalent to SF and keeps Windows/Linux from
      falling back to Segoe UI or Cantarell. Inter / DM Mono are self-hosted (see
      ./fonts.css) because the app's CSP is `style-src 'self' 'unsafe-inline'`
-     with no external hosts, so a Google Fonts <link> is blocked at runtime. */
-  --font-geist-sans: -apple-system, BlinkMacSystemFont, "Inter", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+     with no external hosts, so a Google Fonts <link> is blocked at runtime.
+     "SF Pro Display" / "SF Pro Text" / "Helvetica Neue" name locally installed
+     faces only — nothing is downloaded — and Arial is the last resort if Inter
+     ever fails to load. */
+  --font-geist-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", "Inter", Arial, sans-serif;
   --font-geist-mono: "DM Mono", ui-monospace, "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
   /* Third-party components that theme themselves through their own custom
      properties rather than inheriting. MDXEditor's stylesheet sets
@@ -308,6 +329,16 @@ TODO: Fix that latter to have reference by the package names
   /* Focus ring halo — Apple blue at low alpha. */
   --focus-ring-inner: #FFFFFF;
   --focus-ring-outer: rgba(0, 113, 227, 0.35);
+  /* Elevation values behind the `shadow-*` scale (see the Shadow Scale note in
+     `@theme`). The floating steps open with a 0.5px edge in place of a border. */
+  --shadow-elevation-xs:  0 1px 2px rgb(0 0 0 / 0.05);
+  --shadow-elevation-sm:  0 1px 2px rgb(0 0 0 / 0.04), 0 2px 8px rgb(0 0 0 / 0.04);
+  --shadow-elevation-md:  0 2px 6px rgb(0 0 0 / 0.04), 0 8px 24px rgb(0 0 0 / 0.07);
+  --shadow-elevation-lg:  0 0 0 0.5px rgb(0 0 0 / 0.06), 0 4px 12px rgb(0 0 0 / 0.06), 0 16px 40px rgb(0 0 0 / 0.10);
+  --shadow-elevation-xl:  0 0 0 0.5px rgb(0 0 0 / 0.06), 0 8px 24px rgb(0 0 0 / 0.08), 0 24px 56px rgb(0 0 0 / 0.14);
+  --shadow-elevation-2xl: 0 0 0 0.5px rgb(0 0 0 / 0.06), 0 12px 32px rgb(0 0 0 / 0.10), 0 32px 72px rgb(0 0 0 / 0.18);
+  /* Dimming layer behind modal surfaces. */
+  --scrim: rgba(0, 0, 0, 0.32);
   /* Social brand colors — theme-invariant */
   --brand-apple: #000000;
   --brand-github: #181717;
@@ -374,8 +405,10 @@ TODO: Fix that latter to have reference by the package names
   --ring: #0071E3;
   --focus-ring: #0071E3;
   /* Table family — a list view is the most-used surface in the product, so its
-     parts are named instead of expressed as opacity math at call sites. */
-  --table-header: #F5F5F7;
+     parts are named instead of expressed as opacity math at call sites.
+     The header shares the card's white, as in Finder's list view: the column
+     labels carry it, with one hairline under the header strip. */
+  --table-header: #FFFFFF;
   --table-row-hover: #F5F5F7;
   --table-selected: #E6F1FC;
   --table-border: #E5E5EA;
@@ -501,13 +534,18 @@ TODO: Fix that latter to have reference by the package names
   /* Focus ring halo — dark variant */
   --focus-ring-inner: #000000;
   --focus-ring-outer: rgba(10, 132, 255, 0.45);
-  /* Shadow scale — dark mode: pure black, higher opacity for visibility */
-  --shadow-xs:  0 1px 2px rgb(0 0 0 / 0.30);
-  --shadow-sm:  0 1px 3px rgb(0 0 0 / 0.40), 0 1px 2px rgb(0 0 0 / 0.30);
-  --shadow-md:  0 4px 12px rgb(0 0 0 / 0.50);
-  --shadow-lg:  0 12px 28px rgb(0 0 0 / 0.60);
-  --shadow-xl:  0 20px 40px rgb(0 0 0 / 0.70);
-  --shadow-2xl: 0 25px 50px rgb(0 0 0 / 0.80);
+  /* Elevation — dark mode: pure black at higher opacity, and the floating
+     steps open with a light 0.5px edge, because a shadow alone is invisible on
+     a black ground. */
+  --shadow-elevation-xs:  0 1px 2px rgb(0 0 0 / 0.40);
+  --shadow-elevation-sm:  0 1px 2px rgb(0 0 0 / 0.40), 0 2px 8px rgb(0 0 0 / 0.30);
+  --shadow-elevation-md:  0 2px 6px rgb(0 0 0 / 0.40), 0 8px 24px rgb(0 0 0 / 0.45);
+  --shadow-elevation-lg:  0 0 0 0.5px rgb(255 255 255 / 0.10), 0 4px 12px rgb(0 0 0 / 0.45), 0 16px 40px rgb(0 0 0 / 0.55);
+  --shadow-elevation-xl:  0 0 0 0.5px rgb(255 255 255 / 0.10), 0 8px 24px rgb(0 0 0 / 0.50), 0 24px 56px rgb(0 0 0 / 0.60);
+  --shadow-elevation-2xl: 0 0 0 0.5px rgb(255 255 255 / 0.12), 0 12px 32px rgb(0 0 0 / 0.55), 0 32px 72px rgb(0 0 0 / 0.70);
+  /* Dimming layer — deeper than light mode so a sheet still separates from a
+     black ground. */
+  --scrim: rgba(0, 0, 0, 0.6);
 
   /* Switch thumb: brighter outline in dark mode for visibility against the muted track. */
   --shadow-switch-thumb: 0 1px 2px rgb(0 0 0 / 0.40), 0 0 0 0.5px rgb(0 0 0 / 0.30);
@@ -561,7 +599,7 @@ TODO: Fix that latter to have reference by the package names
   --input: #00000000;
   --ring: #0A84FF;
   --focus-ring: #0A84FF;
-  --table-header: #2C2C2E;
+  --table-header: #1C1C1E;
   --table-row-hover: #242426;
   --table-selected: #183350;
   --table-border: #38383A;
@@ -688,7 +726,10 @@ TODO: Fix that latter to have reference by the package names
     select,
     [data-slot='input-wrapper'],
     [data-slot='search-input-wrapper'],
-    [data-slot='select-trigger']
+    [data-slot='select-trigger'],
+    [data-slot='date-picker-trigger'],
+    [data-slot='date-range-picker-trigger'],
+    [data-slot='rich-editor-content']
   ):not(
     [data-slot='input-wrapper'] *,
     [data-slot='search-input-wrapper'] *
@@ -716,7 +757,9 @@ TODO: Fix that latter to have reference by the package names
     [data-slot='input-wrapper'],
     [data-slot='search-input-wrapper'],
     [data-slot='select-trigger'],
-    [data-slot='date-picker-trigger']
+    [data-slot='date-picker-trigger'],
+    [data-slot='date-range-picker-trigger'],
+    [data-slot='rich-editor-content']
   ):not(
     [data-slot='input-wrapper'] *,
     [data-slot='search-input-wrapper'] *
@@ -733,15 +776,13 @@ TODO: Fix that latter to have reference by the package names
 /* Form section titles inside a dialog.
  *
  * `FORM_SECTION_TITLE` is `text-2xl` (24px), which is right on a page: the page
- * heading above it is 30px, so the section reads as one level down. Inside a
- * dialog the heading above it is `DialogTitle` at 20px, so the same class makes
+ * heading above it is 32px, so the section reads as one level down. Inside a
+ * dialog the heading above it is `DialogTitle` at 18px, so the same class makes
  * a section title LARGER than the dialog it lives in — the one thing a heading
  * must never be. Scoped to the dialog so page forms keep their own scale. */
 [role='dialog'] [data-slot='form-section-title'] {
-  /* One step below `DialogTitle` (1.25rem). The DS scale has no 1rem entry —
-     `--font-size-section-title` IS 1.25rem, which would make this heading tie
-     with the dialog's own title rather than sit under it — so the step is
-     written out here rather than invented as a token for one rule. */
+  /* One step below `DialogTitle` (1.125rem), written out here rather than
+     invented as a token for one rule. */
   font-size: 1rem;
   line-height: 1.5rem;
 }
@@ -954,6 +995,24 @@ TODO: Fix that latter to have reference by the package names
   .animate-fadeInUp,
   .animate-fadeIn {
     animation: none;
+  }
+}
+
+/* Reduced motion, product-wide. Every transition and every enter/exit
+   animation (`tw-animate-css`, which Radix dialogs, popovers and tooltips use)
+   collapses to an instant change. The duration is 0.01ms rather than 0 so the
+   `transitionend` / `animationend` events that Radix waits on still fire.
+   Spinners and skeleton pulses keep running: they report status. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .animate-in,
+  .animate-out {
+    animation-duration: 0.01ms !important;
   }
 }
 
@@ -1314,69 +1373,22 @@ body[data-ai-chat-open="true"] .om-demo-feedback-floating {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   Focus indicators removed product-wide
+   Focus policy — keyboard focus is always visible, pointer focus is not
 
-   Requested explicitly: no ring, halo, outline or border highlight on ANY
-   control when it is clicked or focused, anywhere in Operis, with no
-   exceptions.
+   Controls draw the `shadow-focus` halo on `:focus-visible` only, so a click
+   leaves no ring and Tab always shows where you are (WCAG 2.1 SC 2.4.7). Text
+   fields are the one place browsers treat every focus as visible, because a
+   focused field is about to take typing, so a clicked field shows its quiet
+   blue edge while it is active.
 
-   This is done here, at the tokens and in one override block, rather than by
-   deleting ~477 `focus-visible:*` utilities across the codebase. Two reasons:
-   the utilities are the design system's documented recipe and stripping them
-   would fight every future component that follows the guide, and a rule here
-   also covers third-party markup (Radix, the rich editor, native controls)
-   that no source edit could reach.
+   This replaces the earlier product-wide removal of every focus indicator. The
+   `focus-visible:` utilities were never deleted, so the halo token is once
+   again the single mechanism.
 
-   ACCESSIBILITY: this removes the only cue a keyboard user has for where they
-   are, and fails WCAG 2.1 SC 2.4.7 (Focus Visible). Deleting this block is the
-   entire rollback — every `focus-visible:` utility underneath is still in place
-   and starts painting again the moment these are gone.
+   The rule below keeps the browser's own outline off an element that was
+   focused by pointer and has no focus styling of its own.
    ══════════════════════════════════════════════════════════════════════════ */
 
-:root,
-:root[data-theme='light'],
-:root[data-theme='dark'],
-.dark {
-  /* Belt: only reached if `shadow-focus` is ever consumed as a plain variable. */
-  --shadow-focus: none;
-  /* Braces, and the line that actually does the work.
-     `@theme inline` above INLINES the composite into `.shadow-focus`, which
-     compiles to
-       --tw-shadow: 0 0 0 2px var(--focus-ring-inner), 0 0 0 4px var(--focus-ring-outer)
-     so the utility never reads `--shadow-focus` at runtime and overriding that
-     token alone changes nothing. Blanking these two colours is what makes the
-     halo transparent. Do not delete them as redundant — they are the mechanism. */
-  --focus-ring-inner: transparent;
-  --focus-ring-outer: transparent;
-  /* The ring colours: `ring-ring`, `ring-ring/40`, `ring-focus-ring/30`,
-     `outline-ring/50` and the sidebar's own focus edge all resolve to these. */
-  --focus-ring: transparent;
-  --ring: transparent;
-  --sidebar-ring: transparent;
-  /* The focused-field border, so an input's edge does not change on focus. */
-  --input-border-focus: var(--input-border);
-}
-
-/* Outlines: the browser default, the `outline-ring/50` base rule, and any
-   explicit focus outline. */
-:focus,
-:focus-visible,
-:focus-within {
-  outline: none !important;
-}
-
-/* Tailwind draws `ring-*` as a box-shadow through these two slots. Blanking the
-   slots removes the ring while leaving `--tw-shadow` — real elevation — alone,
-   so a focused card keeps its drop shadow and only loses the halo. */
-:focus,
-:focus-visible,
-:focus-within {
-  --tw-ring-shadow: 0 0 #0000 !important;
-  --tw-ring-offset-shadow: 0 0 #0000 !important;
-  --tw-ring-color: transparent !important;
-}
-
-/* The one hand-rolled halo that does not go through a token. */
-.focus-ring-fancy:focus-visible {
-  box-shadow: none !important;
+:focus:not(:focus-visible) {
+  outline: none;
 }
