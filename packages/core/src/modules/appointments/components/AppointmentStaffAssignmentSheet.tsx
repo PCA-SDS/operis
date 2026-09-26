@@ -4,6 +4,8 @@ import * as React from 'react'
 import { Check, Clock, MapPin, Minus, Plus, Search, Users, X } from 'lucide-react'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
+import { CloseButton } from '@open-mercato/ui/primitives/close-button'
+import { DIALOG_TITLE_CLASS } from '@open-mercato/ui/primitives/dialog'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { Tag } from '@open-mercato/ui/primitives/tag'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
@@ -93,14 +95,14 @@ export function AppointmentStaffAssignmentSheet({
   if (!target) return null
 
   return (
-    <div data-appointment-staff-assignment-sheet="true" className={`fixed inset-0 z-50 flex justify-end bg-scrim transition-opacity duration-150 ease-out ${isVisible ? 'opacity-100' : 'opacity-0'}`} onClick={onClose}>
-      <aside className={`flex h-full w-full max-w-md flex-col bg-surface shadow-lg transition-transform duration-150 ease-out will-change-transform ${isVisible ? 'translate-x-0' : 'translate-x-full'}`} onClick={(event) => event.stopPropagation()}>
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-4 py-3">
+    <div data-appointment-staff-assignment-sheet="true" className={`fixed inset-0 z-modal flex justify-end bg-scrim transition-opacity duration-150 ease-out ${isVisible ? 'opacity-100' : 'opacity-0'}`} onClick={onClose}>
+      <aside className={`flex h-full w-full max-w-md flex-col bg-surface shadow-xl transition-transform duration-150 ease-out will-change-transform ${isVisible ? 'translate-x-0' : 'translate-x-full'}`} onClick={(event) => event.stopPropagation()}>
+        <div className="flex shrink-0 items-start justify-between gap-3 px-4 pt-4 pb-3">
           <div className="min-w-0">
-            <h2 className="text-base font-semibold">{t('appointments.staffAssignment.title', 'Assign staff')}</h2>
+            <h2 className={DIALOG_TITLE_CLASS}>{t('appointments.staffAssignment.title', 'Assign staff')}</h2>
             <p className="mt-1 text-sm text-muted-foreground">{t('appointments.staffAssignment.hint', 'Choose staff for this service and time window.')}</p>
           </div>
-          <IconButton type="button" variant="ghost" aria-label={t('common.close', 'Close')} onClick={onClose}><X className="size-4" /></IconButton>
+          <CloseButton aria-label={t('common.close', 'Close')} onClick={onClose} />
         </div>
 
         <div className="shrink-0 border-b border-border bg-muted/20 px-4 py-2">

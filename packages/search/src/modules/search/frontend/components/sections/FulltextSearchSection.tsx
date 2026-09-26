@@ -6,6 +6,16 @@ import { apiCall, readApiResultOrThrow } from '@open-mercato/ui/backend/utils/ap
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
+import { Alert, AlertDescription } from '@open-mercato/ui/primitives/alert'
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@open-mercato/ui/primitives/dialog'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@open-mercato/ui/primitives/tabs'
 import { isVectorActivityLog, useIndexActivityLogs, type ActivityLog } from '../useIndexActivityLogs'
 
@@ -521,46 +531,39 @@ export function FulltextSearchSection({
         </TabsContent>
       </Tabs>
 
-      {/* Reindex Confirmation Dialog */}
-      {showReindexDialog && (
-        <div className="fixed inset-0 z-modal flex items-center justify-center bg-black/50">
-          <div className="mx-4 max-w-md rounded-lg border border-border bg-card p-6 shadow-lg">
-            <div className="flex items-start gap-3 mb-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-status-warning-bg">
-                <svg className="h-5 w-5 text-status-warning-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold">{getDialogContent(showReindexDialog).title}</h3>
-                <p className="text-sm text-muted-foreground mt-1">{getDialogContent(showReindexDialog).description}</p>
-              </div>
-            </div>
-
-            <div className="mb-4 p-3 rounded-md bg-status-warning-bg">
-              <div className="flex items-start gap-2">
-                <svg className="h-5 w-5 text-status-warning-icon flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-                <p className="text-sm text-status-warning-text">{getDialogContent(showReindexDialog).warning}</p>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3">
-              <Button type="button" variant="soft" onClick={handleReindexCancel}>
-                {t('search.settings.cancelLabel', 'Cancel')}
-              </Button>
-              <Button
-                type="button"
-                variant={showReindexDialog === 'reindex' ? 'default' : 'destructive'}
-                onClick={handleReindexConfirm}
-              >
-                {getDialogContent(showReindexDialog).confirmLabel}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Reindex Confirmation Dialog — the shared dialog, so it traps focus,
+          closes on Escape and wears the product's modal chrome. The warning is
+          the shared Alert; the destructive action takes the solid red a
+          point-of-no-return confirmation gets everywhere else. */}
+      <Dialog open={Boolean(showReindexDialog)} onOpenChange={(open) => { if (!open) handleReindexCancel() }}>
+        <DialogContent className="max-w-md">
+          {showReindexDialog ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>{getDialogContent(showReindexDialog).title}</DialogTitle>
+                <DialogDescription>{getDialogContent(showReindexDialog).description}</DialogDescription>
+              </DialogHeader>
+              <DialogBody>
+                <Alert status="warning">
+                  <AlertDescription>{getDialogContent(showReindexDialog).warning}</AlertDescription>
+                </Alert>
+              </DialogBody>
+              <DialogFooter>
+                <Button type="button" variant="soft" onClick={handleReindexCancel}>
+                  {t('search.settings.cancelLabel', 'Cancel')}
+                </Button>
+                <Button
+                  type="button"
+                  variant={showReindexDialog === 'reindex' ? 'default' : 'destructive-solid'}
+                  onClick={handleReindexConfirm}
+                >
+                  {getDialogContent(showReindexDialog).confirmLabel}
+                </Button>
+              </DialogFooter>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

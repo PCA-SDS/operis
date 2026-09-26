@@ -15,7 +15,7 @@ export type FormFooterProps = {
 
 export function FormFooter({ actions, embedded, className }: FormFooterProps) {
   return (
-    <div className={cn(
+    <div data-slot="form-footer" className={cn(
       'flex items-center gap-2',
       embedded ? 'justify-end' : 'justify-between',
       className,

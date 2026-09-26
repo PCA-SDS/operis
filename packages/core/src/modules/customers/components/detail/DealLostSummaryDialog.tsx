@@ -127,7 +127,7 @@ export function DealLostSummaryDialog({
 
           </div>
         </DialogBody>
-        <DialogFooter className="flex-col gap-2">
+        <DialogFooter className="flex-col gap-2 sm:flex-col">
           <Button
             type="button"
             className="w-full"

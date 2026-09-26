@@ -27,10 +27,11 @@ import {
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
+import { CloseButton } from '@open-mercato/ui/primitives/close-button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { Skeleton } from '@open-mercato/ui/primitives/skeleton'
 import { Tag } from '@open-mercato/ui/primitives/tag'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@open-mercato/ui/primitives/dialog'
+import { DIALOG_TITLE_CLASS, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@open-mercato/ui/primitives/dialog'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
@@ -896,14 +897,14 @@ function StaffSheet(props: {
   }, [query, staff])
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-scrim" onClick={onClose}>
-      <aside className="flex h-full w-full max-w-md flex-col bg-surface shadow-lg" onClick={(event) => event.stopPropagation()}>
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-4 py-3">
+    <div className="fixed inset-0 z-modal flex justify-end bg-scrim" onClick={onClose}>
+      <aside className="flex h-full w-full max-w-md flex-col bg-surface shadow-xl" onClick={(event) => event.stopPropagation()}>
+        <div className="flex shrink-0 items-start justify-between gap-3 px-4 pt-4 pb-3">
           <div className="min-w-0">
-            <h2 className="text-base font-semibold">{t('appointments.seatPlanner.assignStaff', 'Assign staff')}</h2>
+            <h2 className={DIALOG_TITLE_CLASS}>{t('appointments.seatPlanner.assignStaff', 'Assign staff')}</h2>
             <p className="mt-1 text-sm text-muted-foreground">{t('appointments.seatPlanner.assignStaffHint', 'Choose staff for this selected seat and time window.')}</p>
           </div>
-          <IconButton type="button" variant="ghost" aria-label={t('common.close', 'Close')} onClick={onClose}><X className="size-4" /></IconButton>
+          <CloseButton aria-label={t('common.close', 'Close')} onClick={onClose} />
         </div>
 
         <div className="shrink-0 border-b border-border bg-muted/20 px-4 py-2">

@@ -446,7 +446,7 @@ export function AdjustmentKindSettings() {
             {error ? <p className="text-sm text-destructive">{error}</p> : null}
           </form>
           <DialogFooter>
-            <Button variant="ghost" onClick={closeDialog}>
+            <Button variant="soft" onClick={closeDialog}>
               {labels.cancel}
             </Button>
             <Button onClick={() => void handleSubmit()} disabled={submitting}>

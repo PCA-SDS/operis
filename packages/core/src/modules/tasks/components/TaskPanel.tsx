@@ -418,10 +418,11 @@ export function TaskPanel({
       <Dialog open onOpenChange={(open) => (open || busyCreate ? undefined : onClose())}>
         <DialogContent
           disableBodyWrap
-          // Create mode takes the DS close button, like the event editor;
-          // detail mode draws its own header row with Delete and Close.
-          dismissible={isCreate}
-          closeAriaLabel={t('tasks.common.cancel', 'Cancel')}
+          // Both modes take the DS close button. Detail mode keeps Delete in its
+          // header row, clear of the close button's gutter and at its 28px size.
+          closeAriaLabel={
+            isCreate ? t('tasks.common.cancel', 'Cancel') : t('tasks.panel.closeTask', 'Close task')
+          }
           className={cn(
             'flex flex-col gap-0 overflow-hidden p-0',
             isCreate
@@ -430,7 +431,9 @@ export function TaskPanel({
               // earns the extra width. A standard scale step, not an arbitrary
               // value — `sm:` so the mobile sheet still goes full-bleed.
               ? 'max-h-[calc(100dvh-4rem)] sm:max-w-5xl'
-              : 'h-full max-h-[calc(100dvh-2.5rem)] max-w-[80rem]',
+              // Nearly the whole window, with the same 20px margin on every
+              // side, up to a 1280px reading width.
+              : 'h-full max-h-[calc(100dvh-2.5rem)] max-w-7xl sm:w-[calc(100vw-2.5rem)]',
           )}
         >
           {isCreate ? (
@@ -438,26 +441,21 @@ export function TaskPanel({
               <DialogTitle>{t('tasks.panel.newTask', 'New task')}</DialogTitle>
             </DialogHeader>
           ) : (
-            <header className="flex shrink-0 items-center justify-between gap-2 px-4 py-2.5">
-              <DialogTitle className="font-mono text-xs font-normal text-muted-foreground">
+            <DialogHeader className="flex-row items-center justify-between gap-2">
+              <DialogTitle className="font-mono text-sm font-normal text-muted-foreground">
                 {task ? taskRef(task.projectKey, task.number) : t('tasks.panel.detailLabel', 'Task detail')}
               </DialogTitle>
-              <div className="flex items-center gap-1">
-                <IconButton
-                  type="button"
-                  variant="ghost"
-                  size="lg"
-                  aria-label={t('tasks.panel.deleteTask', 'Delete task')}
-                  className="text-destructive"
-                  onClick={() => void confirmDelete()}
-                >
-                  <Trash2 className="size-4" aria-hidden="true" />
-                </IconButton>
-                <Button type="button" variant="ghost" size="sm" onClick={onClose}>
-                  {t('tasks.panel.closeTask', 'Close task')}
-                </Button>
-              </div>
-            </header>
+              <IconButton
+                type="button"
+                variant="ghost"
+                size="sm"
+                aria-label={t('tasks.panel.deleteTask', 'Delete task')}
+                className="text-destructive"
+                onClick={() => void confirmDelete()}
+              >
+                <Trash2 className="size-4" aria-hidden="true" />
+              </IconButton>
+            </DialogHeader>
           )}
 
           {showError ? (

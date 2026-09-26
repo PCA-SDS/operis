@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from 'react'
-import { UserCircle2 } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -92,8 +91,7 @@ export function ChangeOwnerDialog({
     >
       <DialogContent className="sm:max-w-md" onKeyDown={handleKeyDown}>
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <UserCircle2 className="size-4" aria-hidden="true" />
+          <DialogTitle>
             {translateWithFallback(
               t,
               'customers.deals.kanban.bulk.changeOwner.title',

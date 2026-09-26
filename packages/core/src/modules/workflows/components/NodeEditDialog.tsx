@@ -1562,7 +1562,7 @@ export const NodeEditDialog = memo(function NodeEditDialog({ node, isOpen, onClo
           )}
         </div>
 
-        <DialogFooter className="flex justify-between">
+        <DialogFooter className="flex justify-between sm:justify-between">
           {onDelete && (
             <Button
               type="button"

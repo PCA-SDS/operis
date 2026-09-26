@@ -73,7 +73,6 @@ export type LinkEntityAdapter<TDetails = unknown, TLinkSettings = Record<string,
 
   dialogTitle: string
   dialogSubtitle?: string
-  headerIcon?: React.ReactNode
   sectionLabel?: string
   searchPlaceholder: string
   searchEmptyHint: string
@@ -519,22 +518,11 @@ export function LinkEntityDialog<TDetails = unknown, TLinkSettings = Record<stri
           onKeyDown={handleKeyDown}
           aria-hidden={nestedOpen ? 'true' : undefined}
         >
-          <DialogHeader className="flex-row items-center gap-3 space-y-0">
-            {adapter.headerIcon ? (
-              <div className="flex size-6 shrink-0 items-center justify-center text-foreground">
-                {adapter.headerIcon}
-              </div>
+          <DialogHeader>
+            <DialogTitle>{adapter.dialogTitle}</DialogTitle>
+            {adapter.dialogSubtitle ? (
+              <DialogDescription>{adapter.dialogSubtitle}</DialogDescription>
             ) : null}
-            <div className="min-w-0 flex-1">
-              <DialogTitle>
-                {adapter.dialogTitle}
-              </DialogTitle>
-              {adapter.dialogSubtitle ? (
-                <DialogDescription className="mt-0.5 text-sm text-muted-foreground">
-                  {adapter.dialogSubtitle}
-                </DialogDescription>
-              ) : null}
-            </div>
           </DialogHeader>
 
           <div className="flex min-h-0 flex-1 flex-col lg:flex-row" data-dialog-form="true">

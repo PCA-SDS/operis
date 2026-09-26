@@ -139,7 +139,7 @@ export function DealWonPopup({
 
           </div>
         </DialogBody>
-        <DialogFooter className="flex-col gap-2">
+        <DialogFooter className="flex-col gap-2 sm:flex-col">
           {onViewDashboard ? (
             <Button type="button" className="w-full" onClick={onViewDashboard}>
               {t('customers.deals.detail.won.primaryAction', 'View sales report')}

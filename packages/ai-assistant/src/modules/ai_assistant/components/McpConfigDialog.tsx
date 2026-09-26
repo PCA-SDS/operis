@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useState } from 'react'
-import { Copy, RefreshCw, AlertTriangle, Check, Settings } from 'lucide-react'
+import { Copy, RefreshCw, AlertTriangle, Check } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -106,8 +106,7 @@ export default function McpConfigDialog({ open, onOpenChange, mcpUrl }: Props) {
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent onKeyDown={handleKeyDown} className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Settings className="h-5 w-5" />
+          <DialogTitle>
             {t('ai_assistant.mcp.title')}
           </DialogTitle>
           <DialogDescription>

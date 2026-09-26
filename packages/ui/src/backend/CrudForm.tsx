@@ -95,7 +95,7 @@ import { withScopedApiRequestHeaders } from './utils/apiCall'
 import { buildOptimisticLockHeader, extractOptimisticLockConflict } from './utils/optimisticLock'
 import { surfaceRecordConflict } from './conflicts'
 import type { CustomFieldDefLike } from '@open-mercato/shared/modules/entities/validation'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../primitives/dialog'
+import { DIALOG_FOOTER_CLASS, Dialog, DialogContent, DialogHeader, DialogTitle } from '../primitives/dialog'
 import { FieldDefinitionsManager, type FieldDefinitionsManagerHandle } from './custom-fields/FieldDefinitionsManager'
 import { useConfirmDialog } from './confirm-dialog'
 import { useInjectionSpotEvents, InjectionSpot, useInjectionWidgets } from './injection/InjectionSpot'
@@ -1426,10 +1426,15 @@ export function CrudForm<TValues extends Record<string, unknown>>({
     setIsInDialog(Boolean(root.closest('[data-dialog-content]')))
   }, [])
   const fixedDialogBody = Boolean(dialogBodyClassName)
+  // Inside a dialog the footer takes the dialog's own insets. A fixed body sits
+  // above a plain dialog footer; otherwise the footer is a bar pinned to the
+  // bottom of the scrolling panel, edge to edge across the body's padding (and
+  // down over its bottom padding), with a hairline because content scrolls
+  // under it.
   const dialogFooterClass = fixedDialogBody
-    ? 'shrink-0 px-5 pt-1.5 pb-4 sm:px-6'
+    ? DIALOG_FOOTER_CLASS
     : isInDialog
-      ? 'sticky bottom-0 left-0 right-0 z-20 -mx-6 px-6 bg-card border-t border-border/70 py-2 sm:-mx-6 sm:px-6'
+      ? 'sticky bottom-0 z-20 -mx-5 -mb-5 border-t border-border bg-surface px-5 pt-4 pb-5 sm:-mx-6 sm:-mb-6 sm:px-6 sm:pb-6'
       : ''
   const renderDialogBody = (content: React.ReactNode) =>
     fixedDialogBody ? (

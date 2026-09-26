@@ -13,14 +13,19 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { Alert, AlertDescription, AlertTitle } from '@open-mercato/ui/primitives/alert'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { CloseButton } from '@open-mercato/ui/primitives/close-button'
-import { Dialog, DialogContent, DialogTitle } from '@open-mercato/ui/primitives/dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@open-mercato/ui/primitives/dialog'
 import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primitives/segmented-control'
 import { FormFieldLabel } from '@open-mercato/ui/backend/forms/FormSection'
 import { LABEL_CLASS } from '../calendar/editor/inputs'
 import { DETAIL_DIALOG_BODY } from './dialogChrome'
 import { useDialogKeyHandler } from '@open-mercato/ui/hooks/useDialogKeyHandler'
-import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import { PhoneNumberField, SwitchableMarkdownInput } from '@open-mercato/ui/backend/inputs'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import {
@@ -470,36 +475,25 @@ export function ScheduleActivityDialog({
     <Dialog open={open} onOpenChange={(o) => { if (!o) void guardedClose() }}>
       <DialogContent
         disableBodyWrap
-        className="flex flex-col overflow-hidden border-border p-0 shadow-xl sm:max-w-[760px] sm:rounded-xl [&>[data-dialog-close]]:hidden"
+        className="flex flex-col overflow-hidden sm:max-w-[760px]"
         onKeyDown={handleKeyDown}
-        aria-describedby={undefined}
+        // The shared close routes through `onOpenChange`, and so through the
+        // unsaved-changes guard, exactly as Cancel does.
+        closeAriaLabel={t('customers.schedule.cancel', 'Cancel')}
       >
         {ConfirmDialogElement}
-        <VisuallyHidden>
-          <DialogTitle>{isEditing ? t('customers.schedule.editTitle', 'Edit activity') : t(chrome.titleKey, chrome.titleFallback)}</DialogTitle>
-        </VisuallyHidden>
-
-        {/* Header */}
-        <div className="flex shrink-0 items-start justify-between gap-3 px-5 py-4 sm:px-6">
-          <div className="flex flex-col gap-1">
-            <h2 className="text-lg font-semibold leading-tight tracking-tight text-foreground">
-              {isEditing ? t('customers.schedule.editTitle', 'Edit activity') : t(chrome.titleKey, chrome.titleFallback)}
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              {t(chrome.subtitleKey, chrome.subtitleFallback)}
+        <DialogHeader>
+          <DialogTitle>
+            {isEditing ? t('customers.schedule.editTitle', 'Edit activity') : t(chrome.titleKey, chrome.titleFallback)}
+          </DialogTitle>
+          <DialogDescription>{t(chrome.subtitleKey, chrome.subtitleFallback)}</DialogDescription>
+          {entityName ? (
+            <p className="text-xs text-muted-foreground">
+              {t('customers.schedule.context', 'On timeline: {{name}}', { name: entityName })}
+              {companyName ? ` · ${companyName}` : ''}
             </p>
-            {entityName ? (
-              <p className="mt-0.5 text-xs text-muted-foreground/80">
-                {t('customers.schedule.context', 'On timeline: {{name}}', { name: entityName })}
-                {companyName ? ` · ${companyName}` : ''}
-              </p>
-            ) : null}
-          </div>
-          <CloseButton
-            onClick={() => { void guardedClose() }}
-            aria-label={t('customers.schedule.cancel', 'Cancel')}
-          />
-        </div>
+          ) : null}
+        </DialogHeader>
 
         {/* A FIXED body, like the calendar event editor: each activity type
             shows a different set of fields, and a body that sized to them moved
@@ -740,8 +734,7 @@ export function ScheduleActivityDialog({
         </div>
         </div>
 
-        {/* Footer */}
-        <div className="flex shrink-0 items-center justify-end gap-2.5 px-5 pt-1.5 pb-4 sm:px-6">
+        <DialogFooter>
           <Button type="button" variant="soft" onClick={() => { void guardedClose() }}>
             {t('customers.schedule.cancel', 'Cancel')}
           </Button>
@@ -753,7 +746,7 @@ export function ScheduleActivityDialog({
                 ? t('customers.schedule.update', 'Update activity')
                 : t(chrome.saveKey, chrome.saveFallback)}
           </Button>
-        </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

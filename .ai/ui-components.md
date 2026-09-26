@@ -3535,6 +3535,7 @@ This is the **one toggle primitive for mutually-exclusive state** — reach for 
   onValueChange={(next) => setView(next)}       // fires on selection change
   size="sm" | "default"                         // optional, default "default"
   fullWidth={false}                             // optional; span the container, equal-width segments
+  flush={false}                                 // optional; pill fills the track, no inset (see Flush)
   disabled={false}                              // optional
   aria-label="View filter"                      // recommended
 >
@@ -3556,10 +3557,14 @@ Built on Radix `RadioGroup` — inherits arrow-key navigation, roving tabindex, 
 
 | Size | Track height | Item height | Item text | Use case |
 |---|---|---|---|---|
-| `default` (default) | `h-9` (36px) | stretches to the track (30px) | `text-sm` | Standard toolbar density, matches Button/Input |
-| `sm` | `h-8` (32px) | stretches to the track (26px) | `text-xs` | Tight rows, chart period selectors |
+| `default` (default) | `h-9` (36px) | stretches to the track (26px; 36px `flush`) | `text-sm` | Standard toolbar density, matches Button/Input |
+| `sm` | `h-8` (32px) | stretches to the track (26px; 32px `flush`) | `text-xs` | Tight rows, chart period selectors |
 
-Items deliberately carry **no height of their own** — the track is `items-stretch` with a uniform `p-0.5`, so the selected pill is inset by exactly 2px on all four sides. Giving an item a fixed height reintroduces a vertical gap different from the horizontal one, which is plainly visible now that the pill is a filled colour.
+Items deliberately carry **no height of their own** — the track is `items-stretch` with a 1px transparent border and the size's padding (`p-1` at `default`, `p-0.5` at `sm`), so the selected pill is inset by the same amount on all four sides. Giving an item a fixed height reintroduces a vertical gap different from the horizontal one, which is plainly visible now that the pill is a filled colour.
+
+### Flush
+
+`flush` drops the inset: the track loses its border and padding, and the pill fills it edge to edge with the track's own `rounded-lg` corners. The selected segment then stands exactly as tall as a `Button` of the same size beside it. Opt in on a toolbar that holds every control to one height (the calendar bar); keep the inset default everywhere else.
 
 ### Selected state
 
@@ -4493,7 +4498,7 @@ Matches Figma `Drawer Footer [1.1]` variants 1–6.
 - **Content panel:** `bg-background shadow-2xl` + rounded corners on the inner (viewport-facing) edges only. Per Figma there is NO border on the seam — the rounded corners + the shadow do the visual separation work. Resulting classes by side: `rounded-l-2xl` (right), `rounded-r-2xl` (left), `rounded-b-2xl` (top), `rounded-t-2xl` (bottom).
 - **No chrome dividers** between Header / Body / Footer. Section separators inside the body (e.g. "ELIGIBILITY CRITERIA" labels) come from content composition, not from the Drawer primitive.
 - Default `max-w-[400px]` (Figma Drawer width) for right/left works well for forms; pass `className="max-w-2xl"` on `DrawerContent` for wider detail panes.
-- Auto-rendered top-right close button (`X` icon, `size-8`, muted-foreground, hover bg `muted/40`). Use `hideCloseButton` when the body provides its own dismissal (e.g. a Save/Cancel footer alone).
+- Auto-rendered close button: the shared `CloseButton` (a filled grey circle), placed and inset exactly as in `Dialog`, whose header, body and footer insets the Drawer shares. Use `hideCloseButton` when the body provides its own dismissal (e.g. a Save/Cancel footer alone).
 
 ---
 
@@ -5739,11 +5744,26 @@ Modal dialog (Radix-based). v5 added a mobile bottom-sheet layout that automatic
 ### Props (`DialogContent`)
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
-| `size` | `'sm' \| 'default' \| 'lg' \| 'xl'` | `'default'` | Desktop max-width on `sm:` breakpoint |
+| `size` | `'sm' \| 'default' \| 'lg' \| 'xl'` | `'default'` | Desktop max-width: `max-w-sm` / `lg` / `2xl` / `4xl` |
+| `dismissible` | `boolean` | `true` | Render the close button |
+| `closeSize` | `'sm' \| 'md' \| 'lg'` | `'md'` | Close button size; its position and the header gutter follow it |
 | `className` | `string` | — | Custom classes |
 
-Mobile (<640px): bottom-sheet (`fixed inset-x-0 bottom-0`, `rounded-t-xl`, `max-h-[90vh]`).
-Desktop (≥640px): centred modal (`sm:left-1/2 sm:top-1/2`, `sm:rounded-xl`, `sm:max-w-{size}`).
+Desktop (≥640px): a centred `rounded-2xl bg-surface shadow-xl` panel on the `bg-scrim` overlay, no border.
+Phone (<640px): a bottom sheet (`max-sm:inset-x-0 max-sm:bottom-0`, top corners only, `max-h-[92dvh]`).
+
+**Sizing is desktop-first.** A plain `max-w-*`, `h-*`, `max-h-*` or `top-*` on `DialogContent` sizes the desktop panel, as it reads (`className="max-w-3xl"`, `className="top-16 translate-y-0"` for a top-anchored panel), and `sm:` classes still work. The phone sheet lives entirely under `max-sm:`, so those overrides never reach it; restate a phone rule under `max-sm:` only when the sheet itself must change (a full-screen panel takes `max-sm:top-0 max-sm:max-h-svh`).
+
+### Chrome
+- **Insets:** 20px on a phone and 24px from `sm`, the same on all four sides: the title sits as far below the top edge as it is in from the left, and the buttons as far above the bottom edge as they are in from the right.
+- **Title:** `text-lg font-semibold` (18px), left-aligned; description `text-sm text-muted-foreground`, 4px below. No icon or badge in the header: a destructive flow is signalled by the confirm button and the copy.
+- **Close button:** the shared `CloseButton`, a filled grey circle (the control fill), on the title's centre line and as far in from the right edge as the title is from the left. The header keeps a gutter clear of it. A button placed in the header row beside the title takes `-mt-1` so a 36px button centres on the 28px title line.
+- **Footer:** buttons right-aligned, secondary then primary, all default height (36px); stacked full-width on a phone. The footer owns the 20px gap above its buttons, so a body that scrolls cannot crowd them: a body or header directly above a footer drops its bottom padding. `bordered` adds a hairline for a long scrolling body.
+- **Forms inside a dialog:** fields take the control fill (`data-dialog-form`), a switcher takes `SegmentedControl tone="inset"`, and a `CrudForm` renders `embedded` so the dialog header carries the title.
+- **Custom chrome:** a surface that cannot use the slots builds from the exported constants (`DIALOG_TITLE_CLASS`, `DIALOG_HEADER_CLASS`, `DIALOG_BODY_CLASS`, `DIALOG_FOOTER_CLASS`, `DIALOG_CLOSE_POSITION_CLASS`, `DIALOG_CLOSE_GUTTER_CLASS`) rather than copying their values. `Sheet`, `Drawer` and the confirm dialog use them.
+
+### Confirm dialog
+`useConfirmDialog()` / `ConfirmDialog` share the same chrome and entrance. Like an Apple alert, it offers Cancel as the way out and shows no close button beside it; the close button returns only when a caller passes `cancelText={false}`.
 
 ### Usage
 ```tsx

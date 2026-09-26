@@ -6,6 +6,15 @@ import { cva, type VariantProps } from 'class-variance-authority'
 
 import { cn } from '@open-mercato/shared/lib/utils'
 import { CloseButton } from './close-button'
+import {
+  DIALOG_BODY_CLASS,
+  DIALOG_CLOSE_GUTTER_CLASS,
+  DIALOG_CLOSE_POSITION_CLASS,
+  DIALOG_DESCRIPTION_CLASS,
+  DIALOG_FOOTER_CLASS,
+  DIALOG_HEADER_INSET_CLASS,
+  DIALOG_TITLE_CLASS,
+} from './dialog'
 
 /**
  * Side-sheet primitive — slides in from `right` (default), `left`,
@@ -152,7 +161,7 @@ const DrawerContent = React.forwardRef<
             <CloseButton
               data-slot="drawer-close-button"
               aria-label={closeAriaLabel}
-              className="absolute right-6 top-5 z-10"
+              className={DIALOG_CLOSE_POSITION_CLASS.md}
             />
           </DrawerClose>
         ) : null}
@@ -178,9 +187,11 @@ const DrawerHeader = React.forwardRef<HTMLDivElement, DrawerHeaderProps>(
       ref={ref}
       data-slot="drawer-header"
       className={cn(
-        // Per Figma: no chrome border below the header. Padding-right
-        // reserves room for the auto-close button at top-right.
-        'flex items-start gap-3 px-6 pt-5 pb-4 pr-14',
+        // No chrome border below the header. The insets are the dialog's,
+        // and the right padding reserves room for the auto-close button.
+        'flex shrink-0 items-start gap-3',
+        DIALOG_HEADER_INSET_CLASS,
+        DIALOG_CLOSE_GUTTER_CLASS.md,
         className,
       )}
       {...props}
@@ -207,7 +218,7 @@ const DrawerBody = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDiv
     <div
       ref={ref}
       data-slot="drawer-body"
-      className={cn('flex-1 overflow-y-auto px-6 py-2', className)}
+      className={cn('flex-1 overflow-y-auto', DIALOG_BODY_CLASS, className)}
       {...props}
     />
   ),
@@ -244,9 +255,10 @@ const DrawerFooter = React.forwardRef<HTMLDivElement, DrawerFooterProps>(
           data-slot="drawer-footer"
           data-layout="equal"
           className={cn(
-            // Per Figma: no chrome top-border separator; equal-stretch
-            // children share the row (50/50 for two buttons).
-            'flex flex-row items-center gap-3 px-6 pt-4 pb-5 [&>*]:flex-1',
+            // No chrome top-border separator; equal-stretch children share
+            // the row (50/50 for two buttons). Insets and gap are the dialog's.
+            'flex flex-row items-center gap-2 [&>*]:flex-1',
+            DIALOG_FOOTER_CLASS,
             className,
           )}
           {...props}
@@ -261,9 +273,10 @@ const DrawerFooter = React.forwardRef<HTMLDivElement, DrawerFooterProps>(
         data-slot="drawer-footer"
         data-layout="default"
         className={cn(
-          // Per Figma: no chrome top-border. Optional `leading` anchors
-          // left (mr-auto sibling), buttons stay right-aligned.
-          'flex flex-row items-center gap-3 px-6 pt-4 pb-5',
+          // No chrome top-border. Optional `leading` anchors left (mr-auto
+          // sibling), buttons stay right-aligned. Insets are the dialog's.
+          'flex flex-row items-center gap-2',
+          DIALOG_FOOTER_CLASS,
           className,
         )}
         {...props}
@@ -280,7 +293,7 @@ const DrawerFooter = React.forwardRef<HTMLDivElement, DrawerFooterProps>(
           <div
             data-slot="drawer-footer-trailing"
             className={cn(
-              'inline-flex items-center gap-3',
+              'inline-flex items-center gap-2',
               leading ? '' : 'ml-auto',
             )}
           >
@@ -300,7 +313,7 @@ const DrawerTitle = React.forwardRef<
   <DialogPrimitive.Title
     ref={ref}
     data-slot="drawer-title"
-    className={cn('text-lg font-semibold tracking-tight text-foreground', className)}
+    className={cn(DIALOG_TITLE_CLASS, className)}
     {...props}
   />
 ))
@@ -313,7 +326,7 @@ const DrawerDescription = React.forwardRef<
   <DialogPrimitive.Description
     ref={ref}
     data-slot="drawer-description"
-    className={cn('text-sm text-muted-foreground', className)}
+    className={cn(DIALOG_DESCRIPTION_CLASS, className)}
     {...props}
   />
 ))

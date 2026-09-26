@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { AlertTriangle, Briefcase, CalendarDays, Link2 } from 'lucide-react'
+import { AlertTriangle, Briefcase, CalendarDays } from 'lucide-react'
 import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { Avatar } from '@open-mercato/ui/primitives/avatar'
 import { cn } from '@open-mercato/shared/lib/utils'
@@ -41,7 +41,6 @@ type DealAdapterOptions = {
   pageSize?: number
   addNew?: LinkEntityAdapter<DealDetails>['addNew']
   contextEntityId?: string
-  headerIcon?: React.ReactNode
 }
 
 const DEFAULT_PAGE_SIZE = 20
@@ -565,7 +564,6 @@ export function createDealLinkAdapter(options: DealAdapterOptions): LinkEntityAd
     selectedEmptyHint: options.selectedEmptyHint,
     confirmButtonLabel: options.confirmButtonLabel,
     defaultAvatarIcon: options.defaultAvatarIcon,
-    headerIcon: options.headerIcon ?? <Link2 className="size-5" />,
     filters,
     renderRow,
     renderPreview,

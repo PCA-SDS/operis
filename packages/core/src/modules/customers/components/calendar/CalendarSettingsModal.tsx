@@ -210,6 +210,7 @@ export function CalendarSettingsModal({
                 />
                 {row.key === 'conflictWarnings' && draft.conflictWarnings ? (
                   <SegmentedControl
+                    tone="inset"
                     fullWidth
                     aria-label={t('customers.calendar.settings.conflictScope', 'Conflict scope')}
                     value={draft.conflictScope}

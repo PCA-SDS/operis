@@ -6,6 +6,7 @@ import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { Popover, PopoverContent, PopoverTrigger } from '@open-mercato/ui/primitives/popover'
 import { SearchInput } from '@open-mercato/ui/primitives/search-input'
+import { selectTriggerVariants } from '@open-mercato/ui/primitives/select'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
@@ -83,10 +84,12 @@ export function TaskLabelPicker({
       <PopoverTrigger asChild>
         <button
           type="button"
+          // The full trigger sits in a row of select pickers, so it takes their
+          // filled, borderless control rather than a white outlined box.
           className={
             dense
               ? CHIP_ADD_CLASS
-              : 'inline-flex h-9 items-center gap-1.5 rounded-lg border border-border bg-surface px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-surface-muted hover:text-foreground focus:outline-none focus-visible:shadow-focus'
+              : cn(selectTriggerVariants(), 'w-auto justify-start gap-1.5 text-muted-foreground hover:text-foreground')
           }
         >
           {/* size-4 is the DS default for an icon inside a control, and what

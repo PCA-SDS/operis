@@ -15,6 +15,15 @@ import {
   SelectValue,
 } from '@open-mercato/ui/primitives/select'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@open-mercato/ui/primitives/dialog'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@open-mercato/ui/primitives/tabs'
 import { Check, Plus } from 'lucide-react'
 import { isVectorActivityLog, useIndexActivityLogs } from '../useIndexActivityLogs'
@@ -894,35 +903,43 @@ export function VectorSearchSection({
         </TabsContent>
       </Tabs>
 
-      {/* Vector Reindex Confirmation Dialog */}
-      {showVectorReindexDialog && (
-        <div className="fixed inset-0 z-modal flex items-center justify-center bg-black/50">
-          <div className="mx-4 max-w-md rounded-lg border border-border bg-card p-6 shadow-lg">
-            <h3 className="text-lg font-semibold mb-2">{t('search.settings.reindex.confirmTitle', 'Confirm Reindex')}</h3>
-            <p className="text-sm text-muted-foreground mb-4">
+      {/* Vector Reindex Confirmation Dialog — the shared dialog, so it traps
+          focus, closes on Escape and wears the product's modal chrome. */}
+      <Dialog open={showVectorReindexDialog} onOpenChange={(open) => { if (!open) handleVectorReindexCancel() }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('search.settings.reindex.confirmTitle', 'Confirm Reindex')}</DialogTitle>
+            <DialogDescription>
               {t('search.settings.reindex.confirmDescription', 'This will rebuild all vector embeddings. Existing data will be purged first.')}
-            </p>
-            <div className="flex justify-end gap-3">
-              <Button type="button" variant="soft" onClick={handleVectorReindexCancel}>
-                {t('search.settings.actions.cancel', 'Cancel')}
-              </Button>
-              <Button type="button" variant="default" onClick={handleVectorReindexConfirm}>
-                {t('search.settings.reindex.confirmButton', 'Start Reindex')}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button type="button" variant="soft" onClick={handleVectorReindexCancel}>
+              {t('search.settings.actions.cancel', 'Cancel')}
+            </Button>
+            <Button type="button" variant="default" onClick={handleVectorReindexConfirm}>
+              {t('search.settings.reindex.confirmButton', 'Start Reindex')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Embedding Provider Change Confirmation Dialog */}
-      {showEmbeddingConfirmDialog && pendingEmbeddingConfig && (
-        <div className="fixed inset-0 z-modal flex items-center justify-center bg-black/50">
-          <div className="mx-4 max-w-lg rounded-lg border border-border bg-card p-6 shadow-lg">
-            <h3 className="text-lg font-semibold mb-2">{t('search.settings.change.title', 'Confirm Provider Change')}</h3>
-            <p className="text-sm text-muted-foreground mb-4">
+      <Dialog
+        open={showEmbeddingConfirmDialog && Boolean(pendingEmbeddingConfig)}
+        onOpenChange={(open) => { if (!open && !embeddingSaving) handleEmbeddingCancelChange() }}
+      >
+        <DialogContent className="max-w-lg" dismissible={!embeddingSaving}>
+          {pendingEmbeddingConfig ? (
+          <>
+          <DialogHeader>
+            <DialogTitle>{t('search.settings.change.title', 'Confirm Provider Change')}</DialogTitle>
+            <DialogDescription>
               {t('search.settings.change.description', 'Changing the embedding provider will require reindexing all data.')}
-            </p>
-            <div className="mb-4 p-3 rounded-md bg-muted/50 text-sm">
+            </DialogDescription>
+          </DialogHeader>
+          <DialogBody className="space-y-4">
+            <div className="rounded-lg bg-muted/50 p-3 text-sm">
               <p className="font-medium">
                 {embeddingSettings?.embeddingConfig
                   ? `${EMBEDDING_PROVIDERS[embeddingSettings.embeddingConfig.providerId].name} (${embeddingSettings.embeddingConfig.model})`
@@ -934,7 +951,7 @@ export function VectorSearchSection({
                 {embeddingSettings?.indexedDimension ?? 'N/A'} → {pendingEmbeddingConfig.dimension} dimensions
               </p>
             </div>
-            <ul className="mb-4 space-y-1 text-sm">
+            <ul className="space-y-1 text-sm">
               <li className="flex items-start gap-2">
                 <span className="text-destructive">•</span>
                 <span>{t('search.settings.change.bullet1', 'Existing vector data will be cleared')}</span>
@@ -944,7 +961,8 @@ export function VectorSearchSection({
                 <span>{t('search.settings.change.bullet2', 'Vector search will be unavailable during reindex')}</span>
               </li>
             </ul>
-            <div className="flex justify-end gap-3">
+          </DialogBody>
+          <DialogFooter>
               <Button type="button" variant="soft" onClick={handleEmbeddingCancelChange} disabled={embeddingSaving}>
                 {t('search.settings.actions.cancel', 'Cancel')}
               </Button>
@@ -952,10 +970,11 @@ export function VectorSearchSection({
                 {embeddingSaving ? <Spinner size="sm" className="mr-2" /> : null}
                 {t('search.settings.actions.confirm', 'Confirm')}
               </Button>
-            </div>
-          </div>
-        </div>
-      )}
+          </DialogFooter>
+          </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

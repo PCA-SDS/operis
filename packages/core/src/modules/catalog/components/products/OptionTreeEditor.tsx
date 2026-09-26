@@ -45,7 +45,6 @@ import {
   Pencil,
   Trash2,
   GripVertical,
-  Tag,
   Clock,
   Banknote,
   FolderTree,
@@ -301,8 +300,7 @@ function GroupDialog({
           }}
         >
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Layers className="h-4 w-4 text-primary" />
+            <DialogTitle>
               {parentOptionId
                 ? t('catalog.options.addSubGroup', 'Add Sub-Group')
                 : t('catalog.options.addGroup', 'Add Option Group')}
@@ -459,8 +457,7 @@ function OptionDialog({
           }}
         >
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Tag className="h-4 w-4 text-primary" />
+            <DialogTitle>
               {editId
                 ? t('catalog.options.editOption', 'Edit Option')
                 : t('catalog.options.addOption', 'Add Option')}

@@ -137,7 +137,56 @@ would have drawn on click became `focus-visible:`. Rolling back is re-adding the
 - About 250 module files still hand-roll bordered boxes that are not the card recipe (nested panels,
   selection tiles, drop zones). Each needs a judgement call rather than a mechanical rewrite.
 
+## Phase 3 — modals
+
+Every modal surface reads as one design: dialogs, the confirm alert, sheets, drawers and the
+hand-rolled side panels. The work is in the shared primitives first, then in the call sites that
+drew their own chrome.
+
+### Primitives
+
+- **Close button:** `CloseButton` is Apple's filled close, a grey circle in the control fill with a
+  half-size secondary-grey mark, rather than a bare `X` that filled only on hover.
+- **Insets:** header, body and footer share one set of constants exported from `dialog.tsx`
+  (`DIALOG_*_CLASS`). The outer margin is 20px on a phone and 24px from `sm` on all four sides, and
+  the close button sits on the title's centre line at the same inset. `Sheet`, `Drawer` and the
+  confirm dialog use the constants instead of copies.
+- **Footer gap:** the footer owns the 20px above its buttons, and a body or header directly above
+  it drops its bottom padding. A body that scrolled hid its own padding, leaving buttons 4px under
+  the last visible field.
+- **Sizing is desktop-first.** The base put the desktop size under `sm:`, so a plain `max-w-3xl`,
+  `h-[…]` or `top-16` on `DialogContent` lost from 640px up: about 20 dialogs rendered at 512px
+  whatever they asked for, fixed-height dialogs grew with their content, and the task detail panel
+  (meant to fill the window) opened 502px wide. The phone bottom sheet now lives under `max-sm:`.
+- **Confirm alert:** title at the dialog's 18px (was 20px), the dialog's entrance (was a 300ms
+  zoom), and no close button beside Cancel, as in Apple's alerts.
+
+### Call sites
+
+- **Tasks:** Quick add is a titled dialog with the embedded composer, anchored 64px from the top;
+  the label trigger takes the filled picker style. The task detail header uses the shared close and
+  a 28px delete.
+- **Customers:** Schedule activity, Edit tags, Manage tags and Mark deal lost drop their hand-built
+  headers, close buttons, 10–14px radius overrides and header badges for the shared slots. Header
+  icons are gone from the pipeline dialogs, Link entities, option groups and MCP config.
+- **Forms in dialogs:** `CrudForm`'s in-dialog footer takes the dialog insets (its sticky bar no
+  longer overhangs a phone's padding by 4px); the message composer and the HR profile dialog render
+  their forms `embedded` under the dialog header instead of a page header inside the dialog.
+- **Buttons:** the four ghost Cancel buttons (adjustment kinds, both Move dialogs, HR profile) take
+  the grey `soft` every other dialog uses.
+- **Position overrides:** with desktop-first sizing a plain `top-*` needs `translate-y-0` too; the AI
+  command palette gains it, and stays top-anchored on a phone, where the bottom sheet would sit
+  under the keyboard.
+- **Switchers in modal forms** take `SegmentedControl tone="inset"`; the default white rail is
+  invisible on a white panel.
+- **Hand-rolled panels:** Filters, Saved views, Version history and the appointment staff sheets
+  take the scrim token, drop their seam borders and header dividers, and use the shared title and
+  close. The three search confirmations are rebuilt on `Dialog`, which also gives them a focus trap.
+- **Kept intact:** the AI assistant panels' own layout (their full-screen phone sheet is restated
+  under `max-sm:`), the deal won/lost celebration, and body content inside dialogs.
+
 ## Changelog
 
 - 2026-09-26 — Implemented.
 - 2026-09-27 — Phase 2: shape, type, surfaces, focus and shell conversion.
+- 2026-09-27 — Phase 3: modals. Unit coverage in `dialog.test.tsx` and `ConfirmDialog.test.tsx`.

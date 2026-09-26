@@ -150,6 +150,10 @@ export function CommandPalette() {
         disableBodyWrap
           className={cn(
             'fixed left-1/2 top-[10vh] z-modal -translate-x-1/2',
+            // Anchored at the top, not centred: drop the Dialog's vertical
+            // centring, and keep the panel at the top on a phone too (the
+            // Dialog's phone sheet sits at the bottom, where the keyboard opens).
+            'translate-y-0 max-sm:top-[10vh] max-sm:bottom-auto max-sm:rounded-b-xl',
             'w-full max-w-2xl p-0',
             'rounded-xl border bg-surface shadow-2xl',
             'flex flex-col'

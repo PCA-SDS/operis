@@ -113,6 +113,7 @@ export function CalendarPanel({ onClose }: { onClose: () => void }) {
                 className="w-40 sm:w-52"
               />
               <SegmentedControl
+                tone="inset"
                 value={mode}
                 onValueChange={(value) => setMode(value as TaskCalendarMode)}
                 aria-label={t('tasks.calendar.modeLabel', 'Which date places a task')}

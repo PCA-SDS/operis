@@ -956,7 +956,7 @@ export const EdgeEditDialog = memo(function EdgeEditDialog({ edge, isOpen, onClo
             </div>
         </div>
 
-        <DialogFooter className="flex justify-between">
+        <DialogFooter className="flex justify-between sm:justify-between">
           <Button
             type="button"
             variant="destructive"

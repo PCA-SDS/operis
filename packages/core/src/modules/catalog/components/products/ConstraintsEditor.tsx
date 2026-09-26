@@ -770,6 +770,7 @@ function AddConstraintDrawer({
 
               {/* Desktop: SegmentedControl */}
               <SegmentedControl
+                tone="inset"
                 value={targetMode}
                 onValueChange={(v) => handleTargetModeChange(v as TargetMode)}
                 fullWidth

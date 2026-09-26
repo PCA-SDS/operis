@@ -286,7 +286,7 @@ export function ChangeLotStatusDialog({
             </FormField>
           </DialogBody>
 
-          <DialogFooter className="flex-row items-center justify-between">
+          <DialogFooter className="flex-row items-center justify-between sm:justify-between">
             <p className="hidden text-xs text-muted-foreground sm:inline-flex sm:items-center sm:gap-1.5">
               <KbdShortcut keys={['⌘', 'Enter']} />
               <span>/</span>

@@ -3,6 +3,8 @@ import * as React from 'react'
 import { format } from 'date-fns/format'
 import { Info } from 'lucide-react'
 import { Button } from '../primitives/button'
+import { CloseButton } from '../primitives/close-button'
+import { DIALOG_TITLE_CLASS } from '../primitives/dialog'
 import { Checkbox } from '../primitives/checkbox'
 import { DateRangePicker } from '../primitives/date-range-picker'
 import type { DateRange } from './date-range/dateRanges'
@@ -205,21 +207,21 @@ export function FilterOverlay({
     <>
       {open && (
         <div className="fixed inset-0 z-modal">
-          <div className="absolute inset-0 bg-black/20" onClick={() => onOpenChange(false)} role="presentation" />
-          <div className="absolute left-0 top-0 h-full w-full sm:w-[380px] bg-surface shadow-xl border-r flex flex-col">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h2 className="text-base font-semibold">{defaultTitle}</h2>
-              <Button variant="muted" size="sm" onClick={() => onOpenChange(false)}>{t('common.close')}</Button>
+          <div className="absolute inset-0 bg-scrim" onClick={() => onOpenChange(false)} role="presentation" />
+          {/* The dialog's chrome on a side panel: the scrim token, no seam
+              border, the dialog's insets, title and close button, and fields
+              filled as they are in every dialog form. */}
+          <div data-dialog-form="true" className="absolute left-0 top-0 flex h-full w-full flex-col bg-surface shadow-xl sm:w-[380px]">
+            <div className="flex shrink-0 items-center justify-between gap-3 px-5 pt-5 pb-3 sm:px-6 sm:pt-6">
+              <h2 className={DIALOG_TITLE_CLASS}>{defaultTitle}</h2>
+              <CloseButton onClick={() => onOpenChange(false)} aria-label={t('common.close')} />
             </div>
             {/* Top actions: duplicate Clear/Apply */}
-            <div className="px-4 py-2 border-b flex items-center justify-between gap-2">
-              <Button variant="outline" size="sm" onClick={handleClear}>{t('ui.filters.actions.clear', 'Clear')}</Button>
-              <Button size="sm" onClick={handleApply}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" className="opacity-80"><path d="M3 4h18"/><path d="M6 8h12l-3 8H9L6 8z"/></svg>
-                {t('ui.filters.actions.apply', 'Apply')}
-              </Button>
+            <div className="flex shrink-0 items-center justify-between gap-2 px-5 pb-3 sm:px-6">
+              <Button variant="outline" onClick={handleClear}>{t('ui.filters.actions.clear', 'Clear')}</Button>
+              <Button onClick={handleApply}>{t('ui.filters.actions.apply', 'Apply')}</Button>
             </div>
-            <div className="flex-1 overflow-auto p-4 space-y-4">
+            <div className="flex-1 space-y-4 overflow-auto px-5 py-3 sm:px-6">
               {extraContent ? <div className="space-y-2 rounded-md border bg-muted/30 p-3">{extraContent}</div> : null}
               {filters.map((f) => (
                 <div key={f.id} className="space-y-2">
@@ -413,12 +415,9 @@ export function FilterOverlay({
                 </div>
               ))}
             </div>
-            <div className="p-4 border-t flex items-center justify-between gap-2">
+            <div className="flex shrink-0 items-center justify-between gap-2 border-t border-border px-5 pt-4 pb-5 sm:px-6 sm:pb-6">
               <Button variant="outline" onClick={handleClear}>{t('ui.filters.actions.clear', 'Clear')}</Button>
-              <Button onClick={handleApply}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" className="opacity-80"><path d="M3 4h18"/><path d="M6 8h12l-3 8H9L6 8z"/></svg>
-                {t('ui.filters.actions.apply', 'Apply')}
-              </Button>
+              <Button onClick={handleApply}>{t('ui.filters.actions.apply', 'Apply')}</Button>
             </div>
           </div>
         </div>

@@ -5,6 +5,14 @@ import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { CloseButton } from './close-button'
+import {
+  DIALOG_CLOSE_GUTTER_CLASS,
+  DIALOG_CLOSE_POSITION_CLASS,
+  DIALOG_DESCRIPTION_CLASS,
+  DIALOG_FOOTER_CLASS,
+  DIALOG_HEADER_CLASS,
+  DIALOG_TITLE_CLASS,
+} from './dialog'
 
 const Sheet = DialogPrimitive.Root
 
@@ -93,7 +101,7 @@ const SheetContent = React.forwardRef<
       {children}
       {!hideClose ? (
         <DialogPrimitive.Close asChild>
-          <CloseButton className="absolute right-4 top-4 z-10" aria-label={closeLabel} />
+          <CloseButton className={DIALOG_CLOSE_POSITION_CLASS.md} aria-label={closeLabel} />
         </DialogPrimitive.Close>
       ) : null}
     </DialogPrimitive.Content>
@@ -105,7 +113,8 @@ const SheetHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDi
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn('flex flex-col gap-0.5 px-5 py-4 pr-12 text-left sm:px-6', className)}
+      data-slot="sheet-header"
+      className={cn(DIALOG_HEADER_CLASS, DIALOG_CLOSE_GUTTER_CLASS.md, className)}
       {...props}
     />
   ),
@@ -116,7 +125,8 @@ const SheetFooter = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDi
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn('flex flex-col-reverse gap-2 px-5 pt-1.5 pb-4 sm:flex-row sm:justify-end sm:px-6', className)}
+      data-slot="sheet-footer"
+      className={cn(DIALOG_FOOTER_CLASS, 'flex flex-col-reverse gap-2 sm:flex-row sm:justify-end', className)}
       {...props}
     />
   ),
@@ -129,7 +139,7 @@ const SheetTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
-    className={cn('text-lg font-semibold tracking-tight text-foreground', className)}
+    className={cn(DIALOG_TITLE_CLASS, className)}
     {...props}
   />
 ))
@@ -141,7 +151,7 @@ const SheetDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Description
     ref={ref}
-    className={cn('text-sm text-muted-foreground', className)}
+    className={cn(DIALOG_DESCRIPTION_CLASS, className)}
     {...props}
   />
 ))

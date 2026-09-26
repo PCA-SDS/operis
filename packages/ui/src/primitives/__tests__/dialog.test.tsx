@@ -24,6 +24,11 @@ function renderDialog(ui: React.ReactElement) {
   )
 }
 
+/** Matches one whole class, so `max-w-lg` is not found inside `max-sm:max-w-none`. */
+function classToken(cls: string) {
+  return new RegExp(`(^|\\s)${cls.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}(\\s|$)`)
+}
+
 function ExampleDialog({
   size,
   dismissible,
@@ -93,27 +98,55 @@ describe('Dialog (Phase B.7)', () => {
     expect(document.querySelector('[data-slot="dialog-close-button"]')).toBeNull()
   })
 
-  it('default size="default" applies sm:max-w-lg', () => {
+  it('default size="default" applies max-w-lg', () => {
     renderDialog(<ExampleDialog />)
     const content = document.querySelector('[data-slot="dialog-content"]') as HTMLElement
     expect(content.getAttribute('data-size')).toBe('default')
-    expect(content.className).toContain('sm:max-w-lg')
+    expect(content.className).toMatch(classToken('max-w-lg'))
   })
 
   it('size variants apply matching max-width', () => {
     const cases: Array<{ size: 'sm' | 'default' | 'lg' | 'xl'; cls: string }> = [
-      { size: 'sm', cls: 'sm:max-w-sm' },
-      { size: 'default', cls: 'sm:max-w-lg' },
-      { size: 'lg', cls: 'sm:max-w-2xl' },
-      { size: 'xl', cls: 'sm:max-w-4xl' },
+      { size: 'sm', cls: 'max-w-sm' },
+      { size: 'default', cls: 'max-w-lg' },
+      { size: 'lg', cls: 'max-w-2xl' },
+      { size: 'xl', cls: 'max-w-4xl' },
     ]
     for (const { size, cls } of cases) {
       const { unmount } = renderDialog(<ExampleDialog size={size} />)
       const content = document.querySelector('[data-slot="dialog-content"]') as HTMLElement
       expect(content.getAttribute('data-size')).toBe(size)
-      expect(content.className).toContain(cls)
+      expect(content.className).toMatch(classToken(cls))
       unmount()
     }
+  })
+
+  it('lets a plain size class from the caller size the desktop panel', () => {
+    // The phone bottom sheet lives entirely under `max-sm:`, so a caller's
+    // plain `max-w-*`, `h-*` or `top-*` is the desktop size it reads as. It
+    // used to lose to the base's `sm:max-w-lg`, pinning every such dialog to
+    // 512px whatever it asked for.
+    renderDialog(
+      <Dialog defaultOpen>
+        <DialogTrigger>Open</DialogTrigger>
+        <DialogContent className="top-16 h-96 max-w-3xl translate-y-0">
+          <DialogHeader>
+            <DialogTitle>Wide</DialogTitle>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>,
+    )
+    const content = document.querySelector('[data-slot="dialog-content"]') as HTMLElement
+    for (const cls of ['max-w-3xl', 'top-16', 'h-96', 'translate-y-0']) {
+      expect(content.className).toMatch(classToken(cls))
+    }
+    for (const cls of ['max-w-lg', 'top-1/2', 'h-auto', '-translate-y-1/2']) {
+      expect(content.className).not.toMatch(classToken(cls))
+    }
+    for (const cls of ['max-sm:inset-x-0', 'max-sm:bottom-0', 'max-sm:max-w-none', 'max-sm:rounded-b-none']) {
+      expect(content.className).toMatch(classToken(cls))
+    }
+    expect(content.className).not.toMatch(/(^|\s)sm:max-w-/)
   })
 
 
@@ -136,10 +169,23 @@ describe('Dialog (Phase B.7)', () => {
     const footer = document.querySelector('[data-slot="dialog-footer"]') as HTMLElement
     expect(footer.getAttribute('data-bordered')).toBeNull()
     expect(footer.className).not.toContain('border-t')
-    expect(footer.className).toContain('px-5')
-    expect(footer.className).toContain('pt-1.5')
-    expect(footer.className).toContain('pb-4')
-    expect(footer.className).toContain('sm:px-6')
+    // 20px above the buttons, and a bottom inset that matches the side inset:
+    // 20px on a phone, 24px from sm.
+    for (const cls of ['px-5', 'pt-5', 'pb-5', 'sm:px-6', 'sm:pb-6']) {
+      expect(footer.className).toMatch(classToken(cls))
+    }
+  })
+
+  it('lets the footer own the gap above it, so a scrolling body cannot crowd the buttons', () => {
+    // A body that scrolls hides its own bottom padding at the end of the
+    // scroll, which left the buttons 4px under the last visible field. The
+    // body and header give up their bottom padding directly above a footer,
+    // except above a bordered one, which keeps the body's padding over its rule.
+    renderDialog(<DialogWithLooseBody />)
+    const body = document.querySelector('[data-slot="dialog-body"]') as HTMLElement
+    expect(body.className).toMatch(classToken('[&:has(+[data-slot$=footer]:not([data-bordered]))]:pb-0'))
+    const header = document.querySelector('[data-slot="dialog-header"]') as HTMLElement
+    expect(header.className).toMatch(classToken('[&:has(+[data-slot$=footer])]:pb-0'))
   })
 
   it('footer bordered=true opts a long scrolling body back into a separator', () => {
@@ -236,7 +282,7 @@ describe('Dialog (Phase B.7)', () => {
     )
     const content = document.querySelector('[data-slot="dialog-content"]') as HTMLElement
     expect(content.className).toContain('custom-class')
-    expect(content.className).toContain('sm:max-w-2xl')
+    expect(content.className).toMatch(classToken('max-w-2xl'))
   })
 })
 
@@ -256,19 +302,22 @@ describe('Dialog — canonical borderless chrome', () => {
     const content = document.querySelector('[data-slot="dialog-content"]') as HTMLElement
     expect(content.className).toContain('bg-surface')
     expect(content.className).toContain('shadow-xl')
-    expect(content.className).toContain('rounded-t-2xl')
-    expect(content.className).toContain('sm:rounded-2xl')
+    // 18px on every corner of the centred panel; the phone sheet squares off
+    // only the edge that meets the bottom of the screen.
+    expect(content.className).toMatch(classToken('rounded-2xl'))
+    expect(content.className).toMatch(classToken('max-sm:rounded-b-none'))
     expect(content.className).not.toContain('shadow-2xl')
     expect(content.className).not.toMatch(/(^|\s)p-6(\s|$)/)
     expect(content.className).not.toMatch(/(^|\s)gap-4(\s|$)/)
   })
 
-  it('header carries the padding pair, stays left-aligned, and ships no divider', () => {
+  it('header carries the insets, stays left-aligned, and ships no divider', () => {
     renderDialog(<ExampleDialog />)
     const header = document.querySelector('[data-slot="dialog-header"]') as HTMLElement
-    expect(header.className).toContain('px-5')
-    expect(header.className).toContain('py-4')
-    expect(header.className).toContain('sm:px-6')
+    // The top inset matches the side inset: 20px on a phone, 24px from sm.
+    for (const cls of ['px-5', 'pt-5', 'pb-3', 'sm:px-6', 'sm:pt-6']) {
+      expect(header.className).toMatch(classToken(cls))
+    }
     expect(header.className).toContain('text-left')
     expect(header.className).not.toContain('text-center')
     expect(header.className).not.toContain('border-b')
@@ -283,28 +332,49 @@ describe('Dialog — canonical borderless chrome', () => {
     expect(title.className).not.toContain('text-xl')
   })
 
-  it('close button is the shared CloseButton affordance, not a bare icon', () => {
+  it('close button is the shared filled circle, on the title line at the side inset', () => {
     renderDialog(<ExampleDialog />)
     const close = document.querySelector('[data-slot="dialog-close-button"]') as HTMLElement
     expect(close).not.toBeNull()
-    expect(close.className).toContain('text-muted-foreground')
-    expect(close.className).toContain('hover:bg-surface-muted')
+    for (const cls of ['rounded-full', 'bg-primary-soft', 'text-muted-foreground', 'h-7', 'w-7']) {
+      expect(close.className).toMatch(classToken(cls))
+    }
     expect(close.className).not.toContain('hover:scale-125')
-    expect(close.className).toContain('h-7')
-    expect(close.className).toContain('w-7')
+    for (const cls of ['right-5', 'top-5', 'sm:right-6', 'sm:top-6']) {
+      expect(close.className).toMatch(classToken(cls))
+    }
   })
 
   it('header reserves the close-button gutter only when one renders', () => {
     const { unmount } = renderDialog(<ExampleDialog />)
-    expect(
-      (document.querySelector('[data-slot="dialog-header"]') as HTMLElement).className,
-    ).toContain('pr-11')
+    const header = document.querySelector('[data-slot="dialog-header"]') as HTMLElement
+    expect(header.className).toMatch(classToken('pr-14'))
+    expect(header.className).toMatch(classToken('sm:pr-15'))
     unmount()
 
     renderDialog(<ExampleDialog dismissible={false} />)
     expect(
       (document.querySelector('[data-slot="dialog-header"]') as HTMLElement).className,
-    ).not.toContain('pr-11')
+    ).not.toMatch(classToken('pr-14'))
+  })
+
+  it('sizes the gutter and centres the close on the title line for each close size', () => {
+    renderDialog(
+      <Dialog defaultOpen>
+        <DialogTrigger>Open</DialogTrigger>
+        <DialogContent closeSize="lg">
+          <DialogHeader>
+            <DialogTitle>Tall panel</DialogTitle>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>,
+    )
+    const close = document.querySelector('[data-slot="dialog-close-button"]') as HTMLElement
+    expect(close.className).toMatch(classToken('h-8'))
+    expect(close.className).toMatch(classToken('top-4.5'))
+    const header = document.querySelector('[data-slot="dialog-header"]') as HTMLElement
+    expect(header.className).toMatch(classToken('pr-15'))
+    expect(header.className).toMatch(classToken('sm:pr-16'))
   })
 })
 
@@ -330,10 +400,9 @@ describe('Dialog — DialogBody auto-wrap', () => {
     renderDialog(<DialogWithLooseBody />)
     const body = document.querySelector('[data-slot="dialog-body"]') as HTMLElement
     expect(body).not.toBeNull()
-    expect(body.className).toContain('px-5')
-    expect(body.className).toContain('pt-3')
-    expect(body.className).toContain('pb-5')
-    expect(body.className).toContain('sm:px-6')
+    for (const cls of ['px-5', 'pt-3', 'pb-5', 'sm:px-6', 'sm:pb-6']) {
+      expect(body.className).toMatch(classToken(cls))
+    }
     expect(body.textContent).toContain('Press Escape')
   })
 
@@ -391,7 +460,7 @@ describe('Dialog — DialogBody auto-wrap', () => {
     const footer = form.querySelector('[data-slot="dialog-footer"]') as HTMLElement
     expect(footer).not.toBeNull()
     expect(body.contains(footer)).toBe(false)
-    expect(footer.className).toContain('pt-1.5')
+    expect(footer.className).toMatch(classToken('pt-5'))
   })
 
   it('disableBodyWrap renders children verbatim for full-bleed panels', () => {

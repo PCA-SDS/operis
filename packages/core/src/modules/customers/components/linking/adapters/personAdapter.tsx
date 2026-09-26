@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Building2, CalendarDays, Link2, Mail, Phone } from 'lucide-react'
+import { Building2, CalendarDays, Mail, Phone } from 'lucide-react'
 import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { Avatar } from '@open-mercato/ui/primitives/avatar'
 import { cn } from '@open-mercato/shared/lib/utils'
@@ -40,7 +40,6 @@ type PersonAdapterOptions = {
   addNew?: LinkEntityAdapter<PersonDetails, PersonLinkSettings>['addNew']
   showLinkSettings?: boolean
   roleOptions?: Array<{ id: string; label: string }>
-  headerIcon?: React.ReactNode
 }
 
 const DEFAULT_PAGE_SIZE = 20
@@ -498,7 +497,6 @@ export function createPersonLinkAdapter(
     selectedEmptyHint: options.selectedEmptyHint,
     confirmButtonLabel: options.confirmButtonLabel,
     defaultAvatarIcon: options.defaultAvatarIcon,
-    headerIcon: options.headerIcon ?? <Link2 className="size-5" />,
     filters,
     renderRow,
     renderPreview,

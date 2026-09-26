@@ -136,14 +136,17 @@ export function CalendarTaskQuickAdd({
             the very segment the user had just clicked. Pinning the body makes
             the chrome, the toggle and the buttons stay exactly where they are
             for the life of the dialog, whichever mode is showing and whatever
-            it has to say; content that outgrows the box scrolls inside it. */}
-        <DialogBody className="flex h-[min(72vh,34rem)] min-h-0 flex-col gap-4">
+            it has to say; content that outgrows the box scrolls inside it.
+            Both forms end in a 56px footer band that leaves 10px under its
+            buttons, so the bottom inset is the dialog's 20/24px less that. */}
+        <DialogBody className="flex h-[min(72vh,34rem)] min-h-0 flex-col gap-4 pb-2.5 sm:pb-3.5">
           {/* The toggle sits above both forms and outside either of them, so it
               keeps its position while the body beneath it changes. Putting it
               inside each form would let it shift by a pixel between modes,
               which reads as the dialog flinching on every switch. */}
           {canCreateMeeting ? (
           <SegmentedControl
+            tone="inset"
             className="shrink-0"
             fullWidth
             value={mode}
