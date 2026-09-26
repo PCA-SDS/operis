@@ -6,7 +6,8 @@
   `packages/ui/src/backend/sidebar/chrome.tsx`, `packages/shared/src/modules/{registry,pageRouteMetadata}.ts`,
   `packages/cli/src/lib/generators/module-registry.ts`, `apps/mercato/src/app/(backend)/backend/{layout,[...slug]/page}.tsx`,
   `apps/mercato/src/app/globals.css`, `packages/core/src/modules/tasks/components/{TasksSidebar,TasksShell}.tsx`,
-  tasks / seat planner / design system `page.meta.ts`, `packages/core/src/modules/staff/widgets/*`, `apps/mercato/src/i18n/*.json`
+  tasks / seat planner / design system `page.meta.ts`, `packages/core/src/modules/staff/widgets/*`, `apps/mercato/src/i18n/*.json`,
+  `packages/core/src/modules/auth/lib/backendChrome.tsx`
 - **Supersedes:** [`2026-09-23-collapsible-sidebar-rail.md`](2026-09-23-collapsible-sidebar-rail.md) and the rail
   sections of [`2026-08-24-sidebar-navy-static-rail.md`](2026-08-24-sidebar-navy-static-rail.md)
 
@@ -57,6 +58,18 @@ works per module: pick a module, then move around inside it, the way the Task Ma
 - **Switcher UX.** `Popover` + `SearchInput`. The search matches module names and page titles and also lists
   matching pages (replacing the rail's nav search). Enter opens the first module; arrow keys move between
   tiles; Escape closes; the current module is `aria-current` and named on the trigger.
+- **Reorder.** Viewers holding `auth.sidebar.manage` can drag module tiles to rearrange them
+  (`SortableModuleGrid`, dnd-kit): mouse after 6px of travel, touch after a 250ms press, keyboard with Space
+  then arrows (one place in reading order, or one row, by index rather than measured edges); Escape
+  cancels a drag without closing the switcher. A click still opens the module, and tiles
+  keep link semantics for screen readers. Reordering is off while searching. The order is the existing
+  sidebar preference's `groupOrder` (`useModuleOrder`), saved through `PUT /api/auth/sidebar/preferences`
+  with the rest of the record unchanged and role-hidden pages carried over on a first save. The new order
+  shows at once; a failed save reverts with a flash, and an edit conflict reloads and retries once.
+  "Reset order" removes only the module positions. No new endpoint.
+- **Preference key.** The nav payload reads the personal preference under the key the preferences API
+  saves it with (`auth.tenantId` / `auth.orgId`), not the organization being viewed. Reading the viewed one
+  showed multi-organization users the default order outside their home organization.
 - **Brand.** The logo moved from the rail to the topbar (`ShellBrandLogo tone="surface"`), shown from `xl`.
 - **Topbar fit.** Below `xl` the trigger is a 36px icon button (its accessible name carries the current
   module); from `xl` it also shows the module name. The left topbar column keeps `min-w-9`, so the switcher
@@ -83,6 +96,9 @@ filtered nav payload contains; nothing client-side decides access.
 - `auth/__integration__/TC-AUTH-MODULE-NAV-001.spec.ts` — dashboard has no sidebar; switcher opens Customers;
   module sidebar labelled and active; in-module navigation; search + Enter; Task Manager renders exactly one
   module nav; settings route shows the settings sections; phone width opens modules with no sideways scroll.
+- `auth/__integration__/TC-AUTH-MODULE-NAV-002.spec.ts` — mouse drag reorders without opening a module and
+  survives a reload; Reset removes only module positions; keyboard move and Escape-cancel; no reorder
+  controls without `auth.sidebar.manage`.
 - `auth/__integration__/TC-AUTH-SIDEBAR-GROUP-001.spec.ts` — hiding a group in sidebar customization removes
   it from the switcher.
 - `directory/__integration__/TC-DIR-015-sidebar-logo-aspect-ratio.spec.ts` — brand logo in the topbar.
@@ -96,3 +112,7 @@ filtered nav payload contains; nothing client-side decides access.
 ## Changelog
 
 - 2026-09-25 — Implemented.
+- 2026-09-26 — Drag-to-reorder modules in the switcher, saved as the personal sidebar preference. The nav
+  payload now reads that preference under the key it is saved with. Unit coverage in
+  `module-nav/__tests__/useModuleOrder.test.tsx`, `__tests__/AppShell.test.tsx` and
+  `auth/lib/__tests__/backendChrome.current-organization.test.ts`; integration in `TC-AUTH-MODULE-NAV-002`.

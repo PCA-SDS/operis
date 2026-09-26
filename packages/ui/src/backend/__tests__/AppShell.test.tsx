@@ -42,6 +42,7 @@ jest.mock('../injection/InjectionSpot', () => ({
     mockInjectionSpot(props)
     return <div data-testid={`injection-spot:${props.spotId}`} />
   },
+  useInjectionSpotEvents: () => ({ triggerEvent: async () => ({ ok: true }) }),
 }))
 
 jest.mock('../injection/useInjectedMenuItems', () => ({
@@ -975,6 +976,110 @@ describe('AppShell', () => {
       renderSwitcher([])
       const menu = openSwitcher()
       expect(within(menu).getByText('No modules available')).toBeInTheDocument()
+    })
+
+    it('offers drag-to-rearrange only to viewers who can save it, and not while searching', async () => {
+      const previousFetch = global.fetch
+      const previousWindowFetch = window.fetch
+      const previousOriginalFetch = (window as Window & { __omOriginalFetch?: typeof fetch }).__omOriginalFetch
+      const fetchMock = jest.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input instanceof Request ? input.url : input.toString()
+        if (url.includes('/api/auth/admin/nav-reorder')) {
+          return new Response(JSON.stringify({
+            groups: switcherGroups,
+            settingsSections: [],
+            settingsPathPrefixes: [],
+            profileSections: [],
+            profilePathPrefixes: [],
+            grantedFeatures: ['auth.sidebar.manage'],
+            roles: ['admin'],
+          }), { status: 200, headers: { 'content-type': 'application/json' } })
+        }
+        return new Response(JSON.stringify({ settings: { groupOrder: [] }, updatedAt: null }), { status: 200, headers: { 'content-type': 'application/json' } })
+      }) as unknown as typeof fetch
+      global.fetch = fetchMock
+      window.fetch = fetchMock
+      ;(window as Window & { __omOriginalFetch?: typeof fetch }).__omOriginalFetch = fetchMock
+      try {
+        renderWithProviders(
+          <AppShell email="demo@example.com" groups={[]} adminNavApi="/api/auth/admin/nav-reorder">
+            <div>Content</div>
+          </AppShell>,
+          { dict },
+        )
+        await waitFor(() => expect(screen.getByTestId('backend-chrome-ready')).toHaveAttribute('data-ready', 'true'))
+        const menu = openSwitcher()
+        expect(within(menu).getByTestId('module-switcher-footer')).toHaveTextContent('Drag to rearrange')
+        const tile = within(menu).getAllByRole('link').find((el) => el.hasAttribute('data-module-tile')) as HTMLElement
+        expect(tile).toHaveAttribute('aria-describedby')
+        expect(tile).not.toHaveAttribute('role')
+        expect(tile).not.toHaveAttribute('aria-roledescription')
+        expect(tile).not.toHaveAttribute('aria-pressed')
+        const grid = within(menu).getByRole('list', { name: 'Modules' })
+        tile.focus()
+        fireEvent.keyDown(tile, { code: 'Space', key: ' ' })
+        await waitFor(() => expect(grid).toHaveAttribute('data-dragging', 'true'))
+        await new Promise((resolve) => setTimeout(resolve, 0))
+        fireEvent.keyDown(tile, { code: 'Escape', key: 'Escape' })
+        await waitFor(() => expect(grid).not.toHaveAttribute('data-dragging'))
+        expect(screen.getByTestId('module-switcher')).toBeInTheDocument()
+        fireEvent.change(within(menu).getByRole('searchbox'), { target: { value: 'cust' } })
+        expect(within(menu).queryByTestId('module-switcher-footer')).toBeNull()
+      } finally {
+        global.fetch = previousFetch
+        window.fetch = previousWindowFetch
+        ;(window as Window & { __omOriginalFetch?: typeof fetch }).__omOriginalFetch = previousOriginalFetch
+      }
+    })
+
+    it('offers Reset for a saved order even when the switcher opened before the navigation loaded', async () => {
+      const previousFetch = global.fetch
+      const previousWindowFetch = window.fetch
+      const previousOriginalFetch = (window as Window & { __omOriginalFetch?: typeof fetch }).__omOriginalFetch
+      const fetchMock = jest.fn(async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input instanceof Request ? input.url : input.toString()
+        if (url.includes('/api/auth/admin/nav-late')) {
+          return new Response(JSON.stringify({
+            groups: switcherGroups,
+            settingsSections: [],
+            settingsPathPrefixes: [],
+            profileSections: [],
+            profilePathPrefixes: [],
+            grantedFeatures: ['auth.sidebar.manage'],
+            roles: ['admin'],
+          }), { status: 200, headers: { 'content-type': 'application/json' } })
+        }
+        return new Response(
+          JSON.stringify({ settings: { groupOrder: ['tasks.nav.group', 'customers.nav.group'] }, updatedAt: 'v1' }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        )
+      }) as unknown as typeof fetch
+      global.fetch = fetchMock
+      window.fetch = fetchMock
+      ;(window as Window & { __omOriginalFetch?: typeof fetch }).__omOriginalFetch = fetchMock
+      try {
+        renderWithProviders(
+          <AppShell email="demo@example.com" groups={[]} adminNavApi="/api/auth/admin/nav-late">
+            <div>Content</div>
+          </AppShell>,
+          { dict },
+        )
+        fireEvent.click(screen.getByTestId('module-switcher-trigger'))
+        const reset = await screen.findByTestId('module-switcher-reset')
+        await waitFor(() => expect(reset).not.toHaveClass('invisible'))
+      } finally {
+        global.fetch = previousFetch
+        window.fetch = previousWindowFetch
+        ;(window as Window & { __omOriginalFetch?: typeof fetch }).__omOriginalFetch = previousOriginalFetch
+      }
+    })
+
+    it('offers no reordering without permission', () => {
+      renderSwitcher()
+      const menu = openSwitcher()
+      expect(within(menu).queryByTestId('module-switcher-footer')).toBeNull()
+      const tile = within(menu).getAllByRole('link').find((el) => el.hasAttribute('data-module-tile')) as HTMLElement
+      expect(tile).not.toHaveAttribute('aria-describedby')
     })
 
     it('moves focus from the search into the grid with the arrow keys', () => {
