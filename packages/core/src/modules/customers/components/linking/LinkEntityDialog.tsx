@@ -636,7 +636,7 @@ export function LinkEntityDialog<TDetails = unknown, TLinkSettings = Record<stri
                           }
                         }}
                         className={cn(
-                          'group flex cursor-pointer items-center gap-3 rounded-lg border px-3.5 py-3 transition-colors focus:outline-none focus:ring-2 focus:ring-ring/40',
+                          'group flex cursor-pointer items-center gap-3 rounded-lg border px-3.5 py-3 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40',
                           checked
                             ? 'border-border bg-muted/50'
                             : 'border-border/70 bg-card hover:bg-muted/30',
@@ -662,7 +662,7 @@ export function LinkEntityDialog<TDetails = unknown, TLinkSettings = Record<stri
                   <button
                     type="button"
                     onClick={() => setNestedOpen(true)}
-                    className="mt-2 flex items-center gap-3 rounded-lg border border-dashed border-border px-4 py-3.5 text-left transition-colors hover:bg-muted/30 focus:outline-none focus:ring-2 focus:ring-ring/40"
+                    className="mt-2 flex items-center gap-3 rounded-lg border border-dashed border-border px-4 py-3.5 text-left transition-colors hover:bg-muted/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                   >
                     <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
                       <Plus className="size-4" />

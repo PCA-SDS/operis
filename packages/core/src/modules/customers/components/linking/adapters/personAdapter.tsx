@@ -456,7 +456,7 @@ export function createPersonLinkAdapter(
                 <select
                   value={currentRole}
                   onChange={(event) => onChange({ ...settings, role: event.target.value || null })}
-                  className="h-9 rounded-md border border-border bg-card px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/40"
+                  className="h-9 rounded-md border border-border bg-card px-3 text-sm text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                 >
                   <option value="">—</option>
                   {roleOptions.map((role) => (
