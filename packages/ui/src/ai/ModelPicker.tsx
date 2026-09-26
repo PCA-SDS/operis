@@ -163,7 +163,7 @@ export function ModelPicker({
           aria-label={t('ai_assistant.modelPicker.listAriaLabel', 'Available models')}
           className={cn(
             'absolute bottom-full left-0 z-50 mb-1 max-h-72 min-w-56 overflow-y-auto p-1',
-            'rounded-md border border-border bg-popover shadow-md',
+            'rounded-xl bg-popover shadow-lg',
           )}
           data-ai-model-picker-dropdown
         >

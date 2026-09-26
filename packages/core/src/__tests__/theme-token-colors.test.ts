@@ -40,9 +40,7 @@ const ALLOWED: Record<string, string> = {
     'The AI orb is brand art: its gradient is the same in both themes, like the brand tokens.',
   'packages/ui/src/primitives/switch.tsx': 'A switch thumb is white in both themes, as on Apple platforms.',
   'packages/ui/src/primitives/fancy-button.tsx': 'The neutral FancyButton is a fixed black button in both themes.',
-  'packages/ui/src/backend/DataTable.tsx':
-    'The list card takes a hairline in dark mode only, where its shadow no longer separates it from the page.',
-  'packages/ui/src/primitives/button.tsx': 'The invalid-state ring keeps its shadcn dark opacity; focus rings are off product-wide.',
+  'packages/ui/src/primitives/button.tsx': 'The invalid-state ring keeps its shadcn dark opacity.',
   'apps/mercato/src/components/DemoFeedbackWidget.tsx': 'Its gradient is fixed and light, so the label is pinned to black.',
   'packages/checkout/src/modules/checkout/components/LinkTemplateForm.tsx':
     "A pay link's default merchant colours are saved with the link; they are data, not UI chrome.",

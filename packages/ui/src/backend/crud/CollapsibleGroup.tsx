@@ -78,7 +78,7 @@ export const CollapsibleGroup = React.forwardRef<CollapsibleGroupHandle, Collaps
         id={`collapsible-group-wrapper-${groupId}`}
         className={cn(
           // Aligned with Figma Accordion `210:4022`: rounded-10, three visual
-          // states (closed = white card + soft border + x-small shadow,
+          // states (closed = white card + x-small shadow, no border,
           // hover-while-closed = bg-muted + no border + no shadow,
           // open = bg-muted + no border + no shadow). Destructive border
           // wins over the Figma states when the group has validation errors.
@@ -90,7 +90,7 @@ export const CollapsibleGroup = React.forwardRef<CollapsibleGroupHandle, Collaps
               ? 'border-transparent bg-surface shadow-xs'
               : expanded
               ? 'border-transparent bg-muted shadow-none'
-              : 'border-border shadow-xs hover:border-transparent hover:bg-muted hover:shadow-none',
+              : 'border-transparent shadow-xs hover:bg-muted hover:shadow-none',
         )}
         data-collapsible-group-id={groupId}
         data-state={expanded ? 'open' : 'closed'}
