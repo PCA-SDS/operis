@@ -302,37 +302,37 @@ export default function WorkflowInstanceDetailPage({ params }: { params?: { id?:
       switch (status) {
         case 'completed':
           style = {
-            backgroundColor: '#10B981', // green-500
-            color: 'white',
-            borderColor: '#059669', // green-600
+            backgroundColor: 'var(--status-success-solid)',
+            color: 'var(--status-success-solid-foreground)',
+            borderColor: 'var(--status-success-solid)',
             borderWidth: '3px',
             borderRadius: '16px',
           }
           break
         case 'active':
           style = {
-            backgroundColor: '#3B82F6', // blue-500
-            color: 'white',
-            borderColor: '#1D4ED8', // blue-700
+            backgroundColor: 'var(--status-info-solid)',
+            color: 'var(--status-info-solid-foreground)',
+            borderColor: 'var(--status-info-solid)',
             borderWidth: '3px',
             borderRadius: '16px',
-            boxShadow: '0 0 0 3px rgba(59, 130, 246, 0.3)',
+            boxShadow: '0 0 0 3px var(--status-info-border)',
           }
           break
         case 'failed':
           style = {
-            backgroundColor: '#EF4444', // red-500
-            color: 'white',
-            borderColor: '#B91C1C', // red-700
+            backgroundColor: 'var(--status-error-solid)',
+            color: 'var(--status-error-solid-foreground)',
+            borderColor: 'var(--status-error-solid)',
             borderWidth: '3px',
             borderRadius: '16px',
           }
           break
         case 'skipped':
           style = {
-            backgroundColor: '#FEF3C7', // yellow-100
-            color: '#78350F', // yellow-900
-            borderColor: '#F59E0B', // yellow-500
+            backgroundColor: 'var(--status-warning-bg)',
+            color: 'var(--status-warning-text)',
+            borderColor: 'var(--status-warning-icon)',
             borderWidth: '3px',
             borderRadius: '16px',
           }
@@ -340,9 +340,9 @@ export default function WorkflowInstanceDetailPage({ params }: { params?: { id?:
         case 'pending':
         default:
           style = {
-            backgroundColor: '#E5E7EB', // gray-200
-            color: '#374151', // gray-700
-            borderColor: '#9CA3AF', // gray-400
+            backgroundColor: 'var(--status-neutral-bg)',
+            color: 'var(--status-neutral-text)',
+            borderColor: 'var(--border-strong)',
             borderWidth: '2px',
             borderRadius: '8px',
           }
