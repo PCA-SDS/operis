@@ -81,6 +81,10 @@ export const REPO_WIDE_GUARDS = [
         scans: 'packages/core and packages/onboarding frontends — hardcoded status colors (#3165)',
       },
       {
+        path: 'src/__tests__/theme-token-colors.test.ts',
+        scans: 'every packages/*/src root plus apps/mercato/src — colour that bypasses the light/dark theme tokens',
+      },
+      {
         path: 'src/__tests__/feature-policy-authorization-coverage.test.ts',
         scans: 'server runtime roots across packages and app templates — low-level ACL authorization bypasses',
       },

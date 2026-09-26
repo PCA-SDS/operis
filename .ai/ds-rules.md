@@ -148,8 +148,9 @@ module's pages sit beside that module's own sidebar. Spec:
 - Tokens are the page-side neutrals, not the `sidebar-*` family: panel `bg-surface-muted`, idle row
   `text-muted-foreground hover:bg-surface-strong hover:text-foreground`, active row
   `bg-primary-soft text-primary` with `aria-current="page"`.
-- The `sidebar-*` (navy) tokens remain only for the sidebar customization preview
-  (`sidebar/SidebarCustomizationEditor.tsx`, chrome in `sidebar/chrome.tsx`).
+- The `sidebar-*` tokens are the product's inked chrome (near-black in light, raised grey in dark): the
+  selected capsule of the default `SegmentedControl`, the `sidebar` tone of `SearchInput`, and the sidebar
+  customization preview (`sidebar/SidebarCustomizationEditor.tsx`, chrome in `sidebar/chrome.tsx`).
 - A widget injected into a `backend:sidebar:*` spot now renders inside a module sidebar and MUST style
   itself with the page-side tokens above. Anything that must stay visible on every page belongs in
   `backend:topbar:actions` instead.
@@ -439,6 +440,12 @@ Legitimate `dark:` use cases:
 - Brand/decorative colors that genuinely need different dark values (violet AI dot, rare cases)
 
 If you find yourself writing `dark:{something}`, first check whether a semantic token already handles that context.
+
+`packages/core/src/__tests__/theme-token-colors.test.ts` (a repo-wide guard) enforces this across every
+`packages/*/src` and `apps/mercato/src`: it fails on Tailwind palette classes, `bg-white` / `border-white` /
+`text-black`, arbitrary colour classes (`bg-[#…]`), `hsl(var(--…))` (the tokens are hex, so that is invalid
+CSS), `dark:` overrides other than `prose-invert`, and hex inline styles. A colour that must stay fixed in both
+themes goes in its `ALLOWED` map with the reason. Emails are out of scope: mail clients have no theme.
 
 ## Boy Scout Rule
 When modifying a file that contains hardcoded status colors (`text-red-*`, `bg-green-*`, etc.), arbitrary text sizes (`text-[11px]`), or `dark:` overrides on status colors, you MUST migrate at minimum the lines you touched to semantic tokens.
