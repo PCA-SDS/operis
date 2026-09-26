@@ -35,6 +35,7 @@ import { apiCall, apiCallOrThrow, readApiResultOrThrow } from '@open-mercato/ui/
 import { collectCustomFieldValues } from '@open-mercato/ui/backend/utils/customFieldValues'
 import { PhoneNumberField } from '@open-mercato/ui/backend/inputs/PhoneNumberField'
 import { isValidPhoneNumber } from '@open-mercato/shared/lib/phone'
+import { CUSTOMER_CUSTOM_ATTRIBUTES_IN_PRODUCT } from '@open-mercato/shared/lib/product-scope'
 import { resolvePhoneIdentity } from '../lib/contactIdentity'
 import { CUSTOMER_ORIGIN_OPTIONS } from '../data/constants'
 import type {
@@ -1130,6 +1131,11 @@ export const createPersonFormFields = (t: Translator, options?: { defaultCountry
   ]
 }
 
+/** The Custom attributes section, withheld while
+ *  `CUSTOMER_CUSTOM_ATTRIBUTES_IN_PRODUCT` is off (see `product-scope`). */
+const customAttributesGroup = (group: CrudFormGroup): CrudFormGroup[] =>
+  CUSTOMER_CUSTOM_ATTRIBUTES_IN_PRODUCT ? [group] : []
+
 export const createPersonFormGroups = (t: Translator): CrudFormGroup[] => [
   {
     id: 'details',
@@ -1163,12 +1169,12 @@ export const createPersonFormGroups = (t: Translator): CrudFormGroup[] => [
     column: 2,
     fields: ['description'],
   },
-  {
+  ...customAttributesGroup({
     id: 'customFields',
     title: t('customers.people.form.groups.custom'),
     column: 2,
     kind: 'customFields',
-  },
+  }),
 ]
 
 export function buildPersonPayload(
@@ -1649,12 +1655,12 @@ export const createCompanyFormGroups = (t: Translator): CrudFormGroup[] => [
     column: 2,
     fields: ['description'],
   },
-  {
+  ...customAttributesGroup({
     id: 'customFields',
     title: t('customers.companies.form.groups.custom'),
     column: 2,
     kind: 'customFields',
-  },
+  }),
 ]
 
 export function buildCompanyPayload(
@@ -1991,12 +1997,12 @@ export const createCompanyEditGroups = (t: Translator): CrudFormGroup[] => [
     column: 2,
     fields: ['description'],
   },
-  {
+  ...customAttributesGroup({
     id: 'customFields',
     title: t('customers.companies.form.groups.custom'),
     column: 2,
     kind: 'customFields',
-  },
+  }),
 ]
 
 /**
@@ -2035,12 +2041,12 @@ export const createCompanyDaneFiremyGroups = (t: Translator): CrudFormGroup[] =>
     column: 1,
     fields: ['description'],
   },
-  {
+  ...customAttributesGroup({
     id: 'customFields',
     title: t('customers.companies.form.groups.customAttributes', 'Atrybuty niestandardowe'),
     column: 1,
     kind: 'customFields',
-  },
+  }),
 ]
 
 export const createPersonEditGroups = (t: Translator): CrudFormGroup[] => [
@@ -2090,12 +2096,12 @@ export const createPersonEditGroups = (t: Translator): CrudFormGroup[] => [
     column: 2,
     fields: ['description'],
   },
-  {
+  ...customAttributesGroup({
     id: 'customFields',
     title: t('customers.people.form.groups.custom'),
     column: 2,
     kind: 'customFields',
-  },
+  }),
 ]
 
 /**
@@ -2115,12 +2121,12 @@ export const createPersonPersonalDataGroups = (t: Translator): CrudFormGroup[] =
     column: 1,
     fields: ['companyEntityId', 'status', 'lifecycleStage', 'source'],
   },
-  {
+  ...customAttributesGroup({
     id: 'customFields',
     title: t('customers.people.form.groups.customAttributes', 'Custom attributes'),
     column: 1,
     kind: 'customFields',
-  },
+  }),
 ]
 
 // ---------------------------------------------------------------------------

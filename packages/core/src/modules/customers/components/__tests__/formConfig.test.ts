@@ -13,6 +13,7 @@ jest.mock('@open-mercato/shared/lib/i18n/context', () => ({
 
 import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { CUSTOMER_CUSTOM_ATTRIBUTES_IN_PRODUCT } from '@open-mercato/shared/lib/product-scope'
 
 import {
   buildCompanyEditPayload,
@@ -22,9 +23,11 @@ import {
   createCompanyDaneFiremyGroups,
   createCompanyEditSchema,
   createCompanyFormFields,
+  createCompanyFormGroups,
   createCompanyFormSchema,
   createPersonEditSchema,
   createPersonFormFields,
+  createPersonFormGroups,
   createPersonPersonalDataGroups,
   mapCompanyOverviewToFormValues,
   mapPersonOverviewToFormValues,
@@ -32,6 +35,9 @@ import {
 } from '../formConfig'
 
 const t: Translator = (_key, fallback) => fallback ?? _key
+
+/** The Custom attributes section is withheld while it is out of the product. */
+const customAttributes = CUSTOMER_CUSTOM_ATTRIBUTES_IN_PRODUCT ? ['customFields'] : []
 
 const PERSON_ID = '44444444-4444-4444-8444-444444444444'
 const COMPANY_ID = '55555555-5555-4555-8555-555555555555'
@@ -46,7 +52,7 @@ describe('detail page zone1 group layouts', () => {
       'classification',
       'businessProfile',
       'notes',
-      'customFields',
+      ...customAttributes,
     ])
     expect(groups.every((group) => group.column === 1)).toBe(true)
   })
@@ -57,9 +63,22 @@ describe('detail page zone1 group layouts', () => {
     expect(groups.map((group) => group.id)).toEqual([
       'personalData',
       'companyRole',
-      'customFields',
+      ...customAttributes,
     ])
     expect(groups.every((group) => group.column === 1)).toBe(true)
+  })
+
+  it('withholds the Custom attributes section from every customer form while it is out of the product', () => {
+    const builders = [
+      createPersonFormGroups,
+      createCompanyFormGroups,
+      createPersonPersonalDataGroups,
+      createCompanyDaneFiremyGroups,
+    ]
+    for (const build of builders) {
+      const ids = build(t).map((group) => group.id)
+      expect(ids.includes('customFields')).toBe(CUSTOMER_CUSTOM_ATTRIBUTES_IN_PRODUCT)
+    }
   })
 
   it('keeps selected custom select values and omits untouched undefined custom fields', () => {

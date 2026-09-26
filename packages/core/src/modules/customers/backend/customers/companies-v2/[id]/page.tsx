@@ -12,6 +12,7 @@ import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimi
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { surfaceRecordConflict } from '@open-mercato/ui/backend/conflicts'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { CUSTOMER_CUSTOM_ATTRIBUTES_IN_PRODUCT } from '@open-mercato/shared/lib/product-scope'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { AttachmentsSection, ErrorMessage, LoadingMessage, RecordNotFoundState, type SectionAction } from '@open-mercato/ui/backend/detail'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
@@ -103,7 +104,9 @@ export default function CompanyDetailV2Page({ params }: { params?: { id?: string
     { id: 'classification', icon: Users, label: t('customers.companies.form.sections.classification', 'Classification') },
     { id: 'businessProfile', icon: BarChart3, label: t('customers.companies.form.sections.businessProfile', 'Business profile') },
     { id: 'notes', icon: StickyNote, label: t('customers.companies.form.groups.notes', 'Notes') },
-    { id: 'customFields', icon: Hash, label: t('customers.companies.form.groups.customAttributes', 'Custom attributes') },
+    ...(CUSTOMER_CUSTOM_ATTRIBUTES_IN_PRODUCT
+      ? [{ id: 'customFields', icon: Hash, label: t('customers.companies.form.groups.customAttributes', 'Custom attributes') }]
+      : []),
   ], [t])
   const [scheduleDialogOpen, setScheduleDialogOpen] = React.useState(false)
   const [scheduleEditData, setScheduleEditData] = React.useState<ScheduleActivityEditData | null>(null)

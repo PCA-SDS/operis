@@ -262,6 +262,16 @@ paths, and would otherwise skip them on a PR that only touches `apps/`.
 
 ## Changelog
 
+### 2026-09-27
+- Custom attributes on people and companies are withheld from v1. `CUSTOMER_CUSTOM_ATTRIBUTES_IN_PRODUCT = false` in
+  `@open-mercato/shared/lib/product-scope` removes the Custom attributes section from Create Person (and the
+  add-person dialog), Create Company, and the person and company detail pages, rail entry included. Field
+  definitions, stored values and the custom-fields API are untouched, and an edit saves stored values back
+  unchanged. Setting the flag to `true` brings the section back.
+- Known limit: a custom field marked required while the flag is off is still validated, with nowhere on the form to
+  fill it in. None of the seeded customer fields is required.
+- Unit coverage in `customers/components/__tests__/formConfig.test.ts`.
+
 ### 2026-09-20
 - Narrowed the plan to the agreed v1 surface. `invoice` switched on; `messages`,
   `workflows`, `business_rules`, `data_sync` and `sync_excel` switched off.
