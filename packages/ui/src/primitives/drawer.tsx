@@ -72,7 +72,7 @@ const DrawerOverlay = React.forwardRef<
     ref={ref}
     data-slot="drawer-overlay"
     className={cn(
-      'fixed inset-0 z-overlay bg-foreground/40',
+      'fixed inset-0 z-overlay bg-scrim',
       'data-[state=open]:animate-in data-[state=closed]:animate-out',
       'data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0',
       className,
@@ -189,7 +189,7 @@ const DrawerHeader = React.forwardRef<HTMLDivElement, DrawerHeaderProps>(
         <span
           data-slot="drawer-header-leading"
           aria-hidden="true"
-          className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-muted-foreground"
+          className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-muted text-muted-foreground"
         >
           {leading}
         </span>
@@ -300,7 +300,7 @@ const DrawerTitle = React.forwardRef<
   <DialogPrimitive.Title
     ref={ref}
     data-slot="drawer-title"
-    className={cn('text-xl font-semibold tracking-tight text-foreground', className)}
+    className={cn('text-lg font-semibold tracking-tight text-foreground', className)}
     {...props}
   />
 ))

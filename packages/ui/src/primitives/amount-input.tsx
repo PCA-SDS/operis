@@ -146,7 +146,7 @@ export const AmountInput = React.forwardRef<HTMLInputElement, AmountInputProps>(
         </div>
         {showCurrency ? (
           <>
-            <div aria-hidden="true" className="w-px self-stretch bg-input" />
+            <div aria-hidden="true" className="w-px self-stretch bg-border-strong" />
             <Select value={current.code} onValueChange={handleCurrencyChange} disabled={disabled}>
               <SelectTrigger
                 aria-label={t('ui.inputs.amountInput.currencyLabel', 'Currency')}

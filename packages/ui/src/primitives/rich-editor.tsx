@@ -668,9 +668,10 @@ export const RichEditorToolbar = React.forwardRef<HTMLDivElement, RichEditorTool
       role="toolbar"
       aria-label="Rich text formatting"
       className={cn(
-        // Figma 166331:4006 reference: standalone card with rounded-8 + border + shadow-xs.
-        // 2px outer padding, 2px gap between items.
-        'flex w-fit max-w-full flex-wrap items-center gap-0.5 overflow-x-auto rounded-lg border border-border bg-card p-0.5 shadow-xs',
+        // Figma 166331:4006 reference: standalone card with rounded-8 + shadow-xs; the
+        // shadow carries the edge, so the border is transparent. 2px outer padding,
+        // 2px gap between items.
+        'flex w-fit max-w-full flex-wrap items-center gap-0.5 overflow-x-auto rounded-lg border border-transparent bg-card p-0.5 shadow-xs',
         className,
       )}
       data-slot="rich-editor-toolbar"
@@ -1057,10 +1058,11 @@ export const RichEditorContent = React.forwardRef<HTMLDivElement, RichEditorCont
         data-name={name}
         id={id}
         className={cn(
-          // Figma reference: content lives in its own bordered card with rounded-8 + shadow-xs,
-          // visually separated from the toolbar by the small vertical gap from the parent
-          // wrapper's `space-y-2`.
-          'w-full max-w-none rounded-lg border border-border bg-card px-3 py-3 text-sm leading-6 text-foreground shadow-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40',
+          // The content is a text field, so it takes the `Input` treatment: the
+          // control fill, the hover step, and the quiet focus edge. It is separated
+          // from the toolbar by the small vertical gap from the parent wrapper's
+          // `space-y-2`, and flips to `surface` inside a form section like any field.
+          'w-full max-w-none rounded-lg border border-input bg-input-bg px-3 py-3 text-sm leading-6 text-foreground transition-colors hover:bg-modal-muted focus-visible:outline-none focus-visible:border-input-border-focus focus-visible:bg-modal-muted focus-visible:shadow-focus',
           // The project does not include `@tailwindcss/typography`, so we have to
           // re-implement the rich text rendering ourselves via descendant-arbitrary
           // selectors. Cover every tag the toolbar can produce so the user sees

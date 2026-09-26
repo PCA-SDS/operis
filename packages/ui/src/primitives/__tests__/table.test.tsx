@@ -136,7 +136,7 @@ describe('Table primitive (Phase B.6 polish)', () => {
     expect(row.className).not.toContain('even:bg-surface-muted/40')
   })
 
-  it('TableHead renders the scan-first uppercase micro-label', () => {
+  it('TableHead renders a quiet sentence-case label', () => {
     const { container } = render(
       <Table>
         <TableHeader>
@@ -149,16 +149,17 @@ describe('Table primitive (Phase B.6 polish)', () => {
     const head = container.querySelector('[data-slot="table-head"]') as HTMLElement
     expect(head.className).toContain('text-muted-foreground')
     expect(head.className).toContain('text-xs')
-    expect(head.className).toContain('font-bold')
-    expect(head.className).toContain('uppercase')
-    expect(head.className).toContain('tracking-wide')
+    expect(head.className).toContain('font-medium')
+    expect(head.className).not.toContain('font-bold')
+    expect(head.className).not.toContain('uppercase')
+    expect(head.className).not.toContain('tracking-wide')
     expect(head.className).toContain('whitespace-nowrap')
     expect(head.className).toContain('px-3')
     expect(head.className).toContain('sm:px-5')
     expect(head.className).toContain('py-3')
   })
 
-  it('TableCell renders the roomy row height with medium-weight data', () => {
+  it('TableCell renders the roomy row height with regular-weight data', () => {
     const { container } = render(
       <Table>
         <TableBody>
@@ -173,10 +174,11 @@ describe('Table primitive (Phase B.6 polish)', () => {
     expect(cell.className).toContain('sm:px-5')
     expect(cell.className).toContain('py-4')
     expect(cell.className).toContain('text-sm')
-    expect(cell.className).toContain('font-medium')
+    expect(cell.className).toContain('font-normal')
+    expect(cell.className).not.toContain('font-medium')
   })
 
-  it('separates the header from the rows by tone, not by a rule', () => {
+  it('separates the header from the rows with one hairline under the strip', () => {
     const { container } = render(
       <Table columnCount={1}>
         <TableHeader>
@@ -188,9 +190,11 @@ describe('Table primitive (Phase B.6 polish)', () => {
     )
     const strip = container.querySelector('[data-slot="table-header"]') as HTMLElement
     const head = container.querySelector('[data-slot="table-head"]') as HTMLElement
-    // The step from the strip's fill to the row ground IS the edge; a border on
-    // top of it reads as a second, competing line.
+    // One rule under the strip is the only edge between labels and data; the
+    // cells themselves never draw a second one.
     expect(strip.className).toContain('bg-table-header')
+    expect(strip.className).toContain('border-b')
+    expect(strip.className).toContain('border-table-border')
     expect(head.className).not.toContain('border-b')
   })
 
@@ -261,8 +265,8 @@ describe('Table primitive (Phase B.6 polish)', () => {
     expect(head.className).not.toContain('sm:px-5')
     expect(cell.className).toContain('py-2')
     // typography is the part that must NOT change with density
-    expect(head.className).toContain('font-bold')
-    expect(head.className).toContain('uppercase')
+    expect(head.className).toContain('font-medium')
+    expect(head.className).not.toContain('uppercase')
   })
 
   it('gives a control column an equal gutter either side instead of reading padding', () => {

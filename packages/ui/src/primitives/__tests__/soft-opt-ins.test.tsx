@@ -6,17 +6,21 @@ import { Tabs, TabsList, TabsTrigger } from '../tabs'
 import { FormSection } from '../../backend/forms/FormSection'
 
 describe('IconButton soft variant', () => {
-  it('paints the brand-tinted soft fill with a transparent border', () => {
+  it('paints the neutral soft fill with a transparent border, white only inside a form section', () => {
     render(<IconButton variant="soft" aria-label="Edit">x</IconButton>)
-    const button = screen.getByRole('button', { name: 'Edit' })
-    expect(button.className).toContain('bg-primary-soft')
-    expect(button.className).toContain('border-transparent')
-    expect(button.className).not.toContain('bg-surface')
+    const classes = screen.getByRole('button', { name: 'Edit' }).className.split(/\s+/)
+    expect(classes).toContain('bg-primary-soft')
+    expect(classes).toContain('border-transparent')
+    expect(classes).not.toContain('bg-surface')
+    expect(classes).toContain('in-data-[crud-section=true]:bg-surface')
   })
 
-  it('leaves the default outline variant unchanged', () => {
+  it('draws the default outline variant as the same borderless soft button', () => {
     render(<IconButton aria-label="Edit">x</IconButton>)
-    expect(screen.getByRole('button', { name: 'Edit' }).className).toContain('border-border')
+    const classes = screen.getByRole('button', { name: 'Edit' }).className.split(/\s+/)
+    expect(classes).toContain('bg-primary-soft')
+    expect(classes).toContain('border-transparent')
+    expect(classes).not.toContain('border-border')
   })
 })
 

@@ -62,7 +62,7 @@ const PROGRESS_TONE_FILL: Record<ProgressTone, string> = {
 }
 
 const progressTrackVariants = cva(
-  'relative w-full overflow-hidden rounded-full bg-input',
+  'relative w-full overflow-hidden rounded-full bg-surface-strong',
   {
     variants: {
       size: {

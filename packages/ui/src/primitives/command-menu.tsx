@@ -98,7 +98,7 @@ const CommandMenuOverlay = React.forwardRef<
     ref={ref}
     data-slot="command-menu-overlay"
     className={cn(
-      'fixed inset-0 z-overlay bg-foreground/40 backdrop-blur-sm',
+      'fixed inset-0 z-overlay bg-scrim',
       'data-[state=open]:animate-in data-[state=closed]:animate-out',
       'data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0',
       className,
@@ -147,7 +147,7 @@ const CommandMenuContent = React.forwardRef<
       <CommandPrimitive
         data-slot="command-menu-root"
         className={cn(
-          'mx-auto flex w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-border bg-surface shadow-2xl',
+          'mx-auto flex w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-surface shadow-2xl',
           contentClassName,
         )}
         {...commandProps}
@@ -449,7 +449,7 @@ const CommandMenuSeparator = React.forwardRef<
   <CommandPrimitive.Separator
     ref={ref}
     data-slot="command-menu-separator"
-    className={cn('-mx-2 my-2 h-px bg-input', className)}
+    className={cn('-mx-2 my-2 h-px bg-border', className)}
     {...props}
   />
 ))

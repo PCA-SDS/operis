@@ -949,7 +949,7 @@ export function Dropdown<T>({
       exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: enterOffset, scale: 0.98 }}
       transition={{ duration: reduceMotion ? 0 : 0.16, ease: [0.4, 0, 0.2, 1] }}
       className={cn(
-        'pointer-events-auto flex touch-pan-y flex-col overscroll-contain overflow-hidden rounded-xl border border-border bg-surface p-2 shadow-lg outline-none',
+        'pointer-events-auto flex touch-pan-y flex-col overscroll-contain overflow-hidden rounded-xl bg-popover p-2 shadow-lg outline-none',
         side === 'bottom' ? 'origin-top' : 'origin-bottom',
         elevated ? 'z-top' : 'z-popover',
         menuClassName,

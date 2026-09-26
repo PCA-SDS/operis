@@ -35,11 +35,12 @@ describe('Avatar', () => {
     expect(root.className).toContain('text-muted-foreground')
   })
 
-  it('applies default (colored) classes when variant is default', () => {
+  it('applies the neutral monogram classes when variant is default', () => {
     const { container } = render(<Avatar label="Jan" />)
     const root = container.firstChild as HTMLElement
-    expect(root.className).toContain('bg-primary/10')
-    expect(root.className).toContain('text-primary')
+    expect(root.className).toContain('bg-surface-strong')
+    expect(root.className).toContain('text-foreground')
+    expect(root.className).not.toContain('bg-primary/10')
   })
 
   it('renders an icon in place of initials when icon is provided', () => {

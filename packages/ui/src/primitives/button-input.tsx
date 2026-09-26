@@ -57,7 +57,7 @@ export const ButtonInput = React.forwardRef<HTMLInputElement, ButtonInputProps>(
             {...props}
           />
         </div>
-        <div aria-hidden="true" className="w-px self-stretch bg-input" />
+        <div aria-hidden="true" className="w-px self-stretch bg-border-strong" />
         <div className="flex shrink-0 items-stretch">
           {trailingAction}
         </div>

@@ -20,7 +20,7 @@ const SheetOverlay = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Overlay
     className={cn(
-      'fixed inset-x-0 bottom-0 top-[var(--topbar-height,0px)] z-overlay bg-foreground/40',
+      'fixed inset-x-0 bottom-0 top-[var(--topbar-height,0px)] z-overlay bg-scrim',
       'data-[state=open]:animate-in data-[state=closed]:animate-out',
       'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
       className,
@@ -41,13 +41,13 @@ const sheetVariants = cva(
     variants: {
       side: {
         top:
-          'inset-x-0 top-0 border-b data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top',
+          'inset-x-0 top-0 data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top',
         bottom:
-          'inset-x-0 bottom-0 border-t data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
+          'inset-x-0 bottom-0 data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
         left:
-          'top-[var(--topbar-height,0px)] bottom-0 left-0 w-3/4 border-r data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left sm:max-w-md',
+          'top-[var(--topbar-height,0px)] bottom-0 left-0 w-3/4 data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left sm:max-w-md',
         right:
-          'top-[var(--topbar-height,0px)] bottom-0 right-0 w-full sm:max-w-md border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right',
+          'top-[var(--topbar-height,0px)] bottom-0 right-0 w-full sm:max-w-md data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right',
       },
     },
     defaultVariants: {
@@ -129,7 +129,7 @@ const SheetTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
-    className={cn('text-xl font-semibold tracking-tight text-foreground', className)}
+    className={cn('text-lg font-semibold tracking-tight text-foreground', className)}
     {...props}
   />
 ))

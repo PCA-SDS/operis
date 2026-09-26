@@ -39,7 +39,9 @@ const avatarVariants = cva(
         xl: 'size-16 text-xl',
       },
       variant: {
-        default: 'bg-primary/10 text-primary',
+        /* A neutral monogram disc, as in Apple's Contacts: an avatar is an
+           identity marker, not an interaction, so it does not take the accent. */
+        default: 'bg-surface-strong text-foreground',
         monochrome: 'bg-muted text-muted-foreground',
       },
     },

@@ -172,9 +172,9 @@ export function Table({
 }
 
 /**
- * The header strip. It separates from the rows by TONE, not by a rule — the step
- * from the strip's fill to the row ground is the edge, and a border drawn on top
- * of it reads as a second, competing line.
+ * The header strip. It shares the card's white, as Finder's list header does, and
+ * separates from the rows with ONE hairline under it — the only rule between the
+ * column labels and the data, so it never competes with a tone step.
  *
  * `sticky` only when the table owns a vertical scrollport — pinned without one it
  * sticks to the viewport and slides under the app topbar.
@@ -188,7 +188,7 @@ export function TableHeader({
     <div
       role="rowgroup"
       data-slot="table-header"
-      className={cn('bg-table-header', sticky && 'sticky top-0 z-20', className)}
+      className={cn('border-b border-table-border bg-table-header', sticky && 'sticky top-0 z-20', className)}
       {...props}
     />
   )
@@ -273,7 +273,7 @@ export function TableHead({
       data-align={align}
       style={{ ...spanStyle(colSpan, columns.length), ...style }}
       className={cn(
-        'flex min-w-0 items-center overflow-hidden whitespace-nowrap text-xs font-bold uppercase tracking-wide text-muted-foreground',
+        'flex min-w-0 items-center overflow-hidden whitespace-nowrap text-xs font-medium text-muted-foreground',
         HEAD_PADDING_Y[density],
         resolvePaddingX(density, padding),
         ALIGN_CLASS[align],
@@ -308,7 +308,7 @@ export function TableCell({
            most visible structural property of the table. A cell that genuinely
            holds prose opts out with `whitespace-normal`; a cell holding a stacked
            pair keeps its own `flex-col` and is unaffected. */
-        'flex min-w-0 items-center overflow-hidden whitespace-nowrap text-sm font-medium text-foreground',
+        'flex min-w-0 items-center overflow-hidden whitespace-nowrap text-sm font-normal text-foreground',
         CELL_PADDING_Y[density],
         resolvePaddingX(density, padding),
         ALIGN_CLASS[align],
@@ -402,7 +402,7 @@ export function TableSortLabel({
       data-direction={direction || 'none'}
       onClick={onToggle}
       className={cn(
-        'group/sort inline-flex min-w-0 max-w-full cursor-pointer select-none items-center gap-1 text-left uppercase tracking-wide transition-colors',
+        'group/sort inline-flex min-w-0 max-w-full cursor-pointer select-none items-center gap-1 text-left transition-colors',
         'hover:text-foreground focus:outline-none focus-visible:text-foreground focus-visible:underline focus-visible:underline-offset-4',
         direction ? 'text-foreground' : '',
         className,
