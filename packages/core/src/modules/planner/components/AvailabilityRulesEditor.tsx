@@ -23,6 +23,8 @@ import { surfaceRecordConflict } from '@open-mercato/ui/backend/conflicts'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
 import { Tabs, TabsList, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
 import { ComboboxInput, TimePicker } from '@open-mercato/ui/backend/inputs'
+import { formatDuration as formatDurationLabel, TimePickerDurationChip } from '@open-mercato/ui/primitives/time-picker'
+import { Popover, PopoverContent, PopoverTrigger } from '@open-mercato/ui/primitives/popover'
 import { DictionaryEntrySelect, type DictionarySelectLabels } from '@open-mercato/core/modules/dictionaries/components/DictionaryEntrySelect'
 import {
   createUnavailabilityReasonEntry,
@@ -35,8 +37,9 @@ import { normalizeCrudServerError } from '@open-mercato/ui/backend/utils/serverE
 import { parseAvailabilityRuleWindow } from '@open-mercato/core/modules/planner/lib/availabilitySchedule'
 import { deleteAvailabilityRuleSet } from '@open-mercato/core/modules/planner/lib/deleteAvailabilityRuleSet'
 import { CrudForm, type CrudField } from '@open-mercato/ui/backend/CrudForm'
-import { Calendar, Clock, List, PencilLine, Plus, Trash2 } from 'lucide-react'
+import { Calendar, ChevronDown, Clock, List, PencilLine, Plus, Trash2 } from 'lucide-react'
 import {
+  normalizeAvailabilityRuleRecord,
   resolveRuleSetSelectValue,
   requiresResetConfirmation,
   selectCustomRuleIdsToDelete,
@@ -59,6 +62,9 @@ type AvailabilityRule = {
   note?: string | null
   unavailabilityReasonEntryId?: string | null
   unavailabilityReasonValue?: string | null
+  lastCustomerBeforeCloseMinutes?: number | null
+  lastCustomerAcceptanceMinutes?: number | null
+  timeOverflowMinutes?: number | null
   createdAt?: string | null
   updatedAt?: string | null
   updated_at?: string | null
@@ -100,7 +106,12 @@ export type AvailabilityRulesEditorProps = {
   allowUnavailability?: boolean
 }
 
-type TimeWindow = { start: string; end: string }
+type TimeWindow = {
+  start: string
+  end: string
+  lastCustomerAcceptanceTime: string
+  timeOverflowMinutes: number
+}
 type RuleSetFormValues = {
   name: string
 }
@@ -148,7 +159,61 @@ const DAY_LABELS = [
   { code: 'SA', short: 'S', nameKey: 'schedule.weekday.saturday', fallback: 'Saturday' },
 ] as const
 
-const DEFAULT_WINDOW: TimeWindow = { start: '09:00', end: '17:00' }
+const DEFAULT_WINDOW: TimeWindow = {
+  start: '09:00',
+  end: '17:00',
+  lastCustomerAcceptanceTime: '17:00',
+  timeOverflowMinutes: 0,
+}
+
+const OVERFLOW_OPTIONS = [0, 15, 30, 45, 60, 90, 120, 180, 240]
+
+function resolveOverflowOptions(value: number): number[] {
+  return OVERFLOW_OPTIONS.includes(value) ? OVERFLOW_OPTIONS : [...OVERFLOW_OPTIONS, value].sort((left, right) => left - right)
+}
+
+function OverflowMinutesPicker({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: number
+  onChange: (value: number) => void
+  disabled?: boolean
+}) {
+  const [open, setOpen] = React.useState(false)
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="w-full justify-between"
+          disabled={disabled}
+        >
+          <span>{formatDurationLabel(value)}</span>
+          <ChevronDown className="size-4 text-muted-foreground" aria-hidden />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-auto p-3">
+        <div className="flex max-w-[17rem] flex-wrap gap-2">
+          {resolveOverflowOptions(value).map((option) => (
+            <TimePickerDurationChip
+              key={option}
+              value={option}
+              selected={value === option}
+              onSelect={(next) => {
+                onChange(next)
+                setOpen(false)
+              }}
+            />
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
+}
 
 function resolveRuleReasonEntryId(rule?: AvailabilityRule | null): string | null {
   if (!rule) return null
@@ -170,6 +235,19 @@ function resolveRuleReasonValue(rule?: AvailabilityRule | null): string | null {
 
 function createDefaultWindow(): TimeWindow {
   return { ...DEFAULT_WINDOW }
+}
+
+function formatClockFromMinutes(totalMinutes: number): string {
+  const clamped = Math.max(0, Math.min(23 * 60 + 59, totalMinutes))
+  return `${String(Math.floor(clamped / 60)).padStart(2, '0')}:${String(clamped % 60).padStart(2, '0')}`
+}
+
+function resolveRuleAcceptanceTime(rule: AvailabilityRule, endAt: Date): string {
+  if (typeof rule.lastCustomerAcceptanceMinutes === 'number') {
+    return formatClockFromMinutes(rule.lastCustomerAcceptanceMinutes)
+  }
+  const endMinutes = endAt.getHours() * 60 + endAt.getMinutes()
+  return formatClockFromMinutes(endMinutes - (rule.lastCustomerBeforeCloseMinutes ?? 0))
 }
 
 function getDefaultWindowDurationMinutes(): number {
@@ -200,6 +278,8 @@ function buildNextWindow(windows: TimeWindow[]): TimeWindow {
   return {
     start: formatTimeFromMinutes(startMinutes),
     end: formatTimeFromMinutes(endMinutes),
+    lastCustomerAcceptanceTime: formatTimeFromMinutes(endMinutes),
+    timeOverflowMinutes: lastWindow.timeOverflowMinutes,
   }
 }
 
@@ -326,6 +406,8 @@ function buildWindowsFromRules(rules: AvailabilityRule[]): TimeWindow[] {
       return {
         start: formatTimeInput(window.startAt),
         end: formatTimeInput(window.endAt),
+        lastCustomerAcceptanceTime: resolveRuleAcceptanceTime(rule, window.endAt),
+        timeOverflowMinutes: rule.timeOverflowMinutes ?? 0,
       }
     })
     .sort((a, b) => a.start.localeCompare(b.start))
@@ -345,7 +427,7 @@ function normalizeWeeklyWindows(windows: WeeklyWindows): WeeklyWindows {
     dayWindows.forEach((window) => {
       if (!window.start || !window.end) return
       const key = `${window.start}-${window.end}`
-      if (!unique.has(key)) unique.set(key, { start: window.start, end: window.end })
+      unique.set(key, { ...window })
     })
     return Array.from(unique.values()).sort((left, right) => left.start.localeCompare(right.start))
   })
@@ -353,13 +435,20 @@ function normalizeWeeklyWindows(windows: WeeklyWindows): WeeklyWindows {
 
 function buildWeeklyDraft(rules: AvailabilityRule[]): WeeklyWindows {
   const draft = createEmptyWeeklyWindows()
-  rules.forEach((rule) => {
+  const orderedRules = [...rules].sort((left, right) => {
+    const leftTimestamp = new Date(left.updatedAt ?? left.createdAt ?? 0).getTime()
+    const rightTimestamp = new Date(right.updatedAt ?? right.createdAt ?? 0).getTime()
+    return leftTimestamp - rightTimestamp
+  })
+  orderedRules.forEach((rule) => {
     const window = parseAvailabilityRuleWindow(rule)
     const repeat = window.repeat
     if (repeat === 'once') return
     const windowValue = {
       start: formatTimeInput(window.startAt),
       end: formatTimeInput(window.endAt),
+      lastCustomerAcceptanceTime: resolveRuleAcceptanceTime(rule, window.endAt),
+      timeOverflowMinutes: rule.timeOverflowMinutes ?? 0,
     }
     if (repeat === 'daily') {
       for (let day = 0; day < 7; day += 1) {
@@ -374,22 +463,40 @@ function buildWeeklyDraft(rules: AvailabilityRule[]): WeeklyWindows {
 }
 
 function serializeWeeklyWindows(windows: WeeklyWindows): string {
-  const payload = windows.map((dayWindows) => dayWindows.map((window) => ({ start: window.start, end: window.end })))
+  const payload = windows.map((dayWindows) => dayWindows.map((window) => ({ ...window })))
   return JSON.stringify(payload)
 }
 
-function buildWeeklyPayload(windows: WeeklyWindows): Array<{ weekday: number; start: string; end: string }> {
-  const payload: Array<{ weekday: number; start: string; end: string }> = []
+function buildWeeklyPayload(windows: WeeklyWindows): Array<{
+  weekday: number
+  start: string
+  end: string
+  lastCustomerAcceptanceTime: string
+  timeOverflowMinutes: number
+}> {
+  const payload: Array<{
+    weekday: number
+    start: string
+    end: string
+    lastCustomerAcceptanceTime: string
+    timeOverflowMinutes: number
+  }> = []
   const seen = new Set<string>()
   windows.forEach((dayWindows, day) => {
     dayWindows.forEach((window) => {
       const start = toDateForWeekday(day, window.start)
       const end = toDateForWeekday(day, window.end)
       if (!start || !end || start >= end) return
-      const key = `${day}:${window.start}:${window.end}`
+      const key = `${day}:${window.start}:${window.end}:${window.lastCustomerAcceptanceTime}:${window.timeOverflowMinutes}`
       if (seen.has(key)) return
       seen.add(key)
-      payload.push({ weekday: day, start: window.start, end: window.end })
+      payload.push({
+        weekday: day,
+        start: window.start,
+        end: window.end,
+        lastCustomerAcceptanceTime: window.lastCustomerAcceptanceTime,
+        timeOverflowMinutes: window.timeOverflowMinutes,
+      })
     })
   })
   return payload
@@ -546,6 +653,8 @@ export function AvailabilityRulesEditor({
       applyScopeDate: t(`${labelPrefix}.availability.scope.date`, 'This date'),
       applyScopeWeekday: t(`${labelPrefix}.availability.scope.weekday`, 'Weekday:'),
       windowsLabel: t(`${labelPrefix}.availability.windows.label`, 'What hours are you available?'),
+      lastCustomerLabel: t(`${labelPrefix}.availability.windows.lastCustomer`, 'Last customer acceptance time'),
+      overflowLabel: t(`${labelPrefix}.availability.windows.overflow`, 'Timeline overflow after close (minutes)'),
       addWindow: t(`${labelPrefix}.availability.windows.add`, 'Add window'),
       removeWindow: t(`${labelPrefix}.availability.windows.remove`, 'Remove'),
       windowErrorRequired: t(`${labelPrefix}.availability.windows.errors.required`, 'Start and end times are required.'),
@@ -616,7 +725,9 @@ export function AvailabilityRulesEditor({
         subjectIds: subjectId,
       })
       const call = await apiCall<{ items?: AvailabilityRule[] }>(`/api/planner/availability?${params.toString()}`)
-      const items = Array.isArray(call.result?.items) ? call.result.items : []
+      const items = Array.isArray(call.result?.items)
+        ? call.result.items.map((item) => normalizeAvailabilityRuleRecord(item))
+        : []
       setAvailabilityRules(items)
     } catch (error) {
       const message = error instanceof Error ? error.message : t(`${labelPrefix}.availability.error.load`, 'Failed to load availability.')
@@ -639,7 +750,9 @@ export function AvailabilityRulesEditor({
         subjectIds: effectiveRulesetId,
       })
       const call = await apiCall<{ items?: AvailabilityRule[] }>(`/api/planner/availability?${params.toString()}`)
-      const items = Array.isArray(call.result?.items) ? call.result.items : []
+      const items = Array.isArray(call.result?.items)
+        ? call.result.items.map((item) => normalizeAvailabilityRuleRecord(item))
+        : []
       setRulesetRules(items)
     } catch {
       setRulesetRules([])
@@ -970,7 +1083,7 @@ export function AvailabilityRulesEditor({
     }
     autoSaveTimerRef.current = window.setTimeout(() => {
       queueWeeklySave({ silentSuccess: true, skipRefresh: viewMode === 'list' })
-    }, 600)
+    }, 0)
     return () => {
       if (autoSaveTimerRef.current !== null) {
         window.clearTimeout(autoSaveTimerRef.current)
@@ -1074,6 +1187,8 @@ export function AvailabilityRulesEditor({
         rrule: rule.rrule,
         exdates: rule.exdates ?? [],
         kind: rule.kind ?? 'availability',
+        lastCustomerAcceptanceTime: resolveRuleAcceptanceTime(rule, parseAvailabilityRuleWindow(rule).endAt),
+        timeOverflowMinutes: rule.timeOverflowMinutes ?? null,
         note: rule.note ?? null,
       }))
       await runMutation({
@@ -1262,6 +1377,8 @@ export function AvailabilityRulesEditor({
         rrule,
         exdates: [],
         kind: 'availability',
+        lastCustomerAcceptanceTime: window.lastCustomerAcceptanceTime,
+        timeOverflowMinutes: window.timeOverflowMinutes,
         note: null,
       }, { errorMessage: listLabels.ruleSetCreateError }))
     })
@@ -1274,6 +1391,8 @@ export function AvailabilityRulesEditor({
           rrule: rule.rrule,
           exdates: rule.exdates ?? [],
           kind: rule.kind ?? 'availability',
+          lastCustomerAcceptanceTime: resolveRuleAcceptanceTime(rule, parseAvailabilityRuleWindow(rule).endAt),
+          timeOverflowMinutes: rule.timeOverflowMinutes ?? null,
           note: rule.note ?? null,
           unavailabilityReasonEntryId: resolveRuleReasonEntryId(rule),
           unavailabilityReasonValue: resolveRuleReasonValue(rule),
@@ -1436,6 +1555,8 @@ export function AvailabilityRulesEditor({
             rrule,
             exdates: [],
             kind: 'availability',
+            lastCustomerAcceptanceTime: window.lastCustomerAcceptanceTime,
+            timeOverflowMinutes: window.timeOverflowMinutes,
             note: null,
           }, { errorMessage: listLabels.saveDateError }))
         })
@@ -1696,6 +1817,34 @@ export function AvailabilityRulesEditor({
                                       <Trash2 className="size-4" aria-hidden />
                                     </Button>
                                   </div>
+                                  {subjectType === 'ruleset' ? (
+                                    <div className="grid gap-2 sm:grid-cols-2">
+                                      <label className="space-y-1 text-xs text-muted-foreground">
+                                        <span>{listLabels.lastCustomerLabel}</span>
+                                        <TimePicker
+                                          value={window.lastCustomerAcceptanceTime}
+                                          onChange={(value) => handleWeeklyWindowChange(index, windowIndex, {
+                                            ...window,
+                                            lastCustomerAcceptanceTime: value ?? window.end,
+                                          })}
+                                          className="w-full"
+                                          disabled={usingRuleSet || isReadOnly}
+                                          showClearButton={false}
+                                        />
+                                      </label>
+                                      <label className="space-y-1 text-xs text-muted-foreground">
+                                        <span>{listLabels.overflowLabel}</span>
+                                        <OverflowMinutesPicker
+                                          value={window.timeOverflowMinutes}
+                                          onChange={(value) => handleWeeklyWindowChange(index, windowIndex, {
+                                            ...window,
+                                            timeOverflowMinutes: value,
+                                          })}
+                                          disabled={usingRuleSet || isReadOnly}
+                                        />
+                                      </label>
+                                    </div>
+                                  ) : null}
                                   {windowError ? (
                                     <div className="text-xs text-status-error-text">{windowError}</div>
                                   ) : null}
@@ -2012,6 +2161,32 @@ export function AvailabilityRulesEditor({
                                     <Trash2 className="size-4" aria-hidden />
                                   </Button>
                                 </div>
+                                {subjectType === 'ruleset' ? (
+                                  <div className="grid gap-2 sm:grid-cols-2">
+                                    <label className="space-y-1 text-xs text-muted-foreground">
+                                      <span>{listLabels.lastCustomerLabel}</span>
+                                      <TimePicker
+                                        value={window.lastCustomerAcceptanceTime}
+                                        onChange={(value) => handleEditorWindowChange(index, {
+                                          ...window,
+                                          lastCustomerAcceptanceTime: value ?? window.end,
+                                        })}
+                                        className="w-full"
+                                        showClearButton={false}
+                                      />
+                                    </label>
+                                      <label className="space-y-1 text-xs text-muted-foreground">
+                                        <span>{listLabels.overflowLabel}</span>
+                                        <OverflowMinutesPicker
+                                          value={window.timeOverflowMinutes}
+                                          onChange={(value) => handleEditorWindowChange(index, {
+                                            ...window,
+                                            timeOverflowMinutes: value,
+                                          })}
+                                        />
+                                      </label>
+                                  </div>
+                                ) : null}
                                 {windowError ? (
                                   <div className="text-xs text-status-error-text">{windowError}</div>
                                 ) : null}

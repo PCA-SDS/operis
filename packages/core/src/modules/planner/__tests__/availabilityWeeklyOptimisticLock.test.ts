@@ -13,6 +13,7 @@
  */
 
 import { commandRegistry } from '@open-mercato/shared/lib/commands/registry'
+import { LockMode } from '@mikro-orm/core'
 import { CrudHttpError, isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { OPTIMISTIC_LOCK_HEADER_NAME } from '@open-mercato/shared/lib/crud/optimistic-lock-headers'
 import { PlannerAvailabilityRule, PlannerAvailabilityRuleSet } from '../data/entities'
@@ -144,6 +145,11 @@ describe('planner.availability.weekly.replace — document-aggregate optimistic 
     const result = await handler!.execute(buildInput(), ctx as never)
 
     expect(result).toEqual({ ok: true })
+    expect(em.findOne).toHaveBeenCalledWith(
+      PlannerAvailabilityRuleSet,
+      expect.any(Object),
+      { lockMode: LockMode.PESSIMISTIC_WRITE },
+    )
     expect(ruleSet.updatedAt.toISOString()).not.toBe(CURRENT)
     expect(em.persist).toHaveBeenCalledWith(ruleSet)
     expect(em.flush).toHaveBeenCalled()
