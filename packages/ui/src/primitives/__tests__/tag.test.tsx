@@ -12,7 +12,8 @@ describe('Tag primitive', () => {
     const root = screen.getByText('Hello').closest('[data-slot="tag"]')
     expect(root).not.toBeNull()
     expect(root!.className).toContain('rounded-full')
-    expect(root!.className).toContain('border-border')
+    expect(root!.className).toContain('border-transparent')
+    expect(root!.className).toContain('bg-surface-muted')
     expect(root).toHaveAttribute('data-shape', 'pill')
   })
 

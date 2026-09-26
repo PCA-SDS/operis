@@ -1192,7 +1192,7 @@ function NotesSectionImpl<C = unknown>({
             const timestampValue = note.createdAt
             const fallbackTimestampLabel = formatDateTime(note.createdAt) ?? emptyLabel
             return (
-              <div key={note.id} className="group space-y-2 rounded-xl border border-border bg-surface shadow-sm p-4">
+              <div key={note.id} className="group space-y-2 rounded-xl border border-transparent bg-surface shadow-sm p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="space-y-1">
                     <TimelineItemHeader
@@ -1279,8 +1279,8 @@ function NotesSectionImpl<C = unknown>({
                       rows={3}
                       textareaRef={contentTextareaRef}
                       onTextareaInput={(event) => adjustTextareaSize(event.currentTarget)}
-                      textareaClassName="w-full resize-none overflow-hidden rounded-md border border-border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      editorWrapperClassName="w-full rounded-md border border-muted-foreground/20 bg-input-bg p-2"
+                      textareaClassName="w-full resize-none overflow-hidden rounded-lg border border-input bg-input-bg px-3 py-2 text-sm transition-colors hover:bg-modal-muted focus-visible:outline-none focus-visible:border-input-border-focus focus-visible:bg-modal-muted focus-visible:shadow-focus"
+                      editorWrapperClassName="w-full rounded-lg border border-transparent bg-input-bg p-2"
                       remarkPlugins={markdownPlugins}
                     />
                     {contentError ? <p className="text-xs text-status-error-text">{contentError}</p> : null}

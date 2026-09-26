@@ -923,7 +923,7 @@ export default function CheckoutDemoPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Interactive Left Panel - Changes based on workflow step */}
-          <div className="bg-white shadow rounded-lg p-6">
+          <div className="bg-surface shadow rounded-lg p-6">
             {/* Initial State - Cart Summary */}
             {!result && (
               <>
@@ -1238,7 +1238,7 @@ export default function CheckoutDemoPage() {
                       </div>
                     </div>
                   ) : userTasks.length > 0 ? (
-                    <form onSubmit={handleTaskSubmit} className="bg-white border border-border rounded-lg p-4 space-y-4">
+                    <form onSubmit={handleTaskSubmit} className="bg-surface border border-border rounded-lg p-4 space-y-4">
                       {taskError && (
                         <div className="bg-status-error-bg border border-status-error-border rounded-lg p-3">
                           <p className="text-sm text-status-error-text">{taskError}</p>
@@ -1371,7 +1371,7 @@ export default function CheckoutDemoPage() {
                   )}
 
                   {result.status === 'PAUSED' && (
-                    <div className="bg-white border border-border rounded-lg p-4">
+                    <div className="bg-surface border border-border rounded-lg p-4">
                       <p className="text-sm font-medium text-foreground mb-2">{t('workflows.checkoutDemo.waitPayment.demoTestingTitle', 'For Demo Testing:')}</p>
                       <p className="text-xs text-muted-foreground mb-3">
                         {t('workflows.checkoutDemo.waitPayment.demoTestingHint', 'Click the button below to simulate a payment provider webhook confirming the transaction.')}
@@ -1518,7 +1518,7 @@ export default function CheckoutDemoPage() {
           </div>
 
           {/* Workflow Status */}
-          <div className="bg-white shadow rounded-lg p-6">
+          <div className="bg-surface shadow rounded-lg p-6">
             <h2 className="text-xl font-semibold text-foreground mb-4">{t('workflows.checkoutDemo.progress.title', 'Workflow Progress')}</h2>
 
             {!result && !error && (
@@ -1592,7 +1592,7 @@ export default function CheckoutDemoPage() {
                           }`}
                         >
                           <div className="flex items-center">
-                            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-white flex items-center justify-center font-bold text-sm">
+                            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-surface flex items-center justify-center font-bold text-sm">
                               {status === 'completed' ? '✓' : isPaused ? '⏸' : index + 1}
                             </div>
                             <div className="ml-3 flex-1">
@@ -1637,7 +1637,7 @@ export default function CheckoutDemoPage() {
                       </div>
 
                       {userTasks.map((task: any) => (
-                        <div key={task.id} className="mt-3 bg-white rounded-md p-3 border border-status-warning-border">
+                        <div key={task.id} className="mt-3 bg-surface rounded-md p-3 border border-status-warning-border">
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
                               <h4 className="text-sm font-semibold text-foreground">{task.taskName}</h4>
@@ -1728,7 +1728,7 @@ export default function CheckoutDemoPage() {
 
         {/* Workflow Events Timeline */}
         {result && events.length > 0 && (
-          <div className="mt-8 bg-white shadow rounded-lg p-6">
+          <div className="mt-8 bg-surface shadow rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <h2 className="text-xl font-semibold text-foreground">

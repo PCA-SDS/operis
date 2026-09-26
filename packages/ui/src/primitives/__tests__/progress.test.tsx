@@ -101,7 +101,9 @@ describe('Progress (linear)', () => {
     const bar = container.querySelector('[data-slot="progress"]') as HTMLElement
     expect(bar.className).toContain('custom-class')
     expect(bar.className).toContain('rounded-full')
-    expect(bar.className).toContain('bg-input')
+    // The track must stay visible: `--input` is the transparent field edge.
+    expect(bar.className).toContain('bg-surface-strong')
+    expect(bar.className.split(/\s+/)).not.toContain('bg-input')
   })
 
   it('forwards fillClassName to override the fill', () => {

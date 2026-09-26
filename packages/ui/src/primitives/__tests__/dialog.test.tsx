@@ -241,12 +241,14 @@ describe('Dialog (Phase B.7)', () => {
 })
 
 describe('Dialog — canonical borderless chrome', () => {
-  it('overlay uses the foreground scrim with no backdrop blur', () => {
+  it('overlay uses the theme-stable scrim token with no backdrop blur', () => {
     renderDialog(<ExampleDialog />)
     const overlay = document.querySelector('[data-slot="dialog-overlay"]') as HTMLElement
-    expect(overlay.className).toContain('bg-foreground/40')
+    expect(overlay.className).toContain('bg-scrim')
     expect(overlay.className).not.toContain('backdrop-blur')
     expect(overlay.className).not.toContain('bg-black/40')
+    // `bg-foreground/*` turns into a light veil in dark mode.
+    expect(overlay.className).not.toContain('bg-foreground/')
   })
 
   it('panel is borderless with shadow-xl and owns no padding of its own', () => {
@@ -272,20 +274,22 @@ describe('Dialog — canonical borderless chrome', () => {
     expect(header.className).not.toContain('border-b')
   })
 
-  it('title is text-xl at every breakpoint', () => {
+  it('title is the component-title step (text-lg) at every breakpoint', () => {
     renderDialog(<ExampleDialog />)
     const title = document.querySelector('[data-slot="dialog-title"]') as HTMLElement
-    expect(title.className).toContain('text-xl')
+    expect(title.className).toContain('text-lg')
     expect(title.className).toContain('font-semibold')
     expect(title.className).not.toContain('text-base')
+    expect(title.className).not.toContain('text-xl')
   })
 
   it('close button is the shared CloseButton affordance, not a bare icon', () => {
     renderDialog(<ExampleDialog />)
     const close = document.querySelector('[data-slot="dialog-close-button"]') as HTMLElement
     expect(close).not.toBeNull()
-    expect(close.className).toContain('text-disabled-foreground')
-    expect(close.className).toContain('hover:scale-125')
+    expect(close.className).toContain('text-muted-foreground')
+    expect(close.className).toContain('hover:bg-surface-muted')
+    expect(close.className).not.toContain('hover:scale-125')
     expect(close.className).toContain('h-7')
     expect(close.className).toContain('w-7')
   })

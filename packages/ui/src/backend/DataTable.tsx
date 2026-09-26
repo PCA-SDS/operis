@@ -102,6 +102,7 @@ import { createLogger } from '@open-mercato/shared/lib/logger'
 import { clearAllPerspectiveState, PERSPECTIVE_COOKIE_PREFIX, PERSPECTIVE_STORAGE_PREFIX } from './perspectiveState'
 import { diffPerspectiveSettings } from './perspectiveDirty'
 import type { DataTableViewDirtyState, DataTableViewSettingKey } from './perspectiveDirty'
+import { PAGE_TITLE_CLASS } from './Page'
 
 // Re-exported so `@open-mercato/ui/backend/DataTable` stays the published import
 // path for the purge (BACKWARD_COMPATIBILITY: import paths are a contract surface).
@@ -977,7 +978,7 @@ function ExportMenu({ config, sections }: { config: DataTableExportConfig; secti
         <div
           ref={menuRef}
           role="menu"
-          className="absolute right-0 mt-2 w-60 max-w-[calc(100vw-1rem)] rounded-md border bg-surface py-2 shadow z-dropdown"
+          className="absolute right-0 mt-2 w-60 max-w-[calc(100vw-1rem)] rounded-xl bg-popover py-2 shadow-lg z-dropdown"
           style={menuOffsetX ? { transform: `translateX(${menuOffsetX}px)` } : undefined}
         >
           {sections.map((section, idx) => (
@@ -3224,7 +3225,7 @@ export function DataTable<T extends RowData>({
       supportsCustomFieldFilterFieldsets && resolvedEntityIds.length === 1
         ? (
           <div className="space-y-1">
-            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <div className="text-sm font-medium text-foreground">
               {t('ui.dataTable.fieldset.label', 'Fieldset')}
             </div>
             <Select
@@ -3410,18 +3411,17 @@ export function DataTable<T extends RowData>({
    * The card itself carries elevation instead of a border: a border plus a
    * shadow reads as two competing edges. Toolbar (search / filters) stays
    * inside the card, directly above the rows it filters. */
-  const containerClassName = embedded ? '' : 'flex flex-col gap-5'
-  /* In light the card is borderless and carries its edge with elevation, as the
-     design reference does. Dark mode is our own extension of that rule and a
-     shadow cannot describe an edge on a dark ground, so the card takes a
-     hairline there instead — same intent, the only mechanism available. */
+  const containerClassName = embedded ? '' : 'flex flex-col gap-6'
+  /* Borderless in both themes, with the same elevation as every other card.
+     In light the soft shadow carries the edge; in dark the elevated surface
+     colour does, as Apple's grouped lists do on a black ground. */
   const cardClassName = embedded
     ? ''
-    : 'overflow-hidden rounded-xl bg-surface shadow-md dark:border dark:border-border'
+    : 'overflow-hidden rounded-xl bg-surface shadow-sm'
   const headerWrapperClassName = embedded ? 'pb-3' : ''
   const headerContentClassName =
     'flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4'
-  const toolbarWrapperClassName = embedded ? 'mt-2' : 'border-b border-table-border px-4 py-3 sm:px-5'
+  const toolbarWrapperClassName = embedded ? 'mt-2' : 'px-4 py-3 sm:px-5'
   const tableScrollWrapperClassName = embedded ? '' : 'overflow-auto'
   /* The table owns its vertical scroll. Without a cap, a 500-row page grows the
      document instead, so the header scrolls away and the pager sits an entire
@@ -3531,7 +3531,7 @@ export function DataTable<T extends RowData>({
         embedded ? (
           <h2 className="text-sm font-semibold leading-tight text-foreground">{title}</h2>
         ) : (
-          <h1 className="text-2xl font-normal leading-tight text-foreground sm:text-3xl">{title}</h1>
+          <h1 className={PAGE_TITLE_CLASS}>{title}</h1>
         )
       ) : (
         title

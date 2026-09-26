@@ -235,7 +235,7 @@ function TimelineItem({
 
       {/* Content card */}
       <div className="flex-1 pb-4">
-        <div className="group rounded-xl border border-border bg-surface shadow-sm p-3 space-y-1.5">
+        <div className="group rounded-xl border border-transparent bg-surface shadow-sm p-3 space-y-1.5">
           {/* Header: actor + time */}
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <span className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground">

@@ -186,7 +186,7 @@ export function TroubleshootingTreeBuilder({ value, setValue, disabled }: Builde
   }, [])
 
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-surface shadow-sm">
+    <div className="overflow-hidden rounded-lg border border-transparent bg-surface shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
         <div className="flex items-center gap-2">
           <GitBranch className="size-4 text-accent-strong" aria-hidden />
@@ -364,7 +364,7 @@ export function TroubleshootingTreeBuilder({ value, setValue, disabled }: Builde
                             type="button"
                             variant="ghost"
                             className={cn(
-                              'h-auto w-full justify-start overflow-hidden rounded-xl border border-border bg-surface shadow-sm p-0 text-left transition-colors hover:border-foreground/30 hover:bg-card focus-visible:shadow-focus focus-visible:outline-none',
+                              'h-auto w-full justify-start overflow-hidden rounded-xl border border-transparent bg-surface shadow-sm p-0 text-left transition-colors hover:border-foreground/30 hover:bg-card focus-visible:shadow-focus focus-visible:outline-none',
                               selected ? 'border-accent-strong ring-1 ring-accent-strong' : 'border-border',
                             )}
                             onClick={() => setSelectedPath(item.nodePath)}

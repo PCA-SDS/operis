@@ -28,7 +28,6 @@ import { WorkflowTransitionEdge } from './WorkflowTransitionEdge'
 import { STATUS_COLORS } from '../lib/status-colors'
 import { Alert, AlertDescription } from '@open-mercato/ui/primitives/alert'
 import { Edit3 } from 'lucide-react'
-import { useTheme } from '@open-mercato/ui/theme'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 
 // React Flow tracks `defaultEdgeOptions`, `fitViewOptions` and friends by identity
@@ -41,7 +40,7 @@ const WORKFLOW_EDGE_MARKER_END = {
   type: MarkerType.ArrowClosed,
   width: 16,
   height: 16,
-  color: '#9ca3af',
+  color: 'var(--muted-foreground)',
 } as const
 
 const DEFAULT_EDGE_OPTIONS = {
@@ -62,7 +61,7 @@ const VIEWPORT_CULLING_NODE_THRESHOLD = 50
 // every node rect on every render of this component.
 function miniMapNodeColor(node: Node): string {
   const status = (node.data?.status || 'not_started') as keyof typeof STATUS_COLORS
-  return STATUS_COLORS[status]?.hex || STATUS_COLORS.not_started.hex
+  return STATUS_COLORS[status]?.color || STATUS_COLORS.not_started.color
 }
 
 export interface WorkflowGraphImplProps {
@@ -102,9 +101,6 @@ export default function WorkflowGraphImpl({
   const latestEdgesRef = useRef(edges)
   latestEdgesRef.current = edges
 
-  const { resolvedTheme } = useTheme()
-  const isDark = resolvedTheme === 'dark'
-  const backgroundDotColor = isDark ? '#374151' : '#e5e7eb'
   const [isCompactViewport, setIsCompactViewport] = useState(false)
 
   useEffect(() => {
@@ -225,7 +221,7 @@ export default function WorkflowGraphImpl({
           variant={BackgroundVariant.Dots}
           gap={16}
           size={1}
-          color={backgroundDotColor}
+          color="var(--border-strong)"
         />
 
         <Controls

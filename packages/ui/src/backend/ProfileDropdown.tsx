@@ -377,10 +377,15 @@ export function ProfileDropdown({
           {/* User info header */}
           {(displayName || email) && (
             <div className="flex items-center gap-3 border-b bg-muted/30 px-3 py-3">
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent-strong/10 text-accent-strong">
+              <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-surface-muted text-muted-foreground">
                 <User className="size-4" aria-hidden="true" />
               </div>
               <div className="flex min-w-0 flex-1 flex-col">
+                {!displayName && email ? (
+                  <span className="truncate text-overline uppercase tracking-wider text-muted-foreground/80">
+                    {t('ui.userMenu.loggedInAs', 'Logged in')}
+                  </span>
+                ) : null}
                 {displayName ? (
                   <span className="truncate text-sm font-medium leading-5 text-foreground">{displayName}</span>
                 ) : null}
@@ -390,11 +395,6 @@ export function ProfileDropdown({
                     displayName ? 'text-muted-foreground' : 'text-foreground font-medium',
                   )}>
                     {email}
-                  </span>
-                ) : null}
-                {!displayName && email ? (
-                  <span className="truncate text-overline uppercase tracking-wider text-muted-foreground/80">
-                    {t('ui.userMenu.loggedInAs', 'Logged in')}
                   </span>
                 ) : null}
               </div>

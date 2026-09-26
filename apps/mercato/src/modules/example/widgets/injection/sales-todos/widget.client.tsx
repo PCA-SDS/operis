@@ -124,7 +124,7 @@ export default function SalesTodosWidget({ context }: InjectionWidgetComponentPr
   )
 
   return (
-    <div className="space-y-3 rounded-xl border border-border bg-surface shadow-sm p-3">
+    <div className="space-y-3 rounded-xl border border-transparent bg-surface shadow-sm p-3">
       <Alert>
         <AlertTitle>{t('example.widgets.salesTodos.title', 'Example widget')}</AlertTitle>
         <AlertDescription>

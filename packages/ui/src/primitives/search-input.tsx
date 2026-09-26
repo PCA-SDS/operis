@@ -71,10 +71,10 @@ const searchInputWrapperVariants = cva(
   },
 )
 
-/* The value is `font-medium`, the placeholder `font-normal` — an empty field
-   reads as a prompt and a filled one as data, before colour does any work. */
+/* Regular weight for value and placeholder alike — colour separates a prompt
+   from data, the same rule as `Input`. */
 const searchInputElementVariants = cva(
-  'min-w-0 flex-1 border-0 bg-transparent font-medium outline-none placeholder:font-normal disabled:cursor-not-allowed disabled:bg-transparent disabled:text-text-disabled [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none',
+  'min-w-0 flex-1 border-0 bg-transparent font-normal outline-none disabled:cursor-not-allowed disabled:bg-transparent disabled:text-text-disabled [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none',
   {
     variants: {
       size: {

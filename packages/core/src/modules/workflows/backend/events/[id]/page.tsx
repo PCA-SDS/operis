@@ -165,7 +165,7 @@ export default function WorkflowEventDetailPage() {
           />
 
           {/* Event Summary */}
-          <div className="rounded-xl border border-border bg-surface shadow-sm p-6">
+          <div className="rounded-xl border border-transparent bg-surface shadow-sm p-6">
             <h2 className="text-lg font-semibold mb-4">
               {t('workflows.events.detail.summary')}
             </h2>
@@ -215,7 +215,7 @@ export default function WorkflowEventDetailPage() {
 
           {/* Workflow Instance Information */}
           {event.workflowInstance && (
-            <div className="rounded-xl border border-border bg-surface shadow-sm p-6">
+            <div className="rounded-xl border border-transparent bg-surface shadow-sm p-6">
               <h2 className="text-lg font-semibold mb-4">
                 {t('workflows.events.detail.workflowInstance')}
               </h2>
@@ -320,7 +320,7 @@ export default function WorkflowEventDetailPage() {
           )}
 
           {/* Technical Details */}
-          <div className="rounded-xl border border-border bg-surface shadow-sm p-6">
+          <div className="rounded-xl border border-transparent bg-surface shadow-sm p-6">
             <h2 className="text-lg font-semibold mb-4">
               {t('workflows.events.detail.technicalDetails')}
             </h2>

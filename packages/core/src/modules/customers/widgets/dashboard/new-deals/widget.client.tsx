@@ -136,12 +136,12 @@ const CustomerNewDealsWidget: React.FC<DashboardWidgetComponentProps<CustomerNew
       ) : items.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t('customers.widgets.newDeals.empty')}</p>
       ) : (
-        <ul className="space-y-3">
+        <ul className="divide-y divide-border">
           {items.map((item) => {
             const href = resolveDetailHref(item)
             const createdLabel = formatDate(item.createdAt, locale)
             return (
-              <li key={item.id} className="rounded-md border p-3">
+              <li key={item.id} className="py-3 first:pt-0 last:pb-0">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-medium">{item.title ?? t('customers.widgets.newDeals.untitled')}</p>

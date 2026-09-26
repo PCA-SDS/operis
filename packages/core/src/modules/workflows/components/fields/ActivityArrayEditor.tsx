@@ -180,7 +180,7 @@ export function ActivityArrayEditor({ id, value = [], error, setValue, disabled 
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
-                      ID: <code className="bg-white px-1 rounded">{activity.activityId}</code>
+                      ID: <code className="bg-surface px-1 rounded">{activity.activityId}</code>
                     </p>
                   </div>
                   <ChevronDown
@@ -190,7 +190,7 @@ export function ActivityArrayEditor({ id, value = [], error, setValue, disabled 
 
                 {/* Expanded Content */}
                 {isExpanded && (
-                  <div className="px-4 pb-4 space-y-3 border-t border-border bg-white">
+                  <div className="px-4 pb-4 space-y-3 border-t border-border bg-surface">
                     {/* Activity ID */}
                     <div className="pt-3">
                       <Label htmlFor={`${id}-${index}-activityId`} className="text-xs font-medium mb-1">

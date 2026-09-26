@@ -78,7 +78,7 @@ export const CollapsibleGroup = React.forwardRef<CollapsibleGroupHandle, Collaps
         id={`collapsible-group-wrapper-${groupId}`}
         className={cn(
           // Aligned with Figma Accordion `210:4022`: rounded-10, three visual
-          // states (closed = white card + soft border + x-small shadow,
+          // states (closed = white card + x-small shadow, no border,
           // hover-while-closed = bg-muted + no border + no shadow,
           // open = bg-muted + no border + no shadow). Destructive border
           // wins over the Figma states when the group has validation errors.
@@ -90,7 +90,7 @@ export const CollapsibleGroup = React.forwardRef<CollapsibleGroupHandle, Collaps
               ? 'border-transparent bg-surface shadow-xs'
               : expanded
               ? 'border-transparent bg-muted shadow-none'
-              : 'border-border shadow-xs hover:border-transparent hover:bg-muted hover:shadow-none',
+              : 'border-transparent shadow-xs hover:bg-muted hover:shadow-none',
         )}
         data-collapsible-group-id={groupId}
         data-state={expanded ? 'open' : 'closed'}
@@ -115,7 +115,7 @@ export const CollapsibleGroup = React.forwardRef<CollapsibleGroupHandle, Collaps
                 // row toggles to `bg-muted` together (Figma Accordion behaviour)
                 // instead of stacking a second hover layer over the trigger
                 // button.
-                'flex-1 rounded-md px-2 py-1 text-sm font-medium hover:bg-transparent dark:hover:bg-transparent',
+                'flex-1 rounded-md px-2 py-1 text-sm font-medium hover:bg-transparent',
                 chevronPosition === 'left' ? 'justify-start gap-2' : 'justify-between',
               )}
               aria-expanded={expanded}

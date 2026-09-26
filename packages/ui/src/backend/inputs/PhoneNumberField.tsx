@@ -702,7 +702,7 @@ export function PhoneNumberField({
             'disabled:bg-transparent disabled:hover:bg-transparent',
           )}
         />
-        <div aria-hidden="true" className="w-px self-stretch bg-input" />
+        <div aria-hidden="true" className="w-px self-stretch bg-border-strong" />
         <input
           type="tel"
           inputMode="tel"

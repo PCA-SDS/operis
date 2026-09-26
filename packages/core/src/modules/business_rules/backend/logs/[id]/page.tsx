@@ -148,7 +148,7 @@ export default function ExecutionLogDetailPage() {
           </div>
 
           {/* Execution Summary */}
-          <div className="rounded-xl border border-border bg-surface shadow-sm p-6">
+          <div className="rounded-xl border border-transparent bg-surface shadow-sm p-6">
             <h2 className="text-lg font-semibold mb-4">
               {t('business_rules.logs.detail.summary')}
             </h2>
@@ -193,7 +193,7 @@ export default function ExecutionLogDetailPage() {
           </div>
 
           {/* Rule Information */}
-          <div className="rounded-xl border border-border bg-surface shadow-sm p-6">
+          <div className="rounded-xl border border-transparent bg-surface shadow-sm p-6">
             <h2 className="text-lg font-semibold mb-4">
               {t('business_rules.logs.detail.ruleInfo')}
             </h2>
@@ -231,7 +231,7 @@ export default function ExecutionLogDetailPage() {
           </div>
 
           {/* Entity Information */}
-          <div className="rounded-xl border border-border bg-surface shadow-sm p-6">
+          <div className="rounded-xl border border-transparent bg-surface shadow-sm p-6">
             <h2 className="text-lg font-semibold mb-4">
               {t('business_rules.logs.detail.entityInfo')}
             </h2>

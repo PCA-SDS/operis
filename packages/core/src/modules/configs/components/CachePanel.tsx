@@ -306,7 +306,7 @@ export function CachePanel() {
           ) : null}
         </div>
       </header>
-      <div className="space-y-4 rounded-xl border border-border bg-surface shadow-sm p-4">
+      <div className="space-y-4 rounded-xl border border-transparent bg-surface shadow-sm p-4">
         {stats && stats.segments.length ? (
           <div className="overflow-x-auto">
             <Table density="compact" columnCount={canShowActions ? 5 : 4} className="min-w-[560px]">

@@ -83,8 +83,8 @@ export function DealWonPopup({
     <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose() }}>
       <DialogContent className="max-h-[90vh] overflow-hidden sm:max-w-[420px]">
         <DialogBody className="min-h-0 flex-1 space-y-5 overflow-y-auto pt-6 text-center">
-          {/* TODO(ds-review): decorative gradient — consider defining a named gradient token if reused */}
-          <div className="flex h-[200px] items-center justify-center rounded-2xl bg-[linear-gradient(135deg,rgba(141,150,244,0.5),rgba(198,203,254,0.95))] text-foreground">
+          {/* The brand ramp is theme-invariant and pale, so the trophy takes the brand's dark ink in both themes. */}
+          <div className="flex h-[200px] items-center justify-center rounded-2xl bg-gradient-to-br from-brand-lilac to-brand-sky text-brand-violet-foreground">
             <Trophy className="size-24" strokeWidth={1.5} />
           </div>
 

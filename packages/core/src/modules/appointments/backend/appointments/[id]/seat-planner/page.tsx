@@ -896,7 +896,7 @@ function StaffSheet(props: {
   }, [query, staff])
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-foreground/20" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex justify-end bg-scrim" onClick={onClose}>
       <aside className="flex h-full w-full max-w-md flex-col bg-surface shadow-lg" onClick={(event) => event.stopPropagation()}>
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-4 py-3">
           <div className="min-w-0">
@@ -1755,7 +1755,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
   }
 
   return (
-    <Page fill className="!gap-0 !space-y-0 -mx-4 -mb-1 -mt-4 overflow-hidden">
+    <Page fill className="!gap-0 !space-y-0 -mx-4 -mb-1 -mt-4 overflow-hidden md:-mx-6 md:-mt-6 xl:-mx-8">
       <PageBody fill className="!space-y-0 overflow-hidden p-0">
         <div className="flex h-full min-h-0 flex-col overflow-hidden bg-surface">
           <header className="shrink-0 border-b border-border bg-surface">
@@ -1800,7 +1800,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
           </header>
 
           <div className="flex min-h-0 flex-1">
-            {mobileSidebarOpen ? <div className="fixed inset-0 z-40 bg-foreground/20 lg:hidden" onClick={() => setMobileSidebarOpen(false)} /> : null}
+            {mobileSidebarOpen ? <div className="fixed inset-0 z-40 bg-scrim lg:hidden" onClick={() => setMobileSidebarOpen(false)} /> : null}
             <aside className={`fixed inset-y-0 left-0 z-50 flex flex-col min-h-0 w-full max-w-sm border-r border-border bg-surface shadow-lg transition-transform lg:static lg:z-auto lg:w-80 lg:translate-x-0 lg:shadow-none ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
               <div className="flex h-12 shrink-0 items-center justify-between border-b border-border px-3 lg:hidden">
                 <p className="text-sm font-semibold">{t('appointments.seatPlanner.bookingDetails', 'Booking details')}</p>

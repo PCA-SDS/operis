@@ -7,7 +7,7 @@ export function Kbd({ children, className, ...props }: KbdProps) {
   return (
     <kbd
       className={cn(
-        'inline-flex items-center rounded-sm border border-border bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground shadow-xs',
+        'inline-flex items-center rounded-sm border border-transparent bg-muted px-1.5 py-0.5 font-mono text-xs text-muted-foreground',
         className,
       )}
       {...props}

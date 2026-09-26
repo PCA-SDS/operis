@@ -521,7 +521,7 @@ export function ChangelogTab({ entityId, entityType, tone = 'default' }: Changel
         dateRangeDays={days}
       />
 
-      <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-transparent bg-surface shadow-sm">
         <div className="flex items-center gap-2 border-b px-5 py-4">
           <Clock3 className="size-4 text-muted-foreground" />
           <h3 className="text-base font-semibold text-foreground">

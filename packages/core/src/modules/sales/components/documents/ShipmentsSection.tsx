@@ -494,7 +494,7 @@ export function SalesShipmentsSection({
               shipment.status ??
               t('sales.documents.shipments.statusMissing', 'Status pending')
             return (
-              <div key={shipment.id} className="rounded-xl border border-border bg-surface shadow-sm p-4">
+              <div key={shipment.id} className="rounded-xl border border-transparent bg-surface shadow-sm p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">

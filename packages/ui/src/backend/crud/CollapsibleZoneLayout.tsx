@@ -254,7 +254,7 @@ export function CollapsibleZoneLayout({
               </Button>
             )}
             {sections?.length ? (
-              <div className={soft ? 'flex flex-col items-center gap-2' : 'flex flex-col items-center gap-2 rounded-xl border border-border/70 bg-card px-2 py-3'}>
+              <div className={soft ? 'flex flex-col items-center gap-2' : 'flex flex-col items-center gap-2 rounded-xl border border-transparent bg-card px-2 py-3 shadow-sm'}>
                 {sections.map((section) => {
                   const SectionIcon = section.icon
                   const hasErrors = Boolean(section.errorCount && section.errorCount > 0)

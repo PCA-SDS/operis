@@ -654,7 +654,7 @@ function CustomDataSectionImpl({
         {editing ? (
           <div
             ref={sectionRef}
-            className="rounded-xl border border-border bg-surface shadow-sm p-3 sm:p-4"
+            className="rounded-xl border border-transparent bg-surface shadow-sm p-3 sm:p-4"
             onKeyDown={handleEditingKeyDown}
           >
             <CrudForm<Record<string, unknown>>

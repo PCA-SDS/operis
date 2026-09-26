@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Page, PageBody } from '@open-mercato/ui/backend/Page'
+import { Page, PageBody, PAGE_TITLE_CLASS } from '@open-mercato/ui/backend/Page'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
 import { Button } from '@open-mercato/ui/primitives/button'
@@ -111,7 +111,7 @@ export default function InvoiceDashboardPage() {
   const netTotal = netPoint?.cumulative ?? '0'
 
   return <Page><PageBody className="space-y-5">
-    <div className="flex items-start justify-between gap-4"><div><h1 className="text-2xl font-normal">{t('invoice.dashboard.title')}</h1><p className="text-sm text-muted-foreground">{t('invoice.dashboard.subtitle')}</p></div><InvoiceSyncButton onCompleted={() => { void loadForecast() }} /></div>
+    <div className="flex items-start justify-between gap-4"><div><h1 className={PAGE_TITLE_CLASS}>{t('invoice.dashboard.title')}</h1><p className="text-sm text-muted-foreground">{t('invoice.dashboard.subtitle')}</p></div><InvoiceSyncButton onCompleted={() => { void loadForecast() }} /></div>
     <h2 className="text-lg font-medium">{t('invoice.dashboard.overview')}</h2>
     {summary.ratesStale || forecast.ratesStale ? <p className="rounded-md border border-status-warning-border bg-status-warning-bg px-3 py-2 text-sm text-status-warning-text">{t('invoice.dashboard.staleRates')}</p> : null}
     <div className="grid gap-4 sm:grid-cols-3"><Card title={t('invoice.dashboard.apOutstanding')} value={summary.ap.outstandingAmount} caption={t('invoice.dashboard.payablesCaption')} /><Card title={t('invoice.dashboard.arOutstanding')} value={summary.ar.outstandingAmount} caption={t('invoice.dashboard.receivablesCaption')} /><Card title={t('invoice.dashboard.netPosition')} value={summary.netPosition} caption={t('invoice.dashboard.netCaption')} /></div>

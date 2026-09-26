@@ -118,7 +118,7 @@ const trackVariants = cva(
        * lifts out of it. Opt in per call site.
        */
       tone: {
-        default: 'border border-border bg-surface',
+        default: 'border border-transparent bg-surface shadow-xs',
         inset: 'border border-transparent bg-input-bg',
       },
       size: {

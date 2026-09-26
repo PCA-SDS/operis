@@ -130,9 +130,9 @@ function ProgressJobCard({ job, t, onCancel }: { job: ProgressJobDto; t: Transla
 
   return (
     <div className={cn(
-      'rounded-lg border border-border bg-surface p-3',
-      isFailed && 'border-destructive/50 bg-destructive/5',
-      isCompleted && 'border-status-success-border bg-status-success-bg',
+      'rounded-lg border border-transparent bg-surface p-3',
+      isFailed && 'bg-destructive/5',
+      isCompleted && 'bg-status-success-bg',
     )}>
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">

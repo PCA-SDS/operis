@@ -1142,7 +1142,7 @@ function ActivitiesSectionImpl<C = unknown>({
                   return (
                     <div
                       key={activity.id}
-                      className="group space-y-3 rounded-xl border border-border bg-surface shadow-sm p-4 transition hover:border-border/70 cursor-pointer"
+                      className="group space-y-3 rounded-xl border border-transparent bg-surface shadow-sm p-4 transition hover:shadow-md cursor-pointer"
                       role="button"
                       tabIndex={0}
                       onClick={() => openEditDialog(activity)}

@@ -277,7 +277,7 @@ export function createDealLinkAdapter(options: DealAdapterOptions): LinkEntityAd
       { id: 'open', label: 'Open' },
       { id: 'win', label: 'Won' },
       { id: 'loose', label: 'Lost' },
-      { id: 'orphan', label: 'Orphan', dotColor: '#eb9426' /* TODO(ds-review): #eb9426 — requires LinkEntityDialog to support semantic token classNames */ },
+      { id: 'orphan', label: 'Orphan', dotColor: 'var(--status-warning-icon)' },
     ],
     defaultId: 'all',
     clientFilter: (option: LinkEntityOption, filterId: string) => {

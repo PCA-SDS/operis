@@ -1449,7 +1449,7 @@ export default function AkeneoConfigWidget({ context, data }: InjectionWidgetCom
   }
 
   return (
-    <div className="space-y-6 rounded-xl border border-border bg-surface shadow-sm p-4">
+    <div className="space-y-6 rounded-xl border border-transparent bg-surface shadow-sm p-4">
       <div className="space-y-3">
             <h3 className="text-sm font-semibold">
               {t('sync_akeneo.setup.heading', 'Akeneo API setup')}

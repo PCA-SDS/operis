@@ -384,7 +384,7 @@ export function AttachmentPartitionSettings({ s3Enabled }: AttachmentPartitionSe
   )
 
   return (
-    <div className="space-y-6 rounded-xl border border-border bg-surface shadow-sm p-6">
+    <div className="space-y-6 rounded-xl border border-transparent bg-surface shadow-sm p-6">
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="text-lg font-semibold">

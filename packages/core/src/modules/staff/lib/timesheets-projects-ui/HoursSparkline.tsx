@@ -11,7 +11,7 @@ export type HoursSparklineProps = {
   className?: string
 }
 
-const DEFAULT_COLOR = '#6366f1'
+const DEFAULT_COLOR = 'var(--chart-indigo)'
 
 export function HoursSparkline({
   values,

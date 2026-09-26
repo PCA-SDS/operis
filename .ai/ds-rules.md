@@ -118,19 +118,30 @@ tint. Do NOT use `bg-primary/10` for a hover on a neutral control — that is th
 `bg-surface-modal` / `bg-modal-muted` are the dialog-chrome equivalents; `modal-muted` also marks
 a **filled** input so a populated form reads at a glance without adding border weight.
 
-Elevation is carried by the shadow scale, not by stacking borders. A list-view card takes
-`rounded-xl bg-surface shadow-md` with **no border** — a border plus a shadow reads as two
-competing edges.
+Elevation is carried by the shadow scale, not by stacking borders. Every card — the `Card`
+primitive, a list-view card, a detail section — takes `rounded-xl bg-surface shadow-sm` with
+**no visible border**: a border plus a shadow reads as two competing edges. Where a card's
+border carries state (a selected tile), keep the box with `border border-transparent` and let
+the state colour it. In dark mode the elevated surface colour separates the card from the black
+ground, so a card never adds a dark-only hairline.
+
+A surface nested inside a white card does not take a second shadow or a border: it takes the
+next step of the ladder (`bg-surface-muted`), or it is a list separated by `divide-y
+divide-border` hairlines rather than a stack of boxed rows.
+
+The dimming layer behind a dialog, sheet or drawer is `bg-scrim` — black at 32% in light and
+60% in dark. Never `bg-foreground/*`, which turns into a light veil in dark mode.
 
 ## Page gutter
 
 Every backend page spans the full width of the content column. The shell's `main` owns the only page
-gutter: `px-4 pt-4` (16px sides and top) at every screen size, with no `max-w-*` cap.
+gutter: `px-4 pt-4 md:px-6 md:pt-6 xl:px-8` (16px on a phone, 24px from `md`, 32px sides from `xl`),
+with no `max-w-*` cap. The topbar uses the same inset, so its edge lines up with the page.
 
 - A page MUST NOT add its own outer padding, margin or width cap (`max-w-*`, `mx-auto`, `px-*`/`pt-*` on
   its root or on a wrapper around all of its content). Width caps belong on self-contained pieces only: a
   dialog, a line of prose, an image preview.
-- A full-bleed page (an editor canvas) undoes exactly the gutter: `-mx-4 -mt-4`.
+- A full-bleed page (an editor canvas) undoes exactly the gutter: `-mx-4 -mt-4 md:-mx-6 md:-mt-6 xl:-mx-8`.
 
 ## Navigation: module switcher and module sidebars
 
@@ -145,11 +156,15 @@ module's pages sit beside that module's own sidebar. Spec:
 - A backend page gets the generic module sidebar automatically (`BackendModuleFrame`, mounted by the backend
   catch-all). A page that draws its own module navigation sets `moduleSidebar: false` in its `page.meta.ts`
   and renders `ModuleLayout` with its own `ModuleSidebar` — never both.
-- Tokens are the page-side neutrals, not the `sidebar-*` family: panel `bg-surface-muted`, idle row
-  `text-muted-foreground hover:bg-surface-strong hover:text-foreground`, active row
-  `bg-primary-soft text-primary` with `aria-current="page"`.
-- The `sidebar-*` (navy) tokens remain only for the sidebar customization preview
-  (`sidebar/SidebarCustomizationEditor.tsx`, chrome in `sidebar/chrome.tsx`).
+- Tokens are the page-side neutrals, not the `sidebar-*` family. The column has no panel fill — it
+  sits directly on the page ground; idle row `text-muted-foreground hover:bg-surface-muted
+  hover:text-foreground`, active row `bg-primary-soft text-primary` with `aria-current="page"`. The
+  sidebar title is `text-sm font-semibold` in ink and group labels are `text-xs font-semibold
+  text-muted-foreground`, both sentence case. Labels and dividers are `shrink-0` so a long sidebar
+  scrolls instead of squeezing them.
+- The `sidebar-*` tokens are the product's inked chrome (near-black in light, raised grey in dark): the
+  selected capsule of the default `SegmentedControl`, the `sidebar` tone of `SearchInput`, and the sidebar
+  customization preview (`sidebar/SidebarCustomizationEditor.tsx`, chrome in `sidebar/chrome.tsx`).
 - A widget injected into a `backend:sidebar:*` spot now renders inside a module sidebar and MUST style
   itself with the page-side tokens above. Anything that must stay visible on every page belongs in
   `backend:topbar:actions` instead.
@@ -161,11 +176,14 @@ module's pages sit beside that module's own sidebar. Spec:
 | What am I rounding? | Token |
 |---------------------|-------|
 | Pill / badge / avatar / toggle | `rounded-full` |
-| Modal / dialog panel | `rounded-2xl` (16px) |
-| Card, table card, popover, menu, large panel | `rounded-xl` (12px) |
-| Default control (button, input, select, nav item) | `rounded-lg` (8px) |
-| Compact control (xs/sm button, menu item, chip) | `rounded-md` (6px) |
+| Modal / dialog panel, sheet, command palette | `rounded-2xl` (18px) |
+| Card, table card, popover, menu, large panel | `rounded-xl` (14px) |
+| Default control (button, input, select, nav item) | `rounded-lg` (10px) |
+| Compact control (xs/sm button, menu item, chip) | `rounded-md` (8px) |
 | Tiny inline element (checkbox, color dot) | `rounded-sm` (4px) |
+
+The steps are concentric: a `rounded-md` menu row inside a menu's 6px padding lands exactly on the
+menu's `rounded-xl` corner.
 | Remove radius (table cells, flush edges) | `rounded-none` |
 
 Pill vs no-pill chips: the shipped primitives (`Badge`, `Tag` pill variant, `SegmentedControl`, `ActiveFilterChips`) are `rounded-full` by design. When a design explicitly calls for **no-pill chips** (dense filter rows, "Add filter" affordances, toolbar chips), do NOT force the pill primitives — build the chip on semantic tokens with `rounded-md` (or use `Tag shape="square"`). Never mix pill and no-pill chips in one row.
@@ -173,7 +191,7 @@ Pill vs no-pill chips: the shipped primitives (`Badge`, `Tag` pill variant, `Seg
 ## Typography
 - NEVER use arbitrary text sizes (`text-[10px]`, `text-[11px]`, `text-[13px]`, `text-[15px]`)
 - NEVER use arbitrary tracking — use `tracking-widest` (0.1em) for uppercase labels
-- USE Tailwind scale: `text-xs` (12px), `text-sm` (14px), `text-base` (16px), `text-lg` (18px), `text-xl` (20px), `text-2xl` (24px)
+- USE Tailwind scale: `text-xs` (12px), `text-sm` (14px), `text-base` (16px), `text-lg` (18px), `text-xl` (20px), `text-2xl` (24px), plus the one custom step `text-large-title` (32px, page titles only)
 - For 11px uppercase labels: use `text-overline` (custom token, 11px / 16px line-height)
 - `text-overline` is a CUSTOM utility, so `tailwind-merge` classifies it as a text *colour*, not a
   size. Passing it through a component that runs `cn()` (any `Button`, `Input`, primitive with a
@@ -182,19 +200,23 @@ Pill vs no-pill chips: the shipped primitives (`Badge`, `Tag` pill variant, `Seg
 - Exception: `text-[9px]` for notification badge count and `Avatar size="sm"` initials (documented exceptions)
 - Font families come from tokens: `--font-geist-sans` (default UI) and `--font-geist-mono` (`font-mono`) — never declare `font-family` inline
 
-Weight is spent where things are **scanned** — table headers, tabs, nav items — not on the page
-title, which already has size. A page title is therefore LIGHT and large, never bold.
+The hierarchy follows Apple's: size, weight and colour move together, and weight is spent on
+headings rather than on data. The page title is the large title — 32px semibold with tight
+tracking — and it is the one heavy line on the page. Everything a user scans (table cells, field
+values, descriptions) is regular weight; labels and headers are medium. Uppercase is reserved for
+the tiny `text-overline` category labels, never for field labels or column headers.
 
 | What text am I styling? | Classes |
 |--------------------------|---------|
-| Main page title (one per page) | `text-2xl sm:text-3xl font-normal` (use `PageHeader`) |
-| Page description under the title | `text-sm font-medium text-muted-foreground` |
+| Main page title (one per page) | `PAGE_TITLE_CLASS` — `text-2xl sm:text-large-title font-semibold tracking-tight` (use `PageHeader`) |
+| Page description under the title | `text-sm text-muted-foreground` |
 | Major section heading | `text-xl font-semibold` |
-| Dialog title | `text-base sm:text-xl font-semibold tracking-tight` |
+| Dialog / sheet / drawer title | `text-lg font-semibold tracking-tight` |
 | Subsection / card title | `text-sm font-semibold` |
-| Table column header | `text-xs font-bold uppercase tracking-wide text-muted-foreground` |
-| Table cell | `text-sm font-medium` |
-| Form label | `text-sm font-medium` (use `Label` component) |
+| Table column header | `text-xs font-medium text-muted-foreground`, sentence case |
+| Table cell | `text-sm` (regular) |
+| Form label | `text-sm font-medium` (use `Label`, or `FORM_FIELD_LABEL` in form chrome) |
+| Field value | regular weight; the placeholder differs by colour (`text-input-placeholder`), not weight |
 | Default body text | `text-sm` |
 | Emphasized body text | `text-base` |
 | Secondary info, timestamps, hints | `text-xs text-muted-foreground` |
@@ -226,7 +248,7 @@ title, which already has size. A page title is therefore LIGHT and large, never 
 | Padding inside a card, section, or alert | `p-4` (16px) — **default for containers** |
 | Padding inside a dialog, large card, or feature panel | `p-6` (24px) |
 | Vertical stack of related items (form fields, list rows) | `space-y-2` (8px) |
-| Vertical stack of distinct sections on a page | `space-y-4` (16px) or `space-y-6` (24px) |
+| Vertical stack of distinct sections on a page | `space-y-6` (24px) — what `Page` / `PageBody` apply |
 | Page-level section separation | `space-y-8` (32px) or `py-8` |
 | Margin below heading / above content | `mb-2` inline, `mb-4` sections |
 
@@ -241,8 +263,8 @@ title, which already has size. A page title is therefore LIGHT and large, never 
 | Hover dim effect | `hover:opacity-80` |
 | Restore full opacity | `opacity-100` |
 | Hidden but layout-preserving | `opacity-0` |
-| Modal / centered dialog backdrop | `bg-black/50` |
-| Drawer / side panel backdrop | `bg-black/20` |
+| Modal / centered dialog backdrop | `bg-scrim` (token — black at 32% light, 60% dark) |
+| Drawer / side panel backdrop | `bg-scrim` |
 | Frosted surface (sticky header, floating card) | `bg-background/80` |
 | Nearly-opaque surface | `bg-background/95` |
 | Subtle tint (muted background, zebra row) | `bg-muted/30` |
@@ -280,12 +302,17 @@ title, which already has size. A page title is therefore LIGHT and large, never 
 
 | What elevation does this element need? | Token |
 |----------------------------------------|-------|
-| Flat element with subtle depth (input, checkbox, button) | `shadow-xs` |
-| Card, panel, or section on a page | `shadow-sm` |
-| Hover state or slightly elevated card | `shadow-md` |
-| Dialog, overlay, or popover | `shadow-lg` |
-| Floating panel (dockable chat, side drawer) | `shadow-xl` |
+| Flat element with subtle depth (input, checkbox) | `shadow-xs` |
+| Card, table card, panel, or section on a page; a secondary button at rest | `shadow-sm` |
+| Hover lift, the floating search field, a toast | `shadow-md` |
+| Menu, popover, dropdown | `shadow-lg` |
+| Floating panel (dockable chat, side drawer, sheet) | `shadow-xl` |
 | Top-level modal or command palette | `shadow-2xl` |
+
+Each step is `var(--shadow-elevation-*)`, defined per theme in `:root` / `.dark`, so shadows
+change with the theme (`@theme inline` bakes literals into utilities, which is why the values
+live outside it). The floating steps (`lg` and up) open with a 0.5px edge — dark in light mode,
+light in dark mode — which is how a menu holds its shape without a border.
 | Focus halo on a custom focusable element | `shadow-focus` (composite two-ring token — see Focus States) |
 | Remove shadow | `shadow-none` |
 
@@ -310,6 +337,11 @@ title, which already has size. A page title is therefore LIGHT and large, never 
 | Accordion/collapsible | `animate-accordion-down` / `animate-accordion-up` |
 
 Duration: **150ms** for micro-interactions, **200ms** for standard transitions, **300ms** for large layout changes.
+
+Motion explains a change; it never decorates a hover — no hover zooms or bounces on chrome
+(`CloseButton` darkens on a soft fill instead of scaling). Under `prefers-reduced-motion`,
+`globals.css` collapses every transition and every `animate-in` / `animate-out` to an instant
+change; spinners and skeleton pulses keep running because they report status.
 
 ## Content & Copy
 - NEVER use "·" (middot) as a separator in UI text — use an em dash "—" or restructure the sentence
@@ -396,13 +428,13 @@ When building a new module UI, use the **customers module** as reference:
 
 | What is this border for? | Classes |
 |--------------------------|---------|
-| Standard container edge (card, input, dialog, divider) | `border border-border` — **default** |
-| Input/form control edge | `border border-input` |
+| Card, dialog, popover, menu, input | **none** — elevation or fill carries the edge; keep `border border-transparent` only where state recolours it |
+| Input/form control edge | `border border-input` (transparent at rest; the focus state recolours it) |
+| Horizontal divider between sections, list rows, the table header | `border-t border-border` / `divide-y divide-border` (use `<Separator>` when possible) |
 | Active tab indicator (bottom underline) | `border-b-2 border-primary` |
 | Selected / active state emphasis | `border-2 border-primary` or `border-2 border-ring` |
 | Left-accent indicator (notices, status highlights) | `border-l-4 border-status-{status}-border` |
-| Empty state / placeholder / drop zone | `border border-dashed border-border` |
-| Horizontal divider between sections | `border-t border-border` (use `<Separator>` when possible) |
+| Drop zone (a place a file can be dropped) | `border border-dashed border-border` — empty states take no frame |
 | Error state on input | `aria-invalid:border-destructive` |
 | Remove border | `border-0` |
 
@@ -410,6 +442,12 @@ When building a new module UI, use the **customers module** as reference:
 - NEVER use `focus:` for rings/outline — use `focus-visible:` (rings appear on keyboard nav only)
 - NEVER use hardcoded focus colors (`focus-visible:ring-blue-500`, etc.)
 - USE `aria-invalid:` for error state rings
+
+Keyboard focus is always visible (WCAG 2.1 SC 2.4.7): the halo draws on `:focus-visible`, so a
+Tab shows it and a pointer click on a button does not. A focused text field is always
+`:focus-visible` in the browser, so a clicked field shows its quiet blue edge while it is active.
+The earlier product-wide removal of focus indicators is gone; `globals.css` only keeps the
+browser's own outline off elements that were focused by pointer.
 
 Standard focus recipe (the Figma two-ring halo — white inner ring + soft outer ring via `--focus-ring-inner`/`--focus-ring-outer`):
 ```
@@ -439,6 +477,12 @@ Legitimate `dark:` use cases:
 - Brand/decorative colors that genuinely need different dark values (violet AI dot, rare cases)
 
 If you find yourself writing `dark:{something}`, first check whether a semantic token already handles that context.
+
+`packages/core/src/__tests__/theme-token-colors.test.ts` (a repo-wide guard) enforces this across every
+`packages/*/src` and `apps/mercato/src`: it fails on Tailwind palette classes, `bg-white` / `border-white` /
+`text-black`, arbitrary colour classes (`bg-[#…]`), `hsl(var(--…))` (the tokens are hex, so that is invalid
+CSS), `dark:` overrides other than `prose-invert`, and hex inline styles. A colour that must stay fixed in both
+themes goes in its `ALLOWED` map with the reason. Emails are out of scope: mail clients have no theme.
 
 ## Boy Scout Rule
 When modifying a file that contains hardcoded status colors (`text-red-*`, `bg-green-*`, etc.), arbitrary text sizes (`text-[11px]`), or `dark:` overrides on status colors, you MUST migrate at minimum the lines you touched to semantic tokens.

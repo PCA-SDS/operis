@@ -265,7 +265,7 @@ export function StartPreConditionsEditor({
 
       <div className="space-y-3">
         {conditionsWithDetails.map((condition, index) => (
-          <div key={index} className="border border-border rounded-lg bg-white p-4">
+          <div key={index} className="border border-border rounded-lg bg-surface p-4">
             <div className="space-y-3">
               {/* Header row with rule info and actions */}
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">

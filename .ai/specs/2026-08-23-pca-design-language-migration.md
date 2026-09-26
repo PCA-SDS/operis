@@ -4,6 +4,7 @@
 - **Owner**: design system
 - **Created**: 2026-08-23
 - **Scope**: UI/UX only. No API, domain, auth, RBAC, tenancy, schema or workflow changes.
+- **Superseded (palette only)**: the pastel-navy colour values in §4 were replaced by the Apple palette on 2026-09-26 — see [`2026-09-26-apple-design-language.md`](2026-09-26-apple-design-language.md). Layout, type and component decisions here still stand.
 
 ## 1. Why
 

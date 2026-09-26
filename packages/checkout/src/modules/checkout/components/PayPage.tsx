@@ -591,7 +591,7 @@ function buildButtonStyle(themeTokens: PayPageThemeTokens, variant: 'solid' | 'o
   }
 }
 
-const READABLE_INPUT_CLASSNAME = 'border bg-white/95 text-foreground placeholder:text-disabled-foreground disabled:cursor-not-allowed disabled:bg-bg-disabled disabled:border-border-disabled disabled:text-text-disabled'
+const READABLE_INPUT_CLASSNAME = 'border bg-surface/95 text-foreground placeholder:text-disabled-foreground disabled:cursor-not-allowed disabled:bg-bg-disabled disabled:border-border-disabled disabled:text-text-disabled'
 
 export function PayPageSurface({
   previewBanner,

@@ -18,12 +18,13 @@ describe('Button destructive variants', () => {
   // halves of that contract — swapping them back is a visual regression that
   // no other test would catch.
 
-  it('destructive is quiet: destructive border and text on the page surface', () => {
+  it('destructive is quiet: red text on the neutral second-rank fill, no hairline', () => {
     const classes = classesOf('destructive')
     expect(classes).toContain('border')
-    expect(classes).toContain('border-destructive/40')
-    expect(classes).toContain('bg-surface')
+    expect(classes).toContain('border-transparent')
+    expect(classes).toContain('bg-primary-soft')
     expect(classes).toContain('text-destructive')
+    expect(classes).not.toContain('border-destructive/40')
   })
 
   it('destructive does not fill with the destructive surface', () => {

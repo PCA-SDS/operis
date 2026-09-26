@@ -157,7 +157,7 @@ export function TransactionStatusPage({
 
   return (
     <div className="mx-auto flex min-h-screen max-w-3xl items-center px-4 py-12">
-      <Card className="w-full rounded-xl border-white/70 bg-white/95 shadow-xl backdrop-blur">
+      <Card className="w-full rounded-xl border-border/70 bg-surface/95 shadow-xl backdrop-blur">
         <CardContent className="space-y-6 p-8 sm:p-10">
           <div className={cn(
             'mx-auto flex size-16 items-center justify-center rounded-full border',

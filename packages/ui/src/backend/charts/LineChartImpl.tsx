@@ -39,9 +39,9 @@ type ImplProps = Pick<
 
 const CHART_MARGIN = { top: 5, right: 10, left: 10, bottom: 5 }
 const AXIS_TICK = { fontSize: 12 }
-const TOOLTIP_CURSOR = { stroke: 'hsl(var(--muted-foreground))', strokeDasharray: '3 3' }
+const TOOLTIP_CURSOR = { stroke: 'var(--muted-foreground)', strokeDasharray: '3 3' }
 const ACTIVE_DOT = { r: 4, strokeWidth: 0 }
-const LEGEND_LABEL_STYLE: React.CSSProperties = { color: 'hsl(var(--muted-foreground))', fontSize: '12px' }
+const LEGEND_LABEL_STYLE: React.CSSProperties = { color: 'var(--muted-foreground)', fontSize: '12px' }
 
 function renderLegendLabel(value: React.ReactNode): React.ReactNode {
   return <span style={LEGEND_LABEL_STYLE}>{value}</span>
@@ -83,7 +83,7 @@ function LineChartImpl({
         {showGridLines && (
           <CartesianGrid
             strokeDasharray="3 3"
-            stroke="hsl(var(--border))"
+            stroke="var(--border)"
           />
         )}
         <XAxis
@@ -101,7 +101,7 @@ function LineChartImpl({
           axisLine={false}
           width={showYAxis ? 56 : 0}
         />
-        {showZeroLine && <ReferenceLine yAxisId="amount" y={0} stroke="hsl(var(--border-strong))" strokeDasharray="3 3" strokeWidth={1} />}
+        {showZeroLine && <ReferenceLine yAxisId="amount" y={0} stroke="var(--border-strong)" strokeDasharray="3 3" strokeWidth={1} />}
         <Tooltip
           content={tooltipContent}
           cursor={TOOLTIP_CURSOR}

@@ -153,10 +153,11 @@ describe('Accordion primitive', () => {
     expect(indicator?.compareDocumentPosition(label!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
-  it('applies card variant classes by default (border + shadow + bg-card)', () => {
+  it('applies card variant classes by default (borderless card: transparent edge + shadow + bg-card)', () => {
     const { container } = renderBasic()
     const item = container.querySelector('[data-slot="accordion-item"]')!
-    expect(item).toHaveClass('border-border')
+    expect(item).toHaveClass('border-transparent')
+    expect(item).not.toHaveClass('border-border')
     expect(item).toHaveClass('bg-card')
     expect(item).toHaveClass('shadow-xs')
   })

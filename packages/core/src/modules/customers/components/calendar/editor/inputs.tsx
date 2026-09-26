@@ -31,11 +31,11 @@ export const CONTROL_BOX = 'rounded-lg border border-transparent bg-surface-mute
 /** Every control in the editor is one height, the same 36px as the app chrome. */
 export const CONTROL_HEIGHT = 'h-9'
 /**
- * The field micro-label. Same typography as the shared `FORM_FIELD_LABEL` but
- * without its `mb-2.5`: these labels sit in flex columns that own the spacing,
+ * The field label. Same typography as the shared `FORM_FIELD_LABEL` but
+ * without its `mb-2`: these labels sit in flex columns that own the spacing,
  * so carrying the margin too would double it.
  */
-export const LABEL_CLASS = 'block text-xs font-bold uppercase tracking-wide text-muted-foreground'
+export const LABEL_CLASS = 'block text-sm font-medium text-foreground'
 
 export function Field({
   label,

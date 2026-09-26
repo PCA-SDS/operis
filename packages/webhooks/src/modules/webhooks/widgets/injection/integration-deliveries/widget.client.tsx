@@ -242,7 +242,7 @@ export default function IntegrationDeliveriesWidget(_props: InjectionWidgetCompo
       />
 
       {selectedRow || selectedDeliveryLoading ? (
-        <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
+        <div className="rounded-xl border border-transparent bg-surface shadow-sm p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-sm font-semibold">{t('webhooks.deliveries.detailTitle')}</h2>
             {selectedRow ? (

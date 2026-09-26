@@ -123,7 +123,7 @@ export function PersonDetailHeader({
   const { data: renewalQuarterDict } = useCustomerDictionary('renewal-quarters', 0, personOrgId)
 
   return (
-    <div className="rounded-xl border border-border bg-surface shadow-sm px-6 py-5">
+    <div className="rounded-xl border border-transparent bg-surface shadow-sm px-6 py-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-5">
         {/* Avatar */}
         <Avatar label={displayName} size="xl" variant="monochrome" />
@@ -181,10 +181,10 @@ export function PersonDetailHeader({
                   key={company.id}
                   href={`/backend/customers/companies-v2/${company.id}`}
                   className={cn(
-                    'inline-flex items-center gap-1.5 rounded-sm border px-2 py-0.5 text-xs font-semibold transition-colors hover:bg-status-info-bg',
+                    'inline-flex items-center gap-1.5 rounded-md border border-transparent px-2 py-0.5 text-xs font-semibold transition-colors hover:bg-status-info-bg',
                     company.isPrimary
-                      ? 'border-status-info-border bg-status-info-bg text-status-info-text'
-                      : 'border-border bg-surface text-foreground',
+                      ? 'bg-status-info-bg text-status-info-text'
+                      : 'bg-surface-muted text-foreground',
                   )}
                 >
                   <Building2 className="size-3" />

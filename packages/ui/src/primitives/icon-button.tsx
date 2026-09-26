@@ -12,16 +12,17 @@ const iconButtonVariants = cva(
           'bg-primary text-primary-foreground shadow-xs hover:bg-primary-hover',
         destructive:
           'bg-destructive text-white shadow-xs hover:bg-destructive/90',
+        /* `outline` and `soft` are the icon-only twin of the Button's
+           second-rank action: neutral fill, floating shadow, no hairline, and
+           the fill flips to `surface` inside a grey form section. The
+           transparent border keeps every variant on one box model. */
         outline:
-          'border border-border bg-surface text-foreground shadow-sm hover:bg-surface-muted',
-        ghost: 'hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50',
+          'border border-transparent bg-primary-soft text-foreground shadow-sm hover:bg-primary-border/60 hover:shadow-md active:shadow-xs in-data-[crud-section=true]:bg-surface',
+        ghost: 'hover:bg-accent hover:text-accent-foreground',
         white:
           'bg-surface text-muted-foreground shadow-sm hover:bg-surface-muted hover:text-foreground',
-        /* The icon-only twin of `Button variant="soft"`: brand-tinted fill and a
-           floating shadow, no hairline. The transparent border keeps the box the
-           same size as the outline variant it usually replaces. */
         soft:
-          'border border-transparent bg-primary-soft text-foreground shadow-sm hover:bg-primary-border/60 hover:shadow-md active:shadow-xs',
+          'border border-transparent bg-primary-soft text-foreground shadow-sm hover:bg-primary-border/60 hover:shadow-md active:shadow-xs in-data-[crud-section=true]:bg-surface',
         modifiable:
           'bg-transparent text-current hover:bg-foreground/10',
       },

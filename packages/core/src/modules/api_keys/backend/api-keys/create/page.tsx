@@ -119,7 +119,7 @@ export default function CreateApiKeyPage() {
       <Page>
         <PageBody>
           <div>
-            <div className="w-full rounded-xl border border-border bg-surface shadow-sm">
+            <div className="w-full rounded-xl border border-transparent bg-surface shadow-sm">
               <div className="border-b p-6">
                 <h1 className="text-lg font-semibold leading-7">{t('api_keys.copy.title')}</h1>
                 <p className="mt-2 text-sm text-muted-foreground">

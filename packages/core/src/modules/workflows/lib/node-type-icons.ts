@@ -15,13 +15,13 @@ export const NODE_TYPE_ICONS: Record<NodeType, LucideIcon> = {
 }
 
 export const NODE_TYPE_COLORS: Record<NodeType, string> = {
-  start: 'text-emerald-500',
-  end: 'text-red-500',
-  userTask: 'text-blue-500',
-  automated: 'text-amber-500',
-  subWorkflow: 'text-purple-500',
-  waitForSignal: 'text-purple-500',
-  waitForTimer: 'text-cyan-500',
+  start: 'text-status-success-icon',
+  end: 'text-status-error-icon',
+  userTask: 'text-status-info-icon',
+  automated: 'text-status-warning-icon',
+  subWorkflow: 'text-chart-violet',
+  waitForSignal: 'text-chart-violet',
+  waitForTimer: 'text-chart-cyan',
   // New nodes use a semantic token (DS rule: no hardcoded color shades).
   parallelFork: 'text-primary',
   parallelJoin: 'text-primary',

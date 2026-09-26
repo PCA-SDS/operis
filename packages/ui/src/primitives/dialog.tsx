@@ -10,7 +10,7 @@ import { CloseButton, type CloseButtonSize } from './close-button'
 
 /**
  * Modal dialog primitive. Chrome follows the canonical borderless scheme:
- * a `rounded-2xl bg-surface shadow-xl` panel on a `bg-foreground/40` overlay,
+ * a `rounded-2xl bg-surface shadow-xl` panel on a `bg-scrim` overlay,
  * with the vertical rhythm carried entirely by the padding trio —
  * header `px-5 py-4 sm:px-6`, body `px-5 pt-3 pb-5 sm:px-6`, footer
  * `px-5 pt-1.5 pb-4 sm:px-6` — and NO divider under the header or above the
@@ -49,7 +49,7 @@ const DialogOverlay = React.forwardRef<
     ref={ref}
     data-slot="dialog-overlay"
     className={cn(
-      'fixed inset-0 bg-foreground/40 animate-fadeIn transition-opacity data-[state=closed]:animate-out',
+      'fixed inset-0 bg-scrim animate-fadeIn transition-opacity data-[state=closed]:animate-out',
       elevated ? 'z-modal-elevated' : 'z-modal',
       className,
     )}
@@ -389,7 +389,7 @@ const DialogTitle = React.forwardRef<
   <DialogPrimitive.Title
     ref={ref}
     data-slot="dialog-title"
-    className={cn('text-xl font-semibold tracking-tight text-foreground', className)}
+    className={cn('text-lg font-semibold tracking-tight text-foreground', className)}
     {...props}
   />
 ))

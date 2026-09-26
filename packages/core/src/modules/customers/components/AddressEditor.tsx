@@ -168,8 +168,8 @@ export function AddressEditor({
 
   const inputClass = (field: AddressEditorField) =>
     [
-      'w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring',
-      errors[field] ? 'border-status-error-border focus:ring-status-error-border' : 'border-input bg-input-bg',
+      'w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+      errors[field] ? 'border-status-error-border focus-visible:ring-status-error-border' : 'border-input bg-input-bg',
     ].join(' ')
 
   return (

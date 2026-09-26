@@ -5,12 +5,13 @@ import { cn } from '@open-mercato/shared/lib/utils'
 
 /**
  * The one close affordance for dismissible chrome — dialogs, drawers, side
- * panels. A disabled-foreground `X` that scales 1.25x and recolours to
- * `foreground` on hover over 300ms.
+ * panels. A quiet `X` in the secondary grey that, on hover, darkens to
+ * `foreground` on a soft round fill — the close control of an Apple sheet. It
+ * never scales: motion explains a change, it does not decorate a hover.
  *
  * The box is a fixed `h-* w-*`, not padding-derived, so a Close placed beside
  * another icon affordance takes the same `size` and the pair matches at rest
- * and under the shared hover scale.
+ * and on hover.
  */
 
 export type CloseButtonSize = 'sm' | 'md' | 'lg'
@@ -43,10 +44,10 @@ export const CloseButton = React.forwardRef<HTMLButtonElement, CloseButtonProps>
         data-slot="close-button"
         aria-label={ariaLabel ?? 'Close'}
         className={cn(
-          'inline-flex shrink-0 items-center justify-center rounded-md text-disabled-foreground transition-all duration-300',
-          'hover:scale-125 hover:text-foreground',
+          'inline-flex shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors duration-150',
+          'hover:bg-surface-muted hover:text-foreground active:bg-surface-strong',
           'focus-visible:outline-none focus-visible:shadow-focus',
-          'disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100',
+          'disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-transparent',
           button,
           className,
         )}

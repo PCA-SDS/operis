@@ -1,17 +1,16 @@
 /**
- * PCA ERP form chrome — the shared look for every create/edit form surface.
+ * Form chrome — the shared look for every create/edit form surface.
  *
- * Measured from the PCA reference (`~/Documents/Github/pca_erp`), which applies
- * the same three rules across `NewProspectPage`, `PCACreateCompanyPage` and
- * `CreateUserDialog`:
+ * Three rules, after Apple's grouped forms (System Settings):
  *
  * - **The section is borderless.** A filled `surface-muted` panel with a soft
- *   shadow carries the grouping; there is no outline. `PCACreateCompanyPage`
- *   inverts the fill to `surface` on a muted page, but never adds a border.
- * - **The section title sits ABOVE the panel**, at page-heading size, so a form
- *   reads as a stack of named blocks rather than as cards with captions inside.
- * - **The field label is a micro-label**: small, bold, uppercase, muted. It is
- *   the only uppercase text in the form — section titles stay sentence case.
+ *   shadow carries the grouping; there is no outline.
+ * - **The section title sits ABOVE the panel**, one step below the page title,
+ *   so a form reads as a stack of named blocks rather than as cards with
+ *   captions inside.
+ * - **The field label is the `Label` primitive's type**: 14px medium, sentence
+ *   case, in ink. The value under it is regular weight, so label and value
+ *   read as two levels without uppercase or a second colour.
  *
  * Controls inside the panel drop their border and take the opposite fill, so a
  * field reads as a white tile on the grey panel. That is done in one CSS rule
@@ -27,7 +26,7 @@ export const FORM_SECTION = 'space-y-3'
 export const FORM_SECTION_HEADER = 'py-1'
 
 /** Section title. Sentence case — the uppercase in a form belongs to labels. */
-export const FORM_SECTION_TITLE = 'text-2xl font-semibold text-foreground'
+export const FORM_SECTION_TITLE = 'text-2xl font-semibold tracking-tight text-foreground'
 
 /** Optional supporting copy under the section title. */
 export const FORM_SECTION_DESCRIPTION = 'mt-1 text-sm text-muted-foreground'
@@ -42,16 +41,13 @@ export const FORM_SECTION_PANEL =
  */
 export const FORM_SECTION_ATTR = { 'data-crud-section': 'true' } as const
 
-/** Field label: the form's only uppercase text. */
+/** Field label — the same type as the `Label` primitive. */
 export const FORM_FIELD_LABEL =
-  'mb-2.5 block text-xs font-bold uppercase tracking-wide text-muted-foreground'
+  'mb-2 block text-sm font-medium text-foreground'
 
 /** The required marker appended to a label. */
 export const FORM_FIELD_REQUIRED_MARK = 'ml-1 text-destructive'
 
-/**
- * Secondary hint shown inline after a label. Opts back out of the label's
- * uppercase so the hint stays readable.
- */
+/** Secondary hint shown inline after a label: regular weight, secondary grey. */
 export const FORM_FIELD_HINT =
-  'ml-1.5 font-medium normal-case tracking-normal text-disabled-foreground'
+  'ml-1.5 font-normal text-muted-foreground'

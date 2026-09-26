@@ -361,7 +361,7 @@ export default function UmesIntegrationsPage() {
             <div>{t('example.umes.integrations.externalIds.hint2', '2. Shopify row should show an external link icon.')}</div>
             <div>{t('example.umes.integrations.externalIds.hint3', '3. Each row shows the external ID in a monospace code badge.')}</div>
           </div>
-          <div data-testid="phase-l-external-ids" className="rounded-xl border border-border bg-surface shadow-sm p-4">
+          <div data-testid="phase-l-external-ids" className="rounded-xl border border-transparent bg-surface shadow-sm p-4">
             <h3 className="mb-3 text-sm font-medium">External IDs</h3>
             <div className="space-y-2">
               {externalIdRows.map((row) => (

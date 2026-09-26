@@ -107,7 +107,12 @@ export function ModuleSwitcher() {
 
   const isReady = nav?.isReady ?? false
   const activeKey = nav?.activeGroup ? resolveGroupKey(nav.activeGroup) : null
-  const triggerLabel = nav?.mode === 'main' && nav.activeGroup ? nav.activeGroup.name : t('appShell.modules.title', 'Modules')
+  const fallbackLabel = t('appShell.modules.title', 'Modules')
+  const triggerLabel = nav?.mode === 'main' && nav.activeGroup ? nav.activeGroup.name : fallbackLabel
+  const reservedLabels = React.useMemo(
+    () => Array.from(new Set([fallbackLabel, ...moduleGroups.map((group) => group.name)])),
+    [fallbackLabel, moduleGroups],
+  )
   const hasQuery = query.trim().length > 0
   const hasAnyModule = moduleGroups.length > 0
   const sortable = order.canReorder && !hasQuery && modules.length > 1
@@ -160,7 +165,24 @@ export function ModuleSwitcher() {
           data-testid="module-switcher-trigger"
         >
           <LayoutGrid className="size-4" aria-hidden="true" />
-          <span className="hidden min-w-0 truncate xl:inline" data-testid="module-switcher-current">{triggerLabel}</span>
+          {/* Every label the trigger can show is stacked, invisibly, in one grid
+              cell, so the button is always as wide as the longest module name
+              and switching modules never moves the breadcrumb beside it. The
+              copies render through `content`, so they add no text to the page
+              or to the accessibility tree. */}
+          <span className="hidden min-w-0 xl:inline-grid">
+            {reservedLabels.map((label) => (
+              <span
+                key={label}
+                aria-hidden="true"
+                data-label={label}
+                className="invisible col-start-1 row-start-1 truncate after:content-[attr(data-label)]"
+              />
+            ))}
+            <span className="col-start-1 row-start-1 min-w-0 truncate text-left" data-testid="module-switcher-current">
+              {triggerLabel}
+            </span>
+          </span>
           <ChevronDown className="hidden size-4 shrink-0 text-muted-foreground xl:inline" aria-hidden="true" />
         </Button>
       </PopoverTrigger>
@@ -255,12 +277,12 @@ export function ModuleSwitcher() {
             <Button
               type="button"
               variant="ghost"
-              size="sm"
-              className={cn('gap-1.5', !order.hasCustomOrder && 'invisible')}
+              size="2xs"
+              className={cn(!order.hasCustomOrder && 'invisible')}
               onClick={order.resetOrder}
               data-testid="module-switcher-reset"
             >
-              <RotateCcw className="size-4" aria-hidden="true" />
+              <RotateCcw className="size-3.5" aria-hidden="true" />
               {t('appShell.modules.resetOrder', 'Reset order')}
             </Button>
           </div>

@@ -17,7 +17,7 @@ export function ContextHelp({ title, children, defaultOpen = false, bulb = true,
   const [open, setOpen] = React.useState<boolean>(defaultOpen)
   const Icon = bulb ? Lightbulb : Info
   return (
-    <div className={`rounded-lg border border-border bg-surface ${className}`}>
+    <div className={`rounded-xl border border-transparent bg-surface shadow-sm ${className}`}>
       <Button
         type="button"
         variant="ghost"

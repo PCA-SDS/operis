@@ -26,7 +26,7 @@ const accordionItemVariants = cva(
         // hover (closed) = weak-50 bg, no border, no shadow,
         // open = weak-50 bg, no border, no shadow.
         card:
-          'border border-border bg-card shadow-xs ' +
+          'border border-transparent bg-card shadow-xs ' +
           'data-[state=open]:border-transparent data-[state=open]:bg-muted data-[state=open]:shadow-none ' +
           'data-[state=closed]:hover:border-transparent data-[state=closed]:hover:bg-muted data-[state=closed]:hover:shadow-none',
         // For embedded use cases (e.g. FAQ block on a coloured surface or

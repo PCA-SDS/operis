@@ -85,13 +85,13 @@ import { Button } from '@open-mercato/ui/primitives/button'
 ```
 
 **Variants**:
-- `default` (primary CTA) · `destructive` (danger, quiet: red text + red border on the page surface)
+- `default` (primary CTA) · `destructive` (danger, quiet: red text on the neutral second-rank fill, no hairline)
 - `destructive-solid` (danger filled — point-of-no-return confirmations only)
 - `destructive-outline` · `destructive-soft` · `destructive-ghost` (danger family)
 - `outline` · `secondary` · `ghost` · `muted` · `link`
-- `soft` (brand-tinted second rank — the Cancel beside a filled primary in a dialog footer, where `secondary`'s white card reads as a hole rather than a pair)
+- `soft` (the second rank — the Cancel beside a filled primary)
 
-`default` and `soft` are **floating**: `shadow-sm` at rest, `shadow-md` on hover, `shadow-xs` while pressed, and no hairline — they carry a fill of their own, so a stroke around a shape that already casts a shadow draws nothing. `outline` and `secondary` keep their border precisely because their fill is `surface`: without it they would vanish into the card behind them.
+`outline`, `secondary` and `soft` are one button kept under three names: a neutral grey fill (`bg-primary-soft`) with no hairline. Every filled variant is **floating**: `shadow-sm` at rest, `shadow-md` on hover, `shadow-xs` while pressed — a stroke around a shape that already casts a shadow draws nothing. Inside a grey form section (`data-crud-section`) the neutral fill flips to `surface`, exactly as the fields beside it do, so the button never disappears into its panel.
 
 **Sizes**: `2xs` (h-7) · `sm` (h-8) · `default` (h-9) · `lg` (h-10) · `icon` (size-9)
 
@@ -1338,7 +1338,7 @@ Single size — Figma spec is fixed at 28×16 (track), thumb 12px. Matches the r
 
 ### Color contract
 
-The "on" state uses `--primary`, matching `Checkbox` checked and `Radio` checked. The off track is `bg-surface-strong` with a hairline — the chrome step, not a grey slab.
+The "on" state uses `--primary`, matching `Checkbox` checked and `Radio` checked. The off track is `bg-surface-strong` with no hairline — the chrome step, not a grey slab; it darkens to `border-strong` on hover.
 
 ### Switch usage
 
@@ -2327,8 +2327,8 @@ Centered "nothing-to-show" panel for empty lists, empty tabs, empty DataTable ce
 
 | `variant` | Token | Use |
 |---|---|---|
-| `default` | `rounded-lg border border-dashed border-muted-foreground/40 bg-muted/30` | Standalone empty page / tab. |
-| `subtle` | `rounded-lg` (no border, no fill) | Inside cards, popovers, DataTable empty cells. |
+| `default` | `rounded-xl` (no frame — whitespace holds the region) | Standalone empty page / tab. |
+| `subtle` | `rounded-xl` (no border, no fill) with the icon on a soft tile | Inside cards, popovers, DataTable empty cells. |
 
 | `size` | Padding / gap | Icon box (subtle variant) |
 |---|---|---|
@@ -2356,14 +2356,14 @@ Title type scale: `text-sm` for `sm` / `default`, `text-base` for `lg`. Descript
 ### MUST rules
 
 - Title is plain text in a `<p>` — DO NOT pre-wrap it in `<h1>`/`<h2>`. If the surrounding page needs a heading, render it OUTSIDE the `EmptyState`. This keeps the heading hierarchy of the page intact wherever an empty state appears (DataTable cell, tab, dialog, etc.).
-- For empty DataTable cells, use `variant='subtle'` so the dashed border doesn't double up with the table chrome.
+- For empty DataTable cells, use `variant='subtle'`.
 - Prefer `illustration` over `icon` when the DS illustration library has a relevant asset — it ships with its own circular background and reads better at `size='lg'`.
 - Use `actions` (not the deprecated `action` / `actionLabel` / `onAction` triple) for any new code. The deprecated props are routed to a built-in `<Button variant="outline" size="sm">` with a leading `<Plus />` icon — keep that only for legacy parity.
 - Pass all strings through `useT()` — the primitive has no built-in default copy.
 
 ### Anti-patterns
 
-- `<div className="text-center text-muted-foreground py-12">Nothing yet</div>` → use `EmptyState` (dashed-border card + token-driven spacing + a11y heading slot).
+- `<div className="text-center text-muted-foreground py-12">Nothing yet</div>` → use `EmptyState` (token-driven spacing + a11y heading slot).
 - Wrapping `title` in `<h1>` / `<h2>` inside `EmptyState` → renders a `<p>`; if the page needs a heading render it OUTSIDE the EmptyState.
 - Reaching for `action` / `actionLabel` / `onAction` / `actionLabelClassName` props in new code → those are `@deprecated`; use `actions={<Button>…</Button>}`.
 - Passing a custom `<Plus />` button as `children` instead of `actions` → `children` sits between description and actions; for the primary CTA use the typed slot.
@@ -2990,7 +2990,7 @@ import {
 } from '@open-mercato/ui/primitives/accordion'
 ```
 
-Collapsible-section primitive built on `@radix-ui/react-accordion`. Matches Figma `210:4022` — a card with three visual states: white card + soft border + x-small shadow when closed (idle), `bg-muted` + no border + no shadow on hover or when open. The Figma `Flip Icon` toggle is exposed as `iconPosition` (`'end'` default / `'start'`) and the indicator style is selectable through `triggerIcon` (`'plus-minus'` default / `'chevron'` / `'none'`).
+Collapsible-section primitive built on `@radix-ui/react-accordion`. Matches Figma `210:4022` — a card with three visual states: white card + x-small shadow and no border when closed (idle), `bg-muted` + no shadow on hover or when open. The Figma `Flip Icon` toggle is exposed as `iconPosition` (`'end'` default / `'start'`) and the indicator style is selectable through `triggerIcon` (`'plus-minus'` default / `'chevron'` / `'none'`).
 
 ### Basic usage
 
@@ -3409,7 +3409,7 @@ import { ButtonGroup, buttonGroupVariants } from '@open-mercato/ui/primitives/bu
 
 | Size | Outer radius | Maps to Figma | Use with child Button size |
 |---|---|---|---|
-| `2xs` | `rounded-sm` (6px) | 2X-Small (24) | `2xs` (h-7) — toolbar-density rows |
+| `2xs` | `rounded-sm` (4px) | 2X-Small (24) | `2xs` (h-7) — toolbar-density rows |
 | `sm` | `rounded-md` (8px) | X-Small (32) | `sm` (h-8) — dense compositions |
 | `default` (default) | `rounded-md` (8px) | Small (36) | `default` (h-9) — standard rows |
 
@@ -4489,7 +4489,7 @@ Matches Figma `Drawer Footer [1.1]` variants 1–6.
 
 - Figma source: DS Open Mercato `Drawer` page (`486:7366`) — `Drawer Header [1.1]` (`3187:2897`) and `Drawer Footer [1.1]` (`4096:21416`) plus assembled examples (`167124:24738`, `167124:24794`, `167124:24859`, ...).
 - Built on `@radix-ui/react-dialog` (Radix Dialog under the hood). `@radix-ui/react-dialog` was promoted from transitive to a direct dep of `packages/ui` in the v5 A.10 CommandMenu commit.
-- **Overlay:** `bg-foreground/40 backdrop-blur-sm` — page chrome stays visible-but-dimmed behind the drawer.
+- **Overlay:** `bg-scrim` — the theme-stable dimming token (black at 32% light, 60% dark); page chrome stays visible-but-dimmed behind the drawer.
 - **Content panel:** `bg-background shadow-2xl` + rounded corners on the inner (viewport-facing) edges only. Per Figma there is NO border on the seam — the rounded corners + the shadow do the visual separation work. Resulting classes by side: `rounded-l-2xl` (right), `rounded-r-2xl` (left), `rounded-b-2xl` (top), `rounded-t-2xl` (bottom).
 - **No chrome dividers** between Header / Body / Footer. Section separators inside the body (e.g. "ELIGIBILITY CRITERIA" labels) come from content composition, not from the Drawer primitive.
 - Default `max-w-[400px]` (Figma Drawer width) for right/left works well for forms; pass `className="max-w-2xl"` on `DrawerContent` for wider detail panes.
@@ -5847,7 +5847,7 @@ Semantic HTML table primitives with DS spacing/typography. Pure presentational �
 - `Table` — root `<table>` wrapped in `<div class="overflow-x-auto">`
 - `TableHeader` (`<thead>`), `TableBody` (`<tbody>`), `TableFooter` (`<tfoot>`)
 - `TableRow` (`<tr>`) — hover bg, focus-within styles
-- `TableHead` (`<th>`) — uppercase micro-label header cell, `scope="col"`
+- `TableHead` (`<th>`) — quiet sentence-case header cell (`text-xs font-medium text-muted-foreground`), `scope="col"`
 - `TableCell` (`<td>`) — body cell
 - `TableCaption` — `<caption>` for screen readers
 - `TableSortLabel` — the sort trigger for a sortable column
@@ -5895,9 +5895,9 @@ Every table in the product renders these primitives, so they all share one look.
 
 | | |
 |---|---|
-| Card | `rounded-xl bg-surface shadow-md`, `overflow-hidden` |
-| Header strip | `bg-table-header`, rule on the cell so it survives pinning |
-| Header label | `text-xs font-bold uppercase tracking-wide text-muted-foreground`, clipped, never wrapped |
+| Card | `rounded-xl bg-surface shadow-sm`, `overflow-hidden`, no border in either theme |
+| Header strip | `bg-table-header` (the card's white) with one `border-b border-table-border` hairline under it |
+| Header label | `text-xs font-medium text-muted-foreground`, sentence case, clipped, never wrapped |
 | Sort | `TableSortLabel` — label goes full ink when active; active arrow takes `accent-strong`, idle pair sits at `disabled-foreground` and lifts on hover |
 | Row | one line tall (`whitespace-nowrap`), `py-4`, hairline rule between rows |
 | Row hover | `bg-table-row-hover` — one token, whether or not the row is clickable |

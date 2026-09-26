@@ -376,7 +376,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
           to pin the shell to the viewport for pages that opted into
           `<Page fill>`, and does nothing at all for every other page. */}
       <div data-app-shell-column="" className="flex min-h-svh min-w-0 flex-col">
-        <header className="sticky top-0 z-sticky flex h-16 min-w-0 shrink-0 items-center gap-2 border-b border-border bg-surface-muted px-3 sm:gap-3 sm:px-4 lg:px-6">
+        <header className="sticky top-0 z-sticky flex h-16 min-w-0 shrink-0 items-center gap-2 border-b border-border bg-background/80 px-4 backdrop-blur-xl sm:gap-3 md:px-6 xl:px-8">
           <div
             data-testid="backend-chrome-ready"
             data-ready={isChromeReady ? 'true' : 'false'}
@@ -500,10 +500,12 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
           </div>
         </header>
         <ProgressTopBar t={t} className="sticky top-0 z-sticky" completedAutoHideMs={progressCompletedAutoHideMs} />
-        {/* The one page gutter: every page spans the full width inside the same 16px
-            sides and top, at every screen size. Pages must not add their own
-            outer padding or width cap; full-bleed pages undo exactly `px-4 pt-4`. */}
-        <main className="flex min-w-0 w-full flex-1 flex-col px-4 pb-8 pt-4">
+        {/* The one page gutter: every page spans the full width inside the same
+            sides and top — 16px on a phone, 24px from `md`, and 32px sides from
+            `xl` — and the topbar uses the same inset so its edge lines up with
+            the page. Pages must not add their own outer padding or width cap;
+            full-bleed pages undo exactly `px-4 pt-4 md:px-6 md:pt-6 xl:px-8`. */}
+        <main className="flex min-w-0 w-full flex-1 flex-col px-4 pb-12 pt-4 md:px-6 md:pt-6 xl:px-8">
           <InjectionSpot spotId={BACKEND_LAYOUT_TOP_INJECTION_SPOT_ID} context={injectionContext} />
           <FlashMessages />
           <PartialIndexBanner />
@@ -524,7 +526,7 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
           <InjectionSpot spotId={BACKEND_LAYOUT_FOOTER_INJECTION_SPOT_ID} context={injectionContext} />
         </main>
         {hideFooter ? null : (
-          <footer className="border-t border-border bg-surface px-4 py-3 sm:px-6 lg:px-8 flex flex-wrap items-center justify-end gap-4">
+          <footer className="flex flex-wrap items-center justify-end gap-4 px-4 py-4 md:px-6 xl:px-8">
             {version ? (
               <span className="text-xs text-muted-foreground">
                 {t('appShell.version', { version })}

@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from 'react'
+import { PAGE_TITLE_CLASS } from '@open-mercato/ui/backend/Page'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
@@ -149,7 +150,7 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
             {project.icon}
           </span>
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-normal text-foreground sm:text-3xl">{project.name}</h1>
+            <h1 className={PAGE_TITLE_CLASS}>{project.name}</h1>
             <span className="font-mono text-sm text-muted-foreground">{project.key}</span>
             {isArchived && (
               <StatusBadge variant="neutral">{t('tasks.projects.archived', 'Archived')}</StatusBadge>

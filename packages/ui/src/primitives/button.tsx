@@ -19,36 +19,38 @@ const buttonVariants = cva(
            and buttons in a row stay the same height. */
         default:
           'border border-transparent bg-primary text-primary-foreground shadow-sm hover:bg-primary-hover hover:shadow-md active:bg-primary-active active:shadow-xs',
-        /* Destructive is quiet by design: red text on a calm surface. A wall
-           of solid red buttons trains users to ignore red. The filled form is
-           `destructive-solid`, reserved for the single point-of-no-return
-           confirmation inside a dialog — never for the button that opens it. */
+        /* Destructive is quiet by design: red text on the same neutral fill as
+           a secondary button. A wall of solid red buttons trains users to
+           ignore red. The filled form is `destructive-solid`, reserved for the
+           single point-of-no-return confirmation inside a dialog — never for
+           the button that opens it. `destructive-outline` is the historical
+           name for the same button; the hairline it once carried is gone. */
         destructive:
-          'border border-destructive/40 bg-surface text-destructive shadow-sm hover:bg-status-error-bg aria-invalid:ring-destructive dark:aria-invalid:ring-destructive',
+          'border border-transparent bg-primary-soft text-destructive shadow-sm hover:bg-status-error-bg hover:shadow-md active:shadow-xs in-data-[crud-section=true]:bg-surface aria-invalid:ring-destructive dark:aria-invalid:ring-destructive',
         'destructive-solid':
           'border border-transparent bg-destructive text-white hover:bg-status-error-solid aria-invalid:ring-destructive dark:aria-invalid:ring-destructive',
         'destructive-outline':
-          'border border-destructive/40 bg-surface text-destructive shadow-sm hover:bg-status-error-bg',
+          'border border-transparent bg-primary-soft text-destructive shadow-sm hover:bg-status-error-bg hover:shadow-md active:shadow-xs in-data-[crud-section=true]:bg-surface',
         'destructive-soft':
           'border border-transparent bg-status-error-bg text-destructive hover:bg-status-error-border/50',
         'destructive-ghost':
           'border border-transparent text-destructive hover:bg-status-error-bg',
-        /* `outline` and `secondary` are the same second-rank action: a surface
-           card with a hairline and a whisper of lift. They are kept as separate
-           names because call sites use both, not because they differ. */
+        /* The second-rank action. `outline`, `secondary` and `soft` are ONE
+           button kept under three names because call sites use all three: a
+           neutral grey fill that floats on its shadow, with no hairline — a
+           stroke around a shape that already casts one is a line doing
+           nothing. Beside a filled primary it reads as the quieter half of a
+           pair rather than as a white hole.
+
+           Inside a form section, which is itself a grey panel, the fill flips
+           to `surface`, exactly as the fields beside it do (see the
+           `data-crud-section` rule in globals.css). */
         outline:
-          'border border-border bg-surface text-foreground shadow-sm hover:bg-surface-muted',
+          'border border-transparent bg-primary-soft text-foreground shadow-sm hover:bg-primary-border/60 hover:shadow-md active:shadow-xs in-data-[crud-section=true]:bg-surface',
         secondary:
-          'border border-border bg-surface text-foreground shadow-sm hover:bg-surface-muted',
-        /* The second-rank action in a dialog footer, where `secondary`'s white
-           card reads as a gap beside a filled primary button. Same hairline
-           and rank, but tinted with the brand instead of `surface`, so Cancel
-           and Confirm look like a pair rather than one button and one hole.
-           No hairline: it floats on its shadow, and a stroke around a shape
-           that already casts one is a line doing nothing. Tokens only, so it
-           follows the theme into dark mode. */
+          'border border-transparent bg-primary-soft text-foreground shadow-sm hover:bg-primary-border/60 hover:shadow-md active:shadow-xs in-data-[crud-section=true]:bg-surface',
         soft:
-          'border border-transparent bg-primary-soft text-foreground shadow-sm hover:bg-primary-border/60 hover:shadow-md active:shadow-xs',
+          'border border-transparent bg-primary-soft text-foreground shadow-sm hover:bg-primary-border/60 hover:shadow-md active:shadow-xs in-data-[crud-section=true]:bg-surface',
         /* Quiet chrome action — no fill or border at rest, `surface-strong` on
            hover so it reads as chrome rather than as an accent tint. */
         ghost:
