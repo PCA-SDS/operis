@@ -82,21 +82,28 @@ describe('CalendarHeader', () => {
     expect(getByRole('button', { name: 'Next month' })).toBeInTheDocument()
   })
 
-  it('lets the date cluster hug so the controls cannot squeeze the label out', () => {
-    // Search now shares this row rather than sitting on a second one, so the
-    // two halves have to be told which of them absorbs the slack. The date
-    // cluster HUGS; the right-hand group carries `flex-1 justify-end`. When the
-    // cluster also had `flex-1` the two fought for the row and the date lost —
-    // it truncated to "T.." while the controls kept their full width.
+  it('holds every control in place when the date label changes length', () => {
+    // Week to Day turns "Sep 21 – 27, 2026" into "Sunday, September 27, 2026".
+    // A right-hand group free to shrink was squeezed by the longer label and
+    // released by the shorter one, so the switchers jumped on every view change.
+    // The group never shrinks now, the wrap measures the date cluster's fixed
+    // basis rather than its label, and only the date gives way.
     const { getByRole } = renderHeader({ view: 'day' })
 
     const heading = getByRole('heading', { level: 1 })
     expect(heading.className).toContain('min-w-0')
     expect(heading.className).toContain('truncate')
-    expect(heading.className).not.toContain('flex-1')
 
     const cluster = heading.parentElement as HTMLElement
-    expect(cluster.className).not.toContain('flex-1')
+    expect(cluster.className).toMatch(/\bbasis-90\b/)
+    expect(cluster.className).toContain('min-w-0')
+
+    const controls = cluster.nextElementSibling as HTMLElement
+    expect(controls.className).toContain('shrink-0')
+    expect(controls.className).not.toContain('flex-1')
+    for (const name of ['Today', 'Previous day', 'Next day']) {
+      expect(getByRole('button', { name }).className).toContain('shrink-0')
+    }
   })
 
   it('does not duplicate the settings affordance — the scope row\'s gear is the only one', () => {
@@ -126,6 +133,19 @@ describe('CalendarHeader', () => {
       expect(control.className).toMatch(/\b(h-9|size-9)\b/)
       expect(control.className).not.toMatch(/\b(size-6|size-7|size-8|h-7|h-8|h-10|h-11)\b/)
     }
+  })
+
+  it('lets the view switcher\'s selected pill fill the bar height, like the buttons beside it', () => {
+    // An inset pill is 10px shorter than its track, so a 26px shape sat among
+    // the bar's 36px ones.
+    const { getByRole } = renderHeader()
+
+    const viewSwitcher = getByRole('radiogroup', { name: 'Calendar view' })
+    expect(viewSwitcher.className).toMatch(/\bh-9\b/)
+    expect(viewSwitcher.className).toMatch(/\bp-0\b/)
+    expect(viewSwitcher.className).toMatch(/\bborder-0\b/)
+    const pill = viewSwitcher.querySelector('[data-slot="segmented-control-indicator"]') as HTMLElement
+    expect(pill.style.borderRadius).toBe('10px')
   })
 
   it('omits controls the caller does not supply, so a read-only user sees no create action', () => {

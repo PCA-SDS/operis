@@ -31,13 +31,6 @@
 export const CHROME_FLAT_CONTROL = 'border-transparent shadow-none'
 
 /**
- * A `SegmentedControl` track wearing the chrome treatment. The track carries a
- * border for its own geometry (`h-9 − 2px border − 8px padding = 26px item`),
- * so only the colour is dropped — see the note above.
- */
-export const CHROME_SEGMENTED_TRACK = 'border-transparent'
-
-/**
  * A `SegmentedControlItem` wearing the chrome ink. The primitive inks unchecked
  * items `text-muted-foreground`, which left the unselected segments two steps
  * lighter than every button beside them. Only the UNCHECKED state is overridden

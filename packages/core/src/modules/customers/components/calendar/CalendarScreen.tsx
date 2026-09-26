@@ -5,7 +5,6 @@ import dynamic from 'next/dynamic'
 import { isSameDay } from 'date-fns/isSameDay'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { apiCall, apiCallOrThrow, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
-import { cn } from '@open-mercato/shared/lib/utils'
 import type { CalendarVisibilityScope } from '../../lib/calendar/preferences'
 import { matchFeature } from '@open-mercato/shared/lib/auth/featureMatch'
 import {
@@ -29,7 +28,7 @@ import {
 } from '../../lib/calendar/taskItem'
 import { CalendarSkeleton } from './CalendarSkeleton'
 import { CalendarHeader } from './CalendarHeader'
-import { CHROME_SEGMENTED_ITEM, CHROME_SEGMENTED_TRACK } from './chrome'
+import { CHROME_SEGMENTED_ITEM } from './chrome'
 import {
   SegmentedControl,
   SegmentedControlItem,
@@ -819,7 +818,8 @@ export function CalendarScreen({
   const scopeSwitcher = canViewAll ? (
     <SegmentedControl
       value={preferences.visibilityScope}
-      className={cn('shrink-0', CHROME_SEGMENTED_TRACK)}
+      flush
+      className="shrink-0"
       onValueChange={(value) =>
         setPreferences({ ...preferences, visibilityScope: value as CalendarVisibilityScope })
       }
@@ -834,7 +834,7 @@ export function CalendarScreen({
     </SegmentedControl>
   ) : null
 
-  const calendarStatus = scopeSwitcher || anyTruncated || showRefreshing ? (
+  const calendarStatus = scopeSwitcher || anyTruncated ? (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
       {scopeSwitcher}
       {anyTruncated ? (
@@ -842,12 +842,6 @@ export function CalendarScreen({
           {t('customers.calendar.notice.truncated', 'Showing first {count} items for this range.', {
             count: MAX_WINDOW_ITEMS,
           })}
-        </p>
-      ) : null}
-      {showRefreshing ? (
-        <p className="flex items-center gap-1.5 text-xs text-muted-foreground" role="status">
-          <span aria-hidden className="size-1.5 rounded-full bg-primary motion-safe:animate-pulse" />
-          {t('customers.calendar.notice.refreshing', 'Refreshing…')}
         </p>
       ) : null}
     </div>
@@ -903,6 +897,13 @@ export function CalendarScreen({
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col gap-3">
+      {/* Every view, range or scope change reloads, and the reload is told to
+          assistive tech only. Drawn on the bar, the notice pushed the controls
+          sideways as it appeared and back as it went. `sr-only` takes it out of
+          the flow, and the region stays mounted so the change is announced. */}
+      <p className="sr-only" role="status">
+        {showRefreshing ? t('customers.calendar.notice.refreshing', 'Refreshing…') : null}
+      </p>
       <CalendarHeader
         view={view}
         anchor={anchor}

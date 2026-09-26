@@ -37,6 +37,11 @@ import { cn } from '@open-mercato/shared/lib/utils'
  * which is visible as soon as the pill is a filled colour. The inset is 4px at
  * `default` and 2px at `sm`, matching the reference toggle.
  *
+ * **Flush.** `flush` drops the inset: the track loses its border and padding
+ * and the pill fills it edge to edge, so the selected segment stands exactly as
+ * tall as a `Button` of the same size beside it. Opt in on a toolbar that holds
+ * every control to one height (the calendar bar); the inset stays the default.
+ *
  * **Motion.** The selected fill is a single shared element that slides
  * between segments rather than a class that blinks on and off, so the
  * control reads as one pill moving along a rail. It is driven by
@@ -68,6 +73,8 @@ type SegmentedControlContextValue = {
   /** See the `tone` variant — the pill has to know which fill to paint. */
   tone: 'default' | 'inset'
   fullWidth: boolean
+  /** See the `flush` variant — the pill's radius follows it. */
+  flush: boolean
   disabled?: boolean
   /** Scopes the sliding pill to this control — see `indicatorId` below. */
   indicatorId: string
@@ -77,6 +84,7 @@ const SegmentedControlContext = React.createContext<SegmentedControlContextValue
   size: 'default',
   tone: 'default',
   fullWidth: false,
+  flush: false,
   disabled: false,
   indicatorId: 'segmented-control',
 })
@@ -90,6 +98,12 @@ const INDICATOR_TRANSITION = {
   damping: 32,
   mass: 0.8,
 } as const
+
+/** The pill's corner radius, inline for the reason given at the indicator, so
+ *  keep it in step with the radius tokens by hand. Inset, the pill sits a notch
+ *  inside the track's `rounded-lg`; flush, it IS the track's edge and takes
+ *  `--radius-lg` (10px) itself. */
+const INDICATOR_RADIUS = { inset: 6, flush: 10 } as const
 
 const trackVariants = cva(
   // A bordered `surface` rail holding one filled item, matching the reference's
@@ -125,6 +139,13 @@ const trackVariants = cva(
         sm: 'h-8 p-0.5',
         default: 'h-9 p-1',
       },
+      // Declared after `size` on purpose: `cn()` keeps the later of two
+      // conflicting utilities, so `p-0` and `border-0` here win over the size's
+      // inset and the tone's border.
+      flush: {
+        true: 'border-0 p-0',
+        false: '',
+      },
       // Display lives in the variant rather than the base so the two cases never
       // depend on which `display` utility Tailwind happens to emit last.
       fullWidth: {
@@ -139,6 +160,7 @@ const trackVariants = cva(
     defaultVariants: {
       tone: 'default',
       size: 'default',
+      flush: false,
       fullWidth: false,
       disabled: false,
     },
@@ -181,11 +203,18 @@ const itemVariants = cva(
         true: 'min-w-0 flex-1 basis-0',
         false: '',
       },
+      // A flush item fills the track, so it (and the focus ring drawn on it)
+      // takes the track's radius rather than the inset pill's.
+      flush: {
+        true: 'rounded-lg',
+        false: '',
+      },
     },
     defaultVariants: {
       tone: 'default',
       size: 'default',
       fullWidth: false,
+      flush: false,
     },
   },
 )
@@ -202,7 +231,7 @@ export type SegmentedControlProps = Omit<
 export const SegmentedControl = React.forwardRef<
   React.ElementRef<typeof RadioGroupPrimitive.Root>,
   SegmentedControlProps
->(({ className, size, tone, fullWidth, disabled, children, ...props }, ref) => {
+>(({ className, size, tone, fullWidth, flush, disabled, children, ...props }, ref) => {
   // The sliding pill is a shared layout element keyed by `layoutId`. That key
   // is global to framer-motion, so two segmented controls on one page sharing
   // a key would animate their pills into each other across the screen. A
@@ -213,10 +242,11 @@ export const SegmentedControl = React.forwardRef<
       size: size ?? 'default',
       tone: tone ?? 'default',
       fullWidth: fullWidth ?? false,
+      flush: flush ?? false,
       disabled: disabled ?? false,
       indicatorId: `segmented-control-indicator-${instanceId}`,
     }),
-    [size, tone, fullWidth, disabled, instanceId],
+    [size, tone, fullWidth, flush, disabled, instanceId],
   )
   return (
     <SegmentedControlContext.Provider value={ctx}>
@@ -225,7 +255,7 @@ export const SegmentedControl = React.forwardRef<
         orientation="horizontal"
         disabled={disabled ?? undefined}
         data-slot="segmented-control"
-        className={cn(trackVariants({ size, tone, fullWidth, disabled }), className)}
+        className={cn(trackVariants({ size, tone, fullWidth, flush, disabled }), className)}
         {...props}
       >
         {children}
@@ -251,6 +281,7 @@ export const SegmentedControlItem = React.forwardRef<
     size,
     tone,
     fullWidth,
+    flush,
     disabled: groupDisabled,
     indicatorId,
   } = React.useContext(SegmentedControlContext)
@@ -261,7 +292,7 @@ export const SegmentedControlItem = React.forwardRef<
       ref={ref}
       data-slot="segmented-control-item"
       className={cn(
-        itemVariants({ size, tone, fullWidth }),
+        itemVariants({ size, tone, fullWidth, flush }),
         // Disabling the root dims the track AND disables every item, so both
         // dimmers apply and multiply out to ~0.3 opacity — far fainter than
         // either intends, and below what a disabled control should still be
@@ -293,9 +324,7 @@ export const SegmentedControlItem = React.forwardRef<
           // it always scales. framer-motion counter-scales the radius per
           // frame to keep corners circular, but only when it can read a
           // numeric radius off `style`; it cannot parse it out of a class.
-          // Keep this in step with `--radius-md` (6px), which is what
-          // `rounded-md` resolves to.
-          style={{ borderRadius: 6 }}
+          style={{ borderRadius: flush ? INDICATOR_RADIUS.flush : INDICATOR_RADIUS.inset }}
           className={cn(
             'absolute inset-0 z-0 shadow-sm',
             tone === 'inset' ? 'bg-surface' : 'bg-sidebar',

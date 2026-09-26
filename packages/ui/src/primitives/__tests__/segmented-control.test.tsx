@@ -210,6 +210,27 @@ describe('SegmentedControl', () => {
     expect(indicator.className).not.toContain('rounded-md')
   })
 
+  it('fills the track edge to edge when flush, so the pill stands as tall as a button', () => {
+    // Inset, the pill is 10px shorter than its 36px track; on a toolbar that
+    // holds every control to one height it read as the one short control.
+    const { container } = render(
+      <SegmentedControl value="a" onValueChange={() => {}} aria-label="x" flush>
+        <SegmentedControlItem value="a">A</SegmentedControlItem>
+        <SegmentedControlItem value="b">B</SegmentedControlItem>
+      </SegmentedControl>,
+    )
+    const root = container.querySelector('[data-slot="segmented-control"]') as HTMLElement
+    expect(root.className).toMatch(/\bh-9\b/)
+    expect(root.className).toMatch(/\bp-0\b/)
+    expect(root.className).toMatch(/\bborder-0\b/)
+    expect(root.className).not.toMatch(/\bp-1\b/)
+    const item = container.querySelector('[data-slot="segmented-control-item"]') as HTMLElement
+    expect(item.className).toContain('rounded-lg')
+    expect(item.className).not.toContain('rounded-md')
+    const indicator = container.querySelector('[data-slot="segmented-control-indicator"]') as HTMLElement
+    expect(indicator.style.borderRadius).toBe('10px')
+  })
+
   it('reserves the semibold width on every item so selection cannot reflow the track', () => {
     // Checked labels are semibold and unchecked ones medium; without a
     // reserved column, selecting would widen the item and shift its siblings

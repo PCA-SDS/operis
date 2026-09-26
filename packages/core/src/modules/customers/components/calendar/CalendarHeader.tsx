@@ -12,7 +12,7 @@ import { useLocale, useT } from '@open-mercato/shared/lib/i18n/context'
 import { formatHeaderLabel } from '../../lib/calendar/format'
 import type { CalendarHeaderProps, CalendarView } from './types'
 import { cn } from '@open-mercato/shared/lib/utils'
-import { CHROME_FLAT_CONTROL, CHROME_SEGMENTED_ITEM, CHROME_SEGMENTED_TRACK } from './chrome'
+import { CHROME_FLAT_CONTROL, CHROME_SEGMENTED_ITEM } from './chrome'
 
 /**
  * The calendar's navigation bar.
@@ -51,23 +51,22 @@ import { CHROME_FLAT_CONTROL, CHROME_SEGMENTED_ITEM, CHROME_SEGMENTED_TRACK } fr
  * and the segmented control's SELECTED item (`text-sidebar-foreground` on the
  * navy pill). Those are inversions, not exceptions to the rule.
  *
- * The switcher keeps `border` and only sets `border-transparent`, never
- * `border-0`: the track's geometry is `h-9 − 2px border − 8px padding`, so
- * dropping the width would move the selected pill's inset rather than just
- * hide the line.
+ * The switchers are `flush`: the track drops its border and padding, so the
+ * selected pill fills the 36px track instead of sitting 5px inside it. Inset,
+ * the pill was a 26px shape among 36px ones, the one short control on the bar.
  *
  * INPUTS are deliberately exempt — the scope row's range picker and preset
  * select keep their hairline, because a border is what marks a control as
  * editable. The rule is "actions lose their border", not "the chrome does".
  *
- * **Chrome height.** Every control across both chrome rows — this bar and the
- * scope row below it — stands 36px tall, with no exception. The primitives
- * disagree about what their size names mean (`sm` is 36px on nothing, 32px on
+ * **Chrome height.** Every control on this bar stands 36px tall, with no
+ * exception, and so does every shape inside one, the switchers' selected pills
+ * included (see `flush` above). The primitives disagree about what their size
+ * names mean (`sm` is 36px on nothing, 32px on
  * `Button`/`SegmentedControl`/`SearchInput`/`Select` and 28px on `IconButton`),
  * so the rule is stated as a height rather than as a prop: take each
  * primitive's `default`, and give `IconButton` `lg`, whose scale sits one step
- * below `Button`'s. `CalendarHeader.test.tsx` and `CalendarToolbar.test.tsx`
- * hold the row to it.
+ * below `Button`'s. `CalendarHeader.test.tsx` holds the row to it.
  */
 export function CalendarHeader({
   view,
@@ -116,8 +115,14 @@ export function CalendarHeader({
           Every control here is 36px tall — see the chrome-height note in the
           component docblock. That means each primitive's own `default`, except
           `IconButton`, whose scale is one step down from `Button`'s and needs
-          `lg` to reach the same box. */}
-      <div className="flex min-w-0 items-center gap-2">
+          `lg` to reach the same box.
+
+          The cluster takes whatever the controls leave, from a fixed
+          `basis-90`: Today and both arrows (166px) plus room for a cross-month
+          week label (189px). The wrap measures that basis, never the label, so
+          switching Week to Day ("Sunday, September 27, 2026") cannot move
+          anything. Every control is `shrink-0`; only the date gives way. */}
+      <div className="flex min-w-0 flex-1 basis-90 items-center gap-2">
         {onToday ? (
           <Button type="button" variant="outline" className={cn("shrink-0", CHROME_FLAT_CONTROL)} onClick={onToday}>
             {t('customers.calendar.toolbar.today', 'Today')}
@@ -129,7 +134,7 @@ export function CalendarHeader({
               type="button"
               variant="white"
               size="lg"
-              className={cn(CHROME_FLAT_CONTROL, 'text-foreground')}
+              className={cn('shrink-0', CHROME_FLAT_CONTROL, 'text-foreground')}
               aria-label={previousLabel}
               onClick={onPrevious}
             >
@@ -139,7 +144,7 @@ export function CalendarHeader({
               type="button"
               variant="white"
               size="lg"
-              className={cn(CHROME_FLAT_CONTROL, 'text-foreground')}
+              className={cn('shrink-0', CHROME_FLAT_CONTROL, 'text-foreground')}
               aria-label={nextLabel}
               onClick={onNext}
             >
@@ -156,14 +161,15 @@ export function CalendarHeader({
           {title}
         </h1>
       </div>
-      {/* Everything that is not the date cluster lives in one right-hand group
-          so the bar is a single row: search first, then the create action, then
-          the view switcher last. `flex-1 justify-end` is what pushes the group
-          to the far edge — the date cluster beside it HUGS, which is the whole
-          point. The cluster used to carry `flex-1` too, so the two halves
-          fought for the row and the date was the loser: it truncated to "T.."
-          while the controls kept their full width. */}
-      <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
+      {/* Everything that is not the date cluster lives in one right-hand group.
+          It never shrinks, so a control keeps its size and place whatever the
+          date says; the date cluster beside it takes the rest. It used to be
+          `flex-1 min-w-0` instead, which squeezed the switchers whenever a view
+          change lengthened the date, and moved them back when it shortened.
+          `ml-auto` keeps the group right-aligned once it wraps below the date,
+          and `max-w-full` lets its controls wrap on a phone rather than
+          overflow. */}
+      <div className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2">
         {controls}
       {/* Create actions lead the cluster, then the view switcher, then the
           shortcuts affordance. The create buttons are the only things on this
@@ -206,7 +212,8 @@ export function CalendarHeader({
       {onViewChange ? (
         <SegmentedControl
           value={view}
-          className={cn("shrink-0", CHROME_SEGMENTED_TRACK)}
+          flush
+          className="shrink-0"
           onValueChange={(value) => onViewChange(value as CalendarView)}
           aria-label={t('customers.calendar.views.label', 'Calendar view')}
         >
