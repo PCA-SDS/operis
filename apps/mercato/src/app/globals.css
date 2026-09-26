@@ -244,8 +244,9 @@ TODO: Fix that latter to have reference by the package names
   --z-index-top: 100;
 
   /* ═══ Design System: Shadow Scale ═══
-     Tuned to the navy ink #1D2735 so elevation reads as a cool shadow rather
-     than a grey smudge over the pastel-navy surfaces. Dark overrides in .dark.
+     Apple-style elevation: neutral black at low alpha with a wide, soft blur,
+     so a raised surface floats rather than carrying a hard edge. Dark
+     overrides in .dark.
      xs  → flat controls (button, input, icon-button)
      sm  → cards, panels, sections
      md  → the list-view card (a table carries elevation instead of a border)
@@ -253,18 +254,18 @@ TODO: Fix that latter to have reference by the package names
      xl  → floating panels (drawers, side sheets)
      2xl → top-level modals, command palette
   */
-  --shadow-xs:  0 1px 2px rgb(29 39 53 / 0.05);
-  --shadow-sm:  0 1px 3px rgb(29 39 53 / 0.08), 0 1px 2px rgb(29 39 53 / 0.05);
-  --shadow-md:  0 4px 12px rgb(29 39 53 / 0.08), 0 1px 3px rgb(29 39 53 / 0.04);
-  --shadow-lg:  0 12px 28px rgb(29 39 53 / 0.12), 0 2px 6px rgb(29 39 53 / 0.06);
-  --shadow-xl:  0 20px 40px rgb(29 39 53 / 0.14);
-  --shadow-2xl: 0 25px 50px rgb(29 39 53 / 0.22);
+  --shadow-xs:  0 1px 2px rgb(0 0 0 / 0.04);
+  --shadow-sm:  0 1px 3px rgb(0 0 0 / 0.06), 0 1px 2px rgb(0 0 0 / 0.04);
+  --shadow-md:  0 4px 16px rgb(0 0 0 / 0.06), 0 1px 3px rgb(0 0 0 / 0.04);
+  --shadow-lg:  0 12px 32px rgb(0 0 0 / 0.10), 0 2px 6px rgb(0 0 0 / 0.04);
+  --shadow-xl:  0 20px 48px rgb(0 0 0 / 0.12);
+  --shadow-2xl: 0 32px 64px rgb(0 0 0 / 0.18);
 
   /* Focus indicator — ONE mechanism for the whole product.
      The design reference suppresses focus rings entirely; we keep them (a
      keyboard user must be able to see where they are) but adopt the intent:
      quiet. A 2px ground-coloured inner ring separates the halo from the
-     control, then a 4px navy halo at low alpha. Because it is a token, the
+     control, then a 4px blue halo at low alpha. Because it is a token, the
      whole app's focus treatment moves as one decision. */
   --shadow-focus: 0 0 0 2px var(--focus-ring-inner), 0 0 0 4px var(--focus-ring-outer);
 
@@ -300,17 +301,13 @@ TODO: Fix that latter to have reference by the package names
   --font-body: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   /* Operis brand ramp — theme-invariant (no .dark override).
-     These replace Open Mercato's lime/yellow pair, which read as a different
-     company's identity against a pastel-navy product: a neon lime-to-yellow
-     sweep is the one thing on screen that cannot belong to this palette.
-     The Operis ramp runs sky → lilac → violet, so a brand moment still lifts
-     off the page but stays inside the product's temperature. */
+     The brand moment (sky → lilac → violet) stays the product's identity; the
+     UI chrome around it follows the Apple palette below. */
   --brand-sky: #A9C4EC;
   --brand-lilac: #C9C2F0;
-  /* Focus ring halo — navy at low alpha so the ring belongs to the palette
-     rather than reading as a browser default. */
+  /* Focus ring halo — Apple blue at low alpha. */
   --focus-ring-inner: #FFFFFF;
-  --focus-ring-outer: rgba(63, 109, 163, 0.35);
+  --focus-ring-outer: rgba(0, 113, 227, 0.35);
   /* Social brand colors — theme-invariant */
   --brand-apple: #000000;
   --brand-github: #181717;
@@ -319,195 +316,175 @@ TODO: Fix that latter to have reference by the package names
   --brand-facebook: #1877F2;
   --brand-dropbox: #0061FF;
   --brand-linkedin: #0A66C2;
-  /* ═══ Operis pastel-navy palette — light ═══
-     Muted navy, deliberately not royal/saturated/neon and never near-black.
-     Ink is navy (#1D2735) rather than grey so text belongs to the palette.
-     Status hues stay semantic (see the status block below) — an error must
-     never read as "just more blue". */
-  /* The page GROUND, deliberately a real blue-grey rather than near-white.
-     It was #F7F9FC — about 3% off #FFFFFF — so a raised `bg-surface` card read
-     as the same colour as the page it sat on and the whole product looked flat.
-     #EDF2F9 puts a visible step under every white surface.
+  /* ═══ Apple palette — light ═══
+     Minimal and white, after Apple's Human Interface Guidelines and apple.com:
+     a #F5F5F7 page ground under white surfaces (the grouped-list pattern of
+     System Settings and iCloud), near-black #1D1D1F ink with #6E6E73 as the
+     secondary label, hairlines from the system gray ramp, and Apple blue as the
+     one saturated colour. Fills are neutral greys, never tinted.
 
-     The two steps below it move with it. `surface-muted` is the hover state for
-     a white surface (9 primitives use `hover:bg-surface-muted`), so if the
-     ground darkens and it does not, a hovered card lands on the ground colour
-     and the hover disappears. The ramp is spaced ~13 points per step:
-       surface #FFFFFF -> background #EDF2F9 -> muted #E0E7F2 -> strong #D2DCEA */
-  --background: #EDF2F9;
-  --foreground: #1D2735;
+     The ground/surface ladder keeps a visible step at every rung, because a
+     hovered white card must never land on the page colour:
+       surface #FFFFFF -> background #F5F5F7 -> muted #EDEDF0 -> strong #E3E3E8 */
+  --background: #F5F5F7;
+  --foreground: #1D1D1F;
   --surface: #FFFFFF;
-  --surface-muted: #E0E7F2;
-  --surface-strong: #D2DCEA;
-  --surface-modal: #E9EEF5;
-  --modal-muted: #F4F7FB;
-  --disabled-foreground: #94A2B5;
+  --surface-muted: #EDEDF0;
+  --surface-strong: #E3E3E8;
+  --surface-modal: #F2F2F7;
+  --modal-muted: #F5F5F7;
+  --disabled-foreground: #AEAEB2;
   --card: #FFFFFF;
-  --card-foreground: #1D2735;
+  --card-foreground: #1D1D1F;
   --popover: #FFFFFF;
-  --popover-foreground: #1D2735;
-  --primary: #43608E;
+  --popover-foreground: #1D1D1F;
+  /* Apple blue. The system blue #007AFF carries white text at only 4.0:1, so
+     fills use apple.com's button blue, which clears AA (4.7:1). */
+  --primary: #0071E3;
   --primary-foreground: #FFFFFF;
-  --primary-hover: #375077;
-  --primary-active: #2D4363;
-  --primary-soft: #E7EEF8;
-  --primary-border: #B6C7DF;
+  --primary-hover: #0077ED;
+  --primary-active: #006EDB;
+  /* The soft button and the field well are one material: Apple's control fill. */
+  --primary-soft: #E8E8ED;
+  --primary-border: #D2D2D7;
   --brand-violet: #BC9AFF;
   --brand-violet-foreground: #0C0C0C;
   /* Accent-strong — the interactive accent (links, active tab, sort chevrons,
-     sliders, progress, selection controls). `--accent` below stays the quiet
-     hover SURFACE it has always been; the two are different jobs. */
-  --accent-strong: #3F6DA3;
-  --accent-strong-hover: #345986;
+     sliders, progress, selection controls): apple.com's link blue. `--accent`
+     below stays the quiet hover SURFACE; the two are different jobs. */
+  --accent-strong: #0066CC;
+  --accent-strong-hover: #0058B0;
   --accent-strong-foreground: #FFFFFF;
-  --accent-soft: #E9F1F9;
-  --accent-border: #B4CBE4;
+  --accent-soft: #E6F0FA;
+  --accent-border: #B3D1F0;
   /* Disabled control tokens */
-  --bg-disabled: #F1F4F8;
-  --text-disabled: #B3BECD;
-  --border-disabled: #E1E7EF;
-  --secondary: #EDF1F7;
-  --secondary-foreground: #1D2735;
-  --muted: #EDF1F7;
-  --muted-foreground: #54637A;
-  --accent: #EDF1F7;
-  --accent-foreground: #1D2735;
-  --destructive: #C0483F;
-  --border: #D9E0EA;
-  --border-strong: #C3CEDC;
+  --bg-disabled: #F2F2F7;
+  --text-disabled: #C7C7CC;
+  --border-disabled: #E5E5EA;
+  --secondary: #F2F2F7;
+  --secondary-foreground: #1D1D1F;
+  --muted: #F2F2F7;
+  --muted-foreground: #6E6E73;
+  --accent: #F2F2F7;
+  --accent-foreground: #1D1D1F;
+  --destructive: #E30000;
+  --border: #E5E5EA;
+  --border-strong: #D2D2D7;
   --input: #00000000;
-  --ring: #7FA3CF;
-  --focus-ring: #7FA3CF;
+  --ring: #0071E3;
+  --focus-ring: #0071E3;
   /* Table family — a list view is the most-used surface in the product, so its
      parts are named instead of expressed as opacity math at call sites. */
-  --table-header: #EDF1F7;
-  --table-row-hover: #F4F7FB;
-  --table-selected: #E7EEF8;
-  --table-border: #D9E0EA;
+  --table-header: #F5F5F7;
+  --table-row-hover: #F5F5F7;
+  --table-selected: #E6F1FC;
+  --table-border: #E5E5EA;
   /* Badge family — the default (non-status) pill. */
-  --badge-bg: #E7EEF8;
-  --badge-text: #2D4363;
-  --badge-border: #B6C7DF;
-  /* Input family — text-entry chrome. A filled field takes `modal-muted` so a
-     populated form reads at a glance without adding a border weight. */
-  /* Fields are tinted wells, not white boxes. A white field on a white card
-     is invisible without a stroke, which is why one used to be needed; giving
-     it a fill of its own is what lets the border go. Same value as the `soft`
-     button so a form reads as one material. */
-  --input-bg: #E7EEF8;
+  --badge-bg: #E8E8ED;
+  --badge-text: #1D1D1F;
+  --badge-border: #D2D2D7;
+  /* Input family — fields are filled wells, not white boxes: the same control
+     fill as the soft button, so a form reads as one material and needs no
+     border. */
+  --input-bg: #E8E8ED;
   --input-border: #00000000;
-  --input-border-focus: #43608E;
-  --input-placeholder: #94A2B5;
-  --input-disabled-bg: #F1F4F8;
-  /* Chart series — chroma pulled back from the stock ramp so a dashboard sits
-     inside the calm palette instead of shouting over it. Hues are kept far
-     apart because a series still has to be told from its neighbour. The
-     default series leads with the navy family. */
-  --chart-1: oklch(0.500 0.090 255);
-  --chart-2: oklch(0.610 0.100 185);
-  --chart-3: oklch(0.640 0.120 60);
-  --chart-4: oklch(0.560 0.115 300);
-  --chart-5: oklch(0.600 0.110 145);
-  /* Chart named colors - light theme */
-  --chart-blue: oklch(0.520 0.130 255);
-  --chart-emerald: oklch(0.590 0.115 163);
-  --chart-amber: oklch(0.700 0.140 70);
-  --chart-rose: oklch(0.610 0.150 16);
-  --chart-violet: oklch(0.575 0.150 293);
-  --chart-cyan: oklch(0.665 0.100 215);
-  --chart-indigo: oklch(0.500 0.140 277);
-  --chart-pink: oklch(0.620 0.145 354);
-  --chart-teal: oklch(0.600 0.100 175);
-  --chart-orange: oklch(0.665 0.135 48);
-  /* Sidebar — an inked chrome column, NOT a step on the neutral surface ladder.
-     The rail is painted in the CTA navy (`--sidebar` == `--primary`) so the
-     product's one saturated colour anchors the left edge, and every piece of
-     nav chrome therefore has to read on navy rather than on white. That is why
-     the family is complete — ink, quiet ink, hover fill, active pill, hairline
-     — instead of borrowing `foreground` / `surface-muted` / `border` from the
-     content side: those are tuned for a light ground and vanish here.
-     `--sidebar-muted-foreground` is the quiet ink (rest-state icons, group
-     overlines); the active row is a pale `--sidebar-primary` pill with
-     `--sidebar-primary-foreground` ink, which reads as the rail colour cut out
-     of the row. */
-  --sidebar: #43608E;
-  --sidebar-foreground: #EDF2FA;
-  --sidebar-muted-foreground: #CAD9EF;
-  --sidebar-primary: #EAF1FA;
-  --sidebar-primary-foreground: #33507B;
-  --sidebar-accent: #55719C;
+  --input-border-focus: #0071E3;
+  --input-placeholder: #86868B;
+  --input-disabled-bg: #F2F2F7;
+  /* Chart series — Apple's system colours. */
+  --chart-1: #007AFF;
+  --chart-2: #30B0C7;
+  --chart-3: #FF9500;
+  --chart-4: #AF52DE;
+  --chart-5: #34C759;
+  /* Chart named colors — light theme */
+  --chart-blue: #007AFF;
+  --chart-emerald: #34C759;
+  --chart-amber: #FFCC00;
+  --chart-rose: #FF3B30;
+  --chart-violet: #AF52DE;
+  --chart-cyan: #32ADE6;
+  --chart-indigo: #5856D6;
+  --chart-pink: #FF2D55;
+  --chart-teal: #30B0C7;
+  --chart-orange: #FF9500;
+  /* Sidebar family — the product's INKED chrome: the selected capsule of the
+     default segmented control, the chrome tone of the search field and the
+     live preview in the sidebar customization editor. Apple paints a selected
+     capsule near-black with light ink (apple.com's filter and product chips),
+     so the family is a complete dark set — ink, quiet ink, hover fill, active
+     pill, hairline — rather than borrowing the light content-side neutrals. */
+  --sidebar: #1D1D1F;
+  --sidebar-foreground: #F5F5F7;
+  --sidebar-muted-foreground: #A1A1A6;
+  --sidebar-primary: #F5F5F7;
+  --sidebar-primary-foreground: #1D1D1F;
+  --sidebar-accent: #3A3A3C;
   --sidebar-accent-foreground: #FFFFFF;
-  --sidebar-border: #5A749D;
-  --sidebar-ring: #B6C7DF;
+  --sidebar-border: #3A3A3C;
+  --sidebar-ring: #6E6E73;
 
   /* ═══ Design System: Semantic Status Tokens — Light Mode ═══
-     Token values match the Tailwind v4 default palette so the
-     Alert / Notification / Toast primitive (Figma `169:2358`) is
-     pixel-perfect against the Figma `state/{x}/{base,light,lighter}`
-     variables (`#dc2626` / `#fecaca` / `#fef2f2` for error etc.).
-     Variable → token mapping:
-       state/{x}/base    → status-{x}-icon  (Tailwind 600)
-       state/{x}/light   → status-{x}-border (Tailwind 200)
-       state/{x}/lighter → status-{x}-bg    (Tailwind 50)
-     status-{x}-text uses Tailwind 900 for high contrast on the
-     light/lighter tints. */
+     Each family starts from an Apple system hue: red, green, orange, blue,
+     gray and pink. The roles are:
+       bg     → the hue at ~9% over white
+       border → the hue at ~32% over white
+       icon   → Apple's increased-contrast variant, legible on white
+       text   → a deep shade of the hue, AA on its own tint
+     An error must never read as "just more blue", so info keeps its own hue
+     family rather than borrowing the primary. */
 
-  /* Error — muted brick red. Pulled back from the stock red-600 so a warning
-     row does not shout across the pastel-navy chrome, while staying
-     unmistakably red and AA-legible. `icon` tracks `--destructive` by design. */
-  --status-error-bg: #FBF0EF;
-  --status-error-text: #7A2823;
-  --status-error-border: #EBC5C1;
-  --status-error-icon: #C0483F;                    /* = --destructive */
+  /* Error — system red */
+  --status-error-bg: #FFEDEC;
+  --status-error-text: #8A0A12;
+  --status-error-border: #FFC0BD;
+  --status-error-icon: #D70015;
 
-  /* Success — muted forest green. */
-  --status-success-bg: #EFF6F1;
-  --status-success-text: #1E4D33;
-  --status-success-border: #C3DECD;
-  --status-success-icon: #3B7A53;
+  /* Success — system green */
+  --status-success-bg: #EDFAF0;
+  --status-success-text: #0F4D1F;
+  --status-success-border: #BEEDCA;
+  --status-success-icon: #248A3D;
 
-  /* Warning — muted ochre. Amber is the hardest hue to keep legible on a light
-     tint, so the icon sits deliberately darker than a stock amber-600. */
-  --status-warning-bg: #FBF5E9;
-  --status-warning-text: #6B4A16;
-  --status-warning-border: #E8D5AC;
-  --status-warning-icon: #A6721A;
+  /* Warning — system orange */
+  --status-warning-bg: #FFF5E8;
+  --status-warning-text: #6E2A00;
+  --status-warning-border: #FFDDAD;
+  --status-warning-icon: #C93400;
 
-  /* Info — indigo-leaning blue, held one hue away from `--accent-strong` so an
-     informational chip is never mistaken for an interactive element. */
-  --status-info-bg: #EEF1FA;
-  --status-info-text: #2A3763;
-  --status-info-border: #C4CDE9;
-  --status-info-icon: #4F63A8;
+  /* Info — system blue */
+  --status-info-bg: #E8F3FF;
+  --status-info-text: #002A8F;
+  --status-info-border: #ADD4FF;
+  --status-info-icon: #0040DD;
 
-  /* Neutral — navy-grey rather than pure grey, so a "no status" chip reads as
-     part of the palette instead of as an unstyled leftover. */
-  --status-neutral-bg: #EDF1F7;
-  --status-neutral-text: #37455A;
-  --status-neutral-border: #D9E0EA;
-  --status-neutral-icon: #6B7B92;
+  /* Neutral — system gray */
+  --status-neutral-bg: #F2F2F7;
+  --status-neutral-text: #3A3A3C;
+  --status-neutral-border: #E5E5EA;
+  --status-neutral-icon: #6C6C70;
 
-  /* Pink (hue ~340°) — a CATEGORICAL accent for stage/category chips, never a
-     semantic outcome. Chroma pulled back to match the rest of the palette. */
-  --status-pink-bg: oklch(0.962 0.018 340);
-  --status-pink-text: oklch(0.400 0.130 340);
-  --status-pink-border: oklch(0.845 0.070 340);
-  --status-pink-icon: oklch(0.615 0.165 340);
+  /* Pink — a CATEGORICAL accent for stage/category chips, never a semantic
+     outcome. System pink. */
+  --status-pink-bg: #FFECF0;
+  --status-pink-text: #7A0A2A;
+  --status-pink-border: #FFBCC9;
+  --status-pink-icon: #D30F45;
 
   /* Solid role — filled surfaces that carry text (chips, badges, dots with
-     labels). All pairs hold WCAG AA 4.5:1 with their foreground; verified by
-     scripts/check-token-parity.mjs. Shades follow each family's 600-700. */
-  --status-error-solid: #B03A31;   /* on white 6.01 */
+     labels). All pairs hold WCAG AA 4.5:1 with white; verified by
+     scripts/check-token-parity.mjs. */
+  --status-error-solid: #D70015;   /* on white 5.38 */
   --status-error-solid-foreground: #ffffff;
-  --status-success-solid: #2F6B45; /* on white 6.85 */
+  --status-success-solid: #1E7B34; /* on white 5.33 */
   --status-success-solid-foreground: #ffffff;
-  --status-warning-solid: #96660F; /* on white 6.02 */
+  --status-warning-solid: #B83000; /* on white 6.07 */
   --status-warning-solid-foreground: #ffffff;
-  --status-info-solid: #3F5B99;    /* on white 6.63 */
+  --status-info-solid: #0040DD;    /* on white 7.56 */
   --status-info-solid-foreground: #ffffff;
-  --status-neutral-solid: #4A5768; /* on white 7.36 */
+  --status-neutral-solid: #636366; /* on white 5.99 */
   --status-neutral-solid-foreground: #ffffff;
-  --status-pink-solid: #A83262;    /* on white 6.37 */
+  --status-pink-solid: #C4103F;    /* on white 6.01 */
   --status-pink-solid-foreground: #ffffff;
 }
 
@@ -522,8 +499,8 @@ TODO: Fix that latter to have reference by the package names
 .dark {
   color-scheme: dark;
   /* Focus ring halo — dark variant */
-  --focus-ring-inner: #10151E;
-  --focus-ring-outer: rgba(143, 174, 218, 0.40);
+  --focus-ring-inner: #000000;
+  --focus-ring-outer: rgba(10, 132, 255, 0.45);
   /* Shadow scale — dark mode: pure black, higher opacity for visibility */
   --shadow-xs:  0 1px 2px rgb(0 0 0 / 0.30);
   --shadow-sm:  0 1px 3px rgb(0 0 0 / 0.40), 0 1px 2px rgb(0 0 0 / 0.30);
@@ -535,152 +512,152 @@ TODO: Fix that latter to have reference by the package names
   /* Switch thumb: brighter outline in dark mode for visibility against the muted track. */
   --shadow-switch-thumb: 0 1px 2px rgb(0 0 0 / 0.40), 0 0 0 0.5px rgb(0 0 0 / 0.30);
 
-  /* ═══ Operis pastel-navy palette — dark ═══
-     The reference design ships light-mode only, so dark is an Operis-specific
-     extension of the same language rather than a copy: every neutral keeps the
-     navy hue instead of collapsing to grey, and the CTA lifts to a light navy
-     so it still reads as the palette's blue rather than as an inverted chip.
-     Surfaces are solid (not white-at-N%) so stacked panels stay separable. */
-  --background: #10151E;
-  --foreground: #E6ECF4;
-  --surface: #171E2A;
-  --surface-muted: #1E2735;
-  --surface-strong: #28323F;
-  --surface-modal: #1A2230;
-  --modal-muted: #212B39;
-  --disabled-foreground: #6B7889;
-  --card: #171E2A;
-  --card-foreground: #E6ECF4;
-  --popover: #171E2A;
-  --popover-foreground: #E6ECF4;
-  --primary: #8FAEDA;
-  --primary-foreground: #101822;
-  --primary-hover: #A3BEE4;
-  --primary-active: #B5CBEA;
-  --primary-soft: #223047;
-  --primary-border: #3B5175;
+  /* ═══ Apple palette — dark ═══
+     Apple's dark appearance: a true-black ground, elevated surfaces that get
+     LIGHTER as they rise (#1C1C1E for cards, #2C2C2E for menus and fills,
+     #3A3A3C for chrome hover), #F5F5F7 ink with #A1A1A6 as the secondary
+     label, and the system colours in their dark variants. The button blue is
+     the same as light: white on #0A84FF is only 3.7:1. */
+  --background: #000000;
+  --foreground: #F5F5F7;
+  --surface: #1C1C1E;
+  --surface-muted: #2C2C2E;
+  --surface-strong: #3A3A3C;
+  --surface-modal: #1C1C1E;
+  --modal-muted: #2C2C2E;
+  --disabled-foreground: #636366;
+  --card: #1C1C1E;
+  --card-foreground: #F5F5F7;
+  --popover: #2C2C2E;
+  --popover-foreground: #F5F5F7;
+  --primary: #0071E3;
+  --primary-foreground: #FFFFFF;
+  --primary-hover: #0077ED;
+  --primary-active: #006EDB;
+  --primary-soft: #2C2C2E;
+  --primary-border: #48484A;
   --brand-violet: #BC9AFF;
   --brand-violet-foreground: #0C0C0C;
-  --accent-strong: #8CB4E4;
-  --accent-strong-hover: #A5C6EC;
-  --accent-strong-foreground: #101822;
-  --accent-soft: #1C2A3D;
-  --accent-border: #35496A;
+  /* Links take apple.com's dark-mode blue; text on a filled accent is black,
+     because white on it is only 3.0:1. */
+  --accent-strong: #2997FF;
+  --accent-strong-hover: #4DA8FF;
+  --accent-strong-foreground: #000000;
+  --accent-soft: #0E2438;
+  --accent-border: #174A7A;
   /* Disabled control tokens (dark) */
-  --bg-disabled: #1B222E;
-  --text-disabled: #4C5768;
-  --border-disabled: #29323F;
-  --secondary: #1E2735;
-  --secondary-foreground: #E6ECF4;
-  --muted: #1E2735;
-  --muted-foreground: #9AA8BB;
-  --accent: #1E2735;
-  --accent-foreground: #E6ECF4;
-  --destructive: #E0736A;
-  --border: #2E3948;
-  --border-strong: #3C4859;
+  --bg-disabled: #1C1C1E;
+  --text-disabled: #48484A;
+  --border-disabled: #2C2C2E;
+  --secondary: #2C2C2E;
+  --secondary-foreground: #F5F5F7;
+  --muted: #2C2C2E;
+  --muted-foreground: #A1A1A6;
+  --accent: #2C2C2E;
+  --accent-foreground: #F5F5F7;
+  --destructive: #FF453A;
+  --border: #38383A;
+  --border-strong: #48484A;
   --input: #00000000;
-  --ring: #5D82B4;
-  --focus-ring: #5D82B4;
-  --table-header: #1E2735;
-  --table-row-hover: #1A2230;
-  --table-selected: #223047;
-  --table-border: #2E3948;
-  --badge-bg: #223047;
-  --badge-text: #B6C7DF;
-  --badge-border: #3B5175;
-  --input-bg: #223047;
+  --ring: #0A84FF;
+  --focus-ring: #0A84FF;
+  --table-header: #2C2C2E;
+  --table-row-hover: #242426;
+  --table-selected: #183350;
+  --table-border: #38383A;
+  --badge-bg: #2C2C2E;
+  --badge-text: #F5F5F7;
+  --badge-border: #48484A;
+  --input-bg: #2C2C2E;
   --input-border: #00000000;
-  --input-border-focus: #8FAEDA;
-  --input-placeholder: #6B7889;
-  --input-disabled-bg: #1B222E;
-  /* Chart series — lifted for a dark ground, chroma still held back. */
-  --chart-1: oklch(0.680 0.100 255);
-  --chart-2: oklch(0.720 0.105 185);
-  --chart-3: oklch(0.775 0.125 60);
-  --chart-4: oklch(0.690 0.120 300);
-  --chart-5: oklch(0.710 0.110 145);
-  /* Chart named colors - dark theme (increased lightness) */
-  --chart-blue: oklch(0.690 0.135 255);
-  --chart-emerald: oklch(0.710 0.120 163);
-  --chart-amber: oklch(0.800 0.140 70);
-  --chart-rose: oklch(0.715 0.150 16);
-  --chart-violet: oklch(0.700 0.145 293);
-  --chart-cyan: oklch(0.760 0.105 215);
-  --chart-indigo: oklch(0.660 0.140 277);
-  --chart-pink: oklch(0.715 0.145 354);
-  --chart-teal: oklch(0.710 0.100 175);
-  --chart-orange: oklch(0.760 0.135 48);
-  /* Sidebar (dark) — the light rail takes the CTA fill verbatim, but the dark
-     CTA is a PALE navy (`--primary: #8FAEDA`); painting a full-height column in
-     it would make the chrome the brightest object on the screen. Dark keeps the
-     same idea one octave down: a deep navy that still reads as the palette's
-     blue against `--background`, with the row treatments unchanged. */
-  --sidebar: #1B2A42;
-  --sidebar-foreground: #DFE8F4;
-  --sidebar-muted-foreground: #9DB3D3;
-  --sidebar-primary: #31496F;
-  --sidebar-primary-foreground: #CFE0F8;
-  --sidebar-accent: #26385A;
-  --sidebar-accent-foreground: #EAF1FB;
-  --sidebar-border: #32456A;
-  --sidebar-ring: #5D82B4;
+  --input-border-focus: #0A84FF;
+  --input-placeholder: #8E8E93;
+  --input-disabled-bg: #1C1C1E;
+  /* Chart series — Apple's system colours, dark variants. */
+  --chart-1: #0A84FF;
+  --chart-2: #40C8E0;
+  --chart-3: #FF9F0A;
+  --chart-4: #BF5AF2;
+  --chart-5: #30D158;
+  /* Chart named colors — dark theme */
+  --chart-blue: #0A84FF;
+  --chart-emerald: #30D158;
+  --chart-amber: #FFD60A;
+  --chart-rose: #FF453A;
+  --chart-violet: #BF5AF2;
+  --chart-cyan: #64D2FF;
+  --chart-indigo: #5E5CE6;
+  --chart-pink: #FF375F;
+  --chart-teal: #40C8E0;
+  --chart-orange: #FF9F0A;
+  /* Sidebar (dark) — the inked chrome lifts to a raised grey, like the
+     selected capsule of a dark segmented control, instead of inverting to the
+     brightest object on the screen. */
+  --sidebar: #3A3A3C;
+  --sidebar-foreground: #F5F5F7;
+  --sidebar-muted-foreground: #AEAEB2;
+  --sidebar-primary: #636366;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #48484A;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: #48484A;
+  --sidebar-ring: #8E8E93;
 
   /* ═══ Design System: Semantic Status Tokens — Dark Mode ═══
-     Same hues as light, re-seated for a dark ground: a deep desaturated tint
-     for `bg`, a light legible tone for `text`, a mid tone for `border`, and an
-     `icon` bright enough to clear the WCAG 3.0 non-text threshold. */
+     Same hues as light in their dark variants: a deep tint of the hue over the
+     card surface for `bg`, Apple's increased-contrast dark variant for `text`,
+     a mid tone for `border`, and the plain dark system colour for `icon`. */
 
-  /* Error — muted brick red (dark) */
-  --status-error-bg: #2B1614;
-  --status-error-text: #EEA8A1;
-  --status-error-border: #6B2E28;
-  --status-error-icon: #E0736A;                    /* = dark --destructive */
+  /* Error — system red (dark) */
+  --status-error-bg: #3A1614;
+  --status-error-text: #FF6961;
+  --status-error-border: #7A2521;
+  --status-error-icon: #FF453A;
 
-  /* Success — muted forest green (dark) */
-  --status-success-bg: #12241A;
-  --status-success-text: #9CD4B1;
-  --status-success-border: #2C4E38;
-  --status-success-icon: #63A87D;
+  /* Success — system green (dark) */
+  --status-success-bg: #172E1E;
+  --status-success-text: #30DB5B;
+  --status-success-border: #1E6B33;
+  --status-success-icon: #30D158;
 
-  /* Warning — muted ochre (dark) */
-  --status-warning-bg: #2A2113;
-  --status-warning-text: #E2C489;
-  --status-warning-border: #5C4620;
-  --status-warning-icon: #C99A3E;
+  /* Warning — system orange (dark) */
+  --status-warning-bg: #3A2710;
+  --status-warning-text: #FFB340;
+  --status-warning-border: #7A4E0B;
+  --status-warning-icon: #FF9F0A;
 
-  /* Info — indigo-leaning blue (dark) */
-  --status-info-bg: #1A1F33;
-  --status-info-text: #AEB9DD;
-  --status-info-border: #37426B;
-  --status-info-icon: #7E90CE;
+  /* Info — system blue (dark) */
+  --status-info-bg: #122A45;
+  --status-info-text: #409CFF;
+  --status-info-border: #0B4A8C;
+  --status-info-icon: #0A84FF;
 
-  /* Neutral — navy-grey (dark) */
-  --status-neutral-bg: #1E2735;
-  --status-neutral-text: #C2CDDC;
-  --status-neutral-border: #3C4859;
-  --status-neutral-icon: #9AA8BB;                  /* = dark --muted-foreground */
+  /* Neutral — system gray (dark) */
+  --status-neutral-bg: #2C2C2E;
+  --status-neutral-text: #C7C7CC;
+  --status-neutral-border: #3A3A3C;
+  --status-neutral-icon: #8E8E93;
 
   /* Pink (dark mode) — categorical accent, not a semantic state. */
-  --status-pink-bg: #2B1A24;
-  --status-pink-text: #E4A9C4;
-  --status-pink-border: #63314A;
-  --status-pink-icon: #C4749A;
+  --status-pink-bg: #3A1520;
+  --status-pink-text: #FF6482;
+  --status-pink-border: #7A2338;
+  --status-pink-icon: #FF375F;
 
   /* Solid role — same values as light: the fills are saturated enough to
      read on dark surfaces, and keeping one value preserves chip identity
      across themes. Listed explicitly so the parity check stays honest. */
-  --status-error-solid: #B03A31;
+  --status-error-solid: #D70015;
   --status-error-solid-foreground: #ffffff;
-  --status-success-solid: #2F6B45;
+  --status-success-solid: #1E7B34;
   --status-success-solid-foreground: #ffffff;
-  --status-warning-solid: #96660F;
+  --status-warning-solid: #B83000;
   --status-warning-solid-foreground: #ffffff;
-  --status-info-solid: #3F5B99;
+  --status-info-solid: #0040DD;
   --status-info-solid-foreground: #ffffff;
-  --status-neutral-solid: #4A5768;
+  --status-neutral-solid: #636366;
   --status-neutral-solid-foreground: #ffffff;
-  --status-pink-solid: #A83262;
+  --status-pink-solid: #C4103F;
   --status-pink-solid-foreground: #ffffff;
 }
 
@@ -827,10 +804,15 @@ TODO: Fix that latter to have reference by the package names
   select:not([multiple]):not([size]):not(.appearance-none) {
     appearance: none;
     padding-inline-end: 2rem;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='m4 6 4 4 4-4' stroke='%239ca3af' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='m4 6 4 4 4-4' stroke='%236E6E73' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     background-position: right 0.5rem center;
     background-repeat: no-repeat;
     background-size: 1rem 1rem;
+  }
+  /* A data-URI image cannot read a CSS variable, so the chevron carries each
+     theme's `--muted-foreground` literally: light above, dark here. */
+  .dark select:not([multiple]):not([size]):not(.appearance-none) {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none'%3E%3Cpath d='m4 6 4 4 4-4' stroke='%23A1A1A6' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   }
   select:not([multiple]):not([size]):not(.appearance-none)::-ms-expand {
     display: none;
@@ -866,6 +848,66 @@ TODO: Fix that latter to have reference by the package names
 
 .rbc-today {
   background-color: color-mix(in oklab, var(--accent) 40%, transparent);
+}
+
+/* react-big-calendar ships a light-only stylesheet: 26 `#ddd` hairlines, grey
+   off-range cells, white toolbar buttons, a blue default event and a green
+   now-line. Every colour it sets is re-pointed at a token so both calendars
+   (schedule and task) follow the theme. Each selector is one class stronger
+   than the library's, so the result does not depend on stylesheet order.
+   Event borders are left alone: the schedule paints them per event kind. */
+.rbc-calendar *:not(.rbc-event):not(.rbc-background-event) {
+  border-color: var(--border) !important;
+}
+.rbc-calendar .rbc-day-slot .rbc-time-slot {
+  border-top-color: color-mix(in oklab, var(--border) 50%, transparent) !important;
+}
+.rbc-calendar .rbc-off-range {
+  color: var(--muted-foreground);
+}
+.rbc-calendar .rbc-off-range-bg {
+  background: var(--surface-muted);
+}
+.rbc-calendar .rbc-toolbar button {
+  color: var(--foreground);
+}
+.rbc-calendar .rbc-toolbar button:hover,
+.rbc-calendar .rbc-toolbar button:focus,
+.rbc-calendar .rbc-toolbar button:active,
+.rbc-calendar .rbc-toolbar button.rbc-active,
+.rbc-calendar .rbc-toolbar button:active:hover,
+.rbc-calendar .rbc-toolbar button:active:focus,
+.rbc-calendar .rbc-toolbar button.rbc-active:hover,
+.rbc-calendar .rbc-toolbar button.rbc-active:focus {
+  color: var(--foreground);
+  background-color: var(--surface-strong);
+}
+.rbc-calendar .rbc-event {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+}
+.rbc-calendar .rbc-event.rbc-selected {
+  background-color: var(--primary-active);
+}
+.rbc-calendar .rbc-show-more {
+  background-color: transparent;
+  color: var(--accent-strong);
+}
+.rbc-calendar .rbc-show-more:hover,
+.rbc-calendar .rbc-show-more:focus {
+  color: var(--accent-strong-hover);
+}
+.rbc-overlay.rbc-overlay {
+  background-color: var(--popover);
+  color: var(--popover-foreground);
+  border-color: var(--border);
+  box-shadow: var(--shadow-lg);
+}
+.rbc-overlay.rbc-overlay .rbc-overlay-header {
+  border-bottom-color: var(--border);
+}
+.rbc-calendar .rbc-current-time-indicator {
+  background-color: var(--destructive);
 }
 
 .schedule-calendar .rbc-time-gutter,
