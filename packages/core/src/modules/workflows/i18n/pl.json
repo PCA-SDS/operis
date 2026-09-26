@@ -904,7 +904,7 @@
   "workflows.mobile.validate": "Waliduj",
   "workflows.mobile.viewFullGraph": "Pokaż pełny graf",
   "workflows.module.description": "Orkiestracja procesów biznesowych",
-  "workflows.module.name": "Silnik procesów biznesowych",
+  "workflows.module.name": "Automatyzacja",
   "workflows.nav.graphTest": "Test Grafu",
   "workflows.nodeEditor.endStepsNotEditable": "Kroki KONIEC nie mogą być edytowane. Reprezentują stałe punkty wyjścia przepływu.",
   "workflows.nodeEditor.jsonSchemaFormat": "Ten formularz używa formatu JSON Schema. Pola zostały przekonwertowane do edycji wizualnej. Po zapisaniu zostaną przekonwertowane do uproszczonego formatu. Aby zachować oryginalny JSON Schema, edytuj go w sekcji \"Zaawansowana Konfiguracja (JSON)\" poniżej.",

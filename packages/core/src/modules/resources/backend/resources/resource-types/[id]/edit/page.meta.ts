@@ -12,7 +12,7 @@ export const metadata = {
   requireFeatures: ['resources.manage_resources'],
   pageTitle: 'Edit Resource Type',
   pageTitleKey: 'resources.resourceTypes.form.editTitle',
-  pageGroup: 'Resource Planning',
+  pageGroup: 'Resources',
   pageGroupKey: 'resources.nav.group',
   icon: editIcon,
   breadcrumb: [

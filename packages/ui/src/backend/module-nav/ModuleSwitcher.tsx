@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ChevronDown, LayoutGrid } from 'lucide-react'
+import { ChevronDown, LayoutGrid, RotateCcw } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Button } from '../../primitives/button'
@@ -11,6 +11,8 @@ import { EmptyState } from '../../primitives/empty-state'
 import { Popover, PopoverContent, PopoverTrigger } from '../../primitives/popover'
 import { SearchInput } from '../../primitives/search-input'
 import { useBackendNavigation } from './BackendNavigationContext'
+import { MODULE_GRID_COLUMNS, SortableModuleGrid, type ModuleTileEntry } from './SortableModuleGrid'
+import { useModuleOrder } from './useModuleOrder'
 import {
   matchesModuleQuery,
   renderNavIcon,
@@ -19,11 +21,10 @@ import {
   type NavGroup,
 } from './model'
 
-const GRID_COLUMNS = 3
+const GRID_COLUMNS = MODULE_GRID_COLUMNS
 const MAX_PAGE_RESULTS = 8
 const FALLBACK_GROUP_ICON = <LayoutGrid className="size-4" aria-hidden="true" />
 
-type ModuleEntry = { key: string; group: NavGroup; href: string }
 type PageEntry = { key: string; href: string; title: string; moduleName: string }
 
 function collectPageMatches(groups: NavGroup[], query: string): PageEntry[] {
@@ -67,29 +68,52 @@ export function ModuleSwitcher() {
     setOpen(false)
   }, [pathname])
 
+  const moduleGroups = React.useMemo(() => nav?.moduleGroups ?? [], [nav?.moduleGroups])
+  const serverKeys = React.useMemo(() => moduleGroups.map(resolveGroupKey), [moduleGroups])
+  const order = useModuleOrder(serverKeys)
+  const orderedGroups = React.useMemo(() => {
+    const byKey = new Map(moduleGroups.map((group) => [resolveGroupKey(group), group]))
+    const ordered = order.orderedKeys.flatMap((key) => {
+      const group = byKey.get(key)
+      byKey.delete(key)
+      return group ? [group] : []
+    })
+    return [...ordered, ...byKey.values()]
+  }, [moduleGroups, order.orderedKeys])
+  const modules = React.useMemo<ModuleTileEntry[]>(() => {
+    const entries: ModuleTileEntry[] = []
+    for (const group of orderedGroups) {
+      if (!matchesModuleQuery(group, query)) continue
+      const href = resolveGroupEntryHref(group)
+      if (!href) continue
+      entries.push({
+        key: resolveGroupKey(group),
+        href,
+        name: group.name,
+        icon: renderNavIcon(undefined, group.iconName, group.iconMarkup, FALLBACK_GROUP_ICON),
+      })
+    }
+    return entries
+  }, [orderedGroups, query])
+  const { ensureLoaded } = order
+  React.useEffect(() => {
+    if (open) ensureLoaded()
+  }, [ensureLoaded, open])
   const handleOpenChange = React.useCallback((next: boolean) => {
     setOpen(next)
     if (!next) setQuery('')
   }, [])
-
-  const modules = React.useMemo<ModuleEntry[]>(() => {
-    const entries: ModuleEntry[] = []
-    for (const group of nav?.moduleGroups ?? []) {
-      if (!matchesModuleQuery(group, query)) continue
-      const href = resolveGroupEntryHref(group)
-      if (href) entries.push({ key: resolveGroupKey(group), group, href })
-    }
-    return entries
-  }, [nav?.moduleGroups, query])
   const pages = React.useMemo(() => collectPageMatches(nav?.moduleGroups ?? [], query), [nav?.moduleGroups, query])
 
   const isReady = nav?.isReady ?? false
   const activeKey = nav?.activeGroup ? resolveGroupKey(nav.activeGroup) : null
   const triggerLabel = nav?.mode === 'main' && nav.activeGroup ? nav.activeGroup.name : t('appShell.modules.title', 'Modules')
   const hasQuery = query.trim().length > 0
-  const hasAnyModule = (nav?.moduleGroups.length ?? 0) > 0
+  const hasAnyModule = moduleGroups.length > 0
+  const sortable = order.canReorder && !hasQuery && modules.length > 1
 
-  const handleGridKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+  const handleGridKeyDown = (event: React.KeyboardEvent<HTMLDivElement>, dragging: boolean) => {
+    if (dragging) return
     const tiles = Array.from(gridRef.current?.querySelectorAll<HTMLElement>('[data-module-tile]') ?? [])
     const index = tiles.findIndex((tile) => tile === document.activeElement)
     if (index < 0) return
@@ -140,7 +164,15 @@ export function ModuleSwitcher() {
           <ChevronDown className="hidden size-4 shrink-0 text-muted-foreground xl:inline" aria-hidden="true" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-96 p-0" data-module-switcher="" data-testid="module-switcher">
+      <PopoverContent
+        align="start"
+        className="w-96 p-0"
+        data-module-switcher=""
+        data-testid="module-switcher"
+        onEscapeKeyDown={(event) => {
+          if (gridRef.current?.dataset.dragging === 'true') event.preventDefault()
+        }}
+      >
         <div className="border-b border-border p-3">
           <SearchInput
             value={query}
@@ -182,37 +214,16 @@ export function ModuleSwitcher() {
           ) : (
             <>
               {modules.length > 0 ? (
-                <div
-                  ref={gridRef}
-                  role="list"
-                  aria-label={t('appShell.modules.title', 'Modules')}
-                  className="grid grid-cols-3 gap-1"
+                <SortableModuleGrid
+                  entries={modules}
+                  activeKey={activeKey}
+                  sortable={sortable}
+                  label={t('appShell.modules.title', 'Modules')}
+                  onReorder={order.reorder}
+                  onOpen={() => handleOpenChange(false)}
                   onKeyDown={handleGridKeyDown}
-                >
-                  {modules.map((entry) => {
-                    const active = entry.key === activeKey
-                    return (
-                      <div role="listitem" key={entry.key} className="min-w-0">
-                        <Link
-                          href={entry.href}
-                          data-module-tile=""
-                          data-module-id={entry.key}
-                          aria-current={active ? 'page' : undefined}
-                          onClick={() => handleOpenChange(false)}
-                          className={cn(
-                            'flex h-full flex-col items-center gap-2 rounded-lg p-3 text-center text-xs font-medium transition-colors focus:outline-none focus-visible:shadow-focus',
-                            active ? 'text-primary' : 'text-foreground hover:text-primary',
-                          )}
-                        >
-                          <span aria-hidden="true" className="flex size-5 shrink-0 items-center justify-center [&_svg]:size-5">
-                            {renderNavIcon(undefined, entry.group.iconName, entry.group.iconMarkup, FALLBACK_GROUP_ICON)}
-                          </span>
-                          <span className="line-clamp-2 break-words">{entry.group.name}</span>
-                        </Link>
-                      </div>
-                    )
-                  })}
-                </div>
+                  gridRef={gridRef}
+                />
               ) : null}
               {hasQuery && pages.length > 0 ? (
                 <div className={cn(modules.length > 0 && 'mt-2 border-t border-border pt-2')}>
@@ -238,6 +249,22 @@ export function ModuleSwitcher() {
             </>
           )}
         </div>
+        {isReady && order.canReorder && hasAnyModule && !hasQuery ? (
+          <div className="flex h-11 items-center justify-between gap-2 border-t border-border px-3 text-xs text-muted-foreground" data-testid="module-switcher-footer">
+            <span>{t('appShell.modules.reorderHint', 'Drag to rearrange')}</span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className={cn('gap-1.5', !order.hasCustomOrder && 'invisible')}
+              onClick={order.resetOrder}
+              data-testid="module-switcher-reset"
+            >
+              <RotateCcw className="size-4" aria-hidden="true" />
+              {t('appShell.modules.resetOrder', 'Reset order')}
+            </Button>
+          </div>
+        ) : null}
       </PopoverContent>
     </Popover>
   )

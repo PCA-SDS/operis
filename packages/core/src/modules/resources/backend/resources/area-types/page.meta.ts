@@ -5,7 +5,7 @@ export const metadata: PageMetadata = {
   requireFeatures: ['resources.area_types.manage'],
   pageTitle: 'Area Types',
   pageTitleKey: 'resources.areaTypes.page.title',
-  pageGroup: 'Resource Planning',
+  pageGroup: 'Resources',
   pageGroupKey: 'resources.nav.group',
   pageOrder: 31,
   icon: 'layers',

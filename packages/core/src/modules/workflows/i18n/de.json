@@ -904,7 +904,7 @@
   "workflows.mobile.validate": "Validieren",
   "workflows.mobile.viewFullGraph": "Vollständigen Graphen anzeigen",
   "workflows.module.description": "Geschäftsprozesse orchestrieren",
-  "workflows.module.name": "Workflow-Engine",
+  "workflows.module.name": "Automatisierung",
   "workflows.nav.graphTest": "Graph-Test",
   "workflows.nodeEditor.endStepsNotEditable": "ENDE-Schritte können nicht bearbeitet werden. Sie stellen feste Workflow-Endpunkte dar.",
   "workflows.nodeEditor.jsonSchemaFormat": "Dieses Formular verwendet das JSON-Schema-Format. Felder wurden für die visuelle Bearbeitung konvertiert. Beim Speichern wird es in das vereinfachte Format umgewandelt. Um das ursprüngliche JSON-Schema beizubehalten, bearbeiten Sie es im Abschnitt \"Erweiterte Konfiguration (JSON)\" unten.",

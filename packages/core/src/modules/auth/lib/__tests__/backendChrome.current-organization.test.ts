@@ -13,6 +13,7 @@ const ALL_ORGS = '__all__'
 const mockFindOneWithDecryption = jest.fn()
 const mockResolveFeatureCheckContext = jest.fn()
 const mockGetSelectedOrganizationFromRequest = jest.fn()
+const mockFindSidebarPreference = jest.fn(async () => null)
 
 const mockEm = { find: jest.fn(async () => []), findOne: jest.fn(async () => null) }
 const mockRbacService = {
@@ -76,7 +77,7 @@ jest.mock('../profile-sections', () => ({
 jest.mock('@open-mercato/core/modules/auth/services/sidebarPreferencesService', () => ({
   applySidebarPreference: (groups: unknown) => groups,
   loadFirstRoleSidebarPreference: jest.fn(async () => null),
-  findSidebarPreference: jest.fn(async () => null),
+  findSidebarPreference: (...args: unknown[]) => mockFindSidebarPreference(...(args as [])),
 }))
 
 import { resolveBackendChromePayload } from '../backendChrome'
@@ -233,5 +234,21 @@ describe('resolveBackendChromePayload — currentOrganization', () => {
 
     const [, , where] = mockFindOneWithDecryption.mock.calls[0]
     expect(where).toMatchObject({ id: ORG_ID, tenant: TENANT_ID, deletedAt: null })
+  })
+})
+
+describe('resolveBackendChromePayload — personal sidebar preference', () => {
+  const OTHER_ORG_ID = '123e4567-e89b-12d3-a456-426614174003'
+
+  it('reads the preference under the key the preferences API saves it with, whichever organization is viewed', async () => {
+    mockResolveFeatureCheckContext.mockResolvedValue(concreteSelection(OTHER_ORG_ID))
+    mockFindOneWithDecryption.mockResolvedValue({ id: OTHER_ORG_ID, name: 'Branch', logoUrl: null })
+
+    await resolve(OTHER_ORG_ID)
+
+    expect(mockFindSidebarPreference).toHaveBeenCalledWith(
+      mockEm,
+      expect.objectContaining({ userId: USER_ID, tenantId: TENANT_ID, organizationId: ORG_ID }),
+    )
   })
 })
