@@ -246,7 +246,7 @@ export default function WmsLotsListPage() {
         ) : null}
 
         {lotsQuery.data ? (
-          <section className="rounded-xl border border-border bg-surface shadow-sm p-5 text-card-foreground">
+          <section className="rounded-xl border border-transparent bg-surface shadow-sm p-5 text-card-foreground">
             <DataTable
               embedded
               columns={columns}

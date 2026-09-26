@@ -31,7 +31,7 @@ export function WebhookSecretPanel({ secret, onClose }: WebhookSecretPanelProps)
   const CopyIcon = copied ? Check : Copy
 
   return (
-    <div className="mx-auto w-full max-w-3xl rounded-xl border border-border bg-surface shadow-sm">
+    <div className="mx-auto w-full max-w-3xl rounded-xl border border-transparent bg-surface shadow-sm">
       <div className="border-b p-6">
         <h1 className="text-lg font-semibold leading-7">{t('webhooks.form.secret')}</h1>
         <p className="mt-2 text-sm text-muted-foreground">{t('webhooks.form.secretVisibleOnce')}</p>

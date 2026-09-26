@@ -499,7 +499,7 @@ export default function WorkflowInstanceDetailPage({ params }: { params?: { id?:
           />
 
           {/* Execution Summary */}
-          <div className="rounded-xl border border-border bg-surface shadow-sm p-6">
+          <div className="rounded-xl border border-transparent bg-surface shadow-sm p-6">
             <h2 className="text-lg font-semibold mb-4">
               {t('workflows.instances.sections.overview')}
             </h2>
@@ -582,7 +582,7 @@ export default function WorkflowInstanceDetailPage({ params }: { params?: { id?:
 
           {/* Visual Workflow Graph */}
           {definitionLoading && (
-            <div className="rounded-xl border border-border bg-surface shadow-sm p-6">
+            <div className="rounded-xl border border-transparent bg-surface shadow-sm p-6">
               <div className="flex items-center justify-center py-8">
                 <Spinner className="h-6 w-6" />
                 <span className="ml-2 text-sm text-muted-foreground">Loading workflow visualization...</span>
@@ -590,7 +590,7 @@ export default function WorkflowInstanceDetailPage({ params }: { params?: { id?:
             </div>
           )}
           {!definitionLoading && workflowDefinition && graphNodes.length > 0 && (
-            <div className="rounded-xl border border-border bg-surface shadow-sm p-4 md:p-6">
+            <div className="rounded-xl border border-transparent bg-surface shadow-sm p-4 md:p-6">
               <h2 className="text-lg font-semibold text-foreground mb-4">
                 {t('workflows.instances.sections.visualFlow') || 'Visual Workflow Flow'}
               </h2>
@@ -613,7 +613,7 @@ export default function WorkflowInstanceDetailPage({ params }: { params?: { id?:
             </div>
           )}
           {!definitionLoading && !workflowDefinition && instance && (
-            <div className="rounded-xl border border-border bg-surface shadow-sm p-6">
+            <div className="rounded-xl border border-transparent bg-surface shadow-sm p-6">
               <h2 className="text-lg font-semibold mb-4">
                 {t('workflows.instances.sections.visualFlow') || 'Visual Workflow Flow'}
               </h2>
@@ -712,7 +712,7 @@ export default function WorkflowInstanceDetailPage({ params }: { params?: { id?:
           )}
 
           {/* Execution Timeline */}
-          <div className="rounded-xl border border-border bg-surface shadow-sm p-6">
+          <div className="rounded-xl border border-transparent bg-surface shadow-sm p-6">
             <h2 className="text-lg font-semibold mb-4">
               {t('workflows.instances.sections.executionTimeline') || 'Execution Timeline'}
             </h2>
@@ -768,7 +768,7 @@ export default function WorkflowInstanceDetailPage({ params }: { params?: { id?:
           </div>
 
           {/* Event Log */}
-          <div className="rounded-xl border border-border bg-surface shadow-sm p-6">
+          <div className="rounded-xl border border-transparent bg-surface shadow-sm p-6">
             <h2 className="text-lg font-semibold mb-4">
               {t('workflows.instances.sections.executionHistory')}
             </h2>

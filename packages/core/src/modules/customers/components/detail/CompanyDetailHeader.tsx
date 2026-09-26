@@ -100,7 +100,7 @@ export function CompanyDetailHeader({
   const { data: renewalQuarterDict } = useCustomerDictionary('renewal-quarters', 0, companyOrgId)
 
   return (
-    <div className="rounded-xl border border-border bg-surface shadow-sm">
+    <div className="rounded-xl border border-transparent bg-surface shadow-sm">
       {/* Top row: avatar + company info + account manager + actions */}
       <div className="flex flex-col gap-4 px-6 pt-6 pb-3 sm:flex-row sm:items-start sm:gap-5">
         {/* Avatar */}

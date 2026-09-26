@@ -763,7 +763,7 @@ export default function MyTimesheetsPage() {
 
         {/* Summary cards */}
         <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-4">
-          <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
+          <div className="rounded-xl border border-transparent bg-surface shadow-sm p-4">
             <p className="text-sm text-muted-foreground">
               {viewMode === 'weekly'
                 ? t('staff.timesheets.my.weekTotal', 'Week Total')
@@ -771,15 +771,15 @@ export default function MyTimesheetsPage() {
             </p>
             <p className="text-2xl font-semibold">{formatMinutesAsDecimal(grandTotal) || '0'}</p>
           </div>
-          <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
+          <div className="rounded-xl border border-transparent bg-surface shadow-sm p-4">
             <p className="text-sm text-muted-foreground">{t('staff.timesheets.my.working_days', 'Working Days')}</p>
             <p className="text-2xl font-semibold">{workingDays}</p>
           </div>
-          <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
+          <div className="rounded-xl border border-transparent bg-surface shadow-sm p-4">
             <p className="text-sm text-muted-foreground">{t('staff.timesheets.my.daily_average', 'Daily Average')}</p>
             <p className="text-2xl font-semibold">{formatMinutesAsDecimal(Math.round(dailyAverage)) || '0'}</p>
           </div>
-          <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
+          <div className="rounded-xl border border-transparent bg-surface shadow-sm p-4">
             <p className="text-sm text-muted-foreground">{t('staff.timesheets.my.status', 'Status')}</p>
             <p className="text-2xl font-semibold">
               <span className="inline-flex items-center rounded-full bg-status-success-bg px-2.5 py-0.5 text-xs font-medium text-status-success-text">

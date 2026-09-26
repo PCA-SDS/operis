@@ -971,7 +971,7 @@ export function DealsSection({
               ? statusDictionaryMap[deal.status]?.label ?? deal.status
               : deal.status ?? emptyLabel
           return (
-            <article key={deal.id} className="group rounded-xl border border-border bg-surface shadow-sm p-4 shadow-xs transition hover:border-border/70">
+            <article key={deal.id} className="group rounded-xl border border-transparent bg-surface shadow-sm p-4 transition hover:shadow-md">
               <header className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <Link

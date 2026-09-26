@@ -145,7 +145,7 @@ export function ChangelogFilters({
   }, [t])
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface shadow-sm px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+    <div className="flex flex-col gap-3 rounded-xl border border-transparent bg-surface shadow-sm px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-overline font-semibold uppercase tracking-[0.12em] text-muted-foreground">
           {t('customers.changelog.filter', 'Filter')}:
@@ -183,7 +183,7 @@ export function ChangelogFilters({
             onChange={(event) => onDateRangeChange(event.target.value as '7d' | '30d' | '90d')}
             className={soft
               ? 'h-9 min-w-32 appearance-none rounded-lg border border-transparent bg-input-bg pl-3 pr-9 text-sm font-medium text-foreground outline-none focus-visible:shadow-focus'
-              : 'h-8 min-w-32 appearance-none rounded-lg border bg-input-bg pl-3 pr-8 text-xs text-foreground outline-none ring-offset-background focus:ring-2 focus:ring-ring'}
+              : 'h-8 min-w-32 appearance-none rounded-lg border bg-input-bg pl-3 pr-8 text-xs text-foreground outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring'}
           >
             <option value="7d">{t('customers.changelog.last7days', 'Last 7 days')}</option>
             <option value="30d">{t('customers.changelog.last30days', 'Last 30 days')}</option>

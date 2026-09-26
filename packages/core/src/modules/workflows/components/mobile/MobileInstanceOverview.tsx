@@ -83,7 +83,7 @@ export function MobileInstanceOverview({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
+      <div className="rounded-xl border border-transparent bg-surface shadow-sm p-4">
         <h2 className="mb-3 text-base font-semibold">{t('workflows.instances.sections.overview')}</h2>
         <dl className="space-y-3">
           <div className="flex items-start justify-between">
@@ -129,7 +129,7 @@ export function MobileInstanceOverview({
       </div>
 
       {definitionLoading && (
-        <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
+        <div className="rounded-xl border border-transparent bg-surface shadow-sm p-4">
           <div className="flex items-center justify-center py-6">
             <Spinner className="h-5 w-5" />
             <span className="ml-2 text-sm text-muted-foreground">{t('common.loading')}</span>
@@ -137,7 +137,7 @@ export function MobileInstanceOverview({
         </div>
       )}
       {!definitionLoading && hasDefinition && timelineSteps.length > 0 && (
-        <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
+        <div className="rounded-xl border border-transparent bg-surface shadow-sm p-4">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-base font-semibold">{t('workflows.mobile.stepTimeline', 'Step Timeline')}</h2>
             <Button
@@ -168,7 +168,7 @@ export function MobileInstanceOverview({
         title={t('workflows.instances.sections.context')}
       />
 
-      <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
+      <div className="rounded-xl border border-transparent bg-surface shadow-sm p-4">
         <h2 className="mb-3 text-base font-semibold">{t('workflows.instances.sections.executionTimeline')}</h2>
         {timelineEvents.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t('workflows.instances.noExecutionHistory')}</p>
@@ -201,7 +201,7 @@ export function MobileInstanceOverview({
         )}
       </div>
 
-      <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
+      <div className="rounded-xl border border-transparent bg-surface shadow-sm p-4">
         <h2 className="mb-3 text-base font-semibold">{t('workflows.mobile.eventLog', 'Event Log')}</h2>
         {events.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t('workflows.instances.noExecutionHistory')}</p>

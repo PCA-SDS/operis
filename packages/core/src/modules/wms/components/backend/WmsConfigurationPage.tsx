@@ -264,7 +264,7 @@ function SectionCard({
   children: React.ReactNode
 }) {
   return (
-    <section className="rounded-xl border border-border bg-surface shadow-sm p-5 text-card-foreground">
+    <section className="rounded-xl border border-transparent bg-surface shadow-sm p-5 text-card-foreground">
       <div className="mb-4 flex items-start gap-3">
         <div className="rounded-md border bg-muted/40 p-2 text-muted-foreground">{icon}</div>
         <div className="flex flex-1 items-start justify-between gap-2">
@@ -1339,7 +1339,7 @@ export default function WmsConfigurationPage() {
     <Page>
       <PageBody>
         <div className="space-y-6">
-          <section className="rounded-xl border border-border bg-surface shadow-sm p-5 text-card-foreground">
+          <section className="rounded-xl border border-transparent bg-surface shadow-sm p-5 text-card-foreground">
             <div className="space-y-1">
               <h1 className="text-2xl font-bold tracking-tight">{t('wms.backend.config.title', 'WMS configuration')}</h1>
               <p className="text-sm text-muted-foreground">
