@@ -14,7 +14,7 @@ export const metadata = {
   requireFeatures: ['workflows.create'],
   pageTitle: 'Create Workflow Definition',
   pageTitleKey: 'workflows.create.title',
-  pageGroup: 'Workflows',
+  pageGroup: 'Automation',
   pageGroupKey: 'workflows.module.name',
   pagePriority: 10,
   pageOrder: 100,

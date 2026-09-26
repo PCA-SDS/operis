@@ -5,7 +5,7 @@ export const metadata: PageMetadata = {
   requireFeatures: ['resources.area_types.manage'],
   pageTitle: 'Add Area Type',
   pageTitleKey: 'resources.areaTypes.create.page.title',
-  pageGroup: 'Resource Planning',
+  pageGroup: 'Resources',
   pageGroupKey: 'resources.nav.group',
   breadcrumb: [
     { label: 'Area Types', labelKey: 'resources.areaTypes.nav.label', href: '/backend/resources/area-types' },

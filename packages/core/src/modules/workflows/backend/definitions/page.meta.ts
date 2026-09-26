@@ -3,7 +3,7 @@ export const metadata = {
   requireFeatures: ['workflows.view'],
   pageTitle: 'Workflow Definitions',
   pageTitleKey: 'workflows.definitions.title',
-  pageGroup: 'Workflows',
+  pageGroup: 'Automation',
   pageGroupKey: 'workflows.module.name',
   pagePriority: 10,
   pageOrder: 100,
