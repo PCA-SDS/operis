@@ -407,6 +407,64 @@ the button at 288 and the cards 288–1568, the same span as the header card; th
 `ease-panel`. At 1536px the person record's Change log and Files move behind More. On a 375px phone
 nothing scrolls sideways and the week's controls wrap under the month.
 
+## Phase 11 — one tab strip, and it moves
+
+Tab strips looked six ways. The record tabs had one weight and a quiet count; the shared underline
+strip set the selected label semibold, washed the hovered tab in blue and put counts in pills, over a
+rail drawn in `border-input`, which the Apple palette makes transparent; the scheduler's job log, search
+settings and the AI playground used the pill tabs, the grey rail and white pill Phase 4 retired from
+switchers; the Tasks module drew its own 44px strip that turned bold on hover; the tag manager, the
+customer portal's notification panel and the UMES devtools drew theirs from buttons and border classes;
+and the checkout and warranty screens restyled the shared strip with their own padding and count chips.
+The selection jumped: the underline appeared under the new tab without moving, and the panel below
+swapped in one frame. The 38px tabs sat half a pixel off the rail of their 40px row.
+
+- **One look.** Text tabs in one weight, the selected one in full ink and the rest in secondary ink that
+  darkens on hover, with no fills. The tabs are 36px in a 40px row over a 1px hairline rail, and the
+  selected tab's 2px accent bar covers the rail. A count is a quiet number after the label; an icon is
+  16px in the tab's ink. The pill look is gone, `variant` is deprecated and ignored, and
+  `reserveActiveWidth` is gone: with one weight nothing moves when a tab is chosen.
+- **It moves.** The bar glides from the old tab to the new one in 300ms on `ease-panel`. Each tab draws
+  its own bar, so it is right on the first paint and in a strip that scrolls or wraps; script only
+  animates a change, starting the new bar where the old one is on screen, mid-glide included, or where
+  it last came to rest if the old tab has left the strip. Labels change ink over 200ms. The new panel
+  fades in over 150ms, the `fadeIn` motion: `TabsContent` does it, and `TabsPanel` does it for a page
+  that renders the selected tab's content itself. That panel stays mounted, so the content keeps its
+  state. Reduced motion makes all of it instant.
+- **Keyboard.** Arrow keys move along the strip and Home and End to its ends; Enter or Space selects, so
+  a tab whose panel loads data is not fetched in passing. Every tab stays in the Tab order.
+- **Room.** A strip that runs out of room wraps. The Tasks, integrations, warranty workspace and tag
+  manager strips scroll sideways instead, with the scroll on a wrapper and the list `w-max min-w-full`:
+  a scroll container clips at its padding edge, which would cut the half of the bar that covers the
+  rail. The record tabs keep More.
+- **Call sites.** The record tabs' row is fixed at 40px, so the rail stays put whether or not a tab has
+  an action, and their panels are `TabsPanel`s. `TasksTabs` is now a wrapper over `Tabs`. The tag
+  manager's categories, the portal's notification tabs and the devtools tabs use the strip; the tag
+  manager's scroll arrows sit on the tabs' 36px band. The checkout template form and the warranty
+  screens lose their overrides. Job logs, search settings and the AI playground move from pills to the
+  strip. Planner schedules, resources, staff members and teams, audit logs, the attachment previews and
+  the mobile person zones fade their panels in. The action button in the resources and staff card rows
+  moves from 32px to 36px, the height of the tabs beside it.
+
+### Deliberately not changed
+
+- `SegmentedControl` and toggle lists, such as the Edit tags dialog's categories, pick a mode, not a
+  panel (Phase 4).
+- The AI chat's session tabs are document tabs, renamed in place and closed, a different control.
+- Modules withheld from v1 keep their hand-built strips (the deals pipeline's views, the sales document
+  and channel tabs) until they return to the product, as in Phase 4.
+- A tab that filters a list (notifications, saved views, portal claims, translation locales) leaves the
+  list to update in place, as any filter does; it does not fade.
+
+Measured at 1600×1000 on a person record: the row 40px from y 302, the tabs 36px from y 305, the rail at
+y 341 and the bar at 340–342 over it; every tab's x position and width are the same as before. From
+Change log to Files the bar covers 53% of the 115px in 50ms and 95% by 150ms, and lands at 300ms; a
+second change mid-glide starts from where the bar is. On a company record the row stays 40px and the
+panel starts at y 422 with and without the tab's Add person button. The Tasks team view, resources,
+integrations, audit logs, search settings, the AI playground, the notification panel and the tag
+manager measure the same: 40px row, 36px tabs, weight 500, the bar over the rail. On a 375px phone the
+zone switcher's bar glides 179.5px and nothing scrolls sideways.
+
 ## Changelog
 
 - 2026-09-26 — Implemented.
@@ -432,3 +490,6 @@ nothing scrolls sideways and the week's controls wrap under the month.
   `CollapsibleGroup.test.tsx`, `DictionaryEntrySelect.test.tsx`, `RecordTabsBar.test.tsx`,
   `ActivitiesDayStrip.test.tsx`, `ActivitiesDayStrip.abort.test.tsx`, `ActivityTimelineFilters.test.tsx`
   and `ActivityCard.test.tsx`; TC-UX-001, TC-UX-001b, TC-CRM-051 and TC-CRM-057 follow the new controls.
+- 2026-09-27 — Phase 11: one tab strip, and it moves. Unit coverage in `tabs.test.tsx`,
+  `soft-opt-ins.test.tsx`, `RecordTabsBar.test.tsx`, `ManageTagsDialog.test.tsx` and resources'
+  `guarded-mutations.test.tsx`.
