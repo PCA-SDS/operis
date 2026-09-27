@@ -90,8 +90,6 @@ const DEFAULT_COLORS = {
   backgroundColor: '#F8F4EE',
 } as const
 
-const SETTINGS_TABS_LIST_CLASS = 'h-auto w-full justify-start overflow-x-auto rounded-none border-b border-border bg-transparent p-0'
-const SETTINGS_TABS_TRIGGER_CLASS = 'mr-8 h-auto rounded-none border-b-2 border-transparent bg-transparent px-0 py-2.5 text-sm font-medium text-muted-foreground shadow-none transition-colors hover:bg-transparent hover:text-foreground aria-selected:border-accent-strong aria-selected:bg-transparent aria-selected:text-foreground aria-selected:shadow-none last:mr-0'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
@@ -1001,13 +999,11 @@ function LegalSection({ values, setValue, errors }: CrudFormGroupComponentProps)
       </Alert>
 
       <Tabs value={tab} onValueChange={(next) => setTab(next as 'terms' | 'privacyPolicy')}>
-        <TabsList className={SETTINGS_TABS_LIST_CLASS}>
-          <TabsTrigger value="terms" className={SETTINGS_TABS_TRIGGER_CLASS}>
-            <Shield className="mr-2 h-4 w-4" />
+        <TabsList>
+          <TabsTrigger value="terms" leading={<Shield className="size-4" />}>
             {t('checkout.linkTemplateForm.legal.tabs.terms')}
           </TabsTrigger>
-          <TabsTrigger value="privacyPolicy" className={SETTINGS_TABS_TRIGGER_CLASS}>
-            <FileCheck2 className="mr-2 h-4 w-4" />
+          <TabsTrigger value="privacyPolicy" leading={<FileCheck2 className="size-4" />}>
             {t('checkout.linkTemplateForm.legal.tabs.privacy')}
           </TabsTrigger>
         </TabsList>
@@ -1111,10 +1107,9 @@ function MessagesSection({ values, setValue, errors }: CrudFormGroupComponentPro
       </Alert>
 
       <Tabs value={tab} onValueChange={(next) => setTab(next as 'success' | 'cancel' | 'error')}>
-        <TabsList className={SETTINGS_TABS_LIST_CLASS}>
+        <TabsList>
           {(['success', 'cancel', 'error'] as const).map((item) => (
-            <TabsTrigger key={item} value={item} className={SETTINGS_TABS_TRIGGER_CLASS}>
-              <MessageSquare className="mr-2 h-4 w-4" />
+            <TabsTrigger key={item} value={item} leading={<MessageSquare className="size-4" />}>
               {config[item].label}
             </TabsTrigger>
           ))}
@@ -1211,12 +1206,11 @@ function EmailsSection({ values, setValue, errors }: CrudFormGroupComponentProps
       <VariableHint />
 
       <Tabs value={tab} onValueChange={(next) => setTab(next as 'start' | 'success' | 'error')}>
-        <TabsList className={SETTINGS_TABS_LIST_CLASS}>
+        <TabsList>
           {(['start', 'success', 'error'] as const).map((item) => {
             const Icon = config[item].Icon
             return (
-              <TabsTrigger key={item} value={item} className={SETTINGS_TABS_TRIGGER_CLASS}>
-                <Icon className="mr-2 h-4 w-4" />
+              <TabsTrigger key={item} value={item} leading={<Icon className="size-4" />}>
                 {config[item].title}
               </TabsTrigger>
             )

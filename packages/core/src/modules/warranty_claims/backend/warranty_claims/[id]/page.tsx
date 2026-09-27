@@ -2015,16 +2015,14 @@ export default function WarrantyClaimDetailPage({ params }: { params?: { id?: st
           <Tabs
             value={activeTab}
             onValueChange={(value) => setActiveTab(value as TabId)}
-            variant="underline"
           >
-            <TabsList className="h-auto w-full flex-wrap gap-1 px-7" aria-label={t('warranty_claims.detail.tabs.label', 'Claim sections')}>
+            <TabsList className="px-7" aria-label={t('warranty_claims.detail.tabs.label', 'Claim sections')}>
               {tabs.map((tab) => (
                 <TabsTrigger
                   key={tab.id}
                   value={tab.id}
                   count={tab.count}
                   data-tab-id={tab.id}
-                  className="px-4 pb-2 pt-3"
                 >
                   {tab.label}
                 </TabsTrigger>
