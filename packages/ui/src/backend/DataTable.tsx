@@ -2998,14 +2998,20 @@ export function DataTable<T extends RowData>({
     : columnChooserConfig?.availableColumns ?? []
 
   const effectiveColumnChooserFields = React.useMemo<ColumnChooserField[]>(() => {
-    if (resolvedColumnChooserFields.length > 0) return resolvedColumnChooserFields
+    if (resolvedColumnChooserFields.length > 0) {
+      // A field the table has no column for (a custom field its host leaves out
+      // of the grid) would be a switch that does nothing, since
+      // handleColumnChooserToggle finds no column to show, so it is not offered.
+      const columnIds = new Set(table.getAllLeafColumns().map((column) => column.id))
+      return resolvedColumnChooserFields.filter((field) => columnIds.has(field.key))
+    }
     return table.getAllLeafColumns().map((col) => ({
       key: col.id,
       label: resolveColumnLabel(col),
       group: t('ui.columnChooser.defaultGroup', 'Columns'),
       alwaysVisible: !col.getCanHide(),
     }))
-  }, [resolvedColumnChooserFields, table, resolveColumnLabel, columns, t])
+  }, [resolvedColumnChooserFields, table, resolveColumnLabel, columns, mergedColumns, t])
 
   const visibleColumnKeys = React.useMemo(
     () => table.getAllLeafColumns().filter((c) => c.getIsVisible()).map((c) => c.id),
