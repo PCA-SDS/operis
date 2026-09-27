@@ -51,7 +51,12 @@ export function register(container: AppContainer) {
     ).scoped().proxy(),
     invoiceTrackingService: asFunction(({ em }) => createInvoiceTrackingService(em)).scoped().proxy(),
     invoicePaymentConfirmationsService: asFunction(({ em, invoiceCompanyEmailsService, invoiceService }) =>
-      createInvoicePaymentConfirmationsService(em, invoiceCompanyEmailsService, invoiceService),
+      createInvoicePaymentConfirmationsService(
+        em,
+        invoiceCompanyEmailsService,
+        invoiceService,
+        container.hasRegistration('resendEmailService') ? container.resolve('resendEmailService') : undefined,
+      ),
     ).scoped().proxy(),
     invoiceService: asFunction(({
       em,
@@ -59,15 +64,14 @@ export function register(container: AppContainer) {
       invoiceScopedPersistenceService,
       invoiceExchangeRatesService,
       invoiceCompanyEmailsService,
-    }) =>
-      createInvoiceService(
-        em,
-        queryEngine,
-        invoiceScopedPersistenceService,
-        invoiceExchangeRatesService,
-        invoiceCompanyEmailsService,
-      ),
-    ).scoped().proxy(),
+    }) => createInvoiceService(
+      em,
+      queryEngine,
+      invoiceScopedPersistenceService,
+      invoiceExchangeRatesService,
+      invoiceCompanyEmailsService,
+      container.hasRegistration('resendEmailService') ? container.resolve('resendEmailService') : undefined,
+    )).scoped().proxy(),
     invoiceSyncService: asFunction(({ em, cache, progressService, gdtClient, tenantEncryptionService }) =>
       createInvoiceSyncService(em, cache, progressService, gdtClient, tenantEncryptionService),
     ).scoped().proxy(),

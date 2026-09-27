@@ -57,12 +57,14 @@ function buildService(invoice: Invoice, companyEmailsService = { record: jest.fn
     flush: jest.fn().mockResolvedValue(undefined),
   }
   const scopedPersistence = new InvoiceScopedPersistenceService(em as never)
+  const emailSender = { send: jest.fn(async (_scope: InvoiceScope, options: Parameters<typeof sendEmail>[0]) => sendEmail(options)) }
   const service = new InvoiceService(
     em as never,
     {} as never,
     scopedPersistence,
     {} as never,
     companyEmailsService as never,
+    emailSender,
   )
   return { em, service, companyEmailsService }
 }
