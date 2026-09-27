@@ -2,8 +2,9 @@
 
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { BarChart2, ChevronRight, Loader2 } from 'lucide-react'
+import { ChevronRight, Loader2 } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { PageHeader } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { Label } from '@open-mercato/ui/primitives/label'
@@ -191,12 +192,7 @@ export function AiUsageStatsPageClient() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2">
-        <BarChart2 className="text-muted-foreground" size={20} />
-        <h2 className="text-lg font-semibold">
-          {t('ai_assistant.usage.title', 'Token Usage Statistics')}
-        </h2>
-      </div>
+      <PageHeader title={t('ai_assistant.usage.title', 'Token Usage Statistics')} />
 
       {/* Date range filter */}
       <div className="flex items-end gap-4 flex-wrap">

@@ -20,6 +20,7 @@ import {
   Wrench,
 } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { PageHeader } from '@open-mercato/ui/backend/Page'
 import { Alert, AlertDescription, AlertTitle } from '@open-mercato/ui/primitives/alert'
 import { Badge } from '@open-mercato/ui/primitives/badge'
 import { Button } from '@open-mercato/ui/primitives/button'
@@ -2495,58 +2496,69 @@ export function AiAgentSettingsPageClient() {
     return agents.find((agent) => agent.id === selectedAgentId) ?? null
   }, [agents, selectedAgentId])
 
+  const pageHeader = (
+    <PageHeader
+      title={t('ai_assistant.agents.title', 'AI Agents')}
+      description={t(
+        'ai_assistant.agents.subtitle',
+        'Inspect every registered agent and manage tenant-scoped additive prompt-section overrides.',
+      )}
+    />
+  )
+
   if (isLoading) {
     return (
-      <SettingsLoading
-        message={t('ai_assistant.agents.loadingAgents', 'Loading AI agents...')}
-      />
+      <div className="flex min-w-0 flex-col gap-6">
+        {pageHeader}
+        <SettingsLoading
+          message={t('ai_assistant.agents.loadingAgents', 'Loading AI agents...')}
+        />
+      </div>
     )
   }
 
   if (isError) {
     return (
-      <Alert status="error" data-ai-agent-settings-error>
-        <AlertTitle>
-          {t('ai_assistant.agents.loadErrorTitle', 'Failed to load AI agents')}
-        </AlertTitle>
-        <AlertDescription>
-          <span>{error instanceof Error ? error.message : String(error)}</span>
-          <div className="mt-2">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                void refetch()
-              }}
-            >
-              <RefreshCcw className="size-4" aria-hidden />
-              <span>{t('ai_assistant.agents.retry', 'Retry')}</span>
-            </Button>
-          </div>
-        </AlertDescription>
-      </Alert>
+      <div className="flex min-w-0 flex-col gap-6">
+        {pageHeader}
+        <Alert status="error" data-ai-agent-settings-error>
+          <AlertTitle>
+            {t('ai_assistant.agents.loadErrorTitle', 'Failed to load AI agents')}
+          </AlertTitle>
+          <AlertDescription>
+            <span>{error instanceof Error ? error.message : String(error)}</span>
+            <div className="mt-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  void refetch()
+                }}
+              >
+                <RefreshCcw className="size-4" aria-hidden />
+                <span>{t('ai_assistant.agents.retry', 'Retry')}</span>
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      </div>
     )
   }
 
   if (!agents.length) {
-    return <EmptyAgents />
+    return (
+      <div className="flex min-w-0 flex-col gap-6">
+        {pageHeader}
+        <EmptyAgents />
+      </div>
+    )
   }
 
   return (
     <TooltipProvider delayDuration={200}>
-      <div className="flex min-w-0 flex-col gap-4" data-ai-agent-settings>
-        <header className="flex min-w-0 flex-col gap-1">
-          <h1 className="text-2xl font-bold tracking-tight">
-            {t('ai_assistant.agents.title', 'AI Agents')}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {t(
-              'ai_assistant.agents.subtitle',
-              'Inspect every registered agent and manage tenant-scoped additive prompt-section overrides.',
-            )}
-          </p>
-        </header>
+      <div className="flex min-w-0 flex-col gap-6" data-ai-agent-settings>
+        {pageHeader}
 
         <section
           className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-3"

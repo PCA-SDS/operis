@@ -4,6 +4,7 @@ import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Bot, BookOpen, Loader2, Play, RefreshCcw } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { PageHeader } from '@open-mercato/ui/backend/Page'
 import { Alert, AlertDescription, AlertTitle } from '@open-mercato/ui/primitives/alert'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
@@ -493,7 +494,7 @@ function ObjectLane({ agent }: { agent: PlaygroundAgent }) {
           <h3 className="text-sm font-semibold">
             {t('ai_assistant.playground.object.resultTitle', 'Generated object')}
           </h3>
-          <pre className="mt-2 max-h-96 overflow-auto rounded bg-background p-2 text-xs font-mono">
+          <pre className="mt-2 max-h-96 overflow-auto rounded bg-muted p-2 text-xs font-mono">
             {JSON.stringify(result.object, null, 2)}
           </pre>
           {result.usage || result.finishReason ? (
@@ -572,57 +573,68 @@ export function AiPlaygroundPageClient() {
     return agents.find((agent) => agent.id === selectedAgentId) ?? null
   }, [agents, selectedAgentId])
 
+  const pageHeader = (
+    <PageHeader
+      title={t('ai_assistant.playground.title', 'AI Playground')}
+      description={t(
+        'ai_assistant.playground.subtitle',
+        'Exercise every registered AI agent end-to-end. Use the debug panel to inspect request and response payloads, and the object-mode tab to preview structured output.',
+      )}
+    />
+  )
+
   if (isLoading) {
     return (
-      <PlaygroundLoading
-        message={t('ai_assistant.playground.loadingAgents', 'Loading AI agents...')}
-      />
+      <div className="flex flex-col gap-6">
+        {pageHeader}
+        <PlaygroundLoading
+          message={t('ai_assistant.playground.loadingAgents', 'Loading AI agents...')}
+        />
+      </div>
     )
   }
 
   if (isError) {
     return (
-      <Alert status="error" data-ai-playground-error>
-        <AlertTitle>
-          {t('ai_assistant.playground.loadErrorTitle', 'Failed to load AI agents')}
-        </AlertTitle>
-        <AlertDescription>
-          <span>{error instanceof Error ? error.message : String(error)}</span>
-          <div className="mt-2">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                void refetch()
-              }}
-            >
-              <RefreshCcw className="size-4" aria-hidden />
-              <span>{t('ai_assistant.playground.retry', 'Retry')}</span>
-            </Button>
-          </div>
-        </AlertDescription>
-      </Alert>
+      <div className="flex flex-col gap-6">
+        {pageHeader}
+        <Alert status="error" data-ai-playground-error>
+          <AlertTitle>
+            {t('ai_assistant.playground.loadErrorTitle', 'Failed to load AI agents')}
+          </AlertTitle>
+          <AlertDescription>
+            <span>{error instanceof Error ? error.message : String(error)}</span>
+            <div className="mt-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  void refetch()
+                }}
+              >
+                <RefreshCcw className="size-4" aria-hidden />
+                <span>{t('ai_assistant.playground.retry', 'Retry')}</span>
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      </div>
     )
   }
 
   if (!agents.length) {
-    return <PlaygroundNoAgents />
+    return (
+      <div className="flex flex-col gap-6">
+        {pageHeader}
+        <PlaygroundNoAgents />
+      </div>
+    )
   }
 
   return (
-    <div className="flex flex-col gap-4" data-ai-playground>
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold tracking-tight">
-          {t('ai_assistant.playground.title', 'AI Playground')}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          {t(
-            'ai_assistant.playground.subtitle',
-            'Exercise every registered AI agent end-to-end. Use the debug panel to inspect request and response payloads, and the object-mode tab to preview structured output.',
-          )}
-        </p>
-      </header>
+    <div className="flex flex-col gap-6" data-ai-playground>
+      {pageHeader}
 
       <section className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">

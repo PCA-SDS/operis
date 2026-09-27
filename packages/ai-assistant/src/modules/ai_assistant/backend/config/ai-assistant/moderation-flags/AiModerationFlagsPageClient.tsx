@@ -4,6 +4,7 @@ import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { PageHeader } from '@open-mercato/ui/backend/Page'
 import { DataTable } from '@open-mercato/ui/backend/DataTable'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
@@ -125,18 +126,14 @@ export function AiModerationFlagsPageClient() {
   const total = query.data?.total ?? 0
 
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <h2 className="text-base font-semibold">
-          {t('ai_assistant.moderationFlags.title', 'Moderation flags')}
-        </h2>
-        <p className="text-xs text-muted-foreground">
-          {t(
-            'ai_assistant.moderationFlags.subtitle',
-            'Inputs blocked by the content safety filter. Category flags and scores only — no prompt content is stored.',
-          )}
-        </p>
-      </div>
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title={t('ai_assistant.moderationFlags.title', 'Moderation flags')}
+        description={t(
+          'ai_assistant.moderationFlags.subtitle',
+          'Inputs blocked by the content safety filter. Category flags and scores only — no prompt content is stored.',
+        )}
+      />
 
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex flex-col gap-1">
