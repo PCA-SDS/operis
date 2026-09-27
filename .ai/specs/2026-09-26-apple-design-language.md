@@ -291,6 +291,41 @@ folding box, so the grid slides and nothing jumps at either end. It also folds s
 the last available widget is added. Closed, the panel is `inert`. Reduced motion makes it instant
 through the global rule.
 
+## Phase 8 — loading states that are the page
+
+The backend drew one table shape for every loading page, without the module sidebar, so the sidebar
+arrived with the page and pushed it 256px across, and a form, a record, the calendar or the dashboard
+resolved into something that looked nothing like the placeholder. Three rules now:
+
+- **Frame first.** The route-level fallback (`loading.tsx`) frames the page the way the page frames
+  itself. The layout builds each route's shape from the metadata it already reads (`moduleSidebar`,
+  the group and breadcrumb parent of a page no nav link leads to, and the new `loadingSkeleton`) and
+  hands them down through `BackendRouteShapesProvider`, so the module's real sidebar is in place
+  before the page arrives.
+- **Draw only a known shape.** A page declares `loadingSkeleton` (`list`, `detail`, `calendar`,
+  `conversation`) in `page.meta.ts` only when its layout is that skeleton's, and
+  `loading-skeleton-declarations.test.ts` holds each declaration to the component that draws that
+  layout. Any other page gets `PageLoadingIndicator`: nothing for 400ms, then a small spinner. Declared
+  so far: the People and Companies lists, the person and company records, the calendar and chat.
+- **The component that knows the layout draws the skeleton.** `DataTable`'s first load draws six rows
+  in its own columns, with the selection and row-actions cells real rows have, so they stand 65px like
+  real rows. `CrudForm` draws `FormSkeleton` from its own groups and fields while its record loads:
+  the real section titles and labels, the spans, and each control's height (a 36px box, a textarea of
+  its rows, a checkbox row, an editor), with its footer. The dashboard draws `DashboardSkeleton` for its
+  layout and the same placeholder rows in each card while a widget's module loads. The customer
+  records draw `DetailPageSkeleton` in place of the loading message.
+
+Measured at 1440×900, the People list's fallback, its table's first load and the loaded page share
+the title row (52px), the card's top (164), the toolbar (60px), the header row (40px) and 65px rows.
+The person record's header card (198px) and lower block (302), the calendar's grid (748px) and bar
+controls (within a pixel), and the chat rail and card land exactly. What still moves is a table's
+column widths: every column takes the width of the widest cell, which only the data knows, so until
+it arrives the columns are as wide as their headings.
+
+`ButtonGroup` in a row is now its size's control height with the border inside it (36px by default).
+The border used to sit outside full-height buttons, so the AI trigger beside a table's search was
+38px and made every toolbar holding it 2px taller than the rest.
+
 ## Changelog
 
 - 2026-09-26 — Implemented.
@@ -305,3 +340,8 @@ through the global rule.
   `search-input.test.tsx` and `AiAssistantLauncher.test.tsx`.
 - 2026-09-27 — Phase 7: the dashboard's add-widget panel folds open and shut. Unit coverage in
   `dashboard/__tests__/DashboardScreen.test.tsx`.
+- 2026-09-27 — Phase 8: loading states that are the page. Unit coverage in
+  `skeletons/__tests__/PageSkeletons.test.tsx`, `skeletons/__tests__/backendRouteShapes.test.ts`,
+  `CrudForm.loadingSkeleton.test.tsx`, `DataTable.refetchAndBulk.test.tsx`,
+  `DashboardScreen.test.tsx`, `button-group.test.tsx`, the backend `loading-shape.test.tsx`, core's
+  `loading-skeleton-declarations.test.ts` and shared's `registry.test.ts`.

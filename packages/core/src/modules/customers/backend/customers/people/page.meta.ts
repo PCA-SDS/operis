@@ -8,5 +8,6 @@ export const metadata = {
   pagePriority: 10,
   pageOrder: 100,
   icon: 'users',
+  loadingSkeleton: 'list',
   breadcrumb: [{ label: 'People', labelKey: 'customers.nav.people' }],
 }

@@ -103,6 +103,7 @@ import { clearAllPerspectiveState, PERSPECTIVE_COOKIE_PREFIX, PERSPECTIVE_STORAG
 import { diffPerspectiveSettings } from './perspectiveDirty'
 import type { DataTableViewDirtyState, DataTableViewSettingKey } from './perspectiveDirty'
 import { PAGE_TITLE_CLASS } from './Page'
+import { LIST_SKELETON_ROW_COUNT, SkeletonBar } from './skeletons/PageSkeletons'
 
 // Re-exported so `@open-mercato/ui/backend/DataTable` stays the published import
 // path for the purge (BACKWARD_COMPATIBILITY: import paths are a contract surface).
@@ -595,6 +596,7 @@ function resolveExportSections(config: DataTableExportConfig | null | undefined)
 const DATATABLE_MAX_PAGE_SIZE = 100
 
 const STALE_ROWS_CLASS = 'pointer-events-none select-none opacity-70 transition-opacity'
+const FIRST_LOAD_BAR_WIDTHS = ['w-3/4', 'w-1/2', 'w-2/3', 'w-2/5', 'w-3/5']
 
 const COLUMN_MIN_WIDTH = 60
 const COLUMN_MAX_WIDTH = 900
@@ -3764,20 +3766,42 @@ export function DataTable<T extends RowData>({
             className={showingStaleRows ? STALE_ROWS_CLASS : undefined}
           >
             {isFirstLoad ? (
-              <TableRow>
-                <TableCell
-                  colSpan={mergedColumns.length + (rowActions || injectedRowActions.length > 0 ? 1 : 0) + (hasInjectedBulkActions ? 1 : 0)}
-                  className="p-0"
-                >
-                  <div
-                    className={cn('sticky left-0 flex items-center justify-center gap-2 h-24', emptyStateViewportWidth ? '' : 'w-full')}
-                    style={emptyStateViewportWidth ? { width: emptyStateViewportWidth } : undefined}
-                  >
-                    <Spinner size="md" />
-                    <span className="text-muted-foreground">{t('ui.dataTable.loading', 'Loading data...')}</span>
-                  </div>
-                </TableCell>
-              </TableRow>
+              /* The first load draws rows, not a spinner: the table's own
+                 columns, cells and row-actions slot, each cell a bar in its
+                 20px line box, so they stand exactly as tall as the rows that
+                 replace them. A 96px spinner row grew into several rows on
+                 arrival and pushed the pager and everything below it down. */
+              Array.from({ length: LIST_SKELETON_ROW_COUNT }, (_, rowIndex) => (
+                <TableRow key={`first-load-${rowIndex}`} aria-hidden={rowIndex > 0 ? true : undefined} data-skeleton-row="">
+                  {hasInjectedBulkActions ? (
+                    <TableCell padding="control">
+                      <SkeletonBar className="size-4 rounded-sm" />
+                    </TableCell>
+                  ) : null}
+                  {visibleLeafColumns.map((column, columnIndex) => {
+                    const columnMeta = (column.columnDef as { meta?: ColumnTruncateMeta & { hidden?: boolean } }).meta
+                    return (
+                      <TableCell
+                        key={column.id}
+                        align={resolveColumnAlign(columnMeta)}
+                        className={responsiveClass(resolvePriority(column), columnMeta?.hidden)}
+                      >
+                        {rowIndex === 0 && columnIndex === 0 ? (
+                          <span className="sr-only">{t('ui.dataTable.loading', 'Loading data...')}</span>
+                        ) : null}
+                        <span aria-hidden="true" className="flex h-5 w-full items-center">
+                          <SkeletonBar className={cn('h-3.5', FIRST_LOAD_BAR_WIDTHS[(rowIndex + columnIndex) % FIRST_LOAD_BAR_WIDTHS.length])} />
+                        </span>
+                      </TableCell>
+                    )
+                  })}
+                  {rowActions || injectedRowActions.length > 0 ? (
+                    <TableCell align={actionsColumnAlign} padding="control">
+                      <SkeletonBar className="size-8 rounded-lg" />
+                    </TableCell>
+                  ) : null}
+                </TableRow>
+              ))
             ) : error ? (
               <TableRow>
                 <TableCell

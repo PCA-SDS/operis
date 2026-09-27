@@ -22,6 +22,13 @@ export type SkeletonProps = Omit<React.HTMLAttributes<HTMLDivElement>, 'role' | 
 
 const baseLine = 'animate-pulse rounded-md bg-surface-muted'
 
+/**
+ * The placeholder's look, for a decorative bar inside a larger skeleton that
+ * owns the single `role="status"` region. Every `Skeleton` announces itself, so
+ * a page drawn from dozens of them would read "loading" dozens of times.
+ */
+export const SKELETON_BAR_CLASS = baseLine
+
 export function Skeleton({
   shape = 'rect',
   lines = 1,

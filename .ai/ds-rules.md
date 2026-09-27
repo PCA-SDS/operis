@@ -163,6 +163,10 @@ module's pages sit beside that module's own sidebar. Spec:
 - A backend page gets the generic module sidebar automatically (`BackendModuleFrame`, mounted by the backend
   catch-all). A page that draws its own module navigation sets `moduleSidebar: false` in its `page.meta.ts`
   and renders `ModuleLayout` with its own `ModuleSidebar` — never both.
+- The route-level loading state frames every page the way the page frames itself, and draws a page's shape
+  only when its `page.meta.ts` declares `loadingSkeleton` (`list`, `detail`, `calendar`, `conversation`).
+  Declare one only for a page that draws that layout (`loading-skeleton-declarations.test.ts` checks it);
+  an undeclared page gets a quiet spinner, never a guessed shape.
 - Tokens are the page-side neutrals, not the `sidebar-*` family. The column has no panel fill — it
   sits directly on the page ground; idle row `text-muted-foreground hover:bg-surface-muted
   hover:text-foreground`, active row `bg-primary-soft text-primary` with `aria-current="page"`. The

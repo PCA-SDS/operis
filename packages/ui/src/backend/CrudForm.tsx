@@ -43,6 +43,7 @@ import {
 } from './forms/formChrome'
 import { FormFieldLabel, FormSection } from './forms/FormSection'
 import { FormFooter } from './forms/FormFooter'
+import { FormSkeleton, type FormSkeletonField, type FormSkeletonSection } from './skeletons/PageSkeletons'
 import { Button } from '../primitives/button'
 import { IconButton } from '../primitives/icon-button'
 import {
@@ -137,6 +138,23 @@ function SectionPanel({ enabled, children }: { enabled: boolean; children: React
       {children}
     </div>
   )
+}
+
+function describeFieldForSkeleton(field: CrudField, split: boolean): FormSkeletonField {
+  return {
+    span: split ? field.layout ?? 'full' : undefined,
+    control:
+      field.type === 'checkbox'
+        ? 'checkbox'
+        : field.type === 'textarea'
+          ? 'textarea'
+          : field.type === 'richtext'
+            ? 'editor'
+            : 'input',
+    rows: field.type === 'textarea' ? field.rows : undefined,
+    label: field.label,
+    hint: Boolean(field.description),
+  }
 }
 
 // Stable empty options array to avoid creating a new [] every render
@@ -3415,6 +3433,48 @@ export function CrudForm<TValues extends Record<string, unknown>>({
   const flatCustomSections = flatCustomFieldSections && collapsibleGroupsEnabled
   const customSectionPanelClass = flatCustomSections ? 'space-y-6' : FORM_SECTION_PANEL
 
+  // While the record loads, the form is drawn as its own skeleton: the same
+  // sections, titles, labels, spans and control heights, with bars where the
+  // values go, so the fields land in place instead of replacing a spinner.
+  const describeFieldsForSkeleton = (fieldList: CrudField[]): Pick<FormSkeletonSection, 'grid' | 'fields'> => {
+    const visibleFieldList = fieldList.filter(
+      (field) => !hiddenBaseFieldIds.has(field.id) && !hiddenInjectedFieldIds.has(field.id)
+    )
+    const split = visibleFieldList.some((field) => field.layout === 'half' || field.layout === 'third')
+    return {
+      grid: split ? FORM_FIELD_GRID_SPLIT : FORM_FIELD_GRID,
+      fields: visibleFieldList.map((field) => describeFieldForSkeleton(field, split)),
+    }
+  }
+  const describeGroupsForSkeleton = (items: CrudFormGroup[]): FormSkeletonSection[] =>
+    items.flatMap((g): FormSkeletonSection[] => {
+      if (g.bare) return []
+      if (g.kind === 'customFields') {
+        const sections = isLoadingCustomFields
+          ? []
+          : customFieldLayout.flatMap((entityLayout) => entityLayout.sections)
+        if (!sections.length) return [{ title: null, block: true, panel: !flatCustomSections, fields: [] }]
+        return sections.map((section) => ({
+          title: section.title,
+          description: section.description,
+          panel: !flatCustomSections,
+          ...describeFieldsForSkeleton(
+            section.groups.flatMap((group) => group.fields.filter((field) => !placedCustomFieldIds.has(field.id))),
+          ),
+        }))
+      }
+      return [{
+        title: g.title ? t(g.title, g.title) : null,
+        description: g.description ? t(g.description, g.description) : undefined,
+        block: Boolean(g.component),
+        ...describeFieldsForSkeleton(resolveGroupFields(g)),
+      }]
+    })
+  const formStackClass = fixedDialogBody || embedded ? 'space-y-4' : 'space-y-5'
+  const footerSkeleton = hideFooterActions || formReadOnly
+    ? null
+    : { embedded, withDelete: !embedded && showDelete, withCancel: !embedded && Boolean(cancelHref) }
+
   const renderCustomFieldsContent = React.useCallback((): React.ReactNode[] => {
     if (!customFieldLayout.length) {
       return [
@@ -3839,7 +3899,16 @@ export function CrudForm<TValues extends Record<string, unknown>>({
           isLoading={isLoading}
           loadingMessage={resolvedLoadingMessage}
           spinnerSize="md"
-          className={embedded ? 'min-h-[1px]' : 'min-h-[400px]'}
+          className={embedded ? 'min-h-px' : 'min-h-100'}
+          showSkeleton
+          skeletonComponent={isLoading ? (
+            <FormSkeleton
+              columns={[describeGroupsForSkeleton(col1), describeGroupsForSkeleton(col2)]}
+              footer={footerSkeleton}
+              className={formStackClass}
+              label={resolvedLoadingMessage}
+            />
+          ) : null}
         >
           {wrapFormBody(
             <form id={formId} noValidate={disableNativeValidation} onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className={`${fixedDialogBody ? '' : embedded ? 'space-y-4' : 'space-y-5'} ${dialogFormPadding}`}>
@@ -3923,7 +3992,23 @@ export function CrudForm<TValues extends Record<string, unknown>>({
         isLoading={isLoading}
         loadingMessage={resolvedLoadingMessage}
         spinnerSize="md"
-        className={embedded ? 'min-h-[1px]' : 'min-h-[400px]'}
+        className={embedded ? 'min-h-px' : 'min-h-100'}
+        showSkeleton
+        skeletonComponent={isLoading ? (
+          <FormSkeleton
+            columns={[[{
+              title: null,
+              panel: !embedded,
+              grid,
+              fields: allFields
+                .filter((field) => !hiddenBaseFieldIds.has(field.id) && !hiddenInjectedFieldIds.has(field.id))
+                .map((field) => describeFieldForSkeleton(field, usesResponsiveLayout)),
+            }]]}
+            footer={footerSkeleton}
+            className={formStackClass}
+            label={resolvedLoadingMessage}
+          />
+        ) : null}
       >
         {wrapFormBody(
           <div>

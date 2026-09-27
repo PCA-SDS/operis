@@ -14,7 +14,8 @@ import { surfaceRecordConflict } from '@open-mercato/ui/backend/conflicts'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { CUSTOMER_CUSTOM_ATTRIBUTES_IN_PRODUCT } from '@open-mercato/shared/lib/product-scope'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { AttachmentsSection, ErrorMessage, LoadingMessage, RecordNotFoundState, type SectionAction } from '@open-mercato/ui/backend/detail'
+import { AttachmentsSection, ErrorMessage, RecordNotFoundState, type SectionAction } from '@open-mercato/ui/backend/detail'
+import { DetailPageSkeleton } from '@open-mercato/ui/backend/skeletons/PageSkeletons'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import { InjectionSpot, useInjectionWidgets } from '@open-mercato/ui/backend/injection/InjectionSpot'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
@@ -442,7 +443,7 @@ export default function CompanyDetailV2Page({ params }: { params?: { id?: string
     return (
       <Page>
         <PageBody>
-          <LoadingMessage label={t('customers.companies.detail.loading', 'Loading company…')} />
+          <DetailPageSkeleton label={t('customers.companies.detail.loading', 'Loading company…')} />
         </PageBody>
       </Page>
     )

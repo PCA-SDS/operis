@@ -14,6 +14,7 @@ jest.mock('@/.mercato/generated/backend-route-metadata.generated', () => ({
 
 jest.mock('@open-mercato/shared/modules/registry', () => ({
   findRouteManifestMatch: jest.fn(() => undefined),
+  sortRoutesBySpecificity: jest.fn((routes: unknown[]) => [...routes]),
 }))
 
 jest.mock('next/headers', () => ({

@@ -1,6 +1,6 @@
 import { headers } from 'next/headers'
 import { backendRouteMetadata } from '@/.mercato/generated/backend-route-metadata.generated'
-import { findRouteManifestMatch } from '@open-mercato/shared/modules/registry'
+import { findRouteManifestMatch, sortRoutesBySpecificity } from '@open-mercato/shared/modules/registry'
 import { getAuthFromCookies } from '@open-mercato/shared/lib/auth/server'
 import { AppShell } from '@open-mercato/ui/backend/AppShell'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
@@ -9,6 +9,8 @@ import { profilePathPrefixes } from '@open-mercato/core/modules/auth/lib/profile
 import { APP_VERSION } from '@open-mercato/shared/lib/version'
 import { parseBooleanWithDefault } from '@open-mercato/shared/lib/boolean'
 import { PageInjectionBoundary } from '@open-mercato/ui/backend/injection/PageInjectionBoundary'
+import { BackendRouteShapesProvider } from '@open-mercato/ui/backend/skeletons/BackendRouteShapesProvider'
+import { buildBackendRouteShapes } from '@open-mercato/ui/backend/skeletons/backendRouteShapes'
 import { DemoFeedbackWidget } from '@/components/DemoFeedbackWidget'
 import { BackendHeaderChrome, BackendHeaderSearch } from '@/components/BackendHeaderChrome'
 
@@ -27,6 +29,13 @@ function collectStaticSettingsPathPrefixes(): string[] {
   }
   return Array.from(prefixes)
 }
+
+/**
+ * Each route's shape for the loading state, which renders before the server
+ * has matched the next route: the metadata that frames the page and the
+ * skeleton it declared. Built once; the metadata is static.
+ */
+const routeShapes = buildBackendRouteShapes(sortRoutesBySpecificity(backendRouteMetadata))
 
 export default async function BackendLayout({
   children,
@@ -136,9 +145,11 @@ export default async function BackendLayout({
       profileSectionTitle={translate('profile.page.title', 'Profile')}
       profilePathPrefixes={profilePathPrefixes}
     >
-      <PageInjectionBoundary path={path} context={injectionContext}>
-        {children}
-      </PageInjectionBoundary>
+      <BackendRouteShapesProvider shapes={routeShapes}>
+        <PageInjectionBoundary path={path} context={injectionContext}>
+          {children}
+        </PageInjectionBoundary>
+      </BackendRouteShapesProvider>
       {demoModeEnabled ? <DemoFeedbackWidget demoModeEnabled={demoModeEnabled} /> : null}
     </AppShell>
   )

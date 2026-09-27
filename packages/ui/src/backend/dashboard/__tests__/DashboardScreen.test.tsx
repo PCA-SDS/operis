@@ -148,6 +148,39 @@ describe('DashboardScreen', () => {
     expect(await screen.findByText('Widget body')).toBeInTheDocument()
   })
 
+  it('stands in its own shape while the layout and then each widget load', async () => {
+    const layout = deferred<unknown>()
+    const widgetModule = deferred<unknown>()
+    ;(apiCall as jest.Mock).mockReturnValue(layout.promise)
+    ;(loadDashboardWidgetModule as jest.Mock).mockReturnValue(widgetModule.promise)
+
+    const { container } = renderWithProviders(<DashboardScreen />, { dict })
+
+    // The greeting, the Customize button and a row of cards, not a spinner.
+    const skeleton = container.querySelector('[data-slot="page-skeleton"]')
+    expect(skeleton).not.toBeNull()
+    expect(skeleton?.querySelectorAll('.grid > .rounded-xl')).toHaveLength(3)
+    expect(container.querySelector('.animate-spin')).toBeNull()
+
+    await act(async () => {
+      layout.resolve(successfulApiCall(widgetResponse))
+    })
+    expect(await screen.findByText('Widget Foo')).toBeInTheDocument()
+    expect(container.querySelector('[data-slot="page-skeleton"]')).toBeNull()
+    // The real card holds the same placeholder rows until its module arrives.
+    expect(container.querySelector('.animate-spin')).toBeNull()
+    expect(container.querySelectorAll('[class*="animate-pulse"]').length).toBeGreaterThan(0)
+
+    await act(async () => {
+      widgetModule.resolve({
+        Widget: MockWidget,
+        hydrateSettings: (value: unknown) => value,
+        dehydrateSettings: (value: unknown) => value,
+      })
+    })
+    expect(await screen.findByText('Widget body')).toBeInTheDocument()
+  })
+
   it('reloads the dashboard when the organization scope changes', async () => {
     ;(apiCall as jest.Mock).mockResolvedValue({
       ok: true,

@@ -39,6 +39,7 @@ Decision tables, exports, props, and MUST rules for the backend component famili
 | Empty list (no records at all) | `ListEmptyState` | `@open-mercato/ui/backend/filters/ListEmptyState` |
 | Empty results due to filters / search | `FilteredEmptyResults` / `SearchEmptyResults` | `@open-mercato/ui/backend/filters/FilteredEmptyResults` (DataTable renders these automatically) |
 | Loading / error / not-found states | `LoadingMessage` / `ErrorMessage` / `RecordNotFoundState` | `@open-mercato/ui/backend/detail` |
+| Whole-page loading state in the page's own shape (never a spinner where the layout is known) | `ListPageSkeleton` / `DetailPageSkeleton` / `FormSkeleton` / `DashboardSkeleton`, `PageLoadingIndicator` when the layout is not known | `@open-mercato/ui/backend/skeletons/PageSkeletons` |
 | Notes / activities / addresses / tags / attachments tab | `NotesSection` / `ActivitiesSection` / `AddressesSection` / `TagsSection` / `AttachmentsSection` | `@open-mercato/ui/backend/detail` |
 | Custom-field values panel | `CustomDataSection` | `@open-mercato/ui/backend/detail` |
 | Inline-editable field list on a detail page | `DetailFieldsSection` (or `InlineTextEditor` & friends) | `@open-mercato/ui/backend/detail` |

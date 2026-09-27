@@ -3,7 +3,6 @@
 import * as React from 'react'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
-import { Spinner } from '@open-mercato/ui/primitives/spinner'
 import { Alert, AlertDescription, AlertTitle } from '@open-mercato/ui/primitives/alert'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { getDashboardWidgets, loadDashboardWidgetModule } from './widgetRegistry'
@@ -14,6 +13,7 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { InjectionSpot } from '../injection/InjectionSpot'
 import { WidgetDataBatchProvider } from './widgetData'
+import { DashboardSkeleton, DashboardWidgetBodySkeleton } from '../skeletons/PageSkeletons'
 import { formatGreeting, pickGreetingForNow, resolveGreetedName, type Greeting } from './greetings'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 
@@ -370,13 +370,7 @@ export function DashboardScreen() {
   const dashboardBeforeSpotId = 'dashboard:before'
   const dashboardAfterSpotId = 'dashboard:after'
 
-  if (loading) {
-    return (
-      <div className="flex min-h-[320px] items-center justify-center">
-        <Spinner size="lg" />
-      </div>
-    )
-  }
+  if (loading) return <DashboardSkeleton />
 
   if (error && layout.length === 0) {
     return (
@@ -778,11 +772,7 @@ function DashboardWidgetCard({
         </div>
       </div>
       <div className="flex-1 px-4 pb-4 pt-3">
-        {loading && (
-          <div className="flex h-full min-h-[120px] items-center justify-center">
-            <Spinner />
-          </div>
-        )}
+        {loading && <DashboardWidgetBodySkeleton />}
         {loadError && !loading && (
           <div className="text-sm text-muted-foreground">{loadError}</div>
         )}
