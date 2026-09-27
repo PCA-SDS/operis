@@ -5,6 +5,7 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { registerComponent } from '@open-mercato/shared/modules/widgets/component-registry'
 import { useRegisteredComponent } from '@open-mercato/ui/backend/injection/useRegisteredComponent'
 import { formatTabCount } from './utils'
+import { TabsPanel } from '@open-mercato/ui/primitives/tabs'
 import { RecordTabsBar, type RecordTab } from './RecordTabsBar'
 
 export type DealTabId =
@@ -101,9 +102,9 @@ function DefaultDealDetailTabs({
         onTabChange={(tab) => onTabChange(tab as DealTabId)}
         ariaLabel={t('customers.deals.detail.tabs.label', 'Deal detail sections')}
       />
-      <div className="pt-5" role="tabpanel">
+      <TabsPanel value={activeTab} className="pt-5">
         {children}
-      </div>
+      </TabsPanel>
     </div>
   )
 }

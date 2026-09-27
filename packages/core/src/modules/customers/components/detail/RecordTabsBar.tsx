@@ -124,21 +124,16 @@ export function RecordTabsBar({ tabs, activeTab, onTabChange, ariaLabel, section
           details panel leads this row, and the content under it spans the
           full width. */}
       {zoneToggle ? <div data-zone-toggle="" className="shrink-0">{zoneToggle}</div> : null}
-      <div className="flex min-w-0 flex-1 items-end gap-3 border-b">
-        {/* Clipped across only, so each tab's underline still sits on the rule. */}
+      {/* The row draws the rail so it runs on under More and the tab's action;
+          a fixed height keeps the rail still whether or not a tab has one. */}
+      <div className="flex h-10 min-w-0 flex-1 items-end gap-3 border-b">
+        {/* Clipped across only, so the selected tab's bar still sits on the rail. */}
         <div ref={stripRef} className="flex min-w-0 flex-1 items-end overflow-x-clip">
-          <Tabs value={activeTab} onValueChange={onTabChange} variant="underline" className="min-w-0">
-            <TabsList aria-label={ariaLabel} className="-mb-px border-b-0">
+          <Tabs value={activeTab} onValueChange={onTabChange} className="min-w-0">
+            <TabsList aria-label={ariaLabel} className="min-h-0 flex-nowrap border-b-0">
               {visibleTabs.map((tab) => (
-                <TabsTrigger
-                  key={tab.id}
-                  value={tab.id}
-                  className="shrink-0 font-medium hover:bg-transparent hover:text-foreground"
-                >
-                  <span>{tab.label}</span>
-                  {tab.count !== undefined && tab.count !== null ? (
-                    <span className="ml-1.5 tabular-nums text-muted-foreground">{tab.count}</span>
-                  ) : null}
+                <TabsTrigger key={tab.id} value={tab.id} count={tab.count ?? undefined}>
+                  {tab.label}
                 </TabsTrigger>
               ))}
             </TabsList>

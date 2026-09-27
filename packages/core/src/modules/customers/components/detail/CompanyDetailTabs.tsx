@@ -7,6 +7,7 @@ import { registerComponent } from '@open-mercato/shared/modules/widgets/componen
 import { useRegisteredComponent } from '@open-mercato/ui/backend/injection/useRegisteredComponent'
 import { useDealsAccess } from './useDealsAccess'
 import { formatTabCount } from './utils'
+import { TabsPanel } from '@open-mercato/ui/primitives/tabs'
 import { RecordTabsBar, type RecordTab } from './RecordTabsBar'
 
 export type CompanyTabId =
@@ -126,9 +127,9 @@ function DefaultCompanyDetailTabs({
         ariaLabel={t('customers.companies.detail.tabs.label', 'Company detail sections')}
         sectionAction={sectionAction}
       />
-      <div className="pt-6" role="tabpanel">
+      <TabsPanel value={activeTab} className="pt-6">
         {children}
-      </div>
+      </TabsPanel>
     </div>
   )
 }
