@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { Page, PageBody } from '@open-mercato/ui/backend/Page'
+import { Page, PageBody, PageHeader } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { LoadingMessage, ErrorMessage } from '@open-mercato/ui/backend/detail'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
@@ -81,6 +81,7 @@ export default function StaffMyAvailabilityPage() {
   if (isLoading) {
     return (
       <Page>
+        <PageHeader title={t('staff.myAvailability.page.title', 'My Availability')} />
         <PageBody>
           <LoadingMessage label={t('staff.myAvailability.loading', 'Loading availability...')} />
         </PageBody>
@@ -91,6 +92,7 @@ export default function StaffMyAvailabilityPage() {
   if (error) {
     return (
       <Page>
+        <PageHeader title={t('staff.myAvailability.page.title', 'My Availability')} />
         <PageBody>
           <ErrorMessage label={error} />
         </PageBody>
@@ -101,10 +103,11 @@ export default function StaffMyAvailabilityPage() {
   if (!member?.id) {
     return (
       <Page>
+        <PageHeader title={t('staff.myAvailability.page.title', 'My Availability')} />
         <PageBody>
-          <div className="space-y-3 rounded-xl border border-transparent bg-surface shadow-sm p-6 text-center text-sm text-muted-foreground">
+          <div className="space-y-3 rounded-xl border border-card-edge bg-surface shadow-sm p-6 text-center text-sm text-muted-foreground">
             <p>{t('staff.myAvailability.empty.profileRequired', 'Create your team member profile to manage availability.')}</p>
-            <Button asChild size="sm">
+            <Button asChild>
               <Link href="/backend/staff/profile/create">
                 {t('staff.leaveRequests.actions.createProfile', 'Create my profile')}
               </Link>
@@ -117,23 +120,24 @@ export default function StaffMyAvailabilityPage() {
 
   return (
     <Page>
+      <PageHeader
+        title={t('staff.myAvailability.page.title', 'My Availability')}
+        actions={member.availabilityRuleSetId ? (
+          <SendObjectMessageDialog
+            object={{
+              entityModule: 'staff',
+              entityType: 'my_availability',
+              entityId: member.availabilityRuleSetId,
+              previewData: { title: member.displayName ?? t('staff.myAvailability.title', 'My Availability') },
+            }}
+            viewHref="/backend/staff/my-availability"
+          />
+        ) : undefined}
+      />
       <PageBody>
         <div className="space-y-4">
-          {member.availabilityRuleSetId ? (
-            <div className="flex justify-end">
-              <SendObjectMessageDialog
-                object={{
-                  entityModule: 'staff',
-                  entityType: 'my_availability',
-                  entityId: member.availabilityRuleSetId,
-                  previewData: { title: member.displayName ?? t('staff.myAvailability.title', 'My Availability') },
-                }}
-                viewHref="/backend/staff/my-availability"
-              />
-            </div>
-          ) : null}
           {!canManageAvailability ? (
-            <div className="space-y-2 rounded-xl border border-transparent bg-surface shadow-sm p-4 text-sm text-muted-foreground">
+            <div className="space-y-2 rounded-xl border border-card-edge bg-surface shadow-sm p-4 text-sm text-muted-foreground">
               <p className="font-medium text-foreground">
                 {t('staff.myAvailability.readOnly.title', 'Only an administrator can manage your availability.')}
               </p>

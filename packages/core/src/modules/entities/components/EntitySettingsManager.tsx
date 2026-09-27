@@ -119,17 +119,8 @@ export function EntitySettingsManager(): React.ReactElement {
   }
 
   return (
-    <form onSubmit={(e) => void handleSubmit(e)} className="space-y-6 max-w-2xl">
-      <div className="space-y-1">
-        <h3 className="text-base font-semibold">
-          {t('entities.settings.title', 'Custom Entities')}
-        </h3>
-        <p className="text-sm text-muted-foreground">
-          {t('entities.settings.description', 'Manage global custom entity configurations.')}
-        </p>
-      </div>
-
-      <div className="rounded-xl border border-transparent bg-surface shadow-sm p-4 space-y-4">
+    <form onSubmit={(e) => void handleSubmit(e)} className="space-y-6">
+      <div className="rounded-xl border border-card-edge bg-surface shadow-sm p-4 space-y-4">
         <div className="flex items-start gap-3">
           <Checkbox
             id="newEntitiesRestrictedByDefault"

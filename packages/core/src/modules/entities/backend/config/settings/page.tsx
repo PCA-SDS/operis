@@ -1,10 +1,16 @@
-import { Page, PageBody } from '@open-mercato/ui/backend/Page'
+import { Page, PageBody, PageHeader } from '@open-mercato/ui/backend/Page'
+import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { EntitySettingsManager } from '../../../components/EntitySettingsManager'
 
-export default function EntitySettingsPage() {
+export default async function EntitySettingsPage() {
+  const { translate } = await resolveTranslations()
   return (
     <Page>
-      <PageBody className="space-y-8">
+      <PageHeader
+        title={translate('entities.settings.title', 'Custom Entities')}
+        description={translate('entities.settings.description', 'Manage global custom entity configurations.')}
+      />
+      <PageBody>
         <EntitySettingsManager />
       </PageBody>
     </Page>

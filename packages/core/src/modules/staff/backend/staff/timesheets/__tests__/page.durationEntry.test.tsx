@@ -45,6 +45,7 @@ jest.mock('@open-mercato/ui/backend/confirm-dialog', () => ({
 jest.mock('@open-mercato/ui/backend/Page', () => ({
   Page: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
   PageBody: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  PageHeader: ({ title, description, actions }: { title?: React.ReactNode; description?: React.ReactNode; actions?: React.ReactNode }) => <div><h1>{title}</h1>{description}{actions}</div>,
 }))
 
 jest.mock('@open-mercato/ui/backend/detail', () => ({
