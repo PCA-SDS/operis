@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { BackendModuleFrame } from '@open-mercato/ui/backend/module-nav/BackendModuleFrame'
+import { ModuleSidebarSkeletonRow } from '@open-mercato/ui/backend/module-nav/ModuleSidebar'
 import {
   DashboardSkeleton,
   DetailPageSkeleton,
@@ -66,8 +67,9 @@ export default function BackendLoading() {
 
 /**
  * The chat routes declare this shape: `ChatShell` on its `fill` page, with no
- * module sidebar. The rail is the conversation list's grey panel with its
- * search and New chat rows and the three rows it shows while loading; the card
+ * module sidebar. The rail is the conversation list's search and New chat rows
+ * and the three rows it shows while loading, drawn with the sidebar's own
+ * placeholder row, as the list draws them; the card
  * beside it is blank on the list route, as the real one is until a
  * conversation is chosen, and holds a transcript inside a conversation.
  */
@@ -78,28 +80,21 @@ function ConversationSkeleton({ withTranscript }: { withTranscript: boolean }) {
         <PageBody fill>
           <SkeletonRegion className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[16rem_minmax(0,1fr)] lg:gap-6">
             <aside className={withTranscript ? 'hidden min-h-0 flex-col lg:flex' : 'flex min-h-0 flex-col'}>
-              <div className="flex min-h-0 flex-1 flex-col gap-1 rounded-xl bg-surface-muted p-2">
-                {['w-28', 'w-20'].map((width, index) => (
-                  <div key={index} className={index === 0 ? 'flex h-11 items-center gap-2 px-2' : 'flex h-11.5 items-center gap-2 px-2'}>
-                    <SkeletonBar className="size-7 rounded-md bg-surface-strong" />
-                    <SkeletonBar className={`h-3.5 bg-surface-strong ${width}`} />
-                  </div>
-                ))}
-                <div className="min-h-0 flex-1">
-                  {['w-2/3', 'w-1/2', 'w-3/5'].map((width, index) => (
-                    <div key={index} className="flex items-center gap-2 px-2 py-2">
-                      <SkeletonBar className="size-7 rounded-full bg-surface-strong" />
-                      <SkeletonBar className={`h-3 bg-surface-strong ${width}`} />
-                    </div>
-                  ))}
+              <div className="flex min-h-0 flex-1 flex-col gap-1 p-2">
+                <ModuleSidebarSkeletonRow width="w-28" />
+                <ModuleSidebarSkeletonRow width="w-20" />
+                <div className="flex min-h-0 flex-1 flex-col gap-1">
+                  <ModuleSidebarSkeletonRow width="w-32" avatar />
+                  <ModuleSidebarSkeletonRow width="w-24" avatar />
+                  <ModuleSidebarSkeletonRow width="w-28" avatar />
                 </div>
               </div>
             </aside>
 
             <section
               className={withTranscript
-                ? 'flex min-h-0 flex-col overflow-hidden rounded-xl bg-surface'
-                : 'hidden min-h-0 flex-col overflow-hidden rounded-xl bg-surface lg:flex'}
+                ? 'flex min-h-0 flex-col overflow-hidden rounded-xl border border-card-edge bg-surface'
+                : 'hidden min-h-0 flex-col overflow-hidden rounded-xl border border-card-edge bg-surface lg:flex'}
             >
               {withTranscript ? (
                 <>

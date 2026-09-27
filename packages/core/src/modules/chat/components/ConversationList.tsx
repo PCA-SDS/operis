@@ -1,18 +1,21 @@
 "use client"
 
 import * as React from 'react'
-import Link from 'next/link'
 import { CirclePlus, MessageSquarePlus, Search, Users } from 'lucide-react'
 import { Avatar } from '@open-mercato/ui/primitives/avatar'
-import { Dropdown } from '@open-mercato/ui/primitives/dropdown'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
 import { SearchInput } from '@open-mercato/ui/primitives/search-input'
-import { Skeleton } from '@open-mercato/ui/primitives/skeleton'
 import { ErrorMessage } from '@open-mercato/ui/backend/detail'
+import {
+  ModuleSidebarAction,
+  ModuleSidebarDivider,
+  ModuleSidebarLink,
+  ModuleSidebarNote,
+  ModuleSidebarSection,
+  ModuleSidebarSkeletonRow,
+} from '@open-mercato/ui/backend/module-nav/ModuleSidebar'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useTCount } from './plurals'
-import { cn } from '@open-mercato/shared/lib/utils'
 import type { ChatConversationDto } from '../data/types'
 import { MAX_CONVERSATION_PAGE_SIZE } from '../data/validators'
 
@@ -34,18 +37,6 @@ type ConversationListProps = {
 }
 
 /**
- * One row shape for everything in this panel, borrowed from `TasksSidebar` so the
- * two module rails read as the same product. Row height, radius, gap and the
- * focus ring all come from here rather than being restated per row.
- */
-const PANEL_ROW =
-  'flex w-full shrink-0 items-center gap-2 rounded-md px-2 py-2 text-sm transition-colors outline-none focus-visible:shadow-focus'
-
-/** The section labels, matching the Tasks rail's uppercase caption. */
-const PANEL_LABEL =
-  'px-2 text-overline font-semibold uppercase tracking-widest text-muted-foreground'
-
-/**
  * Identifies the rail's create control so a dialog it opened can hand focus
  * back to it. Exported rather than repeated as a string in two files.
  */
@@ -54,15 +45,6 @@ export const CREATE_TRIGGER_TESTID = 'chat-create-conversation'
 /** Enough conversations that narrowing them is worth a control. */
 const FILTER_THRESHOLD = 5
 
-function ConversationSkeleton() {
-  return (
-    <div className="flex items-center gap-2 px-2 py-2">
-      <Skeleton shape="circle" className="size-7" />
-      <Skeleton className="h-3 w-2/3" />
-    </div>
-  )
-}
-
 function ConversationRow({
   conversation,
   isActive,
@@ -70,7 +52,6 @@ function ConversationRow({
   conversation: ChatConversationDto
   isActive: boolean
 }) {
-  const t = useT()
   const tc = useTCount()
   // The title is resolved server-side for both kinds, so the row does not have
   // to know whether it is naming a person or a space.
@@ -79,49 +60,40 @@ function ConversationRow({
   const isSpace = conversation.kind === 'space'
 
   return (
-    <Link
+    <ModuleSidebarLink
       href={`/backend/chat/${conversation.id}`}
-      aria-current={isActive ? 'page' : undefined}
-      className={cn(
-        PANEL_ROW,
-        isActive
-          ? 'bg-primary-soft font-medium text-primary'
-          : unread > 0
-            ? 'font-semibold text-foreground hover:bg-surface-strong'
-            : 'text-muted-foreground hover:bg-surface-strong hover:text-foreground',
+      active={isActive}
+      label={name}
+      emphasized={unread > 0 && !isActive}
+      /* One quiet glyph for a space, a person's initials for a direct. A stack
+         of member avatars read as smudged letters at this size, since Operis
+         has no avatar images. The same 20px slot either way, so both kinds of
+         row are exactly as tall as every other sidebar row. */
+      leading={(
+        <Avatar
+          label={name}
+          size="xs"
+          variant={unread > 0 ? 'default' : 'monochrome'}
+          icon={isSpace ? <Users className="size-3" aria-hidden="true" /> : undefined}
+        />
       )}
-    >
-      {/* One quiet glyph for a space, a person's initials for a direct.
-          A stack of member avatars was tried here and had to go: Operis has no
-          avatar images, so the stack was two or three sets of INITIALS overlapping
-          inside 20px, which read as smudged letters rather than as people. The
-          same slot either way, so both kinds of row are exactly as tall and their
-          labels line up. */}
-      <Avatar
-        label={name}
-        size="sm"
-        variant={unread > 0 ? 'default' : 'monochrome'}
-        icon={isSpace ? <Users className="size-4" aria-hidden="true" /> : undefined}
-      />
-      <span className="min-w-0 flex-1 truncate">{name}</span>
-      {/* A dot, not a number: the panel is a place to notice something is waiting,
-          and the count is on the section header above. Weight carries it too, so
-          the state is never colour or shape alone — and the exact number is still
-          announced, since neither weight nor a dot reaches a screen reader. */}
-      {unread > 0 ? (
+      /* A dot, not a number: the count is on the section header above. Weight
+         carries it too, so the state is never colour or shape alone, and the
+         exact number is still announced. */
+      trailing={unread > 0 ? (
         <>
           <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-primary" />
           <span className="sr-only">
             {tc('chat.list.unreadLabel', unread, '{count} unread messages')}
           </span>
         </>
-      ) : null}
-    </Link>
+      ) : undefined}
+    />
   )
 }
 
 /**
- * One labelled group of conversations.
+ * One labelled group of conversations, named as its own navigation region.
  *
  * Renders nothing at all when it is empty, so a person with no spaces sees the
  * rail they have always seen rather than a caption over blank space.
@@ -141,35 +113,31 @@ function ConversationSection({
   if (conversations.length === 0) return null
 
   return (
-    <section className="pb-1">
-      <div className="flex shrink-0 items-center gap-2 pb-1 pt-2">
-        <h2 className={cn(PANEL_LABEL, 'flex-1')}>{label}</h2>
-        {unread > 0 ? (
-          <span className="px-2 text-xs font-semibold tabular-nums text-primary">
-            {unread > 99 ? t('chat.list.unreadOverflow', '99+') : unread}
-          </span>
-        ) : null}
-      </div>
-      <nav aria-label={label} className="flex flex-col gap-0.5">
-        {conversations.map((conversation) => (
-          <ConversationRow
-            key={conversation.id}
-            conversation={conversation}
-            isActive={conversation.id === activeConversationId}
-          />
-        ))}
-      </nav>
-    </section>
+    <ModuleSidebarSection
+      label={label}
+      landmark
+      badge={unread > 0 ? (unread > 99 ? t('chat.list.unreadOverflow', '99+') : unread) : undefined}
+    >
+      {conversations.map((conversation) => (
+        <ConversationRow
+          key={conversation.id}
+          conversation={conversation}
+          isActive={conversation.id === activeConversationId}
+        />
+      ))}
+    </ModuleSidebarSection>
   )
 }
 
 /**
  * The conversation rail.
  *
- * Structured like the Tasks sidebar — a muted panel with a primary create action,
- * uppercase section captions and one row shape — and populated like a chat
- * roster: single-line rows carrying a person rather than a record, with unread
- * shown as weight plus a dot instead of a number badge.
+ * Built from the module sidebar parts every module uses, so it reads as the
+ * same product as the Tasks and Customers sidebars: the primary create action,
+ * sentence-case section labels, one row, one selection. It keeps its own column
+ * because only the list scrolls, under the search and create controls, and it
+ * is populated like a chat roster: rows carry a person, with unread shown as
+ * weight plus a dot instead of a number badge.
  *
  * Rows are links, so a conversation has a real URL that can be opened in a new
  * tab, bookmarked and reached with browser back.
@@ -236,58 +204,30 @@ export function ConversationList({
   )
 
   return (
-    // `flex-1` so the rail's ground runs the full height of the column. It used
-    // to stop at the last row, which was invisible while the pane was plain but
-    // obvious the moment it carried its own background.
-    <div className="flex min-h-0 flex-1 flex-col gap-1 rounded-xl bg-surface-muted p-2">
+    <div className="flex min-h-0 flex-1 flex-col gap-1 p-2">
       {/* Searching every conversation is a peer of starting one: both are ways
           into a thread that is not on screen, so they sit together at the top
           of the rail rather than search hiding inside a conversation. */}
-      <Link
+      <ModuleSidebarLink
         href="/backend/chat/search"
-        className={cn(
-          PANEL_ROW,
-          'h-auto justify-start gap-2 px-2 py-2 text-muted-foreground',
-          'outline-none transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:shadow-focus',
-        )}
-      >
-        <span className="flex size-7 shrink-0 items-center justify-center" aria-hidden="true">
-          <Search className="size-5" />
-        </span>
-        <span className="truncate text-sm">{t('chat.search.allChats', 'Search all chats')}</span>
-      </Link>
+        icon={<Search />}
+        label={t('chat.search.allChats', 'Search all chats')}
+        active={false}
+      />
 
-      {/* One create control, not two. The rail is 16rem wide and a second
-          primary row would compete with the first for the same glance — so the
-          two things you can start live behind one action, which is also how a
-          user thinks about it: "new conversation", then what kind.
-
-          `Dropdown` in `menu` mode owns the portal, the placement flip, the
-          roving focus and the `role="menu"` semantics. Only its trigger box is
-          restated, so a command row here is exactly as tall as the conversation
-          rows under it instead of the primitive's fixed 36px control. */}
+      {/* One create control, not two: the two things you can start live behind
+          one action, which is also how a user thinks about it: "new
+          conversation", then what kind. */}
       {canStartConversation ? (
-        <Dropdown
-          menu
-          align="start"
-          variant="ghost"
+        <ModuleSidebarAction
+          icon={<CirclePlus aria-hidden="true" />}
+          label={t('chat.list.start', 'New chat')}
           // A stable handle for focus restoration. The menu unmounts when an
           // item is chosen, so by the time the dialog it opened is dismissed
           // there is nothing left for Radix to hand focus back to — see
           // `ChatShell`.
           data-testid={CREATE_TRIGGER_TESTID}
-          placeholder={t('chat.list.start', 'New chat')}
-          triggerLeading={
-            <span className="flex size-7 shrink-0 items-center justify-center" aria-hidden="true">
-              <CirclePlus className="size-5" />
-            </span>
-          }
-          triggerLabel={t('chat.list.start', 'New chat')}
-          triggerClassName={cn(
-            PANEL_ROW,
-            'h-auto justify-start px-2 py-2 font-semibold text-primary hover:bg-primary-soft',
-          )}
-          actions={[
+          menuItems={[
             {
               id: 'direct',
               label: t('chat.list.startDirect', 'Direct message'),
@@ -305,7 +245,7 @@ export function ConversationList({
       ) : null}
 
       {conversations.length > FILTER_THRESHOLD ? (
-        <div className="shrink-0 px-1 py-1">
+        <div className="shrink-0 py-1">
           <SearchInput
             value={filter}
             onChange={setFilter}
@@ -316,20 +256,15 @@ export function ConversationList({
         </div>
       ) : null}
 
-      {/* Section captions carry their own unread total, the way the Tasks rail
-          puts a count beside a view. Not collapsible: Google Chat's carets exist
-          because it has four sections to triage between, and hiding one of two
-          here would leave a mostly empty panel. */}
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      {/* Section labels carry their own unread total. Not collapsible: hiding
+          one of two sections would leave a mostly empty column. */}
+      <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
         {isLoading ? (
-          <div aria-busy="true">
-            {/* No `aria-live` here: `Skeleton` is already a polite live region,
-                so wrapping several of them in another one makes a screen reader
-                announce the same thing repeatedly. */}
+          <div aria-busy="true" className="flex flex-col gap-1">
             <span className="sr-only">{t('chat.list.loading', 'Loading conversations…')}</span>
-            <ConversationSkeleton />
-            <ConversationSkeleton />
-            <ConversationSkeleton />
+            <ModuleSidebarSkeletonRow width="w-32" avatar />
+            <ModuleSidebarSkeletonRow width="w-24" avatar />
+            <ModuleSidebarSkeletonRow width="w-28" avatar />
           </div>
         ) : error && conversations.length === 0 ? (
           <div className="p-1">
@@ -343,34 +278,26 @@ export function ConversationList({
             />
           </div>
         ) : visible.length === 0 && needle ? (
-          <div className="p-1">
-            <EmptyState
-              variant="subtle"
-              size="sm"
-              title={t('chat.list.noMatchesTitle', 'No matches')}
-              description={t(
-                'chat.list.noMatchesDescription',
-                'No conversation matches "{query}". Use New chat to reach someone else.',
-                { query: filter.trim() },
-              )}
-            />
-          </div>
+          <ModuleSidebarNote
+            title={t('chat.list.noMatchesTitle', 'No matches')}
+            description={t(
+              'chat.list.noMatchesDescription',
+              'No conversation matches "{query}". Use New chat to reach someone else.',
+              { query: filter.trim() },
+            )}
+          />
         ) : conversations.length === 0 ? (
-          <div className="p-1">
-            {/* No action here. "New chat" is persistent chrome at the top of this
-                panel, and repeating it inside the empty state put two identical
-                primary controls in one narrow column. */}
-            <EmptyState
-              variant="subtle"
-              size="sm"
-              title={t('chat.list.emptyTitle', 'No conversations yet')}
-              description={
-                canStartConversation
-                  ? t('chat.list.emptyDescription', "They'll appear here once you start one.")
-                  : t('chat.list.emptyReadOnly', 'Messages your colleagues send you will appear here.')
-              }
-            />
-          </div>
+          /* No action here. "New chat" is persistent chrome at the top of this
+             column, and repeating it inside the empty state would put two
+             identical primary controls in one narrow column. */
+          <ModuleSidebarNote
+            title={t('chat.list.emptyTitle', 'No conversations yet')}
+            description={
+              canStartConversation
+                ? t('chat.list.emptyDescription', "They'll appear here once you start one.")
+                : t('chat.list.emptyReadOnly', 'Messages your colleagues send you will appear here.')
+            }
+          />
         ) : (
           <>
             {/* A section with nothing in it is not rendered. An empty "Spaces"
@@ -382,6 +309,7 @@ export function ConversationList({
               unread={unreadIn(directs)}
               activeConversationId={activeConversationId}
             />
+            {directs.length > 0 && spaces.length > 0 ? <ModuleSidebarDivider /> : null}
             <ConversationSection
               label={t('chat.list.spaces', 'Spaces')}
               conversations={spaces}
@@ -396,7 +324,7 @@ export function ConversationList({
                     and throwing them away to show an error box loses the user's
                     place for a failure that only affects the next page. */}
                 {error ? (
-                  <p role="alert" className="px-1 text-xs text-status-error-text">
+                  <p role="alert" className="px-2 text-xs text-status-error-text">
                     {t('chat.list.loadMoreFailed', "Couldn't load older conversations.")}
                   </p>
                 ) : null}
@@ -417,7 +345,7 @@ export function ConversationList({
               </div>
             ) : null}
             {reachedLimit && !needle ? (
-              <p className="px-2 py-2 text-xs text-muted-foreground">
+              <p className="px-3 py-2 text-xs text-muted-foreground">
                 {t(
                   'chat.list.reachedLimit',
                   'Showing your {count} most recent conversations. Search for a colleague to reach an older one.',

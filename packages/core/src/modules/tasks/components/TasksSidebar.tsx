@@ -1,6 +1,5 @@
 "use client"
 
-import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   CalendarDays,
@@ -12,17 +11,14 @@ import {
   UserCheck,
   Users,
 } from 'lucide-react'
-import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
-import { IconButton } from '@open-mercato/ui/primitives/icon-button'
-import { Skeleton } from '@open-mercato/ui/primitives/skeleton'
 import {
   ModuleSidebar,
   ModuleSidebarAction,
   ModuleSidebarDivider,
   ModuleSidebarLink,
+  ModuleSidebarSection,
 } from '@open-mercato/ui/backend/module-nav/ModuleSidebar'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
-import { cn } from '@open-mercato/shared/lib/utils'
 import { useMyTasks, useProjects } from './hooks'
 
 /**
@@ -62,7 +58,7 @@ export function TasksSidebar({
   return (
     <ModuleSidebar label={t('tasks.sidebar.navLabel', 'Tasks navigation')} title={t('tasks.nav.group', 'Tasks')}>
       <ModuleSidebarAction
-        icon={<CirclePlus className="size-5 shrink-0" aria-hidden="true" />}
+        icon={<CirclePlus aria-hidden="true" />}
         label={t('tasks.sidebar.addTask', 'Add Task')}
         onClick={onQuickAdd}
       />
@@ -73,7 +69,7 @@ export function TasksSidebar({
           <ModuleSidebarLink
             key={view.href}
             href={view.href}
-            icon={<Icon className="size-4 shrink-0" />}
+            icon={<Icon />}
             label={view.label}
             active={pathname === view.href}
             count={view.count}
@@ -83,67 +79,34 @@ export function TasksSidebar({
 
       <ModuleSidebarDivider />
 
-      <div className="flex shrink-0 items-center gap-1">
-        <Link
-          href="/backend/tasks/projects"
-          className="flex-1 whitespace-nowrap rounded-md px-3 py-1 text-overline font-semibold uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
-        >
-          {t('tasks.sidebar.myProjects', 'My Projects')}
-        </Link>
-        <IconButton
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={onNewProject}
-          aria-label={t('tasks.sidebar.newProject', 'New project')}
-        >
-          <Plus className="size-4" aria-hidden="true" />
-        </IconButton>
-      </div>
-
-      {isInitialLoading ? (
-        <div className="flex shrink-0 gap-1 md:block md:space-y-1 md:px-1">
-          <Skeleton className="h-7 w-24 rounded-md md:w-auto" />
-          <Skeleton className="h-7 w-24 rounded-md md:w-auto" />
-        </div>
-      ) : projects.length === 0 ? (
-        <div className="shrink-0 px-2">
-          <EmptyState
-            variant="subtle"
-            size="sm"
-            title={t('tasks.sidebar.noProjects', 'No projects yet')}
-            description={t('tasks.sidebar.noProjectsHint', 'Use the + above to create your first one.')}
-          />
-        </div>
-      ) : (
-        <div className="flex shrink-0 gap-1 md:block md:max-h-[50vh] md:space-y-1 md:overflow-y-auto">
-          {projects.map((project) => {
-            const href = `/backend/tasks/projects/${project.id}`
-            const active = pathname === href
-            return (
-              <Link
-                key={project.id}
-                href={href}
-                aria-current={active ? 'page' : undefined}
-                className={cn(
-                  'flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-3 py-1.5 text-sm transition-colors focus:outline-none focus-visible:shadow-focus',
-                  active
-                    ? 'bg-primary-soft font-medium text-primary'
-                    : 'text-muted-foreground hover:bg-surface-strong hover:text-foreground',
-                )}
-              >
-                <span aria-hidden="true" className="shrink-0 text-sm leading-none">
-                  {project.icon}
-                </span>
-                <span className="flex-1 truncate">{project.name}</span>
-                {project.openTaskCount > 0 && (
-                  <span className="text-xs tabular-nums opacity-70">{project.openTaskCount}</span>
-                )}
-              </Link>
-            )
-          })}
-        </div>
-      )}
+      <ModuleSidebarSection
+        label={t('tasks.sidebar.myProjects', 'My Projects')}
+        href="/backend/tasks/projects"
+        action={{
+          icon: <Plus aria-hidden="true" />,
+          label: t('tasks.sidebar.newProject', 'New project'),
+          onClick: onNewProject,
+        }}
+        loading={isInitialLoading}
+        empty={{
+          title: t('tasks.sidebar.noProjects', 'No projects yet'),
+          description: t('tasks.sidebar.noProjectsHint', 'Use the + above to create your first one.'),
+        }}
+      >
+        {projects.map((project) => {
+          const href = `/backend/tasks/projects/${project.id}`
+          return (
+            <ModuleSidebarLink
+              key={project.id}
+              href={href}
+              icon={<span className="text-sm leading-none">{project.icon}</span>}
+              label={project.name}
+              active={pathname === href}
+              count={project.openTaskCount > 0 ? project.openTaskCount : undefined}
+            />
+          )
+        })}
+      </ModuleSidebarSection>
     </ModuleSidebar>
   )
 }
