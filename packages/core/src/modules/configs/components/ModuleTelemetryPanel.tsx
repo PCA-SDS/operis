@@ -13,6 +13,7 @@ import { SimpleTooltip, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { formatAttachmentFileSize as formatBytes } from '@open-mercato/ui/backend/detail/AttachmentVisualPreview'
 import { ErrorMessage } from '@open-mercato/ui/backend/detail'
+import { PageHeader } from '@open-mercato/ui/backend/Page'
 import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
@@ -193,7 +194,7 @@ function MetricCard({
   subValue?: React.ReactNode
 }) {
   return (
-    <div className="rounded-xl border border-transparent bg-surface shadow-sm p-4">
+    <div className="rounded-xl border border-card-edge bg-surface shadow-sm p-4">
       <MetricTitle label={label} tooltip={tooltip} />
       <div className="mt-2 text-2xl font-semibold">{value}</div>
       {subValue ? <div className="mt-1 text-xs text-muted-foreground">{subValue}</div> : null}
@@ -320,10 +321,10 @@ function sortStageRows(a: RangeModuleSummary, b: RangeModuleSummary): number {
 
 function groupRangeModules(modules: RangeModuleSummary[]): RangeModuleGroup[] {
   const groups = new Map<string, RangeModuleSummary[]>()
-  for (const module of modules) {
-    const group = groups.get(module.moduleId) ?? []
-    group.push(module)
-    groups.set(module.moduleId, group)
+  for (const summary of modules) {
+    const group = groups.get(summary.moduleId) ?? []
+    group.push(summary)
+    groups.set(summary.moduleId, group)
   }
 
   return Array.from(groups.entries()).map(([moduleId, stages]) => {
@@ -369,8 +370,8 @@ function buildCandidateReasonsForModule(
 
 function mergeRangeOperations(modules: ModuleResourceUsageTimeBucketModule[]) {
   const operations = new Map<string, ModuleResourceUsageTimeBucketModule['topOperations'][number]>()
-  for (const module of modules) {
-    for (const operation of module.topOperations) {
+  for (const moduleUsage of modules) {
+    for (const operation of moduleUsage.topOperations) {
       const key = `${operation.surface}\u0000${operation.operation}\u0000${operation.resourceId ?? ''}`
       const existing = operations.get(key)
       if (!existing) {
@@ -406,8 +407,8 @@ function mergeRangeOperations(modules: ModuleResourceUsageTimeBucketModule[]) {
 
 function mergeRangeSurfaces(modules: ModuleResourceUsageTimeBucketModule[]): ModuleResourceUsageTimeBucketModule['surfaces'] {
   const surfaces = new Map<string, ModuleResourceUsageTimeBucketModule['surfaces'][number]>()
-  for (const module of modules) {
-    for (const surface of module.surfaces) {
+  for (const moduleUsage of modules) {
+    for (const surface of moduleUsage.surfaces) {
       const existing = surfaces.get(surface.surface)
       if (!existing) {
         surfaces.set(surface.surface, { ...surface })
@@ -439,10 +440,10 @@ function aggregateRangeModules(
     bucketKeys: Set<string>
   }>()
   for (const bucket of buckets) {
-    for (const module of bucket.modules) {
-      const key = `${module.moduleId}\u0000${bucket.stage}`
-      const group = grouped.get(key) ?? { moduleId: module.moduleId, stage: bucket.stage, modules: [], bucketKeys: new Set<string>() }
-      group.modules.push(module)
+    for (const moduleUsage of bucket.modules) {
+      const key = `${moduleUsage.moduleId}\u0000${bucket.stage}`
+      const group = grouped.get(key) ?? { moduleId: moduleUsage.moduleId, stage: bucket.stage, modules: [], bucketKeys: new Set<string>() }
+      group.modules.push(moduleUsage)
       group.bucketKeys.add(bucket.bucketStart)
       grouped.set(key, group)
     }
@@ -519,7 +520,7 @@ function RangeOverview({
   )
 
   return (
-    <div className="space-y-4 rounded-xl border border-transparent bg-surface shadow-sm p-4">
+    <div className="space-y-4 rounded-xl border border-card-edge bg-surface shadow-sm p-4">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="space-y-1">
           <h3 className="text-base font-semibold">{translate('configs.moduleTelemetry.overview.title', 'Usage overview')}</h3>
@@ -865,7 +866,7 @@ function RangeModuleSection({
   translate: (key: string, fallback?: string, values?: Record<string, string | number>) => string
 }) {
   return (
-    <div className="space-y-4 rounded-xl border border-transparent bg-surface shadow-sm p-4">
+    <div className="space-y-4 rounded-xl border border-card-edge bg-surface shadow-sm p-4">
       <div className="space-y-1">
         <h3 className="text-base font-semibold">{translate('configs.moduleTelemetry.modules.title', 'Modules')}</h3>
         <p className="text-sm text-muted-foreground">
@@ -1001,42 +1002,41 @@ export function ModuleTelemetryPanel() {
     }
   }, [clearMutationContext, clearingTelemetry, confirm, loadReport, runMutation, t])
 
+  const pageHeader = (
+    <PageHeader
+      title={t('configs.moduleTelemetry.title', 'Module telemetry')}
+      description={t('configs.moduleTelemetry.description', 'Preview module-level resource attribution collected in this process.')}
+    />
+  )
+
   if (state.loading) {
     return (
-      <section className="space-y-3 rounded-lg border bg-surface p-6">
-        <header className="space-y-1">
-          <h2 className="text-lg font-semibold">{t('configs.moduleTelemetry.title', 'Module telemetry')}</h2>
-          <p className="text-sm text-muted-foreground">
-            {t('configs.moduleTelemetry.description', 'Preview module-level resource attribution collected in this process.')}
-          </p>
-        </header>
+      <div className="space-y-6">
+        {pageHeader}
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Spinner className="h-4 w-4" />
           {t('configs.moduleTelemetry.loading', 'Loading module telemetry…')}
         </div>
-      </section>
+      </div>
     )
   }
 
   if (state.error) {
     return (
-      <section className="space-y-3 rounded-lg border bg-surface p-6">
-        <header className="space-y-1">
-          <h2 className="text-lg font-semibold">{t('configs.moduleTelemetry.title', 'Module telemetry')}</h2>
-          <p className="text-sm text-muted-foreground">
-            {t('configs.moduleTelemetry.description', 'Preview module-level resource attribution collected in this process.')}
-          </p>
-        </header>
-        <ErrorMessage label={state.error} />
-        <Button type="button" variant="outline" onClick={() => loadReport().catch(() => {})}>
-          {t('configs.moduleTelemetry.retry', 'Retry')}
-        </Button>
-      </section>
+      <div className="space-y-6">
+        {pageHeader}
+        <div className="space-y-3">
+          <ErrorMessage label={state.error} />
+          <Button type="button" variant="outline" onClick={() => loadReport().catch(() => {})}>
+            {t('configs.moduleTelemetry.retry', 'Retry')}
+          </Button>
+        </div>
+      </div>
     )
   }
 
   const report = state.report
-  if (!report) return null
+  if (!report) return <div className="space-y-6">{pageHeader}</div>
   const usageRange = resolveUsageRange(usageRangePreset, report.buckets ?? [], report.startedAt)
   const rangeBuckets = bucketsInRange(report.buckets ?? [], usageRange)
   const rangeModules = aggregateRangeModules(rangeBuckets, report.thresholds)
@@ -1044,48 +1044,48 @@ export function ModuleTelemetryPanel() {
   const telemetryStartedAtMs = firstAvailableTelemetryMs(report.buckets ?? [], Date.parse(report.startedAt), Date.now())
 
   return (
-    <section className="space-y-6 rounded-lg border bg-surface p-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-1">
-          <h2 className="text-lg font-semibold">{t('configs.moduleTelemetry.title', 'Module telemetry')}</h2>
-          <p className="text-sm text-muted-foreground">
-            {t('configs.moduleTelemetry.description', 'Preview module-level resource attribution collected in this process.')}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {t(
-              'configs.moduleTelemetry.generatedAt',
-              'Report generated {{timestamp}}',
-              { timestamp: new Date(report.generatedAt).toLocaleString() },
-            )}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {t(
-              'configs.moduleTelemetry.startedAt',
-              'Collecting since {{timestamp}}',
-              { timestamp: new Date(telemetryStartedAtMs).toLocaleString() },
-            )}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {report.canClearTelemetry ? (
-            <Button
-              type="button"
-              variant="destructive-outline"
-              onClick={() => { void handleClearTelemetry() }}
-              disabled={clearingTelemetry}
-            >
-              <Trash2 className="h-4 w-4" aria-hidden="true" />
-              {clearingTelemetry
-                ? t('configs.moduleTelemetry.clear.clearing', 'Clearing...')
-                : t('configs.moduleTelemetry.clear.button', 'Clear all telemetry data')}
+    <div className="space-y-6">
+      <PageHeader
+        title={t('configs.moduleTelemetry.title', 'Module telemetry')}
+        description={t('configs.moduleTelemetry.description', 'Preview module-level resource attribution collected in this process.')}
+        actions={(
+          <>
+            {report.canClearTelemetry ? (
+              <Button
+                type="button"
+                variant="destructive-outline"
+                onClick={() => { void handleClearTelemetry() }}
+                disabled={clearingTelemetry}
+              >
+                <Trash2 className="h-4 w-4" aria-hidden="true" />
+                {clearingTelemetry
+                  ? t('configs.moduleTelemetry.clear.clearing', 'Clearing...')
+                  : t('configs.moduleTelemetry.clear.button', 'Clear all telemetry data')}
+              </Button>
+            ) : null}
+            <Button type="button" variant="outline" onClick={handleRefresh}>
+              <RefreshCw className="h-4 w-4" aria-hidden="true" />
+              {t('configs.moduleTelemetry.refresh', 'Refresh')}
             </Button>
-          ) : null}
-          <Button type="button" variant="outline" onClick={handleRefresh}>
-            <RefreshCw className="h-4 w-4" aria-hidden="true" />
-            {t('configs.moduleTelemetry.refresh', 'Refresh')}
-          </Button>
-        </div>
-      </header>
+          </>
+        )}
+      />
+      <div className="space-y-1">
+        <p className="text-xs text-muted-foreground">
+          {t(
+            'configs.moduleTelemetry.generatedAt',
+            'Report generated {{timestamp}}',
+            { timestamp: new Date(report.generatedAt).toLocaleString() },
+          )}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          {t(
+            'configs.moduleTelemetry.startedAt',
+            'Collecting since {{timestamp}}',
+            { timestamp: new Date(telemetryStartedAtMs).toLocaleString() },
+          )}
+        </p>
+      </div>
 
       <RangeOverview
         buckets={rangeBuckets}
@@ -1105,7 +1105,7 @@ export function ModuleTelemetryPanel() {
       />
 
       {ConfirmDialogElement}
-    </section>
+    </div>
   )
 }
 

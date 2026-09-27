@@ -5,6 +5,7 @@ import { Button } from '@open-mercato/ui/primitives/button'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
 import { StatusBadge, type StatusMap } from '@open-mercato/ui/primitives/status-badge'
 import { ErrorMessage } from '@open-mercato/ui/backend/detail'
+import { PageHeader } from '@open-mercato/ui/backend/Page'
 import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import type {
@@ -124,56 +125,46 @@ export function SystemStatusPanel() {
     loadSnapshot().catch(() => {})
   }, [loadSnapshot])
 
+  const pageHeader = (
+    <PageHeader
+      title={t('configs.systemStatus.title', 'System status')}
+      description={t('configs.systemStatus.description', 'Review debugging, cache, and logging flags that shape backend behaviour.')}
+    />
+  )
+
   if (state.loading) {
     return (
-      <section className="space-y-3 rounded-lg border bg-surface p-6">
-        <header className="space-y-1">
-          <h2 className="text-lg font-semibold">{t('configs.systemStatus.title', 'System status')}</h2>
-          <p className="text-sm text-muted-foreground">
-            {t(
-              'configs.systemStatus.description',
-              'Review debugging, cache, and logging flags that shape backend behaviour.'
-            )}
-          </p>
-        </header>
+      <div className="space-y-6">
+        {pageHeader}
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Spinner className="h-4 w-4" />
           {t('configs.systemStatus.loading', 'Loading status snapshot…')}
         </div>
-      </section>
+      </div>
     )
   }
 
   if (state.error) {
     return (
-      <section className="space-y-3 rounded-lg border bg-surface p-6">
-        <header className="space-y-1">
-          <h2 className="text-lg font-semibold">{t('configs.systemStatus.title', 'System status')}</h2>
-          <p className="text-sm text-muted-foreground">
-            {t(
-              'configs.systemStatus.description',
-              'Review debugging, cache, and logging flags that shape backend behaviour.'
-            )}
-          </p>
-        </header>
-        <ErrorMessage label={state.error} />
-        <Button type="button" variant="outline" onClick={() => loadSnapshot().catch(() => {})}>
-          {t('configs.systemStatus.retry', 'Retry')}
-        </Button>
-      </section>
+      <div className="space-y-6">
+        {pageHeader}
+        <div className="space-y-3">
+          <ErrorMessage label={state.error} />
+          <Button type="button" variant="outline" onClick={() => loadSnapshot().catch(() => {})}>
+            {t('configs.systemStatus.retry', 'Retry')}
+          </Button>
+        </div>
+      </div>
     )
   }
 
   const snapshot = state.snapshot
-  if (!snapshot) return null
+  if (!snapshot) return <div className="space-y-6">{pageHeader}</div>
 
   return (
-    <section className="space-y-6 rounded-lg border bg-surface p-6">
-      <header className="space-y-1">
-        <h2 className="text-lg font-semibold">{t('configs.systemStatus.title', 'System status')}</h2>
-        <p className="text-sm text-muted-foreground">
-          {t('configs.systemStatus.description', 'Review debugging, cache, and logging flags that shape backend behaviour.')}
-        </p>
+    <div className="space-y-6">
+      {pageHeader}
+      <div className="space-y-1">
         <p className="text-xs text-muted-foreground">
           {t(
             'configs.systemStatus.runtimeMode',
@@ -188,7 +179,7 @@ export function SystemStatusPanel() {
             { timestamp: new Date(snapshot.generatedAt).toLocaleString() }
           )}
         </p>
-      </header>
+      </div>
       <div className="space-y-6">
         {snapshot.categories.map((category) => (
           <div key={category.key} className="space-y-4">
@@ -200,7 +191,7 @@ export function SystemStatusPanel() {
             </div>
             <div className="grid gap-4 lg:grid-cols-2">
               {category.items.map((item) => (
-                <article key={item.key} className="flex flex-col gap-4 rounded-xl border border-transparent bg-surface shadow-sm p-4">
+                <article key={item.key} className="flex flex-col gap-4 rounded-xl border border-card-edge bg-surface shadow-sm p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="space-y-1">
                       <h4 className="text-sm font-semibold">{t(item.labelKey)}</h4>
@@ -261,7 +252,7 @@ export function SystemStatusPanel() {
           </div>
         ))}
       </div>
-    </section>
+    </div>
   )
 }
 

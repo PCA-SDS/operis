@@ -11,6 +11,7 @@ import { Switch } from '@open-mercato/ui/primitives/switch'
 import { StatusBadge, type StatusBadgeVariant } from '@open-mercato/ui/primitives/status-badge'
 import { Alert } from '@open-mercato/ui/primitives/alert'
 import { TimeInput } from '@open-mercato/ui/backend/inputs/TimeInput'
+import { PageHeader } from '@open-mercato/ui/backend/Page'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 
@@ -296,37 +297,31 @@ export default function CurrencyFetchingConfig() {
     return ''
   }
 
+  const pageHeader = (
+    <PageHeader title={t('currencies.fetch.title')} description={t('currencies.fetch.description')} />
+  )
+
   if (loading || initializing) {
     return (
-      <section className="space-y-3 rounded-lg border bg-surface p-4">
-        <header className="space-y-2">
-          <h2 className="text-xl font-semibold">{t('currencies.fetch.title')}</h2>
-          <p className="text-sm text-muted-foreground">
-            {t('currencies.fetch.description')}
-          </p>
-        </header>
+      <div className="space-y-6">
+        {pageHeader}
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Spinner className="h-4 w-4" />
           {initializing ? t('currencies.fetch.initializing_providers') : t('currencies.fetch.loading')}
         </div>
-      </section>
+      </div>
     )
   }
 
   return (
-    <section className="space-y-6 rounded-lg border bg-surface p-4">
-      <header className="space-y-2">
-        <h2 className="text-xl font-semibold">{t('currencies.fetch.title')}</h2>
-        <p className="text-sm text-muted-foreground">
-          {t('currencies.fetch.description')}
-        </p>
-      </header>
+    <div className="space-y-6">
+      {pageHeader}
 
       <div className="space-y-3">
         {configs.map((config) => (
           <div
             key={config.id}
-            className="rounded-xl border border-transparent bg-surface shadow-sm p-4"
+            className="rounded-xl border border-card-edge bg-surface shadow-sm p-4"
           >
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1">
@@ -402,7 +397,7 @@ export default function CurrencyFetchingConfig() {
         ))}
 
         {configs.length === 0 && (
-          <div className="rounded border bg-background/80 p-6 text-center">
+          <div className="space-y-3 rounded-xl border border-card-edge bg-surface p-6 text-center shadow-sm">
             <p className="text-sm text-muted-foreground">
               {t('currencies.fetch.no_providers')}
             </p>
@@ -415,6 +410,6 @@ export default function CurrencyFetchingConfig() {
           </div>
         )}
       </div>
-    </section>
+    </div>
   )
 }
