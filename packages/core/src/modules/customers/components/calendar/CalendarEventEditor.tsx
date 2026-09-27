@@ -209,10 +209,12 @@ function EditorBody({
 
   return (
     // Single column on phones (full-screen sheet). On lg+ the dialog widens and
-    // the fields group into two thematic columns: WHEN (schedule + repeat) on
-    // the left, CONTEXT (related record, category, location) on the right;
-    // people/resources and the task fields pair up below; title, description
-    // and the type switcher span both columns.
+    // the fields group into two thematic columns: WHEN (schedule, repeat, and a
+    // task's assignee) on the left, WHERE and WHO (location, attendees,
+    // resources, priority) on the right; title, description and the type
+    // switcher span both columns. Attendees used to close the left column,
+    // which left it four fields deep beside a right column of two and an empty
+    // corner under it; now a meeting is three and three, a task three and two.
     <div className="grid w-full grid-cols-1 items-start gap-6 lg:grid-cols-2 lg:gap-x-6">
       {conflict ? (
         <Alert status="warning" className="rounded-lg lg:col-span-2">
@@ -299,19 +301,6 @@ function EditorBody({
           onUntilDateChange={(repeatUntilDate) => update({ repeatUntilDate })}
         />
       ) : null}
-      {config.people && config.people !== 'assignee' ? (
-        <Field label={t(PEOPLE_FIELD_TEXT[config.people].labelKey, PEOPLE_FIELD_TEXT[config.people].label)}>
-          <PeopleField
-            mode="multi"
-            includeCustomers
-            includeStaff={staffEnabled}
-            placeholder={t(PEOPLE_FIELD_TEXT[config.people].placeholderKey, PEOPLE_FIELD_TEXT[config.people].placeholder)}
-            ariaLabel={t(PEOPLE_FIELD_TEXT[config.people].labelKey, PEOPLE_FIELD_TEXT[config.people].label)}
-            value={form.participants}
-            onChange={(participants) => update({ participants })}
-          />
-        </Field>
-      ) : null}
       {config.people === 'assignee' && staffEnabled ? (
         <Field
           label={t('customers.calendar.editor.assignee', 'Assignee')}
@@ -345,6 +334,19 @@ function EditorBody({
           onChange={(location) => update({ location })}
           phoneContactIds={phoneContactIds}
         />
+      ) : null}
+      {config.people && config.people !== 'assignee' ? (
+        <Field label={t(PEOPLE_FIELD_TEXT[config.people].labelKey, PEOPLE_FIELD_TEXT[config.people].label)}>
+          <PeopleField
+            mode="multi"
+            includeCustomers
+            includeStaff={staffEnabled}
+            placeholder={t(PEOPLE_FIELD_TEXT[config.people].placeholderKey, PEOPLE_FIELD_TEXT[config.people].placeholder)}
+            ariaLabel={t(PEOPLE_FIELD_TEXT[config.people].labelKey, PEOPLE_FIELD_TEXT[config.people].label)}
+            value={form.participants}
+            onChange={(participants) => update({ participants })}
+          />
+        </Field>
       ) : null}
       {resourcesEnabled ? (
         <Field label={t('customers.calendar.editor.resources', 'Resources')}>
@@ -515,7 +517,7 @@ export function CalendarEventEditor({
     disabled: saving,
   })
 
-  const dialogTitle = isEdit ? t('customers.calendar.editor.title.edit', 'Edit event') : t('customers.calendar.editor.title.create', 'New Event')
+  const dialogTitle = isEdit ? t('customers.calendar.editor.title.edit', 'Edit event') : t('customers.calendar.editor.title.create', 'New event')
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

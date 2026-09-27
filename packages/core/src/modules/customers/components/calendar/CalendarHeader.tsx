@@ -12,7 +12,7 @@ import { useLocale, useT } from '@open-mercato/shared/lib/i18n/context'
 import { formatHeaderLabel } from '../../lib/calendar/format'
 import type { CalendarHeaderProps, CalendarView } from './types'
 import { cn } from '@open-mercato/shared/lib/utils'
-import { CHROME_FLAT_CONTROL, CHROME_SEGMENTED_ITEM } from './chrome'
+import { CHROME_FLAT_CONTROL } from './chrome'
 
 /**
  * The calendar's navigation bar.
@@ -47,13 +47,13 @@ import { CHROME_FLAT_CONTROL, CHROME_SEGMENTED_ITEM } from './chrome'
  * simply inherits, which is why the scope row's settings button needs nothing.
  *
  * Two labels are deliberately NOT near-black, because both sit on a saturated
- * fill and would be unreadable: New event (`text-primary-foreground` on navy)
- * and the segmented control's SELECTED item (`text-sidebar-foreground` on the
- * navy pill). Those are inversions, not exceptions to the rule.
+ * fill and would be unreadable: New event (`text-primary-foreground` on the
+ * blue fill) and the segmented control's SELECTED item (`text-sidebar-foreground`
+ * on the near-black pill). Those are inversions, not exceptions to the rule.
  *
- * The switchers are `flush`: the track drops its border and padding, so the
- * selected pill fills the 36px track instead of sitting 5px inside it. Inset,
- * the pill was a 26px shape among 36px ones, the one short control on the bar.
+ * The switchers are the shared `SegmentedControl` as it is everywhere: the
+ * selected pill fills the 36px track (it used to sit 5px inside it, a 26px
+ * shape among 36px ones), and unselected labels are full ink.
  *
  * INPUTS are deliberately exempt — the scope row's range picker and preset
  * select keep their hairline, because a border is what marks a control as
@@ -61,7 +61,7 @@ import { CHROME_FLAT_CONTROL, CHROME_SEGMENTED_ITEM } from './chrome'
  *
  * **Chrome height.** Every control on this bar stands 36px tall, with no
  * exception, and so does every shape inside one, the switchers' selected pills
- * included (see `flush` above). The primitives disagree about what their size
+ * included. The primitives disagree about what their size
  * names mean (`sm` is 36px on nothing, 32px on
  * `Button`/`SegmentedControl`/`SearchInput`/`Select` and 28px on `IconButton`),
  * so the rule is stated as a height rather than as a prop: take each
@@ -212,14 +212,13 @@ export function CalendarHeader({
       {onViewChange ? (
         <SegmentedControl
           value={view}
-          flush
           className="shrink-0"
           onValueChange={(value) => onViewChange(value as CalendarView)}
           aria-label={t('customers.calendar.views.label', 'Calendar view')}
         >
-          <SegmentedControlItem className={CHROME_SEGMENTED_ITEM} value="day">{t('customers.calendar.views.day', 'Day')}</SegmentedControlItem>
-          <SegmentedControlItem className={CHROME_SEGMENTED_ITEM} value="week">{t('customers.calendar.views.week', 'Week')}</SegmentedControlItem>
-          <SegmentedControlItem className={CHROME_SEGMENTED_ITEM} value="month">{t('customers.calendar.views.month', 'Month')}</SegmentedControlItem>
+          <SegmentedControlItem value="day">{t('customers.calendar.views.day', 'Day')}</SegmentedControlItem>
+          <SegmentedControlItem value="week">{t('customers.calendar.views.week', 'Week')}</SegmentedControlItem>
+          <SegmentedControlItem value="month">{t('customers.calendar.views.month', 'Month')}</SegmentedControlItem>
         </SegmentedControl>
       ) : null}
       </div>

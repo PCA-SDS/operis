@@ -511,20 +511,24 @@ export function ScheduleActivityDialog({
           </Alert>
         )}
 
-        {/* Type switcher — the calendar event editor's inset segmented control. */}
-        <SegmentedControl
-          tone="inset"
-          className="max-w-full overflow-x-auto"
-          aria-label={t('customers.schedule.typeSwitcher', 'Activity type')}
-          value={state.activityType}
-          onValueChange={(type) => state.setActivityType(type as ActivityType)}
-        >
-          {TYPE_TABS.map(({ type, icon: Icon, labelKey, fallback }) => (
-            <SegmentedControlItem key={type} value={type} icon={<Icon className="size-4" />}>
-              {t(labelKey, fallback)}
-            </SegmentedControlItem>
-          ))}
-        </SegmentedControl>
+        {/* Type switcher, set as the calendar event editor sets its own:
+            centred across the top of the form, the same control in the same
+            place in both dialogs that create a calendar entry. */}
+        <div className="flex w-full justify-center">
+          <SegmentedControl
+            tone="inset"
+            className="max-w-full overflow-x-auto"
+            aria-label={t('customers.schedule.typeSwitcher', 'Activity type')}
+            value={state.activityType}
+            onValueChange={(type) => state.setActivityType(type as ActivityType)}
+          >
+            {TYPE_TABS.map(({ type, icon: Icon, labelKey, fallback }) => (
+              <SegmentedControlItem key={type} value={type} icon={<Icon className="size-4" />}>
+                {t(labelKey, fallback)}
+              </SegmentedControlItem>
+            ))}
+          </SegmentedControl>
+        </div>
 
         {/* Title */}
         <div className="flex flex-col gap-2.5">
@@ -548,7 +552,7 @@ export function ScheduleActivityDialog({
                 : t('customers.schedule.titlePlaceholder', 'Activity title...')
             }
             className={cn(
-              'h-9 w-full rounded-lg border px-3 text-sm font-medium text-foreground outline-none focus-visible:shadow-focus',
+              'h-9 w-full rounded-lg border px-3 text-sm text-foreground outline-none focus-visible:shadow-focus',
               titleMissing && 'border-status-error-border',
             )}
             autoFocus
@@ -597,7 +601,7 @@ export function ScheduleActivityDialog({
                     <Button
                       key={opt.key}
                       type="button"
-                      variant={isActive ? 'default' : 'soft'}
+                      variant="toggle"
                       aria-pressed={isActive}
                       onClick={() => setCallDirection(opt.key)}
                     >
@@ -619,7 +623,7 @@ export function ScheduleActivityDialog({
                     <Button
                       key={opt.key}
                       type="button"
-                      variant={isActive ? 'default' : 'soft'}
+                      variant="toggle"
                       aria-pressed={isActive}
                       onClick={() => setCallOutcome(isActive ? null : opt.key)}
                     >
@@ -646,7 +650,7 @@ export function ScheduleActivityDialog({
                   <Button
                     key={opt.key}
                     type="button"
-                    variant={isActive ? 'default' : 'soft'}
+                    variant="toggle"
                     aria-pressed={isActive}
                     onClick={() => setTaskPriority(opt.key)}
                   >

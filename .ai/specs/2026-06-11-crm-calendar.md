@@ -394,6 +394,13 @@ None.
 
 ## Changelog
 
+### 2026-09-27b — the event editor draws its controls like the rest of the product
+- **One switcher.** `flush` is now the `SegmentedControl` default and the pill is the same near-black in every tone, so the bar's switchers need no prop and the editor's type switcher (which was a white pill 26px tall inset in a grey rail, with grey labels) is the bar's control on the dialog's grey rail. `CHROME_SEGMENTED_ITEM` is gone: the primitive inks unselected labels `text-foreground` itself.
+- **Balanced columns.** Attendees (Participants, To) move from the foot of the WHEN column to the WHERE/WHO column under Location. A meeting or event is three fields beside three (Starts · Location, Ends · Attendees, Repeat · Resources) instead of four beside two with an empty corner; a task keeps its Assignee under Repeat and is three beside two, with the gap at the bottom right.
+- **All day** is the shared `SwitchField`: its label is 14px medium ink like the field labels beside it (it was 12px grey) and clicking it flips the switch. It is 20px tall, the label line's own height, so the row does not grow.
+- **Weekdays** are the shared `WeekdayToggles`, `Button variant="toggle"`: pressed is the switcher's pill, not the blue primary fill. `ScheduleActivityDialog` uses the same row.
+- **Copy:** the create title is "New event", matching the button that opens it, and the settings save reads "Save changes"; TC-CAL-007, 008 and 010 follow the new name. Unit coverage in `WeekdayToggles.test.tsx` and `ScheduleSection.test.tsx`.
+
 ### 2026-09-27 — one height across the calendar bar, and nothing on it moves
 - Every control on the bar was already 36px tall, but the two switchers' selected pills sat 5px inside their tracks, so each was a 26px shape beside 36px buttons. Both switchers (Day / Week / Month and Mine / Everyone) now use the new opt-in `SegmentedControl` `flush` variant: the track drops its border and padding, and the pill fills it with the same 10px corners as the buttons. The inset default is unchanged everywhere else. `CHROME_SEGMENTED_TRACK` is gone; `flush` replaces it.
 - **No more "Refreshing…" on the bar.** Every view, range or scope change reloads the window, and the notice was inserted into the right-hand group for the length of the reload, pushing the switchers sideways and back. It is now an `sr-only` live region at the top of `CalendarScreen`, always mounted, so assistive tech still hears it and nothing on screen moves.

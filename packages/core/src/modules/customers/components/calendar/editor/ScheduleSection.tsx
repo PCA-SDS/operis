@@ -2,9 +2,10 @@
 
 import * as React from 'react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { SwitchField } from '@open-mercato/ui/primitives/switch-field'
 import type { EditorDateLabel } from '../../../lib/calendar/editorPayload'
 import { multiDayEventSpan } from '../../../lib/calendar/labels'
-import { AllDayToggle, DateControl, LABEL_CLASS, TimeControl } from './inputs'
+import { DateControl, LABEL_CLASS, TimeControl } from './inputs'
 
 const DATE_LABEL_TEXT: Record<EditorDateLabel, { key: string; fallback: string }> = {
   starts: { key: 'customers.calendar.editor.dates.starts', fallback: 'Starts' },
@@ -108,17 +109,18 @@ export function ScheduleSection({
         // row down, so the left column stopped lining up with the right — and
         // it belongs here anyway: it is the switch that removes the time
         // controls from these very rows.
+        //
+        // The shared `SwitchField`, as a switch with a label is everywhere else:
+        // its label is set like the field labels beside it, where a smaller grey
+        // one read as a footnote, and clicking it flips the switch. It is 20px
+        // tall, the label line's own height, so the row does not grow.
         trailing={hasAllDay ? (
-          // `-my-1` keeps the 24px switch from growing the 16px label line —
-          // without it this column's first control sits 4px lower than the
-          // other's, which is the misalignment the toggle used to cause as a
-          // row of its own.
-          <span className="-my-1 flex shrink-0 items-center gap-2">
-            <span className="text-xs font-medium normal-case tracking-normal text-muted-foreground">
-              {allDayLabel}
-            </span>
-            <AllDayToggle checked={allDay} onCheckedChange={onAllDayChange} label={allDayLabel} />
-          </span>
+          <SwitchField
+            label={allDayLabel}
+            checked={allDay}
+            onCheckedChange={onAllDayChange}
+            containerClassName="shrink-0 gap-2"
+          />
         ) : undefined}
         onDateChange={onDateChange}
         onTimeChange={onStartTimeChange}

@@ -17,8 +17,9 @@
  *   not for a control the user is meant to click.
  *
  * The two inversions are NOT exceptions: `New event` and a segmented control's
- * SELECTED item both sit on a saturated navy fill, where near-black ink would
- * be unreadable. They take the fill's own foreground.
+ * SELECTED item sit on a saturated fill (the blue primary, the near-black
+ * pill), where near-black ink would be unreadable. They take the fill's own
+ * foreground.
  */
 
 /**
@@ -29,12 +30,3 @@
  * line.
  */
 export const CHROME_FLAT_CONTROL = 'border-transparent shadow-none'
-
-/**
- * A `SegmentedControlItem` wearing the chrome ink. The primitive inks unchecked
- * items `text-muted-foreground`, which left the unselected segments two steps
- * lighter than every button beside them. Only the UNCHECKED state is overridden
- * — the checked item keeps `text-sidebar-foreground`, because it is sitting on
- * the navy pill.
- */
-export const CHROME_SEGMENTED_ITEM = 'data-[state=unchecked]:text-foreground'

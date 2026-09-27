@@ -28,7 +28,6 @@ import {
 } from '../../lib/calendar/taskItem'
 import { CalendarSkeleton } from './CalendarSkeleton'
 import { CalendarHeader } from './CalendarHeader'
-import { CHROME_SEGMENTED_ITEM } from './chrome'
 import {
   SegmentedControl,
   SegmentedControlItem,
@@ -818,17 +817,16 @@ export function CalendarScreen({
   const scopeSwitcher = canViewAll ? (
     <SegmentedControl
       value={preferences.visibilityScope}
-      flush
       className="shrink-0"
       onValueChange={(value) =>
         setPreferences({ ...preferences, visibilityScope: value as CalendarVisibilityScope })
       }
       aria-label={t('customers.calendar.scope.label', 'Whose entries to show')}
     >
-      <SegmentedControlItem className={CHROME_SEGMENTED_ITEM} value="mine">
+      <SegmentedControlItem value="mine">
         {t('customers.calendar.scope.mine', 'Mine')}
       </SegmentedControlItem>
-      <SegmentedControlItem className={CHROME_SEGMENTED_ITEM} value="all">
+      <SegmentedControlItem value="all">
         {t('customers.calendar.scope.everyone', 'Everyone')}
       </SegmentedControlItem>
     </SegmentedControl>

@@ -130,7 +130,7 @@ test.describe('TC-CAL-008: Calendar week-view states', () => {
       await expect(conflictSwitch).toBeChecked();
       await conflictSwitch.click();
       await expect(conflictSwitch).not.toBeChecked();
-      await settings.getByRole('button', { name: 'Save Changes', exact: true }).click();
+      await settings.getByRole('button', { name: 'Save changes', exact: true }).click();
       await expect(settings).toBeHidden();
 
       // The inline conflict badge is gone; the blocks still render.

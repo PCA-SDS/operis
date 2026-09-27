@@ -48,7 +48,7 @@ describe('CalendarSettingsModal', () => {
     const onSave = jest.fn()
     const onOpenChange = jest.fn()
     const { getByRole } = renderModal({ onSave, onOpenChange })
-    fireEvent.click(getByRole('button', { name: 'Save Changes' }))
+    fireEvent.click(getByRole('button', { name: 'Save changes' }))
     expect(onSave).toHaveBeenCalledTimes(1)
     expect(onOpenChange).toHaveBeenCalledWith(false)
   })

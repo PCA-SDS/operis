@@ -185,8 +185,57 @@ drew their own chrome.
 - **Kept intact:** the AI assistant panels' own layout (their full-screen phone sheet is restated
   under `max-sm:`), the deal won/lost celebration, and body content inside dialogs.
 
+## Phase 4 — one look for every switcher and toggle
+
+A chosen option looked three different ways. The calendar bar's switcher was a near-black pill
+filling the bar's 36px; the same control in a dialog was a white pill 26px tall, inset in a grey
+rail, with grey labels; and a toggle chip that was on took the blue primary fill. Side by side in
+one dialog (the weekly repeat's days above its "Ends" switcher) they read as parts of three
+products.
+
+### Primitives
+
+- **`SegmentedControl` has one look.** The pill is always the near-black `sidebar` pill and fills
+  the track (`flush` is now the default, 36px at `default`, 32px at `sm`); unselected labels are
+  full ink with a quiet hover fill. `tone` changes the rail only: white on the grey ground, the grey
+  control fill on a white dialog, card or popover, the same flip the fields make.
+- **`Button variant="toggle"`.** At rest the second-rank `soft` button; with `aria-pressed="true"`
+  the switcher's pill. It replaces `variant={on ? 'default' : 'soft'}`, which made "on" the blue
+  of a primary action. Blue stays for the primary action and a checked Checkbox, Radio or Switch.
+- A label with a switch is the shared `SwitchField`, whose label is set like a field label.
+
+### Call sites
+
+- **New event:** attendees move to the right-hand column, so a meeting is three fields and three
+  rather than four beside two with an empty corner, and a task three and two; All day is a
+  `SwitchField` with a 14px label (was a 12px grey one); the weekday picker is the shared
+  `WeekdayToggles`.
+- **New meeting / Log call (Schedule activity):** the type switcher is centred, as in New event;
+  All day is a switch (was a checkbox); the recurrence settings drop their warning-coloured box and
+  use the same weekday row (were round, blue, hard-coded English "Mo/Tu"); the title field's text
+  weight matches the other fields.
+- **Toggle chips → `toggle`:** activity and change-log filters, call direction and outcome, task
+  priority, role team filters, tag categories, link filters, chat task assignee and "Assigned to
+  me", integration categories, and the appointment service tabs and Fit screen.
+- **Hand-built switchers → `SegmentedControl`:** the staff timesheet period and view switchers
+  (their row's Save moves to the same 36px) and the invoice forecast range. A forecast preset equal
+  to the horizon keeps its own segment, so exactly one segment is ever lit.
+- **Copy:** the event dialog's title is "New event", matching the button that opens it, and the
+  calendar settings save reads "Save changes" like every other dialog.
+
+### Deliberately not changed
+
+- `Tabs` keep their underline: they switch panels, a different control.
+- Date selections (the activity day strip, the date picker) keep the blue selected day.
+- Modules withheld from v1 (deals, sales, WMS, warranty and the rest) keep the old chip pattern
+  until they return to the product.
+
 ## Changelog
 
 - 2026-09-26 — Implemented.
 - 2026-09-27 — Phase 2: shape, type, surfaces, focus and shell conversion.
 - 2026-09-27 — Phase 3: modals. Unit coverage in `dialog.test.tsx` and `ConfirmDialog.test.tsx`.
+- 2026-09-27 — Phase 4: one look for every switcher and toggle. Unit coverage in
+  `segmented-control.test.tsx`, `button.test.tsx`, `WeekdayToggles.test.tsx`,
+  `ScheduleSection.test.tsx`, `DateTimeFields.test.tsx`, `ViewSwitcher.test.tsx` and the invoice
+  dashboard's `page.test.tsx`.

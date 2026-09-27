@@ -14,10 +14,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@open-mercato/ui/primitives/select'
-import { Checkbox } from '@open-mercato/ui/primitives/checkbox'
 import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primitives/segmented-control'
+import { SwitchField } from '@open-mercato/ui/primitives/switch-field'
 import { FormFieldLabel } from '@open-mercato/ui/backend/forms/FormSection'
-import { LABEL_CLASS } from '../../calendar/editor/inputs'
+import { LABEL_CLASS, WeekdayToggles } from '../../calendar/editor/inputs'
 import type { ActivityType, ScheduleFieldId } from './fieldConfig'
 import { isVisible, getFieldLabel } from './fieldConfig'
 
@@ -47,7 +47,6 @@ const DURATION_OPTIONS: Array<{ value: number; key: string; fallback: string }> 
   { value: 90, key: 'customers.schedule.duration.option.1h30m', fallback: '1h 30m' },
   { value: 120, key: 'customers.schedule.duration.option.2hours', fallback: '2 hours' },
 ]
-const DAYS_OF_WEEK = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 interface DateTimeFieldsProps {
   visible: Set<ScheduleFieldId>
@@ -179,10 +178,16 @@ export function DateTimeFields({
       {/* All day + timezone + recurrence */}
       {showAllDay && (
         <div className="flex flex-wrap items-center gap-3.5 text-sm text-muted-foreground">
-          <label htmlFor="schedule-all-day" className="flex cursor-pointer items-center gap-2 text-foreground">
-            <Checkbox id="schedule-all-day" checked={allDay} onCheckedChange={(checked) => setAllDay(checked === true)} />
-            {t('customers.schedule.allDay', 'All day')}
-          </label>
+          {/* A switch, as All day is in the calendar event editor: the same
+              setting drawn as a checkbox here and a switch there read as two
+              different controls. */}
+          <SwitchField
+            id="schedule-all-day"
+            label={t('customers.schedule.allDay', 'All day')}
+            checked={allDay}
+            onCheckedChange={setAllDay}
+            containerClassName="gap-2"
+          />
           <span className="text-muted-foreground">&middot;</span>
           <span className="flex items-center gap-1.5">
             <Globe className="size-4" />
@@ -191,7 +196,7 @@ export function DateTimeFields({
           {showRecurrence && (
             <Button
               type="button"
-              variant={recurrenceEnabled ? 'default' : 'soft'}
+              variant="toggle"
               aria-pressed={recurrenceEnabled}
               onClick={() => setRecurrenceEnabled(!recurrenceEnabled)}
             >
@@ -204,31 +209,16 @@ export function DateTimeFields({
         </div>
       )}
 
-      {/* Recurrence config */}
+      {/* Recurrence config, laid out as the calendar event editor lays out its
+          repeat: a label, the days, then the end rule, with no box of its own.
+          It used to sit in a box painted in the warning status colours, a
+          status fill doing a layout job, so a plain setting read as an alert. */}
       {showRecurrence && recurrenceEnabled && (
-        <div className="space-y-3 rounded-lg border border-status-warning-border bg-status-warning-bg p-4">
-          <div className="flex items-center justify-between">
-            <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              <Repeat className="size-4" />
-              {t('customers.schedule.recurrence.title', 'Recurrence')}
-            </span>
-          </div>
-          <div className="flex gap-2">
-            {DAYS_OF_WEEK.map((day, i) => (
-              <Button
-                key={day}
-                type="button"
-                variant={recurrenceDays[i] ? 'default' : 'soft'}
-                aria-pressed={recurrenceDays[i]}
-                onClick={() => toggleRecurrenceDay(i)}
-                className="size-9 rounded-full p-0"
-              >
-                {day.slice(0, 2)}
-              </Button>
-            ))}
-          </div>
-          <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-            <span>{t('customers.schedule.recurrence.ends', 'Ends')}:</span>
+        <div className="flex flex-col gap-2.5">
+          <span className={LABEL_CLASS}>{t('customers.schedule.recurrence.title', 'Recurrence')}</span>
+          <WeekdayToggles days={recurrenceDays} onToggle={toggleRecurrenceDay} />
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={cn(LABEL_CLASS, 'shrink-0')}>{t('customers.schedule.recurrence.ends', 'Ends')}</span>
             <SegmentedControl
               tone="inset"
               aria-label={t('customers.schedule.recurrence.ends', 'Ends')}

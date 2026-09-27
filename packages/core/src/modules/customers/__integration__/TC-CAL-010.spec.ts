@@ -99,7 +99,7 @@ test.describe('TC-CAL-010: Week view keeps today\'s weekend column when weekends
       await expect(weekendSwitch).not.toBeChecked();
       await weekendSwitch.click();
       await expect(weekendSwitch).toBeChecked();
-      await dialog.getByRole('button', { name: 'Save Changes', exact: true }).click();
+      await dialog.getByRole('button', { name: 'Save changes', exact: true }).click();
       await expect(dialog).toBeHidden();
 
       // Now the whole weekend renders (Mon–Sun): both Sat and Sun headers visible.

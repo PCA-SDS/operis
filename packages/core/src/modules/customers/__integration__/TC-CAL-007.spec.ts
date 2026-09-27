@@ -21,7 +21,7 @@ import {
  *
  * "Show weekends" is a per-user view preference persisted to localStorage.
  * Default OFF → the week renders Mon–Fri (5 day-columns, no Sat/Sun headers).
- * Toggling it ON and clicking "Save Changes" makes the week render Mon–Sun
+ * Toggling it ON and clicking "Save changes" makes the week render Mon–Sun
  * (7 day-columns; Sat/Sun headers appear). The saved preference survives a full
  * page reload. Cancel discards an unsaved toggle change.
  *
@@ -150,7 +150,7 @@ test.describe('TC-CAL-007: Calendar settings / customization modal', () => {
       const scopeGroup2 = dialog2.getByRole('radiogroup', { name: 'Conflict scope' });
       await scopeGroup2.getByRole('radio', { name: 'All meetings', exact: true }).click();
       await expect(scopeGroup2.getByRole('radio', { name: 'All meetings', exact: true })).toBeChecked();
-      await dialog2.getByRole('button', { name: 'Save Changes', exact: true }).click();
+      await dialog2.getByRole('button', { name: 'Save changes', exact: true }).click();
       await expect(dialog2).toBeHidden();
 
       // Sat + Sun columns now render (Mon–Sun, 7 columns).
