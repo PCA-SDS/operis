@@ -71,6 +71,14 @@ const buttonGroupVariants = cva(
         default: 'rounded-md',
       },
     },
+    // A row group is its size's control height with the border inside it, so
+    // it lines up with the buttons beside it: 36px by default, not the 38 the
+    // border used to add around full-height children.
+    compoundVariants: [
+      { orientation: 'horizontal', size: 'default', className: 'h-9 [&>*]:h-full' },
+      { orientation: 'horizontal', size: 'sm', className: 'h-8 [&>*]:h-full' },
+      { orientation: 'horizontal', size: '2xs', className: 'h-6 [&>*]:h-full' },
+    ],
     defaultVariants: {
       orientation: 'horizontal',
       size: 'default',
