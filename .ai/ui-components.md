@@ -528,7 +528,7 @@ All four tones are borderless and share the box; only the fill and the ink move.
 | `tone` | Ground | Use |
 |---|---|---|
 | `default` | `bg-surface-muted` → hover `bg-surface-strong` → focus `shadow-focus` | On a card or the page. The everyday choice. |
-| `raised` | `bg-surface shadow-md` → hover `bg-modal-muted` → focus `ring-2 ring-focus-ring/30` | Hero / topbar search sitting on the **page ground**, where `surface-muted` would be invisible. |
+| `raised` | `border-card-edge bg-surface shadow-xs` → focus `ring-2 ring-focus-ring/30` | A white field on the **page ground** (the chat search). White on white, so it carries the card hairline, transparent in dark. |
 | `sidebar` | `bg-sidebar-accent/50` → hover/focus `bg-sidebar-accent`, sidebar ink, `focus-within:border-sidebar-ring` | Inside the navy rail. Content neutrals are unreadable there. |
 | `plain` | transparent, `rounded-none px-0`, no hover, **no focus halo** | When the field **is** the popover's header row — the popover owns the border and the padding. |
 
@@ -3574,7 +3574,7 @@ Items deliberately carry **no height of their own** — the track is `items-stre
 
 ### Tone
 
-`tone` picks the **rail** and nothing else: `default` is a white rail (`bg-surface shadow-xs`) for the grey page ground and grey panels; `inset` is the grey control fill (`bg-input-bg`) for a white surface — a dialog, a card, a popover — where a white rail would vanish. It is the same flip the fields make. The pill and the labels are identical in both tones.
+`tone` picks the **rail** and nothing else: `default` is the page ground's rail (`bg-segmented-rail`); `inset` is the field well (`bg-input-bg`) for a raised surface — a card, a dialog, a popover. In light both are the grey control fill, because a white rail vanished once the page ground turned white. In dark the ground's rail is the raised surface (#1C1C1E), so the raised-grey pill stands off it, and the well (#2C2C2E) steps off a card of that same colour, which is why a switcher on a surface still takes `inset`. Inside a grey `CrudForm` section both turn white with the fields (`globals.css`). The pill and the labels are identical in both tones.
 
 ### Geometry
 

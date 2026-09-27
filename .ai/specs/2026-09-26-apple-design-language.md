@@ -19,9 +19,10 @@ did. Everything that painted colour outside the tokens was fixed, and a repo-wid
 
 | Role | Light | Dark |
 |---|---|---|
-| Page ground `--background` | `#F5F5F7` | `#000000` |
+| Page ground `--background` | `#FFFFFF` | `#000000` |
 | Ink `--foreground` | `#1D1D1F` | `#F5F5F7` |
 | Surface / card | `#FFFFFF` | `#1C1C1E` |
+| Card edge `--card-edge` | `#E5E5EA` | transparent |
 | Popover | `#FFFFFF` | `#2C2C2E` |
 | Muted fill / hover ladder | `#EDEDF0` → `#E3E3E8` | `#2C2C2E` → `#3A3A3C` |
 | Secondary label `--muted-foreground` | `#6E6E73` | `#A1A1A6` |
@@ -29,6 +30,7 @@ did. Everything that painted colour outside the tokens was fixed, and a repo-wid
 | Button blue `--primary` | `#0071E3` | `#0071E3` |
 | Link blue `--accent-strong` | `#0066CC` | `#2997FF` |
 | Control fill (soft button, field well) | `#E8E8ED` | `#2C2C2E` |
+| Switcher rail on the ground `--segmented-rail` | `#E8E8ED` | `#1C1C1E` |
 | Destructive | `#E30000` | `#FF453A` |
 
 - **Status families** start from Apple's system red, green, orange, blue, gray and pink. The icon role uses
@@ -465,6 +467,188 @@ integrations, audit logs, search settings, the AI playground, the notification p
 manager measure the same: 40px row, 36px tabs, weight 500, the bar over the rail. On a 375px phone the
 zone switcher's bar glides 179.5px and nothing scrolls sideways.
 
+## Phase 12 — one page frame
+
+A survey of the 136 backend pages the demo admin can open without a record found most of them on the
+shell's frame: content from the column's left edge, or beside a module sidebar, starting at y 88. The
+exceptions fell into five groups.
+
+- **Locked pages ran into the window's bottom edge.** A seat planner change had set the bottom padding
+  of every `<Page fill>` page to 0, so chat and the booking overview ended flush on the edge while the
+  calendar, which measures its own height, kept 16px. A locked page now keeps 16px under it, the
+  calendar's gap, set once in the `globals.css` rule, so chat, the calendar, the booking overview and
+  the Tasks team view all end on the same line. A unit test ties the rule to the calendar's constant;
+  it reads the app's stylesheet, so it is listed in `scripts/repo-wide-guards.mjs` and runs on every PR.
+- **A 1px line under every page.** The app-wide `FrontendLayout` wrapped its footer in a bordered div
+  even when the footer rendered nothing, and `AuthFooter` renders only on the login and onboarding
+  pages. Every document was 1px taller than its content, and every locked page scrolled by 1px. The
+  footer now draws its own chrome, and on the login and onboarding pages there is one border above it
+  where there were two.
+- **The full-bleed planner stopped short.** The seat planner undoes the gutter with negative margins,
+  but the page's `h-full` only moved it up, so it ended 24px above the bottom edge (40px once locked
+  pages kept their gap). Its loading skeleton sat inside the gutter, so the whole frame jumped when the
+  data arrived. Both now use one frame that grows into the undone gutter as a flex item and covers the
+  pane under the topbar exactly.
+- **Pages that drew their own frame.** The chat workspace was a centred 672px column 16px lower than
+  its siblings; the custom entities settings were capped at 672px and titled by an `h3` inside the
+  form; the staff timesheets' "no profile" message started 48px down outside a card, while My
+  Availability showed the same kind of message in a card with a 32px button. All four now sit on the
+  frame, both messages in the same card with a 36px button.
+- **Page titles in three sizes.** `PageHeader` pages had the 32px large title. The AI assistant's four
+  pages, search settings, the three notification settings pages, sidebar customization, the booking
+  overview and the Tasks views drew their own at 24px, bold or semibold, and the chat workspace at
+  18px. They now use `PageHeader`, or `PAGE_TITLE_CLASS` where the header carries its own controls,
+  and drop the decorative icons beside the AI titles. Sidebar customization shows the same header
+  while it loads, where its placeholder bars were sized for the old title.
+
+`.ai/ds-rules.md` → Page gutter now states the bottom edge: 48px under an ordinary page, 16px under a
+locked one, and how a full-bleed locked page undoes it.
+
+### Deliberately not changed
+
+- Settings panels that title themselves inside a card (system status, cache, catalog, dictionaries,
+  encryption, translations, currency fetching, customers and appointments configuration, attachments,
+  module telemetry, integrations, change password) keep their 14–20px card titles. Giving them page
+  titles is a redesign of those panels.
+- Record headers, the dashboard greeting and forms' compact `FormHeader` are their own elements.
+- The settings family's 32px rhythm (`space-y-8`), consistent within the family and allowed by the
+  spacing scale.
+- Loading states inside the frame. The seat planner's skeleton header is 56px and the loaded one 61px,
+  or 65px with a category line, so the timeline settles 5–9px lower once loaded. The AI assistant's
+  settings, agents and playground pages, the notification settings page and the personal notification
+  preferences page show a spinner without their header while their data loads, so the title appears
+  with the data. That is skeleton work, as in Phase 8.
+- Modules withheld from v1, and pages the demo admin cannot open, were not measured.
+
+Measured at 1600×1000 against the survey before the change: 114 pages unchanged, the dashboard's
+greeting changed with the hour, and the other 21 changed only as described above. Chat, the calendar, the booking overview and the Tasks team view end at y 984
+and every locked document is 1000px tall (1001 before). The changed titles are 32px semibold at
+(288, 88); search settings' is at y 226, under the partial-index banner. The chat workspace and custom
+entities span 288–1568 from y 88; the timesheets and My Availability cards start at y 88 and span
+288–1568. The seat planner and its skeleton cover 0–1600 by 64–1000 with nothing scrolling, and the same
+pane at 375×812, 800×900 and 1100×900. On a 375px phone chat and Today keep 16px on every side, end at
+y 796 and nothing scrolls sideways.
+
+## Phase 13 — every page opens with its title
+
+Phase 12's survey showed the frame holding on every page: the content column starts at y 88 and ends
+at x 1568. What varied was what a page put first. Six pages put something above their title, seventeen
+titled themselves inside a card or at a smaller size, and some had no title at all, or none while they
+loaded.
+
+- **List cards sit where page content sits.** `DataTable` kept an empty 12px wrapper for widgets
+  injected under its title even when there were none, so a list with extension points had 36px between
+  its title row and its card where every other page has 24px. The wrapper now hides when empty, and the
+  list skeleton drops the copy it kept of it.
+- **Nothing above the title.** Audit logs led with its tab strip and titled each table with the tab's
+  name; it now has one title with the tabs under it, and each table keeps its buttons. Email templates
+  led with its own search, status filter and buttons; they move into the table's card and title row,
+  keeping search on submit, and the status select no longer runs 49px out of its label into the Compose
+  button. The entities pages led with a collapsed help card, which now follows the table. Timesheet
+  projects led with its KPI cards and titled only its table view; its title and Add Project button now
+  sit on a page header in both the table and card views. Data sync led with its sync card and titled
+  the runs table 977px down; it now opens with "Data Sync", and the runs table takes a section heading.
+- **Titles out of cards.** Cache, system status, module telemetry, profile, change password, currency
+  fetching and encryption titled themselves inside a card. The card header's title, description and page
+  buttons now form the page header, and the card keeps its content. Where that card only held other
+  cards (cache, system status, telemetry, currency fetching), it goes, and the inner cards sit on the
+  page ground. The integrations marketplace keeps its panel under a page header that carries its search
+  and sort. Catalog, customers, dictionaries, appointments, translations and storage settings are made of
+  titled sections and gain the page title their sidebar entry uses; the Back button shown when they are
+  opened from a record moves onto the header. AI moderation flags and AI usage drew 16px and 18px titles.
+  My communication channels drew a 24px title over a 32px table title, which is now its section heading.
+- **No page without a title.** Messages used the table's `embedded` mode, meant for a table inside
+  another surface, which dropped its title and card. My Availability and My Timesheets had no title in
+  any state. The feature toggle detail page had none either; it now takes the toggle's name with a back
+  arrow, as the record pages do.
+- **The title does not wait for the data.** The AI assistant's settings, agents and playground, the
+  notification settings and the personal notification preferences showed a spinner and no header while
+  loading. They, and every page above with a loading, empty or error state, now show the same header in
+  it.
+
+`.ai/ds-rules.md` gains a "Page title" section with these rules.
+
+### Deliberately not changed
+
+- The visual workflow editor is a compact editor (32px controls, bands meant to run edge to edge)
+  inside a module frame. It cannot go full-bleed beside the module sidebar, and aligning its header alone
+  would break its bands. It needs its own redesign.
+- Chat and chat search keep their messaging layout, and the calendar's toolbar is its header.
+- Forms keep the compact `FormHeader`, and record pages their record header.
+- Section headings inside settings cards still run from 14px to 18px, and card padding from 16px to
+  24px. That is typography inside the cards, not the frame.
+- The Gmail connect button is the 40px `SocialButton` beside 36px buttons; the primitive has one size.
+  The timesheet projects view toggle is 32px.
+
+Measured at 1600×1000 against the Phase 12 survey: 12 pages unchanged, 78 only 1px shorter (Phase 12's
+footer fix), 19 lists with their card 12px higher, and the other 27 are the pages above, each changed
+only as described. Every list now has its card 24px under its title row, at y 152 on a standard list,
+and its skeleton matches. Of 135 pages, 83 open with a 32px title at the column's origin (x 288 or 32,
+y 88). The rest are 37 forms with the compact header, 4 record pages, the dashboard, the calendar, chat
+and chat search, the visual editor, two pages under the partial-index banner, User Modules (its
+eyebrow sits above its title), the MCP consent page and two error states. The AI settings, agents and
+playground, notification settings and notification preferences hold the title at (288, 88) while
+loading and after. Email templates' status select ends at x 1548, inside the card, and nothing scrolls
+sideways at 375px.
+
+## Phase 14 — bright and white, and one sidebar family
+
+The product still read as grey: the page ground was `#F5F5F7`, Apple's grouped background, so every
+page sat on a grey sheet. Apple's own content backgrounds are white. Separately, the sidebars had
+drifted: Tasks drew its projects with an 11px uppercase label and rows of its own, the design-system
+gallery drew its nav by hand, and Chat's conversation list was a grey panel with its own rows.
+
+- **The ground is white.** `--background` is `#FFFFFF` in light; dark is unchanged. A card is now
+  white on white, so it carries a hairline: a new token, `--card-edge` (`#E5E5EA`, transparent in
+  dark, so dark mode does not change). The 204 card class strings that kept a transparent border (119
+  files) take `border-card-edge`, as do the ones built another way: the `Card` primitive, the list
+  card, dashboard widgets, progress jobs, form groups (whose error state recolours the same edge), the
+  calendar grids, the chat transcript and their skeletons. A token-wide ring on `shadow-sm` was
+  rejected because buttons use it too.
+- **Wells stop using the ground.** Code blocks, previews and chips that painted `bg-background` as a
+  quiet fill vanished on white; they take `bg-muted` (the AI chat and playground, tool confirmation,
+  API docs, the workflow edge and node dialogs, the role dialog, the mobile workflow timeline, the
+  dictionary field and the advanced filter's unselected buttons).
+- **Controls on the ground take the control fill.** Three controls were white on the grey ground and
+  vanished on white. The default `SegmentedControl` rail, Phase 4's white rail, takes a new token,
+  `--segmented-rail`: the control fill (`#E8E8ED`) in light and, in dark, the raised surface it already
+  was (`#1C1C1E`), because on the `#2C2C2E` well the dark pill fell from 1.49:1 to 1.23:1 against its
+  rail. `inset` stays the field well for a card or a dialog, and both tones turn white inside a grey
+  form section with the fields. The schedule toolbar's switcher sat in its own white card with the
+  ground's rail, invisible in both themes; it takes `inset`. The calendar's arrows take the soft grey
+  that Today and New task wear. The `raised` search (chat search) stays white and carries
+  `card-edge`.
+- **One sidebar family.** Every sidebar is composed only from `ModuleSidebar`'s parts, which now
+  follow Apple's sidebars: the label in ink, the 16px icon in the accent, a count in the secondary
+  label, and the selected row on the grey fill. The parts gained what the drifted sidebars needed
+  instead of forking: `ModuleSidebarLink` takes `leading` (an avatar), `trailing` (an unread dot) and
+  `emphasized`; `ModuleSidebarSection` is a group a module loads itself (a linked label, a badge, one +
+  action, loading rows, an empty note, a named nav region); `ModuleSidebarNote` and
+  `ModuleSidebarSkeletonRow` are exported; `ModuleSidebarAction` can open a menu; and a sidebar can opt
+  into collapsing to its icons. Tasks, the design-system gallery (keeping its collapse) and Chat's
+  conversation rail are rebuilt on them, and the chat skeleton follows.
+
+`.ai/ds-rules.md` records the white ground, the card edge, controls on the ground and the sidebar
+family; `.ai/ui-components.md` records the rail and the raised search.
+
+### Deliberately not changed
+
+- `CrudForm` section panels stay grey (`surface-muted` with white fields): the panel is what groups a
+  form. Dialogs stay `#F2F2F7`, Apple's grouped background for a modal sheet.
+- Chat's rail keeps its 16rem column, 2rem wider than a module sidebar, for its avatars and filter.
+- Every item from Phase 13's list stands.
+
+Measured at 1600×1000. The ground reads `rgb(255, 255, 255)` and cards carry a 1px `#E5E5EA` edge in
+light and none in dark. In the Tasks sidebar, idle links are `#1D1D1F` with `#0071E3` icons, the
+selected row is `#E8E8ED` with blue text, every row is 36px, the action icon is 16px, and "My
+Projects" is a 12px semibold grey label on a 24px row with a 24px +. Chat's rail matches: 36px rows on
+the same 40px pitch, 12px semibold section labels, unread rows semibold with a dot and announced as
+"2 unread messages", sections named as nav regions, and "New chat" as wide as its rows; its menu opens
+with Direct message and New space, and Escape returns focus to it. On the calendar, Today, both
+arrows and both switcher rails are `#E8E8ED` at 36px, and in dark the rails are `#1C1C1E` as before;
+in a form section the rail is white on `#EDEDF0`, like its fields; the chat search at rest shows its
+1px edge.
+
 ## Changelog
 
 - 2026-09-26 — Implemented.
@@ -493,3 +677,10 @@ zone switcher's bar glides 179.5px and nothing scrolls sideways.
 - 2026-09-27 — Phase 11: one tab strip, and it moves. Unit coverage in `tabs.test.tsx`,
   `soft-opt-ins.test.tsx`, `RecordTabsBar.test.tsx`, `ManageTagsDialog.test.tsx` and resources'
   `guarded-mutations.test.tsx`.
+- 2026-09-28 — Phase 12: one page frame. Unit coverage in `useAvailableHeight.gutter.test.ts` and
+  `frontend/__tests__/Layout.test.tsx`.
+- 2026-09-28 — Phase 13: every page opens with its title. The timesheets, communication channels and
+  integrations marketplace tests mock `PageHeader`.
+- 2026-09-28 — Phase 14: bright and white, and one sidebar family. Unit coverage in
+  `module-nav/__tests__/ModuleSidebar.test.tsx`, `segmented-control.test.tsx` and the backend
+  `loading-shape.test.tsx`.

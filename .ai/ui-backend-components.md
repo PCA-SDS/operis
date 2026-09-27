@@ -46,6 +46,7 @@ Decision tables, exports, props, and MUST rules for the backend component famili
 | Empty tab inside a detail page | `TabEmptyState` | `@open-mercato/ui/backend/detail` |
 | Page wrapper + title row | `Page` / `PageHeader` / `PageBody` | `@open-mercato/ui/backend/Page` |
 | Section heading with count + action | `SectionHeader` / `CollapsibleSection` | `@open-mercato/ui/backend/SectionHeader` |
+| A module's own sidebar, or a rail like Chat's (never hand-roll a nav row) | `ModuleLayout` / `ModuleSidebar` / `ModuleSidebarLink` / `ModuleSidebarSection` / `ModuleSidebarAction` | `@open-mercato/ui/backend/module-nav/ModuleSidebar` |
 | Page with left section nav (profile-style) | `SectionPage` / `SectionNav` | `@open-mercato/ui/backend/section-page` |
 | Settings area page | `SettingsPageWrapper` / `SettingsNavigation` | `@open-mercato/ui/backend/settings` |
 | Dashboard widgets | `registerDashboardWidgets` / `useWidgetData` (screen is framework-mounted) | `@open-mercato/ui/backend/dashboard` |
@@ -245,7 +246,8 @@ Structural wrappers for backend pages.
 | `Page`, `PageHeader`, `PageBody` | `@open-mercato/ui/backend/Page` | Standard page wrapper (`space-y-6`), title row (`title`, `description?`, `actions?`), and content wrapper |
 | `SectionHeader` | `@open-mercato/ui/backend/SectionHeader` | Section heading: `title`, `count?` (muted badge), `action?` |
 | `CollapsibleSection` | `@open-mercato/ui/backend/SectionHeader` | Same header with chevron toggle; `defaultCollapsed?`, controlled `collapsed`/`onCollapsedChange`, `children` |
-| `SectionPage`, `SectionNav` | `@open-mercato/ui/backend/section-page` | Page with grouped left navigation (`sections: SectionNavGroup[]`, `activePath`, `userFeatures?: Set<string>`) — items support `labelKey`, `requireFeatures`, nesting |
+| `ModuleLayout`, `ModuleSidebar`, `ModuleSidebarLink`, `ModuleSidebarAction`, `ModuleSidebarSection`, `ModuleSidebarSectionLabel`, `ModuleSidebarDivider`, `ModuleSidebarNote`, `ModuleSidebarSkeleton`, `ModuleSidebarSkeletonRow` | `@open-mercato/ui/backend/module-nav/ModuleSidebar` | The one sidebar family. `BackendModuleFrame` builds a module's page list from it; a page with `moduleSidebar: false` composes its own (Tasks, Chat). Links take `icon` or `leading`, `count` or `trailing`, `emphasized`; a section takes `href`, `badge`, one `action`, `loading`, `empty`, `landmark`; an action takes `menuItems`; `ModuleSidebar` takes `onToggleCollapse` to narrow to icons |
+| `SectionPage`, `SectionNav` | `@open-mercato/ui/backend/section-page` | Page with grouped left navigation, drawn with the module sidebar parts and collapsible (`sections: SectionNavGroup[]`, `activePath`, `userFeatures?: Set<string>`) — items support `labelKey`, `requireFeatures`, nesting |
 | `SettingsPageWrapper`, `SettingsNavigation` | `@open-mercato/ui/backend/settings` | Settings-area page shell: `sections: SectionNavGroup[]`, `requiredFeatures: string[]`; `SettingsNavigation` renders the settings card grid |
 | `registerDashboardWidgets`, `useWidgetData`, `WidgetDataBatchProvider` | `@open-mercato/ui/backend/dashboard` (+ `…/dashboard/widgetRegistry`, `…/dashboard/widgetData`) | Dashboard widget registry + batched data fetching. `DashboardScreen` itself is mounted by the framework — modules ship widgets, never the screen |
 

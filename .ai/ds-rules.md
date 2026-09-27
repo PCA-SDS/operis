@@ -107,7 +107,7 @@ The product sits on a four-step neutral ladder. Pick by **job**, not by how dark
 
 | Step | Token | Job |
 |---|---|---|
-| 0 | `bg-background` | the page ground; nothing else uses it |
+| 0 | `bg-background` | the page ground: white, like Apple's content backgrounds (black in dark); nothing else uses it |
 | 1 | `bg-surface` (= `bg-card`, `bg-popover`) | the raised plane: cards, tables, menus, dialogs |
 | 2 | `bg-surface-muted` (= `bg-muted`, `bg-accent`, `bg-secondary`) | quiet fill inside step 1: table headers, chips, inactive tiles |
 | 3 | `bg-surface-strong` | **chrome hover only** — topbar buttons, toolbar tiles |
@@ -118,12 +118,19 @@ tint. Do NOT use `bg-primary/10` for a hover on a neutral control — that is th
 `bg-surface-modal` / `bg-modal-muted` are the dialog-chrome equivalents; `modal-muted` also marks
 a **filled** input so a populated form reads at a glance without adding border weight.
 
-Elevation is carried by the shadow scale, not by stacking borders. Every card — the `Card`
-primitive, a list-view card, a detail section — takes `rounded-xl bg-surface shadow-sm` with
-**no visible border**: a border plus a shadow reads as two competing edges. Where a card's
-border carries state (a selected tile), keep the box with `border border-transparent` and let
-the state colour it. In dark mode the elevated surface colour separates the card from the black
-ground, so a card never adds a dark-only hairline.
+The page ground is white, so a card is white on white. Every card — the `Card` primitive, a
+list-view card, a detail section, a dashboard widget — takes `rounded-xl border border-card-edge
+bg-surface shadow-sm`: `card-edge` is the hairline that holds its shape on the white ground
+(#E5E5EA), and it is transparent in dark, where the elevated surface colour already separates the
+card from the black ground. Where a card's border carries state (a selected tile, a group with
+errors), the state recolours that same border. Never `border-border` for a card edge: that divider
+hairline stays visible in dark.
+
+A control on the page ground takes the control fill, exactly as it does on a card: soft grey
+buttons, tinted fields, and a grey `SegmentedControl` rail (the default `segmented-rail` on the
+ground, `tone="inset"` on a card or in a dialog, which differ only in dark). A white control on the
+white ground vanishes; one that must stay white (the `raised` search) carries `card-edge` like a
+card.
 
 A surface nested inside a white card does not take a second shadow or a border: it takes the
 next step of the ladder (`bg-surface-muted`), or it is a list separated by `divide-y
@@ -135,13 +142,33 @@ The dimming layer behind a dialog, sheet or drawer is `bg-scrim` — black at 32
 ## Page gutter
 
 Every backend page spans the full width of the content column. The shell's `main` owns the only page
-gutter: `px-4 pt-4 md:px-6 md:pt-6 xl:px-8` (16px on a phone, 24px from `md`, 32px sides from `xl`),
-with no `max-w-*` cap. The topbar uses the same inset, so its edge lines up with the page.
+gutter: `px-4 pb-12 pt-4 md:px-6 md:pt-6 xl:px-8` (16px on a phone, 24px from `md`, 32px sides from `xl`,
+48px under the page), with no `max-w-*` cap. The topbar uses the same inset, so its edge lines up with the
+page.
 
 - A page MUST NOT add its own outer padding, margin or width cap (`max-w-*`, `mx-auto`, `px-*`/`pt-*` on
   its root or on a wrapper around all of its content). Width caps belong on self-contained pieces only: a
   dialog, a line of prose, an image preview.
+- A locked page (`<Page fill>`) keeps 16px under it instead of 48px, the room the calendar leaves under
+  its grid, so every locked page ends on the same line.
 - A full-bleed page (an editor canvas) undoes exactly the gutter: `-mx-4 -mt-4 md:-mx-6 md:-mt-6 xl:-mx-8`.
+  On a locked page it also undoes the bottom gap and grows into it as a flex item: add
+  `h-auto flex-1 -mb-4`. The page's own `h-full` would only shift it up and leave the gap under it.
+
+## Page title
+
+Every page opens with its title at the top of the content column: `PageHeader`, a list view's
+`DataTable` title, or `FormHeader` on a form or record.
+
+- Tabs, filters, KPI cards, notices and help cards go under the title, never above it. A list view
+  keeps its filters in the `DataTable` card (`toolbar`) and its buttons on the title row (`actions`).
+- One large title per page. A second list or panel on the page takes a section heading
+  (`text-xl font-semibold`), passed to `DataTable` as a `title` node.
+- A settings panel whose card header names the page gives that header up: the title, description
+  and page-level buttons move into `PageHeader`, and the card keeps only its content.
+- The loading, empty and error states show the same header as the loaded page.
+- A standalone list page does not use `DataTable`'s `embedded` mode, which drops the title and card
+  for tables that sit inside another surface.
 
 ## Navigation: module switcher and module sidebars
 
@@ -150,7 +177,7 @@ module's pages sit beside that module's own sidebar. Spec:
 `.ai/specs/2026-09-25-module-switcher-and-module-sidebars.md`.
 
 - The topbar is Apple's navigation material: `bg-surface/80` with `backdrop-blur-xl backdrop-saturate-150`
-  and a `border-border` hairline, a frosted white sheet over the grey page. Every topbar control is 36px and
+  and a `border-border` hairline, a frosted white sheet held off the page by that line. Every topbar control is 36px and
   borderless with the one chrome hover (`bg-surface-strong`), every action icon is `size-4` in ink (chevrons,
   breadcrumb links and separators are the secondary greys), and every control sits on the bar's centre line.
   The search is the one field, in the grey control fill (`SearchInput tone="default"`) with a white key chip.
@@ -158,8 +185,16 @@ module's pages sit beside that module's own sidebar. Spec:
   ghost `Button` with a 16px icon. Labelled controls show their label from `xl`.
 - Build every module sidebar from `@open-mercato/ui/backend/module-nav/ModuleSidebar`
   (`ModuleLayout`, `ModuleSidebar`, `ModuleSidebarLink`, `ModuleSidebarAction`, `ModuleSidebarDivider`,
-  `ModuleSidebarSectionLabel`, `ModuleSidebarSkeleton`). They are the Task Manager's sidebar, extracted; never
-  hand-roll a nav row or restate its classes.
+  `ModuleSidebarSectionLabel`, `ModuleSidebarSection`, `ModuleSidebarNote`, `ModuleSidebarSkeleton`,
+  `ModuleSidebarSkeletonRow`). They are the Task Manager's sidebar, extracted; never hand-roll a nav row
+  or restate its classes. The generic page list, Tasks, the design-system gallery and Chat's conversation
+  rail are composed only from these parts, so every sidebar has one type, one row and one selection.
+- The parts flex rather than fork. `ModuleSidebarLink` takes `leading` (an avatar in place of the icon),
+  `trailing` (an unread dot in place of the count) and `emphasized` (semibold, for a row waiting on the
+  reader). `ModuleSidebarSection` is a group a module loads itself: a label that can link, a `badge`, one
+  + `action`, `loading` rows, an `empty` note, and `landmark` to name its links as their own nav region.
+  `ModuleSidebarAction` takes `menuItems` when one create control starts more than one kind of thing. A
+  sidebar that can narrow to its icons passes `onToggleCollapse` (with `ModuleLayout collapsed`); most do not.
 - A backend page gets the generic module sidebar automatically (`BackendModuleFrame`, mounted by the backend
   catch-all). A page that draws its own module navigation sets `moduleSidebar: false` in its `page.meta.ts`
   and renders `ModuleLayout` with its own `ModuleSidebar` — never both.
@@ -168,11 +203,12 @@ module's pages sit beside that module's own sidebar. Spec:
   Declare one only for a page that draws that layout (`loading-skeleton-declarations.test.ts` checks it);
   an undeclared page gets a quiet spinner, never a guessed shape.
 - Tokens are the page-side neutrals, not the `sidebar-*` family. The column has no panel fill — it
-  sits directly on the page ground; idle row `text-muted-foreground hover:bg-surface-muted
-  hover:text-foreground`, active row `bg-primary-soft text-primary` with `aria-current="page"`. The
-  sidebar title is `text-sm font-semibold` in ink and group labels are `text-xs font-semibold
-  text-muted-foreground`, both sentence case. Labels and dividers are `shrink-0` so a long sidebar
-  scrolls instead of squeezing them.
+  sits directly on the page ground. Rows follow Apple's sidebars: every row is 36px (`px-3 py-2 text-sm
+  font-medium`); the idle row is `text-foreground hover:bg-surface-muted` with its 16px icon in the
+  accent (`text-primary`) and a count in `text-muted-foreground`; the active row is `bg-primary-soft
+  text-primary` with `aria-current="page"`. The sidebar title is `text-sm font-semibold` in ink and group
+  labels are `text-xs font-semibold text-muted-foreground`, both sentence case. Labels and dividers are
+  `shrink-0` so a long sidebar scrolls instead of squeezing them.
 - The `sidebar-*` tokens are the product's inked chrome (near-black in light, raised grey in dark): the
   selected pill of every `SegmentedControl` in either tone, a pressed `Button variant="toggle"`, the
   `sidebar` tone of `SearchInput`, and the sidebar customization preview
@@ -449,7 +485,8 @@ When building a new module UI, use the **customers module** as reference:
 
 | What is this border for? | Classes |
 |--------------------------|---------|
-| Card, dialog, popover, menu, input | **none** — elevation or fill carries the edge; keep `border border-transparent` only where state recolours it |
+| Card (a raised plane on the page ground) | `border border-card-edge` — the hairline in light, transparent in dark; state recolours it |
+| Dialog, popover, menu, input | **none** — elevation or fill carries the edge; keep `border border-transparent` only where state recolours it |
 | Input/form control edge | `border border-input` (transparent at rest; the focus state recolours it) |
 | Horizontal divider between sections, list rows, the table header | `border-t border-border` / `divide-y divide-border` (use `<Separator>` when possible) |
 | Active tab indicator (bottom underline) | `border-b-2 border-primary` |

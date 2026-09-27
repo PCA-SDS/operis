@@ -282,7 +282,7 @@ These are critical project-wide rules. The top-level `Always`, `Ask First`, and 
 - NEVER hardcode a colour: no Tailwind ramps (`text-red-*`, `border-gray-300`), no hex/rgb in `className`. Use semantic or `{property}-status-{status}-{role}` tokens.
 - NEVER add `dark:` overrides on semantic/status tokens — they already carry dark values.
 - NEVER use arbitrary values (`text-[13px]`, `rounded-[24px]`, `z-[9999]`) — use the DS scale.
-- NEVER paint a raised element with `bg-background` — that is the PAGE GROUND. Cards/panels/menus/controls use `bg-surface`, fields `bg-input-bg`. Wrong here renders a grey block on a white card and still typechecks.
+- NEVER paint a raised element with `bg-background` — that is the PAGE GROUND. Cards/panels/menus/controls use `bg-surface`, fields `bg-input-bg`. Wrong here vanishes on a white card, is a black block in dark, and still typechecks.
 - A NEW PAGE is `PageHeader` → filters → content. List views use `DataTable`, which renders that header itself — never add a second one.
 
 **Boy Scout Rule**: when touching a file with hardcoded colours, arbitrary sizes, or `dark:` overrides on tokens, migrate at least the lines you touched.
