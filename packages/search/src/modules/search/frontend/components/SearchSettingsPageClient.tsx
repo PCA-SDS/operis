@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { PageHeader } from '@open-mercato/ui/backend/Page'
 import { apiCall, readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { Button } from '@open-mercato/ui/primitives/button'
@@ -404,11 +405,10 @@ export function SearchSettingsPageClient() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* Header */}
-      <div className="space-y-1">
-        <h1 className="text-2xl font-bold">{t('search.settings.pageTitle', 'Search Settings')}</h1>
-        <p className="text-muted-foreground">{t('search.settings.pageDescription', 'Configure search strategies and view their availability.')}</p>
-      </div>
+      <PageHeader
+        title={t('search.settings.pageTitle', 'Search Settings')}
+        description={t('search.settings.pageDescription', 'Configure search strategies and view their availability.')}
+      />
 
       {/* Section 1: Global Search Settings */}
       <GlobalSearchSection
