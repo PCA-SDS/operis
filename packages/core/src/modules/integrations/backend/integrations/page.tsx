@@ -376,8 +376,9 @@ export default function IntegrationsMarketplacePage() {
                 <Button
                   key={category}
                   type="button"
-                  variant={selectedCategory === category ? 'default' : 'outline'}
+                  variant="toggle"
                   size="sm"
+                  aria-pressed={selectedCategory === category}
                   onClick={() => setFilterValues(normalizeIntegrationMarketplaceFilterValues({ category }))}
                 >
                   {Icon ? <Icon className="mr-1.5 h-3.5 w-3.5" /> : null}

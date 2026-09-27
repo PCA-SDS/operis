@@ -5,6 +5,7 @@ import { Page, PageBody, PAGE_TITLE_CLASS } from '@open-mercato/ui/backend/Page'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { ErrorMessage, LoadingMessage } from '@open-mercato/ui/backend/detail'
 import { Button } from '@open-mercato/ui/primitives/button'
+import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primitives/segmented-control'
 import { Slider } from '@open-mercato/ui/primitives/slider'
 import { LineChart, PieChart } from '@open-mercato/ui/backend/charts'
 import { useInvoiceT as useT } from '../../lib/useInvoiceT'
@@ -54,6 +55,7 @@ export default function InvoiceDashboardPage() {
   const [loading, setLoading] = React.useState(true)
   const [summaryLoading, setSummaryLoading] = React.useState(false)
   const [error, setError] = React.useState(false)
+  const forecastHeadingId = React.useId()
 
   const loadForecast = React.useCallback(async () => {
     setLoading(true)
@@ -98,6 +100,10 @@ export default function InvoiceDashboardPage() {
   if (error || !summary) return <Page><PageBody><ErrorMessage label={t('invoice.dashboard.error')} action={<Button type="button" onClick={() => { void loadForecast() }}>{t('invoice.actions.retry')}</Button>} /></PageBody></Page>
 
   const selectedCutoff = Math.min(cutoff, forecast.horizonDays)
+  const cutoffPresets = PRESETS.filter((days) => days <= forecast.horizonDays)
+  const cutoffSegment = selectedCutoff === forecast.horizonDays && !cutoffPresets.includes(selectedCutoff)
+    ? 'horizon'
+    : String(selectedCutoff)
   const throughDate = addDays(forecast.today, selectedCutoff)
   const chartData = forecast.net.points
     .filter((point) => point.date <= throughDate)
@@ -115,7 +121,7 @@ export default function InvoiceDashboardPage() {
     <h2 className="text-lg font-medium">{t('invoice.dashboard.overview')}</h2>
     {summary.ratesStale || forecast.ratesStale ? <p className="rounded-md border border-status-warning-border bg-status-warning-bg px-3 py-2 text-sm text-status-warning-text">{t('invoice.dashboard.staleRates')}</p> : null}
     <div className="grid gap-4 sm:grid-cols-3"><Card title={t('invoice.dashboard.apOutstanding')} value={summary.ap.outstandingAmount} caption={t('invoice.dashboard.payablesCaption')} /><Card title={t('invoice.dashboard.arOutstanding')} value={summary.ar.outstandingAmount} caption={t('invoice.dashboard.receivablesCaption')} /><Card title={t('invoice.dashboard.netPosition')} value={summary.netPosition} caption={t('invoice.dashboard.netCaption')} /></div>
-    <div className="grid gap-4 lg:grid-cols-3"><section className="rounded-xl border border-border bg-surface p-5 shadow-sm lg:col-span-2"><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-sm font-semibold uppercase tracking-wide">{t('invoice.dashboard.forecast')}</h2><div className="flex gap-1 rounded-md border border-border p-1">{PRESETS.filter((days) => days <= forecast.horizonDays).map((days) => <Button key={days} type="button" size="sm" variant={selectedCutoff === days ? 'default' : 'ghost'} onClick={() => setCutoff(days)}>{t('invoice.dashboard.days', { count: days })}</Button>)}<Button type="button" size="sm" variant={selectedCutoff === forecast.horizonDays ? 'default' : 'ghost'} onClick={() => setCutoff(forecast.horizonDays)}>{t('invoice.dashboard.horizon')}</Button></div></div><p className="mt-3 text-2xl text-primary"><Amount value={netTotal} /></p><p className="text-sm text-muted-foreground">{t('invoice.dashboard.forecastNet')} · {throughDate}</p><div className="mt-4"><Slider value={[selectedCutoff]} min={1} max={Math.max(forecast.horizonDays, 1)} step={1} onValueChange={(value) => { const next = value[0]; if (next !== undefined) setCutoff(next) }} aria-label={t('invoice.dashboard.horizon')} /></div><LineChart className="mt-3" data={chartData} index="date" categories={['arAmount', 'apAmount', 'netAmount']} categoryLabels={{ arAmount: t('invoice.dashboard.ar'), apAmount: t('invoice.dashboard.ap'), netAmount: t('invoice.dashboard.net') }} valueFormatter={(value) => formatInvoiceMoney(value, 'VND')} showXAxis={false} showYAxis={false} showZeroLine emptyMessage={t('invoice.dashboard.noForecast')} /></section><div className="space-y-4 lg:col-span-1"><StatusCard title={t('invoice.dashboard.receivablesStatus')} subtitle={t('invoice.dashboard.receivablesStatusSubtitle')} invoices={invoices.filter((invoice) => invoice.direction === 'AR')} emptyMessage={t('invoice.dashboard.noReceivables')} t={t} /><StatusCard title={t('invoice.dashboard.payablesStatus')} subtitle={t('invoice.dashboard.payablesStatusSubtitle')} invoices={invoices.filter((invoice) => invoice.direction === 'AP')} emptyMessage={t('invoice.dashboard.noPayables')} t={t} /></div></div>
+    <div className="grid gap-4 lg:grid-cols-3"><section className="rounded-xl border border-border bg-surface p-5 shadow-sm lg:col-span-2"><div className="flex flex-wrap items-center justify-between gap-3"><h2 id={forecastHeadingId} className="text-sm font-semibold uppercase tracking-wide">{t('invoice.dashboard.forecast')}</h2><SegmentedControl tone="inset" aria-labelledby={forecastHeadingId} value={cutoffSegment} onValueChange={(value) => setCutoff(value === 'horizon' ? forecast.horizonDays : Number(value))}>{cutoffPresets.map((days) => <SegmentedControlItem key={days} value={String(days)}>{t('invoice.dashboard.days', { count: days })}</SegmentedControlItem>)}<SegmentedControlItem value="horizon">{t('invoice.dashboard.horizon')}</SegmentedControlItem></SegmentedControl></div><p className="mt-3 text-2xl text-primary"><Amount value={netTotal} /></p><p className="text-sm text-muted-foreground">{t('invoice.dashboard.forecastNet')} · {throughDate}</p><div className="mt-4"><Slider value={[selectedCutoff]} min={1} max={Math.max(forecast.horizonDays, 1)} step={1} onValueChange={(value) => { const next = value[0]; if (next !== undefined) setCutoff(next) }} aria-label={t('invoice.dashboard.horizon')} /></div><LineChart className="mt-3" data={chartData} index="date" categories={['arAmount', 'apAmount', 'netAmount']} categoryLabels={{ arAmount: t('invoice.dashboard.ar'), apAmount: t('invoice.dashboard.ap'), netAmount: t('invoice.dashboard.net') }} valueFormatter={(value) => formatInvoiceMoney(value, 'VND')} showXAxis={false} showYAxis={false} showZeroLine emptyMessage={t('invoice.dashboard.noForecast')} /></section><div className="space-y-4 lg:col-span-1"><StatusCard title={t('invoice.dashboard.receivablesStatus')} subtitle={t('invoice.dashboard.receivablesStatusSubtitle')} invoices={invoices.filter((invoice) => invoice.direction === 'AR')} emptyMessage={t('invoice.dashboard.noReceivables')} t={t} /><StatusCard title={t('invoice.dashboard.payablesStatus')} subtitle={t('invoice.dashboard.payablesStatusSubtitle')} invoices={invoices.filter((invoice) => invoice.direction === 'AP')} emptyMessage={t('invoice.dashboard.noPayables')} t={t} /></div></div>
     {summaryLoading ? <p className="text-sm text-muted-foreground">{t('invoice.dashboard.loading')}</p> : null}
   </PageBody></Page>
 }

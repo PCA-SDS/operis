@@ -954,7 +954,7 @@ export default function BookingOverviewPage() {
                 {t('appointments.overview.unconfirmed', 'Unconfirmed')}
                 <span className="ml-1 rounded-full bg-status-warning-bg px-1.5 text-xs text-status-warning-text">{overview?.unconfirmedAppointmentIds.length ?? 0}</span>
               </Button>
-              <Button type="button" variant={isFitScreen ? 'default' : 'outline'} onClick={() => setIsFitScreen((value) => !value)}>{isFitScreen ? <Minimize2 className="mr-2 size-4" /> : <Maximize2 className="mr-2 size-4" />}{t('appointments.overview.fitScreen', 'Fit screen')}</Button>
+              <Button type="button" variant="toggle" aria-pressed={isFitScreen} onClick={() => setIsFitScreen((value) => !value)}>{isFitScreen ? <Minimize2 className="mr-2 size-4" /> : <Maximize2 className="mr-2 size-4" />}{t('appointments.overview.fitScreen', 'Fit screen')}</Button>
             </div>
           </div>
 

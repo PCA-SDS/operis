@@ -103,15 +103,29 @@ describe('SegmentedControl', () => {
   })
 
   it.each([
-    ['default', undefined, 'p-1'],
-    ['sm', 'sm' as const, 'p-0.5'],
-  ])('insets the pill by the %s size\'s own padding, matching the reference toggle', (_name, size, pad) => {
-    // The inset IS the gap between the selected pill and the rail around it,
-    // and the reference gives its roomy size twice the inset of its dense one.
-    // A single shared value made the default read tight against its rail.
+    ['default', undefined, 'h-9'],
+    ['sm', 'sm' as const, 'h-8'],
+  ])('fills the %s track with the pill by default, so every switcher matches a button', (_name, size, height) => {
+    // Every switcher in the product is flush: the pill is the track's full
+    // height. An inset pill left a 26px shape among 36px controls, and a second
+    // look for the same control.
     const { container } = render(<Controlled size={size} />)
     const root = container.querySelector('[data-slot="segmented-control"]') as HTMLElement
-    expect(root.className).toContain(pad)
+    expect(root.className).toMatch(new RegExp(`(^|\\s)${height}(\\s|$)`))
+    expect(root.className).toMatch(/(^|\s)p-0(\s|$)/)
+    expect(root.className).toMatch(/(^|\s)border-0(\s|$)/)
+  })
+
+  it('still insets the pill when a caller opts out of flush', () => {
+    const { container } = render(
+      <SegmentedControl value="a" onValueChange={() => {}} aria-label="x" flush={false}>
+        <SegmentedControlItem value="a">A</SegmentedControlItem>
+      </SegmentedControl>,
+    )
+    const root = container.querySelector('[data-slot="segmented-control"]') as HTMLElement
+    expect(root.className).toMatch(/(^|\s)p-1(\s|$)/)
+    const indicator = container.querySelector('[data-slot="segmented-control-indicator"]') as HTMLElement
+    expect(indicator.style.borderRadius).toBe('6px')
   })
 
   it('disables all items when disabled prop is set on the root', () => {
@@ -180,13 +194,43 @@ describe('SegmentedControl', () => {
     expect(checked.className).not.toContain('data-[state=checked]:bg-sidebar')
   })
 
-  it('inks the checked label against the sidebar fill', () => {
-    // The pill is a saturated sidebar-navy fill, so the selected label has to
-    // switch to the sidebar's own foreground or it is unreadable on top of it.
+  it('inks the checked label against the pill and the rest at full ink', () => {
+    // The pill is the near-black sidebar fill, so the selected label takes the
+    // sidebar's own foreground. Unselected labels are full ink like every other
+    // control's label, with a quiet fill on hover instead of a colour change.
     const { getByRole } = render(<Controlled />)
     const item = getByRole('radio', { name: 'All' })
     expect(item.className).toContain('data-[state=checked]:text-sidebar-foreground')
-    expect(item.className).toContain('data-[state=unchecked]:text-muted-foreground')
+    expect(item.className).toContain('data-[state=unchecked]:text-foreground')
+    expect(item.className).toContain('data-[state=unchecked]:hover:bg-foreground/5')
+    expect(item.className).not.toContain('text-muted-foreground')
+  })
+
+  it('draws the same pill and labels in both tones; the tone only picks the rail', () => {
+    // A dialog's switcher used to be a white pill inset on grey with muted
+    // labels, a different control from the page's black pill. Now only the
+    // rail flips, the way fields flip between white and grey surfaces.
+    const page = render(<Controlled />)
+    const pageRoot = page.container.querySelector('[data-slot="segmented-control"]') as HTMLElement
+    const pageIndicator = page.container.querySelector('[data-slot="segmented-control-indicator"]') as HTMLElement
+    const pageItem = page.container.querySelector('[data-slot="segmented-control-item"]') as HTMLElement
+    expect(pageRoot.className).toContain('bg-surface')
+    const pageLook = { pill: pageIndicator.className, radius: pageIndicator.style.borderRadius, item: pageItem.className }
+    page.unmount()
+
+    const dialog = render(
+      <SegmentedControl value="all" onValueChange={() => {}} aria-label="View" tone="inset">
+        <SegmentedControlItem value="all">All</SegmentedControlItem>
+        <SegmentedControlItem value="active">Active</SegmentedControlItem>
+        <SegmentedControlItem value="archived">Archived</SegmentedControlItem>
+      </SegmentedControl>,
+    )
+    const dialogRoot = dialog.container.querySelector('[data-slot="segmented-control"]') as HTMLElement
+    const dialogIndicator = dialog.container.querySelector('[data-slot="segmented-control-indicator"]') as HTMLElement
+    const dialogItem = dialog.container.querySelector('[data-slot="segmented-control-item"]') as HTMLElement
+    expect(dialogRoot.className).toContain('bg-input-bg')
+    expect(dialogIndicator.className).toContain('bg-sidebar')
+    expect({ pill: dialogIndicator.className, radius: dialogIndicator.style.borderRadius, item: dialogItem.className }).toEqual(pageLook)
   })
 
   it('crossfades label colour over the same window the pill travels in', () => {
@@ -206,8 +250,8 @@ describe('SegmentedControl', () => {
     // silently reintroduce elliptical corners mid-slide.
     const { container } = render(<Controlled />)
     const indicator = container.querySelector('[data-slot="segmented-control-indicator"]') as HTMLElement
-    expect(indicator.style.borderRadius).toBe('6px')
-    expect(indicator.className).not.toContain('rounded-md')
+    expect(indicator.style.borderRadius).toBe('10px')
+    expect(indicator.className).not.toContain('rounded-lg')
   })
 
   it('fills the track edge to edge when flush, so the pill stands as tall as a button', () => {

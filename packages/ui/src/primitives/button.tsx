@@ -51,6 +51,15 @@ const buttonVariants = cva(
           'border border-transparent bg-primary-soft text-foreground shadow-sm hover:bg-primary-border/60 hover:shadow-md active:shadow-xs in-data-[crud-section=true]:bg-surface',
         soft:
           'border border-transparent bg-primary-soft text-foreground shadow-sm hover:bg-primary-border/60 hover:shadow-md active:shadow-xs in-data-[crud-section=true]:bg-surface',
+        /* A choice that is on or off: a filter chip, a weekday, "Repeats". At
+           rest it is the second-rank button above; pressed (`aria-pressed`) it
+           is the SegmentedControl's selected pill, so a chosen chip and a
+           chosen segment are one shape. The state lives on `aria-pressed`,
+           which a call site must set anyway, so there is no second prop to
+           keep in step with it. Blue stays for the primary action and for a
+           checked Checkbox, Radio or Switch. */
+        toggle:
+          'border border-transparent bg-primary-soft text-foreground shadow-sm hover:bg-primary-border/60 hover:shadow-md active:shadow-xs in-data-[crud-section=true]:bg-surface aria-pressed:bg-sidebar aria-pressed:text-sidebar-foreground aria-pressed:hover:bg-sidebar aria-pressed:hover:shadow-sm',
         /* Quiet chrome action — no fill or border at rest, `surface-strong` on
            hover so it reads as chrome rather than as an accent tint. */
         ghost:

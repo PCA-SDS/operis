@@ -382,12 +382,12 @@ export function ActivityHistorySection({
                 <Button
                   key={filter.value}
                   type="button"
-                  variant={isActive ? 'default' : 'soft'}
+                  variant="toggle"
                   onClick={() => handleTypeToggle(filter.value)}
                   aria-pressed={isActive}
                 >
                   {t(filter.labelKey, filter.fallback)}
-                  <span className={isActive ? 'ml-1 text-primary-foreground/80' : 'ml-1 text-muted-foreground'}>
+                  <span className={isActive ? 'ml-1 text-sidebar-foreground/70' : 'ml-1 text-muted-foreground'}>
                     {counts[filter.value] ?? 0}
                   </span>
                 </Button>

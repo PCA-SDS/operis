@@ -342,7 +342,7 @@ function TagChip({
         active
           ? activeColorStyle
             ? 'hover:opacity-90'
-            : 'bg-primary text-primary-foreground hover:bg-primary-hover'
+            : 'bg-sidebar text-sidebar-foreground hover:bg-sidebar'
           : 'bg-input-bg text-foreground hover:bg-primary-soft',
       )}
       style={activeColorStyle}
@@ -1168,7 +1168,7 @@ export function EntityTagsDialog({
                     <Button
                       key={category.kind}
                       type="button"
-                      variant={isActive ? 'default' : 'soft'}
+                      variant="toggle"
                       aria-pressed={isActive}
                       className="min-w-[140px] justify-between text-left md:w-full"
                       onClick={() => setActiveCategoryKind(category.kind)}

@@ -821,7 +821,7 @@ export default function MyTimesheetsPage() {
                   {t('staff.timesheets.my.unsaved', 'Unsaved changes')}
                 </span>
               )}
-              <Button size="sm" type="button" onClick={handleSave} disabled={!hasChanges || isSaving || invalidCellCount > 0}>
+              <Button type="button" onClick={handleSave} disabled={!hasChanges || isSaving || invalidCellCount > 0}>
                 {isSaving ? t('staff.timesheets.my.saving', 'Saving...') : t('staff.timesheets.my.save_changes', 'Save Changes')}
               </Button>
             </div>

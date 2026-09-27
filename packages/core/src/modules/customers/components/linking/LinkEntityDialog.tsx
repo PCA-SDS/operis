@@ -554,7 +554,7 @@ export function LinkEntityDialog<TDetails = unknown, TLinkSettings = Record<stri
                       <Button
                         key={filter.id}
                         type="button"
-                        variant={isActive ? 'default' : 'soft'}
+                        variant="toggle"
                         aria-pressed={isActive}
                         onClick={() => setActiveFilter(filter.id)}
                       >
@@ -571,7 +571,7 @@ export function LinkEntityDialog<TDetails = unknown, TLinkSettings = Record<stri
                             className={cn(
                               'inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-xs',
                               isActive
-                                ? 'bg-primary-foreground/20 text-primary-foreground'
+                                ? 'bg-sidebar-foreground/20 text-sidebar-foreground'
                                 : 'bg-surface text-muted-foreground',
                             )}
                           >

@@ -23,7 +23,7 @@
       "messages"
     ],
     "itemCount": 114,
-    "variantCount": 316,
+    "variantCount": 317,
     "installedImplementationCount": 107,
     "localTokenItemCount": 6,
     "externalImplementationCount": 1,
@@ -1273,6 +1273,7 @@
         "secondary",
         "ghost",
         "muted",
+        "toggle",
         "link",
         "sizes"
       ],

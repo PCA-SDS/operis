@@ -408,7 +408,7 @@
   "customers.calendar.settings.eventCategoriesHint": "Your own grouping labels (e.g. Team Meeting, Sales Call). Offered when creating an event.",
   "customers.calendar.settings.max": "(max. {count})",
   "customers.calendar.settings.removeTag": "Remove {tag}",
-  "customers.calendar.settings.save": "Save Changes",
+  "customers.calendar.settings.save": "Save changes",
   "customers.calendar.settings.saved": "Calendar settings saved",
   "customers.calendar.settings.showCrmActivities": "Show CRM activities on calendar",
   "customers.calendar.settings.showWeekends": "Show weekends",

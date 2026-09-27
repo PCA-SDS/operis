@@ -90,8 +90,17 @@ import { Button } from '@open-mercato/ui/primitives/button'
 - `destructive-outline` · `destructive-soft` · `destructive-ghost` (danger family)
 - `outline` · `secondary` · `ghost` · `muted` · `link`
 - `soft` (the second rank — the Cancel beside a filled primary)
+- `toggle` (a choice that is on or off — see below)
 
 `outline`, `secondary` and `soft` are one button kept under three names: a neutral grey fill (`bg-primary-soft`) with no hairline. Every filled variant is **floating**: `shadow-sm` at rest, `shadow-md` on hover, `shadow-xs` while pressed — a stroke around a shape that already casts a shadow draws nothing. Inside a grey form section (`data-crud-section`) the neutral fill flips to `surface`, exactly as the fields beside it do, so the button never disappears into its panel.
+
+**Toggle.** A filter chip, a weekday, a "Repeats" button: anything a user turns on and off, where several can be on at once or the one button stands alone. At rest it is `soft`; with `aria-pressed="true"` it takes the `SegmentedControl`'s selected pill (`bg-sidebar`, `text-sidebar-foreground`), so a chosen chip and a chosen segment are one shape. The state lives on `aria-pressed` alone, which the button must carry anyway:
+
+```tsx
+<Button type="button" variant="toggle" aria-pressed={showCalls} onClick={toggleCalls}>Calls</Button>
+```
+
+MUST NOT flip `variant={on ? 'default' : 'soft'}` by state: that made a chosen chip the blue primary fill while a chosen segment beside it was the near-black pill. Blue is for the primary action and for a checked `Checkbox`, `Radio` or `Switch`. One of N mutually exclusive options is a `SegmentedControl`, not a row of toggles.
 
 **Sizes**: `2xs` (h-7) · `sm` (h-8) · `default` (h-9) · `lg` (h-10) · `icon` (size-9)
 
@@ -3534,8 +3543,9 @@ This is the **one toggle primitive for mutually-exclusive state** — reach for 
   value={view}                                  // current selected value
   onValueChange={(next) => setView(next)}       // fires on selection change
   size="sm" | "default"                         // optional, default "default"
+  tone="default" | "inset"                      // optional; the rail only (see Tone)
   fullWidth={false}                             // optional; span the container, equal-width segments
-  flush={false}                                 // optional; pill fills the track, no inset (see Flush)
+  flush={true}                                  // optional, default true; false insets the pill (see Geometry)
   disabled={false}                              // optional
   aria-label="View filter"                      // recommended
 >
@@ -3557,18 +3567,22 @@ Built on Radix `RadioGroup` — inherits arrow-key navigation, roving tabindex, 
 
 | Size | Track height | Item height | Item text | Use case |
 |---|---|---|---|---|
-| `default` (default) | `h-9` (36px) | stretches to the track (26px; 36px `flush`) | `text-sm` | Standard toolbar density, matches Button/Input |
-| `sm` | `h-8` (32px) | stretches to the track (26px; 32px `flush`) | `text-xs` | Tight rows, chart period selectors |
+| `default` (default) | `h-9` (36px) | fills the track (36px) | `text-sm` | Standard toolbar density, matches Button/Input |
+| `sm` | `h-8` (32px) | fills the track (32px) | `text-xs` | Tight rows, chart period selectors |
 
-Items deliberately carry **no height of their own** — the track is `items-stretch` with a 1px transparent border and the size's padding (`p-1` at `default`, `p-0.5` at `sm`), so the selected pill is inset by the same amount on all four sides. Giving an item a fixed height reintroduces a vertical gap different from the horizontal one, which is plainly visible now that the pill is a filled colour.
+Items deliberately carry **no height of their own** — the track is `items-stretch`, so an item is exactly as tall as the track's content box and the selected pill stands exactly as tall as a `Button` or field of the same size beside it.
 
-### Flush
+### Tone
 
-`flush` drops the inset: the track loses its border and padding, and the pill fills it edge to edge with the track's own `rounded-lg` corners. The selected segment then stands exactly as tall as a `Button` of the same size beside it. Opt in on a toolbar that holds every control to one height (the calendar bar); keep the inset default everywhere else.
+`tone` picks the **rail** and nothing else: `default` is a white rail (`bg-surface shadow-xs`) for the grey page ground and grey panels; `inset` is the grey control fill (`bg-input-bg`) for a white surface — a dialog, a card, a popover — where a white rail would vanish. It is the same flip the fields make. The pill and the labels are identical in both tones.
+
+### Geometry
+
+`flush` is the default: the track has no border and no padding, and the pill fills it edge to edge with the track's `rounded-lg` corners. `flush={false}` brings back a pill inset 4px (2px at `sm`) inside a bordered rail. Nothing in the product uses it; a switcher that sits 26px tall among 36px controls is the inconsistency this default removed.
 
 ### Selected state
 
-The selected segment is painted by the sliding pill, in `bg-sidebar` with `text-sidebar-foreground` ink — the same navy as the app sidebar, so "selected" reads identically everywhere in the product. Label colour transitions over `duration-200`, matching the pill's travel, so ink and fill arrive together instead of the text snapping to its selected colour mid-slide.
+One look, everywhere — a toolbar, a page, a dialog. The selected segment is painted by the sliding pill, `bg-sidebar` (the near-black #1D1D1F) with `text-sidebar-foreground` ink in semibold. Unselected labels are full ink (`text-foreground`), like every other control's label, with a quiet `bg-foreground/5` fill on hover. Label colour transitions over `duration-200`, matching the pill's travel, so ink and fill arrive together instead of the text snapping to its selected colour mid-slide. A pressed `Button variant="toggle"` takes the same pill.
 
 ### Usage
 
@@ -3599,7 +3613,8 @@ const [period, setPeriod] = React.useState('1M')
 3. **Every item MUST have a unique `value`.** Duplicate values break Radix's keyboard navigation and selection state.
 4. **NEVER nest `Button` / `IconButton` inside `SegmentedControlItem`.** Radix RadioGroup.Item already provides a `<button>` — nesting another interactive element breaks ARIA.
 5. **`disabled` on the root cascades to every item** via Radix; do not pass `disabled` per-item unless intentionally locking a subset.
-6. **NEVER build a parallel segmented toggle** out of `Button` + `aria-pressed`. Use this primitive with `fullWidth` / `icon`; a local copy loses the radio ARIA contract, the sliding pill, and the shared selected colour.
+6. **NEVER build a parallel segmented toggle** out of `Button` + `aria-pressed`. Use this primitive with `fullWidth` / `icon`; a local copy loses the radio ARIA contract, the sliding pill, and the shared selected colour. (A set where several can be on at once is `Button variant="toggle"`.)
+9. **NEVER restyle the pill or the labels for one screen.** `tone` is the only per-surface choice; a second look for the same control in a dialog is what made the product's switchers disagree.
 7. **Pass icons via `icon`, not inside `children`.** Children are duplicated into an invisible ghost copy to reserve the semibold label width; an icon in there renders twice for nothing and lands inside the truncation box.
 8. **Keep `children` render-safe to duplicate** — plain text or simple inline markup, nothing stateful, for the same ghost-copy reason.
 
@@ -3633,7 +3648,7 @@ const [period, setPeriod] = React.useState('1M')
 
 ### Notes
 
-- Selected item raises with `bg-background` + `shadow-xs` over the muted `bg-muted/40` track — produces the iOS-segmented "slide thumb" effect via simple background swap (no JS animation).
+- The selected pill is one shared element that slides between segments (framer-motion shared layout, `layoutId` scoped per control); reduced motion drops the travel to an instant move.
 - Built on `@radix-ui/react-radio-group` (already installed via `Radio` primitive — no new dep).
 - Figma defines 5-item variants (1D / 1W / 1M / 3M / 1Y), but the primitive accepts any number of items. Width grows with content.
 - Underlying ARIA structure: `role="radiogroup"` on root, `role="radio"` + `aria-checked` on each item. Arrow keys move focus + selection between items (Radix default).

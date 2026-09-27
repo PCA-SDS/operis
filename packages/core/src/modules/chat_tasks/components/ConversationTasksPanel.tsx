@@ -109,7 +109,7 @@ export function ConversationTasksPanel({
 
       <Button
         type="button"
-        variant={filters.assignedToMe ? 'default' : 'outline'}
+        variant="toggle"
         size="sm"
         className="w-full"
         aria-pressed={filters.assignedToMe}

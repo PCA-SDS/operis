@@ -66,7 +66,7 @@ export function ActivityTimelineFilters({
   const t = useT()
   const soft = tone === 'soft'
   const chipProps = (active: boolean) => soft
-    ? ({ variant: active ? 'default' : 'soft', className: undefined } as const)
+    ? ({ variant: 'toggle', className: undefined } as const)
     : ({ variant: 'ghost', size: 'sm', className: cn(CHIP_BASE, active ? CHIP_ACTIVE : CHIP_INACTIVE) } as const)
   const hasActiveFilters = activeTypes.length > 0 || dateFrom || dateTo
   const allActive = activeTypes.length === 0

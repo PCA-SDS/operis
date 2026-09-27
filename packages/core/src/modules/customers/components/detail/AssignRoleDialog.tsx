@@ -513,7 +513,7 @@ export function AssignRoleDialog({
                       <Button
                         key={teamFilter.id}
                         type="button"
-                        variant={isActive ? 'default' : 'soft'}
+                        variant="toggle"
                         onClick={() => setActiveTeam(teamFilter.id)}
                         aria-pressed={isActive}
                       >

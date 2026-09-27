@@ -163,8 +163,10 @@ module's pages sit beside that module's own sidebar. Spec:
   text-muted-foreground`, both sentence case. Labels and dividers are `shrink-0` so a long sidebar
   scrolls instead of squeezing them.
 - The `sidebar-*` tokens are the product's inked chrome (near-black in light, raised grey in dark): the
-  selected capsule of the default `SegmentedControl`, the `sidebar` tone of `SearchInput`, and the sidebar
-  customization preview (`sidebar/SidebarCustomizationEditor.tsx`, chrome in `sidebar/chrome.tsx`).
+  selected pill of every `SegmentedControl` in either tone, a pressed `Button variant="toggle"`, the
+  `sidebar` tone of `SearchInput`, and the sidebar customization preview
+  (`sidebar/SidebarCustomizationEditor.tsx`, chrome in `sidebar/chrome.tsx`). A chosen option is this
+  pill; blue (`--primary`) is the primary action and a checked Checkbox, Radio or Switch.
 - A widget injected into a `backend:sidebar:*` spot now renders inside a module sidebar and MUST style
   itself with the page-side tokens above. Anything that must stay visible on every page belongs in
   `backend:topbar:actions` instead.

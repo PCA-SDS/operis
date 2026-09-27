@@ -350,8 +350,9 @@ export function ChatTaskComposer({
                   <Button
                     key={person.id}
                     type="button"
-                    variant={effectiveAssigneeId === person.id ? 'default' : 'outline'}
+                    variant="toggle"
                     size="sm"
+                    aria-pressed={effectiveAssigneeId === person.id}
                     onClick={() => setAssigneeOverride(person.id)}
                   >
                     {person.name}
