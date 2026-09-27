@@ -302,7 +302,83 @@ function RecordsPageInner({ params }: { params: { entityId?: string } }) {
   return (
     <Page>
       <PageBody>
-        <ContextHelp bulb title="API: Manage Records via cURL" className="mb-4">
+        <RelationDisplaysProvider displaysByField={relationDisplaysByField}>
+          <DataTable
+            title={`Records: ${entityId}`}
+            entityId={entityId}
+            actions={actions}
+            columns={columns}
+            data={data}
+            perspective={{
+              tableId: resolveExtensionPointPattern(extensionPoints.hosts.userRecordsTable.pattern, { entityId }),
+            }}
+            exporter={exportConfig}
+            filters={baseFilters}
+            filterValues={filterValues}
+            rowActions={(row) => (
+              <RowActions
+                items={[
+                  { id: 'edit', label: t('common.edit', 'Edit'), href: `/backend/entities/user/${encodeURIComponent(entityId)}/records/${encodeURIComponent(String((row as any).id))}` },
+                  { id: 'delete', label: t('common.delete', 'Delete'), destructive: true, onSelect: async () => {
+                    const recordId = String((row as any).id)
+                    try {
+                      const confirmed = await confirm({
+                        title: t('entities.userEntities.records.deleteConfirm.title', 'Delete this record?'),
+                        variant: 'destructive',
+                      })
+                      if (!confirmed) return
+                      await runDeleteMutation({
+                        operation: async () => {
+                          const deleteCall = await withScopedApiRequestHeaders(
+                            buildOptimisticLockHeader((row as any).updatedAt),
+                            () => apiCall(
+                              `/api/entities/records?entityId=${encodeURIComponent(entityId)}&recordId=${encodeURIComponent(recordId)}`,
+                              { method: 'DELETE' },
+                            ),
+                          )
+                          if (!deleteCall.ok) {
+                            await raiseCrudError(deleteCall.response, 'Failed to delete record')
+                          }
+                        },
+                        context: {
+                          formId: deleteMutationContextId,
+                          resourceKind: 'entities.record',
+                          resourceId: recordId,
+                          retryLastMutation: retryDeleteMutation,
+                        },
+                      })
+                      const j = await readApiResultOrThrow<RecordsResponse>(
+                        `/api/entities/records?entityId=${encodeURIComponent(entityId)}&page=${page}&pageSize=${pageSize}`,
+                        undefined,
+                        {
+                          errorMessage: 'Failed to reload records',
+                          fallback: { items: [], total: 0, page, pageSize, totalPages: 1 },
+                        },
+                      )
+                      setRawData(j.items || [])
+                      setTotal(j.total || 0)
+                      setTotalPages(j.totalPages || 1)
+                      flash('Record has been removed', 'success')
+                    } catch (error) {
+                      const message = error instanceof Error ? error.message : 'Failed to delete record'
+                      flash(message, 'error')
+                    }
+                  } },
+                ]}
+              />
+            )}
+            sortable
+            sorting={sorting}
+            onSortingChange={setSorting}
+            searchValue={search}
+            onSearchChange={(v) => { setSearch(v); setPage(1) }}
+            onFiltersApply={(vals) => { setFilterValues(vals); setPage(1) }}
+            onFiltersClear={() => { setFilterValues({}); setPage(1) }}
+            pagination={{ page, pageSize, total, totalPages, onPageChange: setPage }}
+            isLoading={loading}
+          />
+        </RelationDisplaysProvider>
+        <ContextHelp bulb title="API: Manage Records via cURL">
           <p className="mb-2">
             Interact with this custom entity via the backend API using cURL. Use API keys for machine-to-machine access—mint one from the{' '}
             <a className="underline" target="_blank" rel="noreferrer" href="https://docs.openmercato.com/user-guide/api-keys">
@@ -395,82 +471,6 @@ export RECORD_ID="<record uuid>"`}</code></pre>
             </div>
           </div>
         </ContextHelp>
-        <RelationDisplaysProvider displaysByField={relationDisplaysByField}>
-          <DataTable
-            title={`Records: ${entityId}`}
-            entityId={entityId}
-            actions={actions}
-            columns={columns}
-            data={data}
-            perspective={{
-              tableId: resolveExtensionPointPattern(extensionPoints.hosts.userRecordsTable.pattern, { entityId }),
-            }}
-            exporter={exportConfig}
-            filters={baseFilters}
-            filterValues={filterValues}
-            rowActions={(row) => (
-              <RowActions
-                items={[
-                  { id: 'edit', label: t('common.edit', 'Edit'), href: `/backend/entities/user/${encodeURIComponent(entityId)}/records/${encodeURIComponent(String((row as any).id))}` },
-                  { id: 'delete', label: t('common.delete', 'Delete'), destructive: true, onSelect: async () => {
-                    const recordId = String((row as any).id)
-                    try {
-                      const confirmed = await confirm({
-                        title: t('entities.userEntities.records.deleteConfirm.title', 'Delete this record?'),
-                        variant: 'destructive',
-                      })
-                      if (!confirmed) return
-                      await runDeleteMutation({
-                        operation: async () => {
-                          const deleteCall = await withScopedApiRequestHeaders(
-                            buildOptimisticLockHeader((row as any).updatedAt),
-                            () => apiCall(
-                              `/api/entities/records?entityId=${encodeURIComponent(entityId)}&recordId=${encodeURIComponent(recordId)}`,
-                              { method: 'DELETE' },
-                            ),
-                          )
-                          if (!deleteCall.ok) {
-                            await raiseCrudError(deleteCall.response, 'Failed to delete record')
-                          }
-                        },
-                        context: {
-                          formId: deleteMutationContextId,
-                          resourceKind: 'entities.record',
-                          resourceId: recordId,
-                          retryLastMutation: retryDeleteMutation,
-                        },
-                      })
-                      const j = await readApiResultOrThrow<RecordsResponse>(
-                        `/api/entities/records?entityId=${encodeURIComponent(entityId)}&page=${page}&pageSize=${pageSize}`,
-                        undefined,
-                        {
-                          errorMessage: 'Failed to reload records',
-                          fallback: { items: [], total: 0, page, pageSize, totalPages: 1 },
-                        },
-                      )
-                      setRawData(j.items || [])
-                      setTotal(j.total || 0)
-                      setTotalPages(j.totalPages || 1)
-                      flash('Record has been removed', 'success')
-                    } catch (error) {
-                      const message = error instanceof Error ? error.message : 'Failed to delete record'
-                      flash(message, 'error')
-                    }
-                  } },
-                ]}
-              />
-            )}
-            sortable
-            sorting={sorting}
-            onSortingChange={setSorting}
-            searchValue={search}
-            onSearchChange={(v) => { setSearch(v); setPage(1) }}
-            onFiltersApply={(vals) => { setFilterValues(vals); setPage(1) }}
-            onFiltersClear={() => { setFilterValues({}); setPage(1) }}
-            pagination={{ page, pageSize, total, totalPages, onPageChange: setPage }}
-            isLoading={loading}
-          />
-        </RelationDisplaysProvider>
       </PageBody>
       {ConfirmDialogElement}
     </Page>

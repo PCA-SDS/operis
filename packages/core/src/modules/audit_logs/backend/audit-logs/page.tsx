@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { Page, PageBody } from '@open-mercato/ui/backend/Page'
+import { Page, PageBody, PageHeader } from '@open-mercato/ui/backend/Page'
 import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Tabs, TabsList, TabsPanel, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
@@ -182,11 +182,11 @@ export default function AuditLogsPage() {
 
   return (
     <Page>
+      <PageHeader title={t('audit_logs.nav.title', 'Audit Logs')} />
       <PageBody>
         <Tabs
           value={tab}
           onValueChange={(value) => setTab(value as TabOption)}
-          className="mb-6"
         >
           <TabsList aria-label={t('audit_logs.tabs.label')}>
             <TabsTrigger value="actions">{t('audit_logs.actions.title')}</TabsTrigger>

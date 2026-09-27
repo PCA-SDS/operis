@@ -3,7 +3,7 @@ import * as React from 'react'
 import { extensionPoints } from '@open-mercato/core/modules/data_sync/extension-points'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Page, PageBody } from '@open-mercato/ui/backend/Page'
+import { Page, PageBody, PageHeader } from '@open-mercato/ui/backend/Page'
 import { DataTable } from '@open-mercato/ui/backend/DataTable'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import type { FilterDef, FilterValues } from '@open-mercato/ui/backend/FilterBar'
@@ -644,6 +644,7 @@ export default function SyncRunsDashboardPage() {
 
   return (
     <Page>
+      <PageHeader title={t('data_sync.nav.title', 'Data Sync')} />
       <PageBody className="space-y-6">
         <Card>
           <CardHeader className="space-y-4">
@@ -1033,7 +1034,7 @@ export default function SyncRunsDashboardPage() {
         </Card>
 
         <DataTable
-          title={t('data_sync.dashboard.title')}
+          title={<h2 className="text-xl font-semibold text-foreground">{t('data_sync.dashboard.title')}</h2>}
           columns={columns}
           data={rows}
           filters={filters}

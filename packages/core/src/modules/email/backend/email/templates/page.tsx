@@ -111,54 +111,58 @@ export default function EmailTemplatesPage() {
   return (
     <Page className="min-w-0 overflow-x-hidden">
       <PageBody className="min-w-0 w-full max-w-full">
-        <div className="mb-4 flex flex-wrap items-stretch justify-between gap-3 sm:items-center">
-          <form
-            className="flex w-full min-w-0 gap-2 sm:flex-1"
-            onSubmit={(event) => {
-              event.preventDefault()
-              setPage(1)
-              setQuery(search)
-            }}
-          >
-            <input
-              className={`min-w-0 flex-1 ${FIELD_CLASS}`}
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder={t('email.templates.searchPlaceholder', 'Search templates by name')}
-            />
-            <Button type="submit" variant="secondary">{t('email.common.search', 'Search')}</Button>
-          </form>
-          <label className="flex w-full min-w-0 items-center gap-2 text-sm text-muted-foreground sm:w-auto">
-            <span>{t('email.templates.filters.status.label', 'Status')}</span>
-            <select
-              className={`min-w-0 flex-1 sm:flex-none ${FIELD_CLASS}`}
-              value={statusFilter}
-              onChange={(event) => {
-                setPage(1)
-                setStatusFilter(event.target.value as StatusFilter)
-              }}
-            >
-              <option value="current">{t('email.templates.filters.status.current', 'Current: Draft + Published')}</option>
-              <option value="draft">{t('email.templates.status.draft', 'Draft')}</option>
-              <option value="published">{t('email.templates.status.published', 'Published')}</option>
-              <option value="archived">{t('email.templates.status.archived', 'Archived')}</option>
-              <option value="all">{t('email.templates.filters.status.all', 'All statuses')}</option>
-            </select>
-          </label>
-          <div className="flex w-full flex-wrap gap-2 sm:w-auto">
-            <Button variant="secondary" asChild>
-              <Link href="/backend/email/compose">{t('email.templates.composePreview', 'Compose Email')}</Link>
-            </Button>
-            <Button variant="secondary" asChild>
-              <Link href="/backend/email/accounting-defaults">{t('email.templates.accountingDefaults', 'Accounting Defaults')}</Link>
-            </Button>
-            <Button asChild>
-              <Link href="/backend/email/templates/create">{t('email.templates.newTemplate', 'New Template')}</Link>
-            </Button>
-          </div>
-        </div>
         <DataTable<EmailTemplateRow>
           title={t('email.templates.title', 'Email Templates')}
+          actions={(
+            <>
+              <Button variant="secondary" asChild>
+                <Link href="/backend/email/compose">{t('email.templates.composePreview', 'Compose Email')}</Link>
+              </Button>
+              <Button variant="secondary" asChild>
+                <Link href="/backend/email/accounting-defaults">{t('email.templates.accountingDefaults', 'Accounting Defaults')}</Link>
+              </Button>
+              <Button asChild>
+                <Link href="/backend/email/templates/create">{t('email.templates.newTemplate', 'New Template')}</Link>
+              </Button>
+            </>
+          )}
+          toolbar={(
+            <div className="flex flex-wrap items-center gap-3">
+              <form
+                className="flex w-full min-w-0 gap-2 sm:flex-1"
+                onSubmit={(event) => {
+                  event.preventDefault()
+                  setPage(1)
+                  setQuery(search)
+                }}
+              >
+                <input
+                  className={`min-w-0 flex-1 ${FIELD_CLASS}`}
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder={t('email.templates.searchPlaceholder', 'Search templates by name')}
+                />
+                <Button type="submit" variant="secondary">{t('email.common.search', 'Search')}</Button>
+              </form>
+              <label className="flex w-full min-w-0 items-center gap-2 text-sm text-muted-foreground sm:w-auto sm:shrink-0">
+                <span>{t('email.templates.filters.status.label', 'Status')}</span>
+                <select
+                  className={`min-w-0 flex-1 sm:w-auto sm:flex-none ${FIELD_CLASS}`}
+                  value={statusFilter}
+                  onChange={(event) => {
+                    setPage(1)
+                    setStatusFilter(event.target.value as StatusFilter)
+                  }}
+                >
+                  <option value="current">{t('email.templates.filters.status.current', 'Current: Draft + Published')}</option>
+                  <option value="draft">{t('email.templates.status.draft', 'Draft')}</option>
+                  <option value="published">{t('email.templates.status.published', 'Published')}</option>
+                  <option value="archived">{t('email.templates.status.archived', 'Archived')}</option>
+                  <option value="all">{t('email.templates.filters.status.all', 'All statuses')}</option>
+                </select>
+              </label>
+            </div>
+          )}
           columns={columns}
           data={rows}
           isLoading={isLoading}
