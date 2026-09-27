@@ -38,3 +38,19 @@ describe('IconButton solid variants', () => {
     expect(className).not.toContain('dark:bg-input')
   })
 })
+
+describe('IconButton on a crowded row', () => {
+  it('never shrinks below its square, as Button does not', () => {
+    // On a phone the topbar's action row ran out of room and squeezed the AI and
+    // Notifications buttons to 16px wide, a sliver around the glyph.
+    expect(iconButtonVariants({ variant: 'ghost', size: 'lg' }).split(/\s+/)).toContain('shrink-0')
+  })
+
+  it('hovers ghost with the same fill as Button\'s ghost', () => {
+    // The old `accent` fill was #F2F2F7, next to invisible on the #F5F5F7 topbar,
+    // so icon buttons barely reacted while the text buttons beside them lit up.
+    const tokens = iconButtonVariants({ variant: 'ghost' }).split(/\s+/)
+    expect(tokens).toContain('hover:bg-surface-strong')
+    expect(tokens).not.toContain('hover:bg-accent')
+  })
+})

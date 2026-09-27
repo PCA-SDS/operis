@@ -114,6 +114,12 @@ describe('SearchInput primitive', () => {
       expect(screen.getByTestId('hint')).toBeInTheDocument()
     })
 
+    it('centres a node shortcut on the field instead of its text baseline', () => {
+      const { container } = Harness('', { shortcut: <span data-testid="hint">⌘1</span> })
+      const tokens = container.querySelector('[data-slot="search-input-shortcut"]')!.className.split(/\s+/)
+      expect(tokens).toEqual(expect.arrayContaining(['flex', 'items-center']))
+    })
+
     it('gives way to the clear button once there is something to clear', () => {
       const { container } = Harness('jan', { shortcut: '⌘K' })
       expect(container.querySelector('[data-slot="search-input-shortcut"]')).toBeNull()
@@ -191,9 +197,15 @@ describe('SearchInput primitive', () => {
     it('raised keeps its elevation on focus — the halo is a ring, not a shadow', () => {
       const { container } = Harness('', { tone: 'raised' })
       const className = wrapperOf(container).className
-      expect(className).toContain('shadow-md')
+      expect(className).toContain('shadow-xs')
       expect(className).toContain('focus-within:ring-2')
       expect(className).not.toContain('focus-within:shadow-focus')
+    })
+
+    it('raised sits as light as the other white controls and keeps its fill on hover', () => {
+      const tokens = wrapperOf(Harness('', { tone: 'raised' }).container).className.split(/\s+/)
+      expect(tokens).not.toContain('shadow-md')
+      expect(tokens.some((token) => token.startsWith('hover:bg-'))).toBe(false)
     })
 
     it('default gets the shared focus halo (it is flat, so nothing conflicts)', () => {

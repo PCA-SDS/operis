@@ -47,9 +47,14 @@ const searchInputWrapperVariants = cva(
            `focus-within:shadow-focus` on top of `shadow-md` replaces the
            elevation instead of joining it, and the field visibly flattens the
            moment you click it. `--tw-ring-shadow` is a separate slot in the
-           same `box-shadow` list, so a ring composes with the drop shadow. */
+           same `box-shadow` list, so a ring composes with the drop shadow.
+
+           The drop shadow is the light `shadow-xs` of a white control on the
+           page ground (the switcher rails), and hovering does not change the
+           fill: a medium shadow made the topbar field look taller than the 36px
+           controls beside it, and a grey hover sank it into the grey bar. */
         raised:
-          'bg-surface shadow-md hover:bg-modal-muted focus-within:ring-2 focus-within:ring-focus-ring/30',
+          'bg-surface shadow-xs focus-within:ring-2 focus-within:ring-focus-ring/30',
         /* On navy a blue halo is invisible, so focus paints the edge instead —
            which is why the box keeps a transparent border at rest. */
         sidebar:
@@ -306,7 +311,10 @@ export const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
               {shortcut}
             </Kbd>
           ) : (
-            <span data-slot="search-input-shortcut" className="shrink-0">
+            /* A flex box, not a plain span: a block inherits the field's 24px
+               line box, and a key chip inside it sat on the text baseline,
+               1.5px below the centre every other part of the field is on. */
+            <span data-slot="search-input-shortcut" className="flex shrink-0 items-center">
               {shortcut}
             </span>
           )
