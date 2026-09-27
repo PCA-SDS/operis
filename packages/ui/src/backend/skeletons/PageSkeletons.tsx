@@ -118,9 +118,8 @@ export function ListPageSkeleton() {
             <SkeletonBar className="h-9 w-28 rounded-lg" />
           </div>
         </div>
-        <div className="mt-3" />
       </div>
-      <div className="overflow-hidden rounded-xl bg-surface shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-card-edge bg-surface shadow-sm">
         {/* The toolbar's two groups, wrapping where the real ones do: the
             search with the trigger beside it, then the filter and view
             controls, which drop to a second line on a phone. */}
@@ -447,7 +446,7 @@ export function FormPageSkeleton() {
 export function DetailPageSkeleton({ label }: { label?: string } = {}) {
   return (
     <SkeletonRegion className="space-y-4" label={label}>
-      <div className="rounded-xl border border-transparent bg-surface px-6 py-5 shadow-sm">
+      <div className="rounded-xl border border-card-edge bg-surface px-6 py-5 shadow-sm">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-5">
           <SkeletonBar className="size-16 rounded-full" />
           <div className="min-w-0 flex-1">
@@ -495,7 +494,7 @@ export function DetailPageSkeleton({ label }: { label?: string } = {}) {
             ))}
           </div>
           <div className="pt-6">
-            <div className="space-y-4 rounded-xl bg-surface p-5 shadow-sm">
+            <div className="space-y-4 rounded-xl border border-card-edge bg-surface p-5 shadow-sm">
               <span aria-hidden="true" className="flex h-6 items-center">
                 <SkeletonBar className="h-4 w-40" />
               </span>
@@ -545,7 +544,7 @@ export function DashboardSkeleton() {
       </div>
       <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 md:gap-6 xl:grid-cols-3">
         {Array.from({ length: 3 }, (_, cardIndex) => (
-          <div key={cardIndex} className="flex flex-col rounded-xl border border-transparent bg-surface shadow-sm">
+          <div key={cardIndex} className="flex flex-col rounded-xl border border-card-edge bg-surface shadow-sm">
             <div className="px-4 pt-3">
               <span aria-hidden="true" className="flex h-3.5 items-center">
                 <SkeletonBar className="h-3 w-32" />

@@ -3416,16 +3416,14 @@ export function DataTable<T extends RowData>({
    * itself, and left detail pages and list pages with two unrelated header
    * treatments.
    *
-   * The card itself carries elevation instead of a border: a border plus a
-   * shadow reads as two competing edges. Toolbar (search / filters) stays
-   * inside the card, directly above the rows it filters. */
+   * The card is every other card: white on the white ground, so a hairline
+   * (`card-edge`) is its edge in light, and in dark, where that token is
+   * transparent, the elevated surface colour is. Toolbar (search / filters)
+   * stays inside the card, directly above the rows it filters. */
   const containerClassName = embedded ? '' : 'flex flex-col gap-6'
-  /* Borderless in both themes, with the same elevation as every other card.
-     In light the soft shadow carries the edge; in dark the elevated surface
-     colour does, as Apple's grouped lists do on a black ground. */
   const cardClassName = embedded
     ? ''
-    : 'overflow-hidden rounded-xl bg-surface shadow-sm'
+    : 'overflow-hidden rounded-xl border border-card-edge bg-surface shadow-sm'
   const headerWrapperClassName = embedded ? 'pb-3' : ''
   const headerContentClassName =
     'flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4'
@@ -3599,8 +3597,11 @@ export function DataTable<T extends RowData>({
               ) : null}
             </div>
           )}
+          {/* The spot renders nothing until a widget is injected, and an empty
+              wrapper would still push the card 12px further from the title than
+              a page header's content sits. */}
           {headerInjectionSpotId ? (
-            <div className={embedded ? 'mt-2' : 'mt-3'}>
+            <div className={cn(embedded ? 'mt-2' : 'mt-3', 'empty:hidden')}>
               <InjectionSpot spotId={headerInjectionSpotId} context={resolvedInjectionContext} />
             </div>
           ) : null}
