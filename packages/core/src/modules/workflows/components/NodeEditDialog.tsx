@@ -732,7 +732,7 @@ export const NodeEditDialog = memo(function NodeEditDialog({ node, isOpen, onClo
                                   )}
                                 </div>
                                 <p className="text-xs text-muted-foreground mt-1">
-                                  Field name: <code className="bg-background px-1 rounded">{field.name}</code>
+                                  Field name: <code className="bg-muted px-1 rounded">{field.name}</code>
                                 </p>
                               </div>
                               <ChevronDown
@@ -942,7 +942,7 @@ export const NodeEditDialog = memo(function NodeEditDialog({ node, isOpen, onClo
                                   )}
                                 </div>
                                 <p className="text-xs text-muted-foreground mt-1">
-                                  ID: <code className="bg-background px-1 rounded">{activity.activityId}</code>
+                                  ID: <code className="bg-muted px-1 rounded">{activity.activityId}</code>
                                 </p>
                               </div>
                               <ChevronDown

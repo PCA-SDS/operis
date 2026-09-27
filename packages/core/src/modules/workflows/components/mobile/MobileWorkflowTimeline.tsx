@@ -88,7 +88,7 @@ export function MobileWorkflowTimeline({ steps }: MobileWorkflowTimelineProps) {
                     <span className="truncate text-sm font-medium text-foreground">{step.label}</span>
                   </div>
                   <div className="mt-1 flex flex-wrap items-center gap-2">
-                    <span className="inline-flex items-center rounded bg-background/80 px-1.5 py-0.5 text-overline font-medium uppercase text-muted-foreground">
+                    <span className="inline-flex items-center rounded bg-muted px-1.5 py-0.5 text-overline font-medium uppercase text-muted-foreground">
                       {step.type}
                     </span>
                     {step.duration && (

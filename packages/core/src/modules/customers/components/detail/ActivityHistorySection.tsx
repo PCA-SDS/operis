@@ -328,7 +328,7 @@ export function ActivityHistorySection({
   return (
     <section
       aria-label={t('customers.activityLog.title', 'Activity history')}
-      className="flex flex-col gap-3 rounded-xl border border-transparent bg-surface p-4 shadow-xs"
+      className="flex flex-col gap-3 rounded-xl border border-card-edge bg-surface p-4 shadow-xs"
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <h3 className="min-w-0 flex-1 truncate text-base font-semibold text-foreground">

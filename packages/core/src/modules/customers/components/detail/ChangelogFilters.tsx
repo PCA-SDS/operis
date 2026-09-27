@@ -145,7 +145,7 @@ export function ChangelogFilters({
   }, [t])
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-transparent bg-surface shadow-sm px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+    <div className="flex flex-col gap-3 rounded-xl border border-card-edge bg-surface shadow-sm px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-overline font-semibold uppercase tracking-[0.12em] text-muted-foreground">
           {t('customers.changelog.filter', 'Filter')}:

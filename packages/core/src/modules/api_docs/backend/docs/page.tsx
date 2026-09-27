@@ -35,10 +35,10 @@ export default async function ApiDocsPage() {
       <div className="rounded border bg-muted/30 p-4 text-sm text-muted-foreground space-y-2">
         <p>
           Current environment base URL:{' '}
-          <code className="rounded bg-background px-2 py-0.5 text-xs text-foreground">{baseUrl}</code>
+          <code className="rounded bg-muted px-2 py-0.5 text-xs text-foreground">{baseUrl}</code>
         </p>
         <p>
-          Run <code className="rounded bg-background px-2 py-0.5 text-xs text-foreground">yarn generate</code>{' '}
+          Run <code className="rounded bg-muted px-2 py-0.5 text-xs text-foreground">yarn generate</code>{' '}
           whenever APIs change to refresh the generated registry.
         </p>
       </div>

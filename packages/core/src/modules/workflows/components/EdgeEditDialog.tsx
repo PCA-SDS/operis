@@ -464,7 +464,7 @@ export const EdgeEditDialog = memo(function EdgeEditDialog({ edge, isOpen, onClo
                             )}
                           </div>
                           <p className="text-xs text-muted-foreground mt-1">
-                            {t('workflows.edgeEditor.ruleId')}: <code className="bg-background px-1 rounded">{condition.ruleId}</code>
+                            {t('workflows.edgeEditor.ruleId')}: <code className="bg-muted px-1 rounded">{condition.ruleId}</code>
                           </p>
                           {rule?.description && (
                             <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{rule.description}</p>
@@ -610,7 +610,7 @@ export const EdgeEditDialog = memo(function EdgeEditDialog({ edge, isOpen, onClo
                             )}
                           </div>
                           <p className="text-xs text-muted-foreground mt-1">
-                            {t('workflows.edgeEditor.ruleId')}: <code className="bg-background px-1 rounded">{condition.ruleId}</code>
+                            {t('workflows.edgeEditor.ruleId')}: <code className="bg-muted px-1 rounded">{condition.ruleId}</code>
                           </p>
                           {rule?.description && (
                             <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{rule.description}</p>
@@ -743,7 +743,7 @@ export const EdgeEditDialog = memo(function EdgeEditDialog({ edge, isOpen, onClo
                             </Badge>
                           </div>
                           <p className="text-xs text-muted-foreground mt-1">
-                            {t('workflows.edgeEditor.activityId')}: <code className="bg-background px-1 rounded">{activity.activityId}</code>
+                            {t('workflows.edgeEditor.activityId')}: <code className="bg-muted px-1 rounded">{activity.activityId}</code>
                           </p>
                         </div>
                         <ChevronDown

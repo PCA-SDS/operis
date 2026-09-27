@@ -123,7 +123,7 @@ export function PersonDetailHeader({
   const { data: renewalQuarterDict } = useCustomerDictionary('renewal-quarters', 0, personOrgId)
 
   return (
-    <div className="rounded-xl border border-transparent bg-surface shadow-sm px-6 py-5">
+    <div className="rounded-xl border border-card-edge bg-surface shadow-sm px-6 py-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-5">
         {/* Avatar */}
         <Avatar label={displayName} size="xl" variant="monochrome" />

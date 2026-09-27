@@ -182,7 +182,7 @@ export function ActivitiesCard({
   return (
     <section
       aria-label={t('customers.activities.card.title', 'Activities')}
-      className="flex flex-col gap-4 rounded-xl border border-transparent bg-surface p-4 shadow-xs"
+      className="flex flex-col gap-4 rounded-xl border border-card-edge bg-surface p-4 shadow-xs"
     >
       <ActivitiesDayStrip
         entityId={entityId}

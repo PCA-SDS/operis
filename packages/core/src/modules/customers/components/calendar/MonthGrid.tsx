@@ -246,7 +246,7 @@ export function MonthGrid({
 
   return (
     <div
-      className="relative flex h-full min-h-0 w-full flex-col overflow-hidden rounded-lg bg-surface"
+      className="relative flex h-full min-h-0 w-full flex-col overflow-hidden rounded-lg border border-card-edge bg-surface"
       role="grid"
       aria-label={new Intl.DateTimeFormat(locale, { month: 'long', year: 'numeric' }).format(anchor)}
       aria-rowcount={weeks.length}

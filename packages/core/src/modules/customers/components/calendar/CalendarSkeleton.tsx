@@ -29,7 +29,7 @@ export function CalendarSkeleton({ view, columns }: { view: CalendarView; column
       <div
         aria-busy="true"
         aria-label={label}
-        className="grid h-full w-full grid-cols-7 gap-px overflow-hidden rounded-lg border border-border bg-border"
+        className="grid h-full w-full grid-cols-7 gap-px overflow-hidden rounded-lg border border-card-edge bg-border"
       >
         {Array.from({ length: MONTH_CELLS }, (_, index) => (
           <div key={index} className="flex flex-col gap-1 bg-surface p-2">
@@ -45,7 +45,7 @@ export function CalendarSkeleton({ view, columns }: { view: CalendarView; column
     <div
       aria-busy="true"
       aria-label={label}
-      className="flex h-full w-full flex-col overflow-hidden rounded-lg border border-border bg-surface"
+      className="flex h-full w-full flex-col overflow-hidden rounded-lg border border-card-edge bg-surface"
     >
       <div className="flex shrink-0 border-b border-border">
         <div className="w-14 shrink-0 border-e border-border md:w-20" />

@@ -311,7 +311,7 @@ export function AssignRoleDialog({
           <Avatar
             label={selectedUser.displayName}
             size="lg"
-            className="bg-background text-foreground"
+            className="bg-muted text-foreground"
           />
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-foreground">
@@ -518,7 +518,7 @@ export function AssignRoleDialog({
                         aria-pressed={isActive}
                       >
                         {teamFilter.label}
-                        <span className="rounded-full bg-background/80 px-1.5 text-sm text-muted-foreground">
+                        <span className="rounded-full bg-muted px-1.5 text-sm text-muted-foreground">
                           {teamFilter.count}
                         </span>
                       </Button>
