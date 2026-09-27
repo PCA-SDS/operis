@@ -281,6 +281,16 @@ and the ⌘K chip sat 1.5px below the centre line.
   the search narrows below `lg`, and the four secondary icons move under More below `lg`, so the bar
   neither scrolls sideways nor squeezes a button, from 360px to 1440px.
 
+## Phase 7 — the dashboard's customise mode
+
+The "Add a widget" panel appeared and vanished outright, so the widget grid jumped by the panel's
+height (and the 24px gap under it) every time Customize or Done was pressed. It now folds: the panel
+stays mounted and animates its row from `0fr` to `1fr` with its opacity, 300ms ease-out opening and
+200ms ease-in closing (the DS values for a large layout change), and the gap is padding inside the
+folding box, so the grid slides and nothing jumps at either end. It also folds shut by itself once
+the last available widget is added. Closed, the panel is `inert`. Reduced motion makes it instant
+through the global rule.
+
 ## Changelog
 
 - 2026-09-26 — Implemented.
@@ -293,3 +303,5 @@ and the ⌘K chip sat 1.5px below the centre line.
 - 2026-09-27 — Phase 5: forms get room. Unit coverage in `CrudForm.spacing.test.tsx`.
 - 2026-09-27 — Phase 6: the topbar. Unit coverage in `AppShell.test.tsx`, `icon-button.test.tsx`,
   `search-input.test.tsx` and `AiAssistantLauncher.test.tsx`.
+- 2026-09-27 — Phase 7: the dashboard's add-widget panel folds open and shut. Unit coverage in
+  `dashboard/__tests__/DashboardScreen.test.tsx`.

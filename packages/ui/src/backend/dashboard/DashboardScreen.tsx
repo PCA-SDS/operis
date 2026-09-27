@@ -403,6 +403,7 @@ export function DashboardScreen() {
   }
 
   const greetedName = resolveGreetedName(context?.userName, context?.userEmail)
+  const addWidgetOpen = editing && availableWidgets.length > 0
 
   return (
     <div className="space-y-6">
@@ -439,24 +440,46 @@ export function DashboardScreen() {
 
       <InjectionSpot spotId={dashboardBeforeSpotId} context={injectionContext} />
 
-      {editing && availableWidgets.length > 0 && (
-        <div className="rounded-lg border border-dashed bg-muted/50 p-4">
-          <div className="mb-2 text-sm font-medium text-muted-foreground">{t('dashboard.addWidget')}</div>
-          <div className="flex flex-wrap gap-2">
-            {availableWidgets.map((meta) => (
-              <Button
-                key={meta.id}
-                variant="outline"
-                size="sm"
-                onClick={() => handleAddWidget(meta.id)}
-              >
-                <Plus className="h-4 w-4" />
-                {resolveWidgetTitle(meta)}
-              </Button>
-            ))}
+      {/* The panel folds open and shut instead of appearing: its row animates
+          from `0fr` to `1fr`, so the widgets below slide rather than jump by
+          its height. The gap under it is padding inside the folding box (the
+          column's own `space-y` margin is cleared with `mb-0`), so it opens
+          and closes with the panel and nothing jumps at either end. Closed,
+          it is `inert`: its buttons leave the tab order and the a11y tree. */}
+      {canConfigure ? (
+        <div
+          data-testid="dashboard-add-widget"
+          data-state={addWidgetOpen ? 'open' : 'closed'}
+          className={cn(
+            'mb-0 grid transition-[grid-template-rows,opacity]',
+            addWidgetOpen ? 'opacity-100 duration-300 ease-out' : 'opacity-0 duration-200 ease-in',
+          )}
+          style={{ gridTemplateRows: addWidgetOpen ? '1fr' : '0fr' }}
+          inert={!addWidgetOpen}
+          aria-hidden={addWidgetOpen ? undefined : true}
+        >
+          <div className="min-h-0 overflow-hidden">
+            <div className="pb-6">
+              <div className="rounded-lg border border-dashed bg-muted/50 p-4">
+                <div className="mb-2 text-sm font-medium text-muted-foreground">{t('dashboard.addWidget')}</div>
+                <div className="flex flex-wrap gap-2">
+                  {availableWidgets.map((meta) => (
+                    <Button
+                      key={meta.id}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleAddWidget(meta.id)}
+                    >
+                      <Plus className="h-4 w-4" />
+                      {resolveWidgetTitle(meta)}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      )}
+      ) : null}
 
       <WidgetDataBatchProvider>
       <div className={cn(
