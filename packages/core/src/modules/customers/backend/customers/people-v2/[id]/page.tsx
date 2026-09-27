@@ -617,7 +617,6 @@ export default function PersonDetailV2Page({ params }: { params?: { id?: string 
                           }}
                           onActionChange={handleSectionActionChange}
                           onEditActivity={handleEditActivity}
-                          tone="soft"
                         />
                       </div>
                     )

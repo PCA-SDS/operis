@@ -1,7 +1,6 @@
 'use client'
 
 import * as React from 'react'
-import { Clock3 } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { SearchInput } from '@open-mercato/ui/primitives/search-input'
@@ -16,6 +15,7 @@ import { ErrorMessage, LoadingMessage, TabEmptyState } from '@open-mercato/ui/ba
 import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import type { ActivitySummary, InteractionSummary } from './types'
 import { ActivityCard } from './ActivityCard'
+import { ActivityFilterPopover, ActivityHistoryYear } from './ActivityHistoryParts'
 
 type GuardedMutationRunner = <T,>(
   operation: () => Promise<T>,
@@ -56,14 +56,6 @@ type InteractionCountsResponse = {
   task?: number
   total?: number
 }
-
-const TYPE_FILTERS = [
-  { value: 'call', labelKey: 'customers.timeline.filter.call', fallback: 'Call' },
-  { value: 'email', labelKey: 'customers.timeline.filter.email', fallback: 'Email' },
-  { value: 'meeting', labelKey: 'customers.timeline.filter.meeting', fallback: 'Meeting' },
-  { value: 'note', labelKey: 'customers.timeline.filter.note', fallback: 'Note' },
-  { value: 'task', labelKey: 'customers.timeline.filter.task', fallback: 'Task' },
-] as const
 
 function computeRangeStart(range: '7d' | '30d' | '90d'): Date {
   const date = new Date()
@@ -327,139 +319,108 @@ export function ActivityHistorySection({
     setLoadedPages(1)
   }, [activeTypes, dateRange, entityId, search, sortMode, useCanonicalInteractions])
 
-  const filteredLabel = activeTypes.length > 0
-    ? activeTypes.map((type) => t(`customers.timeline.filter.${type}`, type)).join(', ')
-    : t('customers.timeline.filter.all', 'All')
-
-  const handleTypeToggle = React.useCallback((type: string) => {
-    setActiveTypes((current) => (
-      current.includes(type)
-        ? current.filter((entry) => entry !== type)
-        : [...current, type]
-    ))
-  }, [])
-
   const handleLoadMore = React.useCallback(() => {
     setLoadedPages((current) => current + 1)
   }, [])
 
+  const filtersActive = activeTypes.length > 0 || dateRange !== '90d' || sortMode !== 'recent'
+
   return (
-    <div className="rounded-xl border border-transparent bg-surface shadow-sm">
-      <div className="flex items-center gap-2 border-b px-5 py-4">
-        <Clock3 className="size-4 text-muted-foreground" />
-        <div className="min-w-0">
-          <h3 className="text-base font-semibold text-foreground">
-            {t('customers.activityLog.title', 'Activity history')}
-          </h3>
-          <p className="text-xs text-muted-foreground">
-            {t('customers.timeline.history.filtered', 'filtered: {{types}} · {{count}} results', {
-              types: filteredLabel,
-              count: activities.length,
-            })}
-          </p>
+    <section
+      aria-label={t('customers.activityLog.title', 'Activity history')}
+      className="flex flex-col gap-3 rounded-xl border border-transparent bg-surface p-4 shadow-xs"
+    >
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <h3 className="min-w-0 flex-1 truncate text-base font-semibold text-foreground">
+          {t('customers.timeline.history.heading', 'History')}
+        </h3>
+        <div className="flex w-full items-center gap-2 sm:w-auto">
+          <SearchInput
+            value={searchInput}
+            onChange={setSearchInput}
+            loading={searchInput.trim() !== search}
+            tone="well"
+            placeholder={t('customers.activityLog.searchPlaceholder', 'Search by title, note, or author')}
+            aria-label={t('customers.activityLog.searchPlaceholder', 'Search by title, note, or author')}
+            className="min-w-0 flex-1 sm:w-56 sm:flex-none"
+          />
+          <ActivityFilterPopover
+            activeTypes={activeTypes}
+            onTypesChange={setActiveTypes}
+            counts={counts}
+            active={filtersActive}
+            onReset={() => {
+              setActiveTypes([])
+              setDateRange('90d')
+              setSortMode('recent')
+            }}
+          >
+            <div className="space-y-2">
+              <div className="text-xs font-medium text-muted-foreground">
+                {t('customers.activityLog.filters.dateRangeLabel', 'Date range')}
+              </div>
+              <Select
+                value={dateRange}
+                onValueChange={(value) => {
+                  setDateRange(value as '7d' | '30d' | '90d')
+                }}
+              >
+                <SelectTrigger aria-label={t('customers.activityLog.filters.dateRangeLabel', 'Date range')}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="7d">{t('customers.changelog.last7days', 'Last 7 days')}</SelectItem>
+                  <SelectItem value="30d">{t('customers.changelog.last30days', 'Last 30 days')}</SelectItem>
+                  <SelectItem value="90d">{t('customers.changelog.last90days', 'Last 90 days')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <div className="text-xs font-medium text-muted-foreground">
+                {t('customers.activityLog.filters.sortLabel', 'Sort order')}
+              </div>
+              <Select
+                value={sortMode}
+                onValueChange={(value) => {
+                  setSortMode(value as 'recent' | 'title-asc' | 'title-desc')
+                }}
+              >
+                <SelectTrigger aria-label={t('customers.activityLog.filters.sortLabel', 'Sort order')}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="recent">{t('customers.activityLog.sort.recent', 'Sort: newest')}</SelectItem>
+                  <SelectItem value="title-asc">{t('customers.activityLog.sort.titleAsc', 'Sort: Name A-Z')}</SelectItem>
+                  <SelectItem value="title-desc">{t('customers.activityLog.sort.titleDesc', 'Sort: Name Z-A')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </ActivityFilterPopover>
         </div>
       </div>
 
-      <div className="space-y-4 px-5 py-4">
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-          <div className="w-full max-w-md">
-            <SearchInput
-              value={searchInput}
-              onChange={setSearchInput}
-              loading={searchInput.trim() !== search}
-              tone="well"
-              placeholder={t('customers.activityLog.searchPlaceholder', 'Search by title, note, or author')}
-            />
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-overline font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-              {t('customers.changelog.filter', 'Filter')}:
-            </span>
-            {TYPE_FILTERS.map((filter) => {
-              const isActive = activeTypes.includes(filter.value)
-              return (
-                <Button
-                  key={filter.value}
-                  type="button"
-                  variant="toggle"
-                  onClick={() => handleTypeToggle(filter.value)}
-                  aria-pressed={isActive}
-                >
-                  {t(filter.labelKey, filter.fallback)}
-                  <span className={isActive ? 'ml-1 text-sidebar-foreground/70' : 'ml-1 text-muted-foreground'}>
-                    {counts[filter.value] ?? 0}
-                  </span>
-                </Button>
-              )
-            })}
-
-            <Select
-              value={dateRange}
-              onValueChange={(value) => {
-                setDateRange(value as '7d' | '30d' | '90d')
-              }}
-            >
-              <SelectTrigger
-                aria-label={t('customers.activityLog.filters.dateRangeLabel', 'Date range')}
-                className="w-auto"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="7d">{t('customers.changelog.last7days', 'Last 7 days')}</SelectItem>
-                <SelectItem value="30d">{t('customers.changelog.last30days', 'Last 30 days')}</SelectItem>
-                <SelectItem value="90d">{t('customers.changelog.last90days', 'Last 90 days')}</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select
-              value={sortMode}
-              onValueChange={(value) => {
-                setSortMode(value as 'recent' | 'title-asc' | 'title-desc')
-              }}
-            >
-              <SelectTrigger
-                aria-label={t('customers.activityLog.filters.sortLabel', 'Sort order')}
-                className="w-auto"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="recent">{t('customers.activityLog.sort.recent', 'Sort: newest')}</SelectItem>
-                <SelectItem value="title-asc">{t('customers.activityLog.sort.titleAsc', 'Sort: Name A-Z')}</SelectItem>
-                <SelectItem value="title-desc">{t('customers.activityLog.sort.titleDesc', 'Sort: Name Z-A')}</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {loading && activities.length === 0 ? (
-          <LoadingMessage label={t('customers.people.detail.activities.loading', 'Loading activities…')} className="min-h-[220px] justify-center" />
-        ) : error ? (
-          <ErrorMessage label={error} />
-        ) : activities.length === 0 ? (
-          <TabEmptyState
-            title={t('customers.timeline.empty', 'No activities match the current filters.')}
-            description={t('customers.activityLog.emptyDescription', 'Try broadening the date range or removing some filters.')}
-          />
-        ) : (
-          <div className="space-y-4">
+      {loading && activities.length === 0 ? (
+        <LoadingMessage label={t('customers.people.detail.activities.loading', 'Loading activities…')} className="min-h-[220px] justify-center" />
+      ) : error ? (
+        <ErrorMessage label={error} />
+      ) : activities.length === 0 ? (
+        <TabEmptyState
+          title={t('customers.timeline.empty', 'No activities match the current filters.')}
+          description={t('customers.activityLog.emptyDescription', 'Try broadening the date range or removing some filters.')}
+        />
+      ) : (
+        <>
+          <ul>
             {activities.map((activity, index) => {
               const currentYear = new Date(toTimelineTimestamp(activity)).getFullYear()
               const previousYear = index > 0 ? new Date(toTimelineTimestamp(activities[index - 1])).getFullYear() : null
               const showYearSeparator = previousYear !== null && currentYear !== previousYear
               return (
                 <React.Fragment key={activity.id}>
-                  {showYearSeparator ? (
-                    <div className="flex items-center gap-3 py-1">
-                      <div className="h-px flex-1 bg-border" />
-                      <span className="text-xs font-semibold text-muted-foreground">· {currentYear} ·</span>
-                      <div className="h-px flex-1 bg-border" />
-                    </div>
-                  ) : null}
+                  {showYearSeparator ? <ActivityHistoryYear year={currentYear} /> : null}
                   <ActivityCard
                     activity={activity}
+                    first={index === 0 || showYearSeparator}
                     onOpen={onEditActivity}
                     onChanged={handleActivityChanged}
                     runMutation={runMutation}
@@ -467,18 +428,18 @@ export function ActivityHistorySection({
                 </React.Fragment>
               )
             })}
+          </ul>
 
-            {hasMore ? (
-              <div className="pt-2 text-center">
-                <Button type="button" variant="link" size="sm" onClick={handleLoadMore} className="text-sm">
-                  {t('customers.activities.loadMore', 'Load more')}
-                </Button>
-              </div>
-            ) : null}
-          </div>
-        )}
-      </div>
-    </div>
+          {hasMore ? (
+            <div className="border-t border-border pt-3 text-center">
+              <Button type="button" variant="link" size="sm" onClick={handleLoadMore}>
+                {t('customers.activities.loadMore', 'Load more')}
+              </Button>
+            </div>
+          ) : null}
+        </>
+      )}
+    </section>
   )
 }
 

@@ -1,13 +1,11 @@
 "use client"
 
 import * as React from 'react'
-import { Clock } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { apiCallOrThrow, readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import type { SectionAction, TabEmptyStateConfig } from '@open-mercato/ui/backend/detail'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { Kbd } from '@open-mercato/ui/primitives/kbd'
 import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 import { ActivityTimelineFilters } from './ActivityTimelineFilters'
 import { ActivityTimeline } from './ActivityTimeline'
@@ -39,8 +37,6 @@ export type ActivitiesSectionProps = {
   onEditActivity?: (activity: InteractionSummary) => void
   /** Interaction type hidden from the timeline by default ('task' unless overridden); pass null to show every type. */
   excludeInteractionType?: string | null
-  /** Chrome for the section's toolbar; see `ActivityTimelineFilters`. */
-  tone?: 'default' | 'soft'
 }
 
 function toDateOnly(value: string | null | undefined): string {
@@ -115,7 +111,7 @@ export function ActivitiesSection({
   onEditActivity,
   runGuardedMutation,
   excludeInteractionType = 'task',
-  tone = 'default',
+  emptyState,
 }: ActivitiesSectionProps) {
   const t = useT()
   const [filterTypes, setFilterTypes] = React.useState<string[]>([])
@@ -354,64 +350,69 @@ export function ActivitiesSection({
 
   const totalCount = activities.length
   const visibleCount = visibleActivities.length
+  const searching = searchTerm.trim().length > 0
+  const filtered = searching || filterTypes.length > 0 || Boolean(filterDateFrom) || Boolean(filterDateTo)
 
   return (
-    <div className="flex flex-col gap-3.5 rounded-lg border border-border bg-card pt-4 pb-[18px] px-[18px]">
-      <div className="flex items-center gap-2">
-        <Clock className={tone === 'soft' ? 'size-4 text-muted-foreground' : 'size-[15px] text-muted-foreground'} />
-        <h3 className="text-sm font-semibold text-foreground">
-          {entityName
-            ? t('customers.timeline.history.title', 'Interaction history with {{name}}', { name: entityName })
-            : t('customers.timeline.history.titleGeneric', 'Interaction history')}
+    <section
+      aria-label={entityName
+        ? t('customers.timeline.history.title', 'Interaction history with {{name}}', { name: entityName })
+        : t('customers.timeline.history.titleGeneric', 'Interaction history')}
+      className="flex flex-col gap-3 rounded-xl border border-transparent bg-surface p-4 shadow-xs"
+    >
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <h3 className="min-w-0 flex-1 truncate text-base font-semibold text-foreground">
+          {t('customers.timeline.history.heading', 'History')}
         </h3>
+        <div className="flex w-full items-center gap-2 sm:w-auto">
+          <SearchInput
+            ref={searchInputRef}
+            value={searchTerm}
+            onChange={setSearchTerm}
+            placeholder={t('customers.timeline.history.searchPlaceholder', 'Search...')}
+            aria-label={t('customers.timeline.history.searchAriaLabel', 'Search interaction history')}
+            aria-keyshortcuts="Meta+1 Control+1"
+            tone="well"
+            className="min-w-0 flex-1 sm:w-56 sm:flex-none"
+          />
+          <ActivityTimelineFilters
+            entityId={entityId}
+            activeTypes={filterTypes}
+            dateFrom={filterDateFrom}
+            dateTo={filterDateTo}
+            onTypesChange={setFilterTypes}
+            onDateFromChange={setFilterDateFrom}
+            onDateToChange={setFilterDateTo}
+            onReset={() => {
+              setFilterTypes([])
+              setFilterDateFrom('')
+              setFilterDateTo('')
+            }}
+          />
+        </div>
       </div>
 
-      <SearchInput
-        ref={searchInputRef}
-        value={searchTerm}
-        onChange={setSearchTerm}
-        placeholder={t('customers.timeline.history.searchPlaceholder', 'Search...')}
-        aria-label={t('customers.timeline.history.searchAriaLabel', 'Search interaction history')}
-        shortcut={<Kbd className="hidden sm:inline-flex">⌘1</Kbd>}
-        tone={tone === 'soft' ? 'well' : undefined}
-      />
-
-      <ActivityTimelineFilters
-        entityId={entityId}
-        activeTypes={filterTypes}
-        dateFrom={filterDateFrom}
-        dateTo={filterDateTo}
-        onTypesChange={setFilterTypes}
-        onDateFromChange={setFilterDateFrom}
-        onDateToChange={setFilterDateTo}
-        onReset={() => {
-          setFilterTypes([])
-          setFilterDateFrom('')
-          setFilterDateTo('')
-        }}
-        tone={tone}
-      />
-
       {loading && totalCount === 0 ? (
-        <div className="rounded-lg border border-dashed border-border/70 px-4 py-8 text-sm text-muted-foreground">
+        <div className="py-6 text-center text-sm text-muted-foreground">
           {t('customers.people.detail.activities.loading', 'Loading activities…')}
         </div>
       ) : (
         <>
           <ActivityTimeline
             activities={visibleActivities}
+            emptyLabel={filtered ? undefined : emptyState.title}
             onEdit={onEditActivity}
             onMarkDone={handleMarkDone}
           />
-          {totalCount > 0 ? (
-            <div className="flex items-center justify-between gap-3 border-t border-border/60 pt-3">
+          {totalCount > 0 && (searching || hasMore) ? (
+            <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
               <span className="text-xs text-muted-foreground">
-                {searchTerm.trim()
+                {searching
                   ? t('customers.activities.seeMatching', 'Showing {visible} of {total} activities', {
                       visible: visibleCount,
                       total: totalCount,
                     })
-                  : t('customers.activities.seeAll', 'See all {count} activities', { count: totalCount })}
+                  : null}
               </span>
               {hasMore ? (
                 <Button type="button" variant="link" size="sm" onClick={() => setLoadedPages((value) => value + 1)}>
@@ -422,7 +423,7 @@ export function ActivitiesSection({
           ) : null}
         </>
       )}
-    </div>
+    </section>
   )
 }
 
