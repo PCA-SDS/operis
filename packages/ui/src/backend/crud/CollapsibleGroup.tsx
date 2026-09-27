@@ -1,6 +1,6 @@
 'use client'
 import * as React from 'react'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Button } from '../../primitives/button'
@@ -16,7 +16,11 @@ export interface CollapsibleGroupProps {
   fieldCount?: number
   chevronPosition?: 'left' | 'right'
   icon?: React.ReactNode
-  /** `card` keeps the group a white raised card whether open or closed. */
+  /**
+   * `card` is an inset group: a white card whose header row holds the title and
+   * a disclosure chevron only. The reorder handle waits for the pointer (or
+   * focus) at the row's end, and there is no field count.
+   */
   tone?: 'default' | 'card'
   children: React.ReactNode
 }
@@ -73,6 +77,87 @@ export const CollapsibleGroup = React.forwardRef<CollapsibleGroupHandle, Collaps
       </span>
     ) : null
 
+    // Animating the ROW TRACK, not a max-height: `max-h-0 -> max-h-[5000px]`
+    // spends the transition crossing 5000px, so a 300px group snapped open in
+    // ~12ms and then sat still for the rest — and collapsing looked like
+    // nothing happened until it slammed shut. `0fr -> 1fr` interpolates to the
+    // content's real height, so the duration is the duration. Matches AppShell
+    // and TasksListTab.
+    const renderContent = (paddingClassName: string) => (
+      <div
+        id={contentId}
+        className={cn(
+          'grid motion-safe:transition-[grid-template-rows] motion-safe:duration-200 motion-safe:ease-out',
+          expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
+        )}
+        inert={!expanded}
+      >
+        <div className="overflow-hidden">
+          <div className={paddingClassName}>
+            {children}
+          </div>
+        </div>
+      </div>
+    )
+
+    if (tone === 'card') {
+      return (
+        <div
+          id={`collapsible-group-wrapper-${groupId}`}
+          className={cn(
+            'rounded-xl border bg-surface shadow-xs transition-colors',
+            errorCount > 0 ? 'border-destructive' : 'border-transparent',
+            !isHydrated && 'invisible',
+          )}
+          data-collapsible-group-id={groupId}
+          data-state={expanded ? 'open' : 'closed'}
+          data-tone={tone}
+          data-persistence-hydrated={isHydrated ? 'true' : 'false'}
+          aria-hidden={isHydrated ? undefined : true}
+        >
+          {title && (
+            <div className="group/group-header flex h-10 items-center gap-1 pl-4 pr-2">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={toggle}
+                className="h-full min-w-0 flex-1 justify-between gap-3 rounded-none bg-transparent px-0 text-sm font-semibold text-foreground hover:bg-transparent hover:text-foreground has-[>svg]:px-0"
+                aria-expanded={expanded}
+                aria-controls={contentId}
+              >
+                <span className="flex min-w-0 items-center gap-2">
+                  {icon && <span className="shrink-0 text-muted-foreground">{icon}</span>}
+                  <span className="truncate">{title}</span>
+                  {errorBadge}
+                </span>
+                <ChevronRight
+                  aria-hidden="true"
+                  className={cn(
+                    'size-4 shrink-0 text-muted-foreground transition-[transform,color] duration-200 group-hover/group-header:text-foreground',
+                    expanded && 'rotate-90',
+                  )}
+                />
+              </Button>
+              {showDragHandle ? (
+                <span
+                  className="inline-flex shrink-0 items-center"
+                  onClick={(event) => event.stopPropagation()}
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onKeyDown={(event) => event.stopPropagation()}
+                >
+                  <SortableGroupHandle
+                    ariaLabel={t('ui.crud.dragHandle.aria', 'Drag to reorder')}
+                    className="opacity-0 transition-opacity group-hover/group-header:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
+                  />
+                </span>
+              ) : null}
+            </div>
+          )}
+          {renderContent(title ? 'px-4 pb-5 pt-1' : 'px-4 py-5')}
+        </div>
+      )
+    }
+
     return (
       <div
         id={`collapsible-group-wrapper-${groupId}`}
@@ -86,9 +171,7 @@ export const CollapsibleGroup = React.forwardRef<CollapsibleGroupHandle, Collaps
           !isHydrated && 'invisible',
           errorCount > 0
             ? 'border-destructive'
-            : tone === 'card'
-              ? 'border-transparent bg-surface shadow-xs'
-              : expanded
+            : expanded
               ? 'border-transparent bg-muted shadow-none'
               : 'border-transparent shadow-xs hover:bg-muted hover:shadow-none',
         )}
@@ -145,26 +228,7 @@ export const CollapsibleGroup = React.forwardRef<CollapsibleGroupHandle, Collaps
             </Button>
           </div>
         )}
-        {/* Animating the ROW TRACK, not a max-height: `max-h-0 -> max-h-[5000px]`
-            spends the transition crossing 5000px, so a 300px group snapped open
-            in ~12ms and then sat still for the rest — and collapsing looked like
-            nothing happened until it slammed shut. `0fr -> 1fr` interpolates to
-            the content's real height, so the duration is the duration.
-            Matches AppShell and TasksListTab. */}
-        <div
-          id={contentId}
-          className={cn(
-            'grid motion-safe:transition-[grid-template-rows] motion-safe:duration-200 motion-safe:ease-out',
-            expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
-          )}
-          inert={!expanded}
-        >
-          <div className="overflow-hidden">
-            <div className="px-4 py-3">
-              {children}
-            </div>
-          </div>
-        </div>
+        {renderContent('px-4 py-3')}
       </div>
     )
   }

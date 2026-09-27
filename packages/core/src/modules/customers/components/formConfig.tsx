@@ -2013,25 +2013,25 @@ export const createCompanyEditGroups = (t: Translator): CrudFormGroup[] => [
 export const createCompanyDaneFiremyGroups = (t: Translator): CrudFormGroup[] => [
   {
     id: 'identity',
-    title: t('customers.companies.form.groups.identity', 'Tożsamość').toUpperCase(),
+    title: t('customers.companies.form.groups.identity', 'Tożsamość'),
     column: 1,
     fields: ['displayName', 'legalName', 'brandName'],
   },
   {
     id: 'contact',
-    title: t('customers.companies.form.groups.contact', 'Kontakt').toUpperCase(),
+    title: t('customers.companies.form.groups.contact', 'Kontakt'),
     column: 1,
     fields: ['primaryEmail', 'primaryPhone', 'domain', 'websiteUrl'],
   },
   {
     id: 'classification',
-    title: t('customers.companies.form.groups.classification', 'Klasyfikacja').toUpperCase(),
+    title: t('customers.companies.form.groups.classification', 'Klasyfikacja'),
     column: 1,
     fields: ['status', 'lifecycleStage', 'source'],
   },
   {
     id: 'businessProfile',
-    title: t('customers.companies.form.groups.businessProfile', 'Profil biznesowy').toUpperCase(),
+    title: t('customers.companies.form.groups.businessProfile', 'Profil biznesowy'),
     column: 1,
     fields: ['industry', 'sizeBucket', 'annualRevenue'],
   },

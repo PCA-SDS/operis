@@ -36,19 +36,18 @@ test.describe('TC-UX-001: Collapsible CrudForm Groups', () => {
       // CrudForm group buttons are inside main content — scope to main
       const main = page.locator('main')
 
-      // Find the "IDENTITY" collapsible header button. The DOM nests an outer button (wrapping
-      // header + content for click targeting) around the header button itself; match the exact
-      // header accessible name (e.g. "IDENTITY · N fields") which carries aria-expanded.
-      const identityButton = main.getByRole('button', { name: /^IDENTITY\s+·\s+\d+\s+fields?$/ })
+      // Find the "Identity" collapsible header button. Its accessible name is the group title
+      // alone (the reorder handle is a separate button), and it carries aria-expanded.
+      const identityButton = main.getByRole('button', { name: /^Identity$/ })
       await expect(identityButton).toBeVisible({ timeout: 10_000 })
       await expect(identityButton).toHaveAttribute('aria-expanded', 'true')
 
-      // Find "CONTACT" group button
-      const contactButton = main.getByRole('button', { name: /^CONTACT\s+·\s+\d+\s+fields?$/ })
+      // Find "Contact" group button
+      const contactButton = main.getByRole('button', { name: /^Contact$/ })
       await expect(contactButton).toBeVisible()
       await expect(contactButton).toHaveAttribute('aria-expanded', 'true')
 
-      // Collapse the "CONTACT" group
+      // Collapse the "Contact" group
       await contactButton.click()
       await expect(contactButton).toHaveAttribute('aria-expanded', 'false')
 
@@ -56,7 +55,7 @@ test.describe('TC-UX-001: Collapsible CrudForm Groups', () => {
       await contactButton.click()
       await expect(contactButton).toHaveAttribute('aria-expanded', 'true')
 
-      // Collapse "IDENTITY" group
+      // Collapse "Identity" group
       await identityButton.click()
       await expect(identityButton).toHaveAttribute('aria-expanded', 'false')
 

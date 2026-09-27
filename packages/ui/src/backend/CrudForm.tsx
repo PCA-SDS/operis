@@ -3892,7 +3892,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
             }}
           />
         ) : headerExtraActions ? (
-          <div className="flex justify-end gap-2 mb-2">{headerExtraActions}</div>
+          <div className="mb-2 flex justify-end gap-2 empty:hidden">{headerExtraActions}</div>
         ) : null}
         {contentHeader}
         <DataLoader
@@ -3985,7 +3985,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
           }}
         />
       ) : headerExtraActions ? (
-        <div className="flex justify-end gap-2 mb-2">{headerExtraActions}</div>
+        <div className="mb-2 flex justify-end gap-2 empty:hidden">{headerExtraActions}</div>
       ) : null}
       {contentHeader}
       <DataLoader
