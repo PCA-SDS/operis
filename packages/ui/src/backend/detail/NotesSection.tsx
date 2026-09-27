@@ -1192,7 +1192,7 @@ function NotesSectionImpl<C = unknown>({
             const timestampValue = note.createdAt
             const fallbackTimestampLabel = formatDateTime(note.createdAt) ?? emptyLabel
             return (
-              <div key={note.id} className="group space-y-2 rounded-xl border border-transparent bg-surface shadow-sm p-4">
+              <div key={note.id} className="group space-y-2 rounded-xl border border-card-edge bg-surface shadow-sm p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="space-y-1">
                     <TimelineItemHeader

@@ -106,7 +106,7 @@ export const CollapsibleGroup = React.forwardRef<CollapsibleGroupHandle, Collaps
           id={`collapsible-group-wrapper-${groupId}`}
           className={cn(
             'rounded-xl border bg-surface shadow-xs transition-colors',
-            errorCount > 0 ? 'border-destructive' : 'border-transparent',
+            errorCount > 0 ? 'border-destructive' : 'border-card-edge',
             !isHydrated && 'invisible',
           )}
           data-collapsible-group-id={groupId}

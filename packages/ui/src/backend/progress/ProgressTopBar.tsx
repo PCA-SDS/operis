@@ -130,7 +130,7 @@ function ProgressJobCard({ job, t, onCancel }: { job: ProgressJobDto; t: Transla
 
   return (
     <div className={cn(
-      'rounded-lg border border-transparent bg-surface p-3',
+      'rounded-lg border border-card-edge bg-surface p-3',
       isFailed && 'bg-destructive/5',
       isCompleted && 'bg-status-success-bg',
     )}>

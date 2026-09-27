@@ -640,7 +640,7 @@ function ToolCallList({ toolCalls }: { toolCalls: AiChatToolCallSnapshot[] }) {
                     <div className="text-overline uppercase tracking-wide text-muted-foreground">
                       {t('ai_assistant.chat.toolInput', 'Input')}
                     </div>
-                    <pre className="mt-0.5 max-h-32 overflow-auto rounded bg-background p-1.5 font-mono text-overline">
+                    <pre className="mt-0.5 max-h-32 overflow-auto rounded bg-muted p-1.5 font-mono text-overline">
                       {safeStringify(call.input)}
                     </pre>
                   </div>
@@ -650,7 +650,7 @@ function ToolCallList({ toolCalls }: { toolCalls: AiChatToolCallSnapshot[] }) {
                     <div className="text-overline uppercase tracking-wide text-muted-foreground">
                       {t('ai_assistant.chat.toolOutput', 'Output')}
                     </div>
-                    <pre className="mt-0.5 max-h-32 overflow-auto rounded bg-background p-1.5 font-mono text-overline">
+                    <pre className="mt-0.5 max-h-32 overflow-auto rounded bg-muted p-1.5 font-mono text-overline">
                       {safeStringify(call.output)}
                     </pre>
                   </div>

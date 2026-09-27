@@ -687,7 +687,7 @@ function DashboardWidgetCard({
   return (
     <div
       className={cn(
-        'group relative flex h-full flex-col rounded-xl border border-transparent bg-surface shadow-sm transition-[box-shadow,border-color]',
+        'group relative flex h-full flex-col rounded-xl border border-card-edge bg-surface shadow-sm transition-[box-shadow,border-color]',
         isDragOver ? 'border-primary ring-2 ring-primary/20' : 'border-transparent hover:shadow-md',
         editing ? 'cursor-grab' : 'cursor-default',
         sizeClass

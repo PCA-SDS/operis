@@ -3751,7 +3751,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
           const customFieldsInnerNodes: React.ReactNode[] = []
           if (g.component) {
             customFieldsInnerNodes.push(
-              <div key={`${g.id}-component`} className="rounded-xl border border-transparent bg-surface px-5 py-4 shadow-sm">
+              <div key={`${g.id}-component`} className="rounded-xl border border-card-edge bg-surface px-5 py-4 shadow-sm">
                 {g.component({ values, setValue, errors, requiredFieldIds: widgetRequiredFieldIds })}
               </div>,
             )

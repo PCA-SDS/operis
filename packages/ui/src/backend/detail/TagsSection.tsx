@@ -374,7 +374,7 @@ function TagsSectionImpl({
       </div>
 
       {editing ? (
-        <div className="rounded-xl border border-transparent bg-surface shadow-sm p-4 space-y-3">
+        <div className="rounded-xl border border-card-edge bg-surface shadow-sm p-4 space-y-3">
           <DataLoader
             isLoading={loadingOptions}
             loadingMessage={labels.loading}
