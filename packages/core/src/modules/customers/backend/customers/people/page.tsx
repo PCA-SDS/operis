@@ -29,8 +29,6 @@ import { useCurrentUserId } from '@open-mercato/ui/backend/utils/useCurrentUserI
 import {
   DictionaryValue,
   createEmptyCustomerDictionaryMaps,
-  renderDictionaryColor,
-  renderDictionaryIcon,
   type CustomerDictionaryKind,
   type CustomerDictionaryMap,
 } from '../../../lib/dictionaries'
@@ -93,6 +91,11 @@ function makePeoplePresets(): FilterPreset[] {
   ]
 }
 
+// Retired from the people grid alongside the Next interaction column. The
+// definitions stay in customFieldDefaults.ts so existing tenant data is untouched,
+// and all three stay available as filters.
+const RETIRED_PERSON_CUSTOM_FIELD_COLUMNS = new Set(['buying_role', 'newsletter_opt_in'])
+
 type PersonRow = {
   id: string
   name: string
@@ -111,10 +114,6 @@ type PersonRow = {
   companyEntityId?: string | null
   status?: string | null
   lifecycleStage?: string | null
-  nextInteractionAt?: string | null
-  nextInteractionName?: string | null
-  nextInteractionIcon?: string | null
-  nextInteractionColor?: string | null
   organizationId?: string | null
   source?: string | null
   ownerUserId?: string | null
@@ -131,13 +130,6 @@ type DictionaryKindKey = CustomerDictionaryKind
 type DictionaryMap = CustomerDictionaryMap
 
 const NO_MATCH_TAG_SENTINEL = '__no_match__'
-
-function formatDate(value: string | null | undefined, fallback: string): string {
-  if (!value) return fallback
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return fallback
-  return date.toLocaleDateString()
-}
 
 function mapApiItem(item: Record<string, unknown>): PersonRow | null {
   const id = typeof item.id === 'string' ? item.id : null
@@ -158,10 +150,6 @@ function mapApiItem(item: Record<string, unknown>): PersonRow | null {
   const companyEntityId = typeof item.company_entity_id === 'string' ? item.company_entity_id : null
   const status = typeof item.status === 'string' ? item.status : null
   const lifecycleStage = typeof item.lifecycle_stage === 'string' ? item.lifecycle_stage : null
-  const nextInteractionAt = typeof item.next_interaction_at === 'string' ? item.next_interaction_at : null
-  const nextInteractionName = typeof item.next_interaction_name === 'string' ? item.next_interaction_name : null
-  const nextInteractionIcon = typeof item.next_interaction_icon === 'string' ? item.next_interaction_icon : null
-  const nextInteractionColor = typeof item.next_interaction_color === 'string' ? item.next_interaction_color : null
   const organizationId = typeof item.organization_id === 'string' ? item.organization_id : null
   const source = typeof item.source === 'string' ? item.source : null
   const customFields: Record<string, unknown> = {}
@@ -188,10 +176,6 @@ function mapApiItem(item: Record<string, unknown>): PersonRow | null {
     companyEntityId,
     status,
     lifecycleStage,
-    nextInteractionAt,
-    nextInteractionName,
-    nextInteractionIcon,
-    nextInteractionColor,
     organizationId,
     source,
     ...customFields,
@@ -671,45 +655,6 @@ export default function CustomersPeoplePage() {
         cell: ({ row }) => renderDictionaryCell('lifecycle-stages', row.original.lifecycleStage),
       },
       {
-        accessorKey: 'nextInteractionAt',
-        header: t('customers.people.list.columns.nextInteraction'),
-        meta: {
-          columnChooserGroup: 'Dates',
-          filterKey: 'next_interaction_at',
-          filterGroup: 'Activity',
-          filterIconName: 'calendar',
-          tooltipContent: (row: PersonRow) => {
-            if (!row.nextInteractionAt) return undefined
-            const date = formatDate(row.nextInteractionAt, '')
-            const name = row.nextInteractionName || ''
-            return [date, name].filter(Boolean).join(' - ')
-          },
-        },
-        cell: ({ row }) =>
-          row.original.nextInteractionAt
-            ? (
-              <div className="flex items-start gap-2 text-sm">
-                {row.original.nextInteractionIcon ? (
-                  <span className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded border border-border bg-card">
-                    {renderDictionaryIcon(row.original.nextInteractionIcon, 'h-4 w-4')}
-                  </span>
-                ) : null}
-                <div className="flex flex-col">
-                  <span>{formatDate(row.original.nextInteractionAt, t('customers.people.list.noValue'))}</span>
-                  {row.original.nextInteractionName ? (
-                    <span className="text-xs text-muted-foreground">{row.original.nextInteractionName}</span>
-                  ) : null}
-                </div>
-                {row.original.nextInteractionColor ? (
-                  <span className="mt-1">
-                    {renderDictionaryColor(row.original.nextInteractionColor, 'h-3 w-3 rounded-full border border-border')}
-                  </span>
-                ) : null}
-              </div>
-            )
-            : <span className="text-muted-foreground text-sm">{t('customers.people.list.noValue')}</span>,
-      },
-      {
         accessorKey: 'source',
         header: t('customers.people.list.columns.source'),
         meta: {
@@ -848,7 +793,7 @@ export default function CustomersPeoplePage() {
     ]
 
     const customColumns = customFieldDefs
-      .filter((def) => supportsCustomFieldColumn(def))
+      .filter((def) => supportsCustomFieldColumn(def) && !RETIRED_PERSON_CUSTOM_FIELD_COLUMNS.has(def.key))
       .map<ColumnDef<PersonRow>>((def) => ({
         accessorKey: `cf_${def.key}`,
         header: def.label || def.key,
@@ -867,7 +812,27 @@ export default function CustomersPeoplePage() {
     return [...baseColumns, ...customColumns]
   }, [customFieldDefs, dictionaryMaps, dictionaryOptions, loadOwnerFilterOptions, resolvedOwnerFilterOptions, t])
 
-  const { advancedFilterFields } = useAutoDiscoveredFields({ columns, customFieldDefs })
+  const { advancedFilterFields: discoveredFilterFields } = useAutoDiscoveredFields({ columns, customFieldDefs })
+  // Next interaction left the grid but not the filters: the "Recently active"
+  // and "Stale" presets filter on it, and without a field its chip would show
+  // the raw key. It keeps the place its column gave it, after lifecycle stage.
+  const advancedFilterFields = React.useMemo<FilterFieldDef[]>(() => {
+    if (discoveredFilterFields.some((field) => field.key === 'next_interaction_at')) return discoveredFilterFields
+    const nextInteractionField: FilterFieldDef = {
+      key: 'next_interaction_at',
+      label: t('customers.people.list.columns.nextInteraction'),
+      type: 'date',
+      group: 'Activity',
+      iconName: 'calendar',
+    }
+    const anchor = discoveredFilterFields.findIndex((field) => field.key === 'lifecycle_stage')
+    if (anchor < 0) return [...discoveredFilterFields, nextInteractionField]
+    return [
+      ...discoveredFilterFields.slice(0, anchor + 1),
+      nextInteractionField,
+      ...discoveredFilterFields.slice(anchor + 1),
+    ]
+  }, [discoveredFilterFields, t])
 
   // Sync auto-discovered fields into the `filterPanel` declared at the top of
   // the component. See the comment on the `panelFields` state for why this
