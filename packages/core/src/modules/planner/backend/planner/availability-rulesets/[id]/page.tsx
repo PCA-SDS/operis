@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
-import { Tabs, TabsList, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
+import { Tabs, TabsList, TabsPanel, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
 import { ErrorMessage, RecordNotFoundState } from '@open-mercato/ui/backend/detail'
 import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { updateCrud, deleteCrud } from '@open-mercato/ui/backend/utils/crud'
@@ -200,12 +200,8 @@ export default function PlannerAvailabilityRuleSetDetailPage({ params }: { param
           <Tabs
             value={activeTab}
             onValueChange={(value) => setActiveTab(value as 'details' | 'availability')}
-            variant="underline"
           >
-            <TabsList
-              className="w-full flex-wrap"
-              aria-label={translate('planner.availabilityRuleSets.tabs.label', 'Schedule sections')}
-            >
+            <TabsList aria-label={translate('planner.availabilityRuleSets.tabs.label', 'Schedule sections')}>
               {tabs.map((tab) => (
                 <TabsTrigger key={tab.id} value={tab.id}>
                   {tab.label}
@@ -214,27 +210,29 @@ export default function PlannerAvailabilityRuleSetDetailPage({ params }: { param
             </TabsList>
           </Tabs>
 
-          {activeTab === 'details' ? (
-            <AvailabilityRuleSetForm
-              title={translate('planner.availabilityRuleSets.form.editTitle', 'Edit schedule')}
-              backHref="/backend/planner/availability-rulesets"
-              cancelHref="/backend/planner/availability-rulesets"
-              initialValues={resolvedInitialValues}
-              onSubmit={handleSubmit}
-              onDelete={handleDelete}
-              isLoading={!initialValues}
-              loadingMessage={translate('planner.availabilityRuleSets.form.loading', 'Loading schedule...')}
-            />
-          ) : (
-            <AvailabilityRulesEditor
-              subjectType="ruleset"
-              subjectId={rulesetId ?? ''}
-              initialTimezone={typeof initialValues?.timezone === 'string' ? initialValues.timezone : undefined}
-              labelPrefix="planner.availabilityRuleSets"
-              mode="availability"
-              buildScheduleItems={buildScheduleItems}
-            />
-          )}
+          <TabsPanel value={activeTab}>
+            {activeTab === 'details' ? (
+              <AvailabilityRuleSetForm
+                title={translate('planner.availabilityRuleSets.form.editTitle', 'Edit schedule')}
+                backHref="/backend/planner/availability-rulesets"
+                cancelHref="/backend/planner/availability-rulesets"
+                initialValues={resolvedInitialValues}
+                onSubmit={handleSubmit}
+                onDelete={handleDelete}
+                isLoading={!initialValues}
+                loadingMessage={translate('planner.availabilityRuleSets.form.loading', 'Loading schedule...')}
+              />
+            ) : (
+              <AvailabilityRulesEditor
+                subjectType="ruleset"
+                subjectId={rulesetId ?? ''}
+                initialTimezone={typeof initialValues?.timezone === 'string' ? initialValues.timezone : undefined}
+                labelPrefix="planner.availabilityRuleSets"
+                mode="availability"
+                buildScheduleItems={buildScheduleItems}
+              />
+            )}
+          </TabsPanel>
         </div>
       </PageBody>
     </Page>

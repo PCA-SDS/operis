@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { FormHeader } from '@open-mercato/ui/backend/forms'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { Tabs, TabsList, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
+import { Tabs, TabsList, TabsPanel, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
 import { apiCallOrThrow, readApiResultOrThrow, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { collectCustomFieldValues } from '@open-mercato/ui/backend/utils/customFieldValues'
@@ -692,12 +692,8 @@ export default function ResourcesResourceDetailPage({ params }: { params?: { id?
           <Tabs
             value={activeTab}
             onValueChange={(value) => setActiveTab(value as 'details' | 'availability' | 'bookings')}
-            variant="underline"
           >
-            <TabsList
-              className="w-full flex-wrap"
-              aria-label={t('resources.resources.tabs.label', 'Resource sections')}
-            >
+            <TabsList aria-label={t('resources.resources.tabs.label', 'Resource sections')}>
               {tabs.map((tab) => (
                 <TabsTrigger key={tab.id} value={tab.id}>
                   {tab.label}
@@ -706,121 +702,123 @@ export default function ResourcesResourceDetailPage({ params }: { params?: { id?
             </TabsList>
           </Tabs>
 
-          {activeTab === 'details' ? (
-            <>
-              <div className="rounded-xl border border-transparent bg-surface shadow-sm p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <Tabs
-                    value={activeDetailTab}
-                    onValueChange={(value) => setActiveDetailTab(value as 'notes' | 'activities')}
-                    variant="underline"
-                  >
-                    <TabsList className="h-auto flex-wrap border-b-0">
-                      {detailTabs.map((tab) => (
-                        <TabsTrigger key={tab.id} value={tab.id}>
-                          {tab.label}
-                        </TabsTrigger>
-                      ))}
-                    </TabsList>
-                  </Tabs>
-                  {sectionAction ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      disabled={sectionAction.disabled}
-                      onClick={() => sectionAction.onClick()}
+          <TabsPanel value={activeTab} className="space-y-6">
+            {activeTab === 'details' ? (
+              <>
+                <div className="rounded-xl border border-transparent bg-surface shadow-sm p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <Tabs
+                      value={activeDetailTab}
+                      onValueChange={(value) => setActiveDetailTab(value as 'notes' | 'activities')}
                     >
-                      {sectionAction.icon ?? null}
-                      {sectionAction.label}
-                    </Button>
-                  ) : null}
+                      <TabsList className="border-b-0">
+                        {detailTabs.map((tab) => (
+                          <TabsTrigger key={tab.id} value={tab.id}>
+                            {tab.label}
+                          </TabsTrigger>
+                        ))}
+                      </TabsList>
+                    </Tabs>
+                    {sectionAction ? (
+                      <Button
+                        type="button"
+                        disabled={sectionAction.disabled}
+                        onClick={() => sectionAction.onClick()}
+                      >
+                        {sectionAction.icon ?? null}
+                        {sectionAction.label}
+                      </Button>
+                    ) : null}
+                  </div>
+                  <TabsPanel value={activeDetailTab}>
+                    {activeDetailTab === 'notes' ? (
+                      <NotesSection
+                        entityId={resourceId ?? null}
+                        emptyLabel={t('resources.resources.detail.notes.empty', 'No notes yet.')}
+                        viewerUserId={null}
+                        viewerName={null}
+                        viewerEmail={null}
+                        addActionLabel={t('resources.resources.detail.notes.add', 'Add note')}
+                        emptyState={{
+                          title: t('resources.resources.detail.notes.emptyTitle', 'Keep everyone in the loop'),
+                          actionLabel: t('resources.resources.detail.notes.emptyAction', 'Add a note'),
+                        }}
+                        onActionChange={setSectionAction}
+                        translator={detailTranslator}
+                        labelPrefix="resources.resources.detail.notes"
+                        inlineLabelPrefix="resources.resources.detail.inline"
+                        dataAdapter={notesAdapter}
+                        renderIcon={renderDictionaryIcon}
+                        renderColor={renderDictionaryColor}
+                        iconSuggestions={ICON_SUGGESTIONS}
+                      />
+                    ) : null}
+                    {activeDetailTab === 'activities' ? (
+                      <ActivitiesSection
+                        entityId={resourceId ?? null}
+                        addActionLabel={t('resources.resources.detail.activities.add', 'Log activity')}
+                        emptyState={{
+                          title: t('resources.resources.detail.activities.emptyTitle', 'No activities yet'),
+                          actionLabel: t('resources.resources.detail.activities.emptyAction', 'Add an activity'),
+                        }}
+                        onActionChange={setSectionAction}
+                        dataAdapter={activitiesAdapter}
+                        activityTypeLabels={activityTypeLabels}
+                        loadActivityOptions={loadActivityOptions}
+                        createActivityOption={createActivityOption}
+                        resolveActivityPresentation={resolveActivityPresentation}
+                        renderCustomFields={renderCustomFields}
+                        labelPrefix="resources.resources.detail.activities"
+                        renderIcon={renderDictionaryIcon}
+                        renderColor={renderDictionaryColor}
+                        appearanceLabels={appearanceLabels}
+                        manageHref={manageActivityHref}
+                        customFieldEntityIds={['resources:resources_resource_activity']}
+                      />
+                    ) : null}
+                  </TabsPanel>
                 </div>
-                {activeDetailTab === 'notes' ? (
-                  <NotesSection
-                    entityId={resourceId ?? null}
-                    emptyLabel={t('resources.resources.detail.notes.empty', 'No notes yet.')}
-                    viewerUserId={null}
-                    viewerName={null}
-                    viewerEmail={null}
-                    addActionLabel={t('resources.resources.detail.notes.add', 'Add note')}
-                    emptyState={{
-                      title: t('resources.resources.detail.notes.emptyTitle', 'Keep everyone in the loop'),
-                      actionLabel: t('resources.resources.detail.notes.emptyAction', 'Add a note'),
-                    }}
-                    onActionChange={setSectionAction}
-                    translator={detailTranslator}
-                    labelPrefix="resources.resources.detail.notes"
-                    inlineLabelPrefix="resources.resources.detail.inline"
-                    dataAdapter={notesAdapter}
-                    renderIcon={renderDictionaryIcon}
-                    renderColor={renderDictionaryColor}
-                    iconSuggestions={ICON_SUGGESTIONS}
-                  />
-                ) : null}
-                {activeDetailTab === 'activities' ? (
-                  <ActivitiesSection
-                    entityId={resourceId ?? null}
-                    addActionLabel={t('resources.resources.detail.activities.add', 'Log activity')}
-                    emptyState={{
-                      title: t('resources.resources.detail.activities.emptyTitle', 'No activities yet'),
-                      actionLabel: t('resources.resources.detail.activities.emptyAction', 'Add an activity'),
-                    }}
-                    onActionChange={setSectionAction}
-                    dataAdapter={activitiesAdapter}
-                    activityTypeLabels={activityTypeLabels}
-                    loadActivityOptions={loadActivityOptions}
-                    createActivityOption={createActivityOption}
-                    resolveActivityPresentation={resolveActivityPresentation}
-                    renderCustomFields={renderCustomFields}
-                    labelPrefix="resources.resources.detail.activities"
-                    renderIcon={renderDictionaryIcon}
-                    renderColor={renderDictionaryColor}
-                    appearanceLabels={appearanceLabels}
-                    manageHref={manageActivityHref}
-                    customFieldEntityIds={['resources:resources_resource_activity']}
-                  />
-                ) : null}
-              </div>
 
+                <div className="rounded-xl border border-transparent bg-surface shadow-sm p-4">
+                  <h2 className="mb-4 text-sm font-semibold uppercase text-muted-foreground">
+                    {t('resources.resources.detail.formTitle', 'Resource settings')}
+                  </h2>
+                  <ResourcesResourceForm
+                    embedded
+                    title={t('resources.resources.form.editTitle', 'Edit Resource')}
+                    backHref="/backend/resources/resources"
+                    cancelHref="/backend/resources/resources"
+                    successRedirect="/backend/resources/resources"
+                    formConfig={formConfig}
+                    initialValues={initialValues ?? undefined}
+                    optimisticLockUpdatedAt={
+                      typeof initialValues?.updatedAt === 'string'
+                        ? initialValues.updatedAt
+                        : null
+                    }
+                    onSubmit={handleSubmit}
+                    onDelete={handleDelete}
+                    isLoading={!initialValues}
+                    loadingMessage={t('resources.resources.form.loading', 'Loading resource...')}
+                  />
+                </div>
+              </>
+            ) : activeTab === 'availability' ? (
+              <AvailabilityRulesEditor
+                subjectType="resource"
+                subjectId={resourceId ?? ''}
+                labelPrefix="resources.resources"
+                mode={availabilityMode}
+                rulesetId={availabilityRuleSetId}
+                onRulesetChange={handleRulesetChange}
+                buildScheduleItems={buildScheduleItems}
+              />
+            ) : activeTab === 'bookings' ? (
               <div className="rounded-xl border border-transparent bg-surface shadow-sm p-4">
-                <h2 className="mb-4 text-sm font-semibold uppercase text-muted-foreground">
-                  {t('resources.resources.detail.formTitle', 'Resource settings')}
-                </h2>
-                <ResourcesResourceForm
-                  embedded
-                  title={t('resources.resources.form.editTitle', 'Edit Resource')}
-                  backHref="/backend/resources/resources"
-                  cancelHref="/backend/resources/resources"
-                  successRedirect="/backend/resources/resources"
-                  formConfig={formConfig}
-                  initialValues={initialValues ?? undefined}
-                  optimisticLockUpdatedAt={
-                    typeof initialValues?.updatedAt === 'string'
-                      ? initialValues.updatedAt
-                      : null
-                  }
-                  onSubmit={handleSubmit}
-                  onDelete={handleDelete}
-                  isLoading={!initialValues}
-                  loadingMessage={t('resources.resources.form.loading', 'Loading resource...')}
-                />
+                <ResourceBookingsSection resourceId={resourceId ?? ''} />
               </div>
-            </>
-          ) : activeTab === 'availability' ? (
-            <AvailabilityRulesEditor
-              subjectType="resource"
-              subjectId={resourceId ?? ''}
-              labelPrefix="resources.resources"
-              mode={availabilityMode}
-              rulesetId={availabilityRuleSetId}
-              onRulesetChange={handleRulesetChange}
-              buildScheduleItems={buildScheduleItems}
-            />
-          ) : activeTab === 'bookings' ? (
-            <div className="rounded-xl border border-transparent bg-surface shadow-sm p-4">
-              <ResourceBookingsSection resourceId={resourceId ?? ''} />
-            </div>
-          ) : null}
+            ) : null}
+          </TabsPanel>
         </div>
       </PageBody>
     </Page>

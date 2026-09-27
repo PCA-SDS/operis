@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { MarkdownContent } from '@open-mercato/ui/backend/markdown'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { Tabs, TabsList, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
+import { Tabs, TabsList, TabsPanel, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
 
 type Props = {
   content?: string | null
@@ -36,36 +36,32 @@ export function AttachmentContentPreview({
   return (
     <div className="space-y-2">
       {/* Tab Navigation */}
-      <Tabs value={tab} onValueChange={(value) => setTab(value as 'source' | 'preview')} variant="underline">
-        <TabsList className="w-full">
+      <Tabs value={tab} onValueChange={(value) => setTab(value as 'source' | 'preview')}>
+        <TabsList>
           <TabsTrigger value="source">{sourceLabel}</TabsTrigger>
           <TabsTrigger value="preview">{previewLabel}</TabsTrigger>
         </TabsList>
       </Tabs>
 
       {/* Tab Panels */}
-      {tab === 'source' ? (
-        <div
-          role="tabpanel"
-          aria-label={sourceLabel}
-          data-testid="attachment-content-preview"
-          className="whitespace-pre-wrap text-sm text-muted-foreground"
-        >
-          {display}
-        </div>
-      ) : (
-        <div
-          role="tabpanel"
-          aria-label={previewLabel}
-          data-testid="markdown-preview"
-        >
-          <MarkdownContent
-            body={text}
-            format="markdown"
-            className="text-sm text-muted-foreground [&>*]:mb-2 [&>*:last-child]:mb-0 [&_ul]:ml-4 [&_ul]:list-disc [&_ol]:ml-4 [&_ol]:list-decimal [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:text-xs"
-          />
-        </div>
-      )}
+      <TabsPanel value={tab} aria-label={tab === 'source' ? sourceLabel : previewLabel}>
+        {tab === 'source' ? (
+          <div
+            data-testid="attachment-content-preview"
+            className="whitespace-pre-wrap text-sm text-muted-foreground"
+          >
+            {display}
+          </div>
+        ) : (
+          <div data-testid="markdown-preview">
+            <MarkdownContent
+              body={text}
+              format="markdown"
+              className="text-sm text-muted-foreground [&>*]:mb-2 [&>*:last-child]:mb-0 [&_ul]:ml-4 [&_ul]:list-disc [&_ol]:ml-4 [&_ol]:list-decimal [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:text-xs"
+            />
+          </div>
+        )}
+      </TabsPanel>
 
       {/* Show More/Less Button (only on source tab) */}
       {tab === 'source' && text.length > maxLength ? (

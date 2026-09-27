@@ -6,7 +6,7 @@ import { Button } from '../../primitives/button'
 import { IconButton } from '../../primitives/icon-button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@open-mercato/ui/primitives/dialog'
 import { Input } from '@open-mercato/ui/primitives/input'
-import { Tabs, TabsList, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
+import { Tabs, TabsList, TabsPanel, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
 import { TagsInput } from '@open-mercato/ui/backend/inputs/TagsInput'
 import { CrudForm, type CrudField, type CrudFormGroup } from '@open-mercato/ui/backend/CrudForm'
 import { collectCustomFieldValues } from '@open-mercato/ui/backend/utils/customFieldValues'
@@ -571,9 +571,8 @@ export function AttachmentMetadataDialog({ open, onOpenChange, item, availableTa
                 <Tabs
                   value={imageTab}
                   onValueChange={(value) => setImageTab(value as 'preview' | 'resize')}
-                  variant="underline"
                 >
-                  <TabsList className="w-full flex-wrap px-3">
+                  <TabsList className="px-3">
                     {(['preview', 'resize'] as const).map((tab) => (
                       <TabsTrigger key={tab} value={tab}>
                         {tab === 'preview'
@@ -583,7 +582,7 @@ export function AttachmentMetadataDialog({ open, onOpenChange, item, availableTa
                     ))}
                   </TabsList>
                 </Tabs>
-                <div className="space-y-3 p-3">
+                <TabsPanel value={imageTab} className="space-y-3 p-3">
                   {imageTab === 'preview' ? (
                     previewUrl ? (
                       <img
@@ -639,7 +638,7 @@ export function AttachmentMetadataDialog({ open, onOpenChange, item, availableTa
                       </Button>
                     </div>
                   )}
-                </div>
+                </TabsPanel>
               </div>
             ) : null}
             {loadError ? (
