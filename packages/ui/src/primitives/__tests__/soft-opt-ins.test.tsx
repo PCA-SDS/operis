@@ -24,34 +24,21 @@ describe('IconButton soft variant', () => {
   })
 })
 
-describe('Tabs reserveActiveWidth', () => {
-  function renderTabs(reserve?: boolean) {
-    return render(
-      <Tabs value="a" onValueChange={() => {}} variant="underline" reserveActiveWidth={reserve}>
+describe('Tabs keep one width per tab', () => {
+  it('sets every tab in the same weight, so selecting one moves nothing', () => {
+    render(
+      <Tabs value="a" onValueChange={() => {}}>
         <TabsList aria-label="Sections">
           <TabsTrigger value="a">Alpha</TabsTrigger>
           <TabsTrigger value="b">Beta</TabsTrigger>
         </TabsList>
       </Tabs>,
     )
-  }
-
-  it('reserves the semibold width on every trigger without duplicating the label', () => {
-    renderTabs(true)
     const tabs = screen.getAllByRole('tab')
     expect(tabs.map((tab) => tab.textContent)).toEqual(['Alpha', 'Beta'])
     for (const tab of tabs) {
-      const label = tab.querySelector('[data-label]') as HTMLElement
-      expect(label.getAttribute('data-label')).toBe(tab.textContent)
-      expect(label.className).toContain('after:font-semibold')
-      expect(label.className).toContain('after:content-[attr(data-label)]')
-    }
-  })
-
-  it('renders a plain label per trigger by default', () => {
-    renderTabs()
-    for (const tab of screen.getAllByRole('tab')) {
-      expect(tab.querySelector('[data-label]')).toBeNull()
+      expect(tab.className.split(/\s+/)).toContain('font-medium')
+      expect(tab.className).not.toMatch(/font-(semibold|bold)/)
     }
   })
 })

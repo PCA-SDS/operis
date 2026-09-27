@@ -23,7 +23,7 @@
       "messages"
     ],
     "itemCount": 114,
-    "variantCount": 317,
+    "variantCount": 316,
     "installedImplementationCount": 107,
     "localTokenItemCount": 6,
     "externalImplementationCount": 1,
@@ -4023,9 +4023,8 @@
       "implementationSource": "node_modules/@open-mercato/ui/src/primitives/tabs.tsx",
       "localTokenSource": null,
       "variantIds": [
-        "underline",
-        "pill",
-        "pill-vertical"
+        "horizontal",
+        "vertical"
       ],
       "route": "/backend/design-system?family=navigation&entry=tabs",
       "availabilityByPreset": {

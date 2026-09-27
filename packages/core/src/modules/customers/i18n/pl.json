@@ -2778,6 +2778,7 @@
   "customers.tags.manage.addValue": "Dodaj nową wartość",
   "customers.tags.manage.badge.required": "WYMAGANE",
   "customers.tags.manage.badge.system": "SYSTEM",
+  "customers.tags.manage.categoriesLabel": "Kategorie tagów",
   "customers.tags.manage.categoryMode.label": "Tryb wyboru",
   "customers.tags.manage.categoryMode.multi": "Wiele",
   "customers.tags.manage.categoryMode.single": "Jedna",

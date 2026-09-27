@@ -5844,36 +5844,49 @@ Horizontal or vertical rule between sections. New props in v5: `label` (inline d
 
 **Source:** `packages/ui/src/primitives/tabs.tsx`
 
-Tabbed navigation. v5 added `variant` and `orientation` props.
+Tabbed navigation. Every tab strip in the product uses it and looks and moves the same way: text tabs in
+one weight, the selected one in full ink over a hairline rail, and a 2px accent bar that glides from the old
+tab to the new one (300ms on `ease-panel`). The new panel fades in (150ms, the `fadeIn` motion). Reduced
+motion makes both instant.
 
 ### Compound API
-- `Tabs` — root (Radix), `value`/`defaultValue`/`onValueChange`
-- `TabsList` — visual list container
-- `TabsTrigger` — individual tab button
-- `TabsContent` — content panel per tab
+- `Tabs` — root, `value`/`defaultValue`/`onValueChange`, `orientation`
+- `TabsList` — the strip (`role="tablist"`); always pass `aria-label`
+- `TabsTrigger` — one tab; `leading` icon (`size-4`, takes the tab's ink) and `count` (a quiet number)
+- `TabsContent` — the panel for one tab, mounted while selected
+- `TabsPanel` — the panel for a page that renders the selected tab's content itself; pass `value` so it fades in on a switch
 
 ### Props (`Tabs`)
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
-| `variant` | `'underline' \| 'pill' \| 'enclosed'` | `'underline'` | Visual style |
-| `orientation` | `'horizontal' \| 'vertical'` | `'horizontal'` | Layout direction |
-| `value` / `defaultValue` / `onValueChange` | — | — | Controlled / uncontrolled (Radix) |
+| `orientation` | `'horizontal' \| 'vertical'` | `'horizontal'` | Row over a rail, or a stack with the selection on a quiet fill |
+| `value` / `defaultValue` / `onValueChange` | — | — | Controlled / uncontrolled |
+| `variant` | `'underline'` | — | Deprecated and ignored: tabs have one look |
 
 ### Usage
 ```tsx
-<Tabs defaultValue="overview" variant="underline">
-  <TabsList>
+<Tabs defaultValue="overview">
+  <TabsList aria-label="Product sections">
     <TabsTrigger value="overview">Overview</TabsTrigger>
-    <TabsTrigger value="specs">Specs</TabsTrigger>
+    <TabsTrigger value="specs" count={4}>Specs</TabsTrigger>
   </TabsList>
   <TabsContent value="overview">…</TabsContent>
   <TabsContent value="specs">…</TabsContent>
 </Tabs>
+
+// A page that draws the panel itself
+<TabsPanel value={activeTab} className="pt-6">{content}</TabsPanel>
 ```
 
+### Rules
+- MUST NOT restyle triggers (padding, weight, fills) or the count; the strip is 40px with 36px tabs.
+- A strip that runs out of room wraps. To scroll it sideways, put the scroll on a wrapper and give `TabsList`
+  `w-max min-w-full`, so the rail runs under every tab and the bar is not cut by the scroll edge.
+- A control that picks a mode rather than a panel is a `SegmentedControl`, not tabs.
+
 ### Accessibility
-- Radix handles roving tabindex, arrow-key navigation, `aria-selected`
-- For `orientation="vertical"` ensure trigger labels read top-to-bottom
+- Arrow keys move focus along the strip (Up/Down when vertical), Home and End to its ends; Enter or Space selects.
+- Every tab stays in the Tab order.
 
 ---
 
