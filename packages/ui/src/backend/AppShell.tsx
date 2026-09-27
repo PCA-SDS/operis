@@ -2,7 +2,7 @@
 import * as React from 'react'
 import { createContext, useContext } from 'react'
 import Link from 'next/link'
-import { Home } from 'lucide-react'
+import { ChevronRight, Home } from 'lucide-react'
 import { useIsomorphicLayoutEffect } from '@open-mercato/ui/hooks/useIsomorphicLayoutEffect'
 import { Button } from '../primitives/button'
 import {
@@ -376,7 +376,12 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
           to pin the shell to the viewport for pages that opted into
           `<Page fill>`, and does nothing at all for every other page. */}
       <div data-app-shell-column="" className="flex min-h-svh min-w-0 flex-col">
-        <header className="sticky top-0 z-sticky flex h-16 min-w-0 shrink-0 items-center gap-2 border-b border-border bg-background/80 px-4 backdrop-blur-xl sm:gap-3 md:px-6 xl:px-8">
+        {/* Apple's navigation material: a frosted white sheet over the grey page,
+            `surface` at 80% with a blur and a saturation lift so what scrolls
+            beneath reads as colour, not grey, and a hairline under it. It was
+            the page ground at 80%, the same grey as the page, so the bar had
+            no surface of its own. */}
+        <header className="sticky top-0 z-sticky flex h-16 min-w-0 shrink-0 items-center gap-2 border-b border-border bg-surface/80 px-4 backdrop-blur-xl backdrop-saturate-150 sm:gap-3 md:px-6 xl:px-8">
           <div
             data-testid="backend-chrome-ready"
             data-ready={isChromeReady ? 'true' : 'false'}
@@ -386,22 +391,28 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
               centre and action columns squeeze this one: it is the only way
               into a module, so it may never be crushed to nothing. */}
           <div className="flex min-w-9 flex-1 items-center gap-2">
-            <Link
-              href="/backend"
-              className="hidden h-9 shrink-0 items-center gap-2 rounded-lg px-1 outline-none focus-visible:shadow-focus xl:flex"
-              aria-label={t('appShell.goToDashboard')}
-              data-testid="appshell-brand"
-            >
-              <ShellBrandLogo
-                logo={resolvedLogo}
-                brandName={resolvedBrandName}
-                unoptimized={resolvedLogoBypassesOptimization}
-                tone="surface"
-              />
-              {!brandNameIsInLogo && (
-                <span className="truncate text-sm font-semibold text-foreground">{resolvedBrandName}</span>
-              )}
-            </Link>
+            {/* No product wordmark: the bar opens with the module switcher, and
+                the breadcrumb's home link is the way back to the dashboard. An
+                organisation that uploads its own logo in its branding settings
+                still sees it here, beside its name. */}
+            {resolvedLogo?.src ? (
+              <Link
+                href="/backend"
+                className="hidden h-9 shrink-0 items-center gap-2 rounded-lg px-1 outline-none focus-visible:shadow-focus xl:flex"
+                aria-label={t('appShell.goToDashboard')}
+                data-testid="appshell-brand"
+              >
+                <ShellBrandLogo
+                  logo={resolvedLogo}
+                  brandName={resolvedBrandName}
+                  unoptimized={resolvedLogoBypassesOptimization}
+                  tone="surface"
+                />
+                {!brandNameIsInLogo && (
+                  <span className="truncate text-sm font-semibold text-foreground">{resolvedBrandName}</span>
+                )}
+              </Link>
+            ) : null}
             <ModuleSwitcher />
             {/* Header breadcrumb: always starts with Dashboard */}
             {/* Header breadcrumb: always starts with Dashboard */}
@@ -424,7 +435,11 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
               const hasMid = mid.length > 0
               return (
                 <BreadcrumbNav divider="arrow" className="ml-2 min-w-0 overflow-hidden text-sm lg:ml-3">
-                  <BreadcrumbList className="[&_[data-slot=breadcrumb-separator]_svg]:size-4">
+                  {/* Each separator is handed a 16px chevron, the size of every
+                      other icon on the bar. The primitive's default is 20px,
+                      and a descendant override on the list tied with its
+                      selector on specificity and lost on a phone. */}
+                  <BreadcrumbList>
                     <BreadcrumbItem>
                       {home.href && current ? (
                         <BreadcrumbLink asChild aria-label={home.label}>
@@ -442,13 +457,17 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
                       <>
                         {hasMid ? (
                           <>
-                            <BreadcrumbSeparator className="md:hidden" />
+                            <BreadcrumbSeparator className="md:hidden">
+                              <ChevronRight className="size-4" aria-hidden="true" />
+                            </BreadcrumbSeparator>
                             <BreadcrumbItem className="md:hidden">
                               <BreadcrumbEllipsis aria-label={t('appShell.breadcrumb.collapsed', { count: mid.length })} />
                             </BreadcrumbItem>
                             {mid.map((b, i) => (
                               <React.Fragment key={`mid-${i}`}>
-                                <BreadcrumbSeparator className="hidden md:inline-flex" />
+                                <BreadcrumbSeparator className="hidden md:inline-flex">
+                                  <ChevronRight className="size-4" aria-hidden="true" />
+                                </BreadcrumbSeparator>
                                 <BreadcrumbItem className="hidden md:inline-flex">
                                   {b.href ? (
                                     <BreadcrumbLink asChild title={b.label}>
@@ -464,7 +483,9 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
                             ))}
                           </>
                         ) : null}
-                        <BreadcrumbSeparator />
+                        <BreadcrumbSeparator>
+                          <ChevronRight className="size-4" aria-hidden="true" />
+                        </BreadcrumbSeparator>
                         <BreadcrumbItem>
                           <BreadcrumbPage title={current.label}>{current.label}</BreadcrumbPage>
                         </BreadcrumbItem>
@@ -480,8 +501,12 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
           ) : null}
           {/* `min-w-fit` keeps the action cluster from shrinking under its own
               icons: it may take more than its half and push the centre column
-              off-centre, but it never overlaps it. */}
-          <div className="flex min-w-fit max-sm:min-w-0 flex-1 items-center justify-end gap-1.5 text-sm sm:gap-2 md:gap-3">
+              off-centre, but it never overlaps it. It used to drop that on a
+              phone, and the icon buttons were squeezed to 16px wide instead.
+              What makes it fit is that the labelled controls (module, AI,
+              organisation) show their labels only from `xl`, and the search is
+              narrower below `lg`; the breadcrumb is what gives way. */}
+          <div className="flex min-w-fit flex-1 items-center justify-end gap-1.5 text-sm sm:gap-2 md:gap-3">
             <StatusBadgeInjectionSpot
               spotId={GLOBAL_HEADER_STATUS_INDICATORS_INJECTION_SPOT_ID}
               context={injectionContext}

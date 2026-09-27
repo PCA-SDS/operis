@@ -514,23 +514,24 @@ export function AiAssistantLauncher({
         type="button"
         variant="ghost"
         onClick={openPicker}
-        className={cn('hidden sm:inline-flex items-center gap-2 text-foreground [&_svg]:text-foreground', className)}
+        className={cn('hidden xl:inline-flex items-center gap-2 text-foreground [&_svg]:text-foreground', className)}
         data-ai-launcher-trigger=""
         aria-label={triggerLabel}
         title={triggerLabel}
       >
         <AiIcon className="size-4 text-foreground" />
         <span>{shortLabel}</span>
-        <span className="ml-2 rounded border px-1 text-xs text-muted-foreground">
-          ⌘L
-        </span>
+        {/* The shared key chip, as the search's ⌘K is, rather than a bordered
+            span of its own: grey on the white bar, where ⌘K is white inside its
+            grey field. */}
+        <Kbd className="ml-2">⌘L</Kbd>
       </Button>
       {/* Mobile fallback: icon-only button — same pattern as global search. */}
       <IconButton
         type="button"
         variant="ghost"
         size="lg"
-        className="sm:hidden text-foreground [&_svg]:text-foreground"
+        className="xl:hidden text-foreground [&_svg]:text-foreground"
         onClick={openPicker}
         aria-label={triggerLabel}
         data-ai-launcher-trigger-mobile=""

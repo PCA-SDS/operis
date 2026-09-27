@@ -211,26 +211,27 @@ export function BackendHeaderChrome({
       ) : null}
       {isReady ? <LazyOrganizationSwitcher /> : null}
 
-      {/* Secondary actions — inline on md+, grouped under a More button on <md */}
+      {/* Secondary actions — inline from lg, under a More button below it. Inline
+          from md, the four of them left a 768px bar no room for its breadcrumb. */}
       {showIntegrationsButton ? (
-        <span className="hidden md:contents">
+        <span className="hidden lg:contents">
           <IntegrationsButton />
         </span>
       ) : null}
-      <span className="hidden md:contents">
+      <span className="hidden lg:contents">
         <SettingsButton />
       </span>
       {isReady && showMessages ? (
-        <span className="hidden md:contents">
+        <span className="hidden lg:contents">
           <LazyMessagesIcon />
         </span>
       ) : null}
       {isReady && showChat ? (
-        <span className="hidden md:contents">
+        <span className="hidden lg:contents">
           <LazyChatUnreadIcon />
         </span>
       ) : null}
-      <span className="md:hidden">
+      <span className="lg:hidden">
         <MobileMoreMenu items={mobileMoreItems} />
       </span>
 

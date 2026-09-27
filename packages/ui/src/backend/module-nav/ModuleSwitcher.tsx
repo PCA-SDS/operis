@@ -156,7 +156,7 @@ export function ModuleSwitcher() {
         <Button
           type="button"
           variant="ghost"
-          className="w-9 min-w-9 max-w-56 shrink gap-2 px-0 text-foreground has-[>svg]:px-0 xl:w-auto xl:px-2.5 xl:has-[>svg]:px-2.5"
+          className="w-9 min-w-9 max-w-56 shrink gap-2 px-0 text-foreground has-[>svg]:px-0 xl:w-auto xl:px-3 xl:has-[>svg]:px-3"
           aria-label={
             nav?.mode === 'main' && nav.activeGroup
               ? t('appShell.modules.openWithCurrent', 'Switch module, current: {module}', { module: nav.activeGroup.name })

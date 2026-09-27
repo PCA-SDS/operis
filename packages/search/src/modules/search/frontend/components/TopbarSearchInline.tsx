@@ -374,7 +374,7 @@ export function TopbarSearchInline({
          across the header — hence the absolute positioning, which applies only
          while that overlay is up. */
       className={cn(
-        'relative min-w-0 sm:w-64 md:w-80',
+        'relative min-w-0 sm:w-64 lg:w-80',
         mobileOpen
           ? 'max-sm:absolute max-sm:inset-x-3 max-sm:top-1/2 max-sm:-translate-y-1/2 max-sm:z-popover'
           : '',
@@ -395,9 +395,12 @@ export function TopbarSearchInline({
       ) : null}
 
       <div className={mobileOpen ? 'block' : 'hidden sm:block'}>
+        {/* On the white topbar the field takes the grey control fill, as
+            Apple's toolbar search fields sit darker than their bar, and its key
+            chip flips to white inside it. */}
         <SearchInput
           ref={inputRef}
-          tone="raised"
+          tone="default"
           value={query}
           onChange={(next) => {
             setQuery(next)
@@ -409,7 +412,7 @@ export function TopbarSearchInline({
           }}
           loading={loading}
           // No ⌘K on touch widths: a key hint for keys the device does not have.
-          shortcut={<Kbd className="hidden md:inline-flex">⌘K</Kbd>}
+          shortcut={<Kbd className="hidden bg-surface md:inline-flex">⌘K</Kbd>}
           onFocus={() => setOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder={t('search.dialog.actions.search', 'Search')}

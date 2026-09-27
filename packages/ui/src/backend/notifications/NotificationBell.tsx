@@ -69,7 +69,7 @@ export function NotificationBell({ className, t, customRenderers }: Notification
         onClick={() => setPanelOpen(true)}
         aria-label={ariaLabel}
       >
-        <Bell className={cn('h-5 w-5', pulse && 'animate-pulse')} />
+        <Bell className={cn('size-4', pulse && 'animate-pulse')} />
         <NotificationCountBadge count={unreadCount} />
       </IconButton>
 

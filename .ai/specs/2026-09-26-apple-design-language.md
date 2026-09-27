@@ -255,6 +255,32 @@ their placeholders to "Pick a ...".
 - **Create person:** Primary email and Primary phone sit side by side, as on Create company (they
   were a full row each). The person edit form shares the fields and follows.
 
+## Phase 6 — the topbar
+
+Every control on the bar already stood 36px tall, but they did not look it: the organisation switcher
+was a grey filled button with a shadow and the search a white field with a medium drop shadow, while
+the module switcher, the AI button and the icon buttons were borderless. The chat icon and the
+breadcrumb chevrons were 20px among 16px icons, the ⌘L hint was a bordered span unlike the ⌘K chip,
+and the ⌘K chip sat 1.5px below the centre line.
+
+- **No wordmark.** The bar opens with the module switcher; the breadcrumb's home link leads back to
+  the dashboard. An organisation's own uploaded logo still shows.
+- **Apple's navigation material.** The bar was the page ground at 80%, the same grey as the page,
+  so it had no surface of its own. It is now a frosted white sheet over the grey page (`surface` at
+  80%, 24px blur, 1.5× saturation) with a hairline under it, as apple.com's navigation and Safari's
+  toolbar are. Action icons and labels are ink (#1D1D1F); only secondary marks are grey (menu
+  chevrons, the breadcrumb's links and separators, the search glyph).
+- **One control style:** borderless, 36px, one hover fill (`bg-surface-strong`, now also
+  `IconButton`'s ghost hover, which was a near-invisible `accent`), 16px icons, 14px medium labels.
+  The search is the one field and sits darker than the bar, as Apple's toolbar search fields do: the
+  grey control fill (#EDEDF0), flat. The `raised` search tone keeps only a light `shadow-xs` and no
+  hover fill.
+- **Shortcut chips** are the shared `Kbd`, 28×22, centred: ⌘K white inside its grey field, ⌘L grey on
+  the white bar.
+- **Fits every width.** Icon buttons never shrink. The labelled controls show their labels from `xl`,
+  the search narrows below `lg`, and the four secondary icons move under More below `lg`, so the bar
+  neither scrolls sideways nor squeezes a button, from 360px to 1440px.
+
 ## Changelog
 
 - 2026-09-26 — Implemented.
@@ -265,3 +291,5 @@ their placeholders to "Pick a ...".
   `ScheduleSection.test.tsx`, `DateTimeFields.test.tsx`, `ViewSwitcher.test.tsx` and the invoice
   dashboard's `page.test.tsx`.
 - 2026-09-27 — Phase 5: forms get room. Unit coverage in `CrudForm.spacing.test.tsx`.
+- 2026-09-27 — Phase 6: the topbar. Unit coverage in `AppShell.test.tsx`, `icon-button.test.tsx`,
+  `search-input.test.tsx` and `AiAssistantLauncher.test.tsx`.

@@ -448,16 +448,19 @@ export default function OrganizationSwitcher({ compact }: OrganizationSwitcherEx
   return (
     <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
       <PopoverTrigger asChild>
+        {/* Borderless, as every control on the topbar is: the grey filled
+            button made this one menu look unlike the module switcher opposite,
+            which is the same kind of control. */}
         <Button
           type="button"
-          variant="outline"
+          variant="ghost"
           aria-label={`${t('organizationSwitcher.label')}: ${activeOrgLabel}`}
           title={activeOrgLabel}
-          className="w-9 px-0 hover:bg-muted/40 data-[state=open]:bg-muted/40 sm:w-auto sm:justify-start sm:px-3 sm:max-w-48 md:max-w-64"
+          className="w-9 px-0 text-foreground xl:w-auto xl:max-w-64 xl:justify-start xl:px-3"
         >
-          <Building2 className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-          <span className="hidden sm:block truncate flex-1 text-left">{activeOrgLabel}</span>
-          <ChevronDown className="hidden sm:block size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <Building2 className="size-4 shrink-0" aria-hidden="true" />
+          <span className="hidden xl:block truncate flex-1 text-left">{activeOrgLabel}</span>
+          <ChevronDown className="hidden xl:block size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 p-0">

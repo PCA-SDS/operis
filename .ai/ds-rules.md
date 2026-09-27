@@ -149,6 +149,13 @@ There is **no global sidebar**. The topbar's `ModuleSwitcher` lists the modules 
 module's pages sit beside that module's own sidebar. Spec:
 `.ai/specs/2026-09-25-module-switcher-and-module-sidebars.md`.
 
+- The topbar is Apple's navigation material: `bg-surface/80` with `backdrop-blur-xl backdrop-saturate-150`
+  and a `border-border` hairline, a frosted white sheet over the grey page. Every topbar control is 36px and
+  borderless with the one chrome hover (`bg-surface-strong`), every action icon is `size-4` in ink (chevrons,
+  breadcrumb links and separators are the secondary greys), and every control sits on the bar's centre line.
+  The search is the one field, in the grey control fill (`SearchInput tone="default"`) with a white key chip.
+  A control added to `backend:topbar:actions` follows the same: `IconButton variant="ghost" size="lg"`, or a
+  ghost `Button` with a 16px icon. Labelled controls show their label from `xl`.
 - Build every module sidebar from `@open-mercato/ui/backend/module-nav/ModuleSidebar`
   (`ModuleLayout`, `ModuleSidebar`, `ModuleSidebarLink`, `ModuleSidebarAction`, `ModuleSidebarDivider`,
   `ModuleSidebarSectionLabel`, `ModuleSidebarSkeleton`). They are the Task Manager's sidebar, extracted; never

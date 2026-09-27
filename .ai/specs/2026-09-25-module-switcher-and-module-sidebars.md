@@ -71,6 +71,7 @@ works per module: pick a module, then move around inside it, the way the Task Ma
   saves it with (`auth.tenantId` / `auth.orgId`), not the organization being viewed. Reading the viewed one
   showed multi-organization users the default order outside their home organization.
 - **Brand.** The logo moved from the rail to the topbar (`ShellBrandLogo tone="surface"`), shown from `xl`.
+  Since 2026-09-27 only an organisation's own uploaded logo shows there; the built-in wordmark does not.
 - **Topbar fit.** Below `xl` the trigger is a 36px icon button (its accessible name carries the current
   module); from `xl` it also shows the module name, in a label cell as wide as the longest name it can show
   (every module plus the "Modules" fallback, stacked invisibly), so changing module never moves the
@@ -121,3 +122,10 @@ filtered nav payload contains; nothing client-side decides access.
 - 2026-09-27 — The switcher trigger is as wide as its longest label, so switching modules no longer shifts the
   topbar. Unit coverage in `__tests__/AppShell.test.tsx`. "Reset order" drops to the `2xs` button so its text
   matches the footer's "Drag to rearrange" hint.
+- 2026-09-27 — The topbar drops the built-in wordmark and opens with the module switcher; an organisation's uploaded
+  logo still shows (TC-DIR-015). Every topbar control is 36px, borderless with one hover fill, every icon 16px
+  (the chat icon and breadcrumb chevrons were 20px), and every control sits on the bar's centre line. The labelled
+  controls (module, AI, organisation) show labels from `xl`, the search narrows below `lg`, and Integrations,
+  Settings, Messages and Chat sit under More below `lg`, so the bar fits from 360px without scrolling sideways or
+  squeezing a button. Unit coverage in `__tests__/AppShell.test.tsx`, `icon-button.test.tsx`,
+  `search-input.test.tsx` and `AiAssistantLauncher.test.tsx`.
