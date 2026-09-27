@@ -72,7 +72,7 @@ export default function PersonDetailV2Page({ params }: { params?: { id?: string 
 
 
   const formSchema = React.useMemo(() => createPersonEditSchema(), [])
-  const fields = React.useMemo(() => createPersonEditFields(t), [t])
+  const fields = React.useMemo(() => createPersonEditFields(t, { dictionaryActions: 'menu' }), [t])
 
   const [data, setData] = React.useState<PersonOverview | null>(null)
   // Mirror the latest `data` into a ref so save handlers always read the current

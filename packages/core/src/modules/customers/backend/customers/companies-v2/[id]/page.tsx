@@ -91,7 +91,7 @@ export default function CompanyDetailV2Page({ params }: { params?: { id?: string
   const formWrapperRef = React.useRef<HTMLDivElement>(null)
   const { organizationId } = useOrganizationScopeDetail()
   const formSchema = React.useMemo(() => createCompanyEditSchema(), [])
-  const formFields = React.useMemo(() => createCompanyEditFields(t), [t])
+  const formFields = React.useMemo(() => createCompanyEditFields(t, { dictionaryActions: 'menu' }), [t])
   const formGroups = React.useMemo(() => createCompanyDaneFiremyGroups(t), [t])
   const initialValues = React.useMemo(
     () => (data ? mapCompanyOverviewToFormValues(data) : undefined),
