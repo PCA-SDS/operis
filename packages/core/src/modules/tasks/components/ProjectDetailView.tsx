@@ -30,6 +30,7 @@ import { OverviewTab } from './OverviewTab'
 import { TaskPanel } from './TaskPanel'
 import { TasksListTab } from './TasksListTab'
 import { useTasksShellControls } from './TasksShell'
+import { TabsPanel } from '@open-mercato/ui/primitives/tabs'
 import { ErrorState, SkeletonBlock, TasksTabs, type TabDef } from './ui-bits'
 import { NEW_TASK_PARAM } from './useNewTaskFlash'
 import { useProject, useProjectMutations, useTaskError } from './hooks'
@@ -203,7 +204,7 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
       </div>
 
       <div className="min-h-0 flex-1">
-        <div className="-mx-1 flex h-full min-h-0 flex-col overflow-y-auto px-1 pb-1">
+        <TabsPanel value={tab} className="-mx-1 flex h-full min-h-0 flex-col overflow-y-auto px-1 pb-1">
           {tab === 'overview' && <OverviewTab project={project} />}
           {tab === 'board' && (
             <KanbanBoard projectId={project.id} onOpenTask={openTask} onCreateTask={openCreate} />
@@ -226,7 +227,7 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
             spotId={extensionPoints.hosts.projectDetailFooter.spotId}
             context={{ entityId: 'tasks:tasks_project', recordId: project.id }}
           />
-        </div>
+        </TabsPanel>
       </div>
 
       {selectedTaskId && (

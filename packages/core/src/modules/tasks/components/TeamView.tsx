@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { LayoutGrid, List } from 'lucide-react'
 import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
 import { Pagination } from '@open-mercato/ui/primitives/pagination'
+import { TabsPanel } from '@open-mercato/ui/primitives/tabs'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import type { TaskListItemDto, TaskStatus, TeamMemberDto } from '../data/types'
@@ -226,13 +227,13 @@ function MemberTasks({
         />
       </div>
 
-      <div className="flex flex-col lg:min-h-0 lg:flex-1">
+      <TabsPanel value={view} className="flex flex-col lg:min-h-0 lg:flex-1">
         {view === 'board' ? (
           <MemberBoard userId={member.id} onOpenTask={onOpenTask} />
         ) : (
           <MemberList userId={member.id} page={page} onPage={onPage} onOpenTask={onOpenTask} />
         )}
-      </div>
+      </TabsPanel>
     </div>
   )
 }
