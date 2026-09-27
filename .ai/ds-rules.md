@@ -346,10 +346,11 @@ light in dark mode — which is how a menu holds its shape without a border.
 | Dialog/modal closing | `duration-200 ease-in` |
 | Loading spinner | `animate-spin` |
 | Loading placeholder | `animate-pulse` |
-| Panel sliding in | `animate-slide-in` (0.3s ease-out) |
+| Side panel (sheet, drawer, dock) entering or leaving | `SIDE_PANEL_MOTION[side]` + `SIDE_PANEL_SCRIM_MOTION` (`primitives/side-panel-motion`): 500ms in, 300ms out, `ease-panel` |
 | Accordion/collapsible | `animate-accordion-down` / `animate-accordion-up` |
 
 Duration: **150ms** for micro-interactions, **200ms** for standard transitions, **300ms** for large layout changes.
+Side panels are the one exception: every panel that enters from an edge slides in over **500ms** and out over **300ms** on `ease-panel`, and its scrim fades on the same timing. NEVER hand-roll a side panel's motion or let one appear and vanish; use `Drawer` / `Sheet` / `Dialog side`, or the shared classes and `useSidePanelPresence` for a panel a module draws itself.
 
 Motion explains a change; it never decorates a hover — no hover zooms or bounces on chrome
 (`CloseButton` darkens on a soft fill instead of scaling). Under `prefers-reduced-motion`,

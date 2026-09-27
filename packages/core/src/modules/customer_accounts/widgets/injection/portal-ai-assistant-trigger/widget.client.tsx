@@ -33,7 +33,6 @@ import {
   DialogTitle,
 } from '@open-mercato/ui/primitives/dialog'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
-import { cn } from '@open-mercato/shared/lib/utils'
 import { hasFeature } from '@open-mercato/shared/security/features'
 
 export const PORTAL_AI_INJECT_AGENT_ID = 'customers.account_assistant'
@@ -105,12 +104,9 @@ export default function PortalAiAssistantTriggerWidget({ context }: PortalAiAssi
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent
-        disableBodyWrap
-          className={cn(
-            'sm:max-w-xl sm:top-0 sm:bottom-0 sm:right-0 sm:left-auto sm:translate-x-0 sm:translate-y-0',
-            'sm:h-screen sm:max-h-screen sm:rounded-none sm:rounded-l-2xl',
-            'flex flex-col gap-3 p-4',
-          )}
+          side="right"
+          disableBodyWrap
+          className="max-w-xl gap-3 p-4"
           data-ai-portal-inject-sheet=""
         >
           <DialogHeader>

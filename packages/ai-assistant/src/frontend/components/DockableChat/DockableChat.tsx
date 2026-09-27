@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Button } from '@open-mercato/ui/primitives/button'
+import { SIDE_PANEL_MOTION, useSidePanelPresence } from '@open-mercato/ui/primitives/side-panel-motion'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useCommandPaletteContext } from '../CommandPalette/CommandPaletteProvider'
 import { CommandInput } from '../CommandPalette/CommandInput'
@@ -162,6 +163,8 @@ export function DockableChat() {
   const [localInput, setLocalInput] = React.useState('')
   const [chatInput, setChatInput] = React.useState('')
   const chatInputRef = React.useRef<HTMLInputElement>(null)
+  // A docked panel slides in from its edge and back out, like every side panel.
+  const dockPresence = useSidePanelPresence(isOpen)
 
   // Reset local input when phase changes to idle
   React.useEffect(() => {
@@ -372,7 +375,7 @@ export function DockableChat() {
   }
 
   // Render as docked panel (right, left, bottom)
-  if (!isOpen) return null
+  if (!dockPresence.present) return null
 
   const positionStyles: Record<Exclude<DockPosition, 'floating'>, React.CSSProperties> = {
     right: {
@@ -405,8 +408,10 @@ export function DockableChat() {
 
   return typeof document !== 'undefined' ? createPortal(
     <div
+      data-state={dockPresence.state}
       className={cn(
         'bg-surface border shadow-xl flex flex-col',
+        SIDE_PANEL_MOTION[panelPosition],
         panelPosition === 'right' && 'border-l',
         panelPosition === 'left' && 'border-r',
         panelPosition === 'bottom' && 'border-t'

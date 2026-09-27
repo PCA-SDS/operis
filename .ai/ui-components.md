@@ -4398,6 +4398,10 @@ Both share the underlying Radix Dialog, the same `Cmd/Ctrl+Enter` submit + `Esca
 </Drawer>
 ```
 
+### Motion
+
+Every panel that enters from the side of the screen moves the same way: it slides the whole way in from its edge in 500ms and out in 300ms on `ease-panel` (Apple's sheet curve), while its scrim fades on the same timing. `Drawer`, `Sheet` and a side `Dialog` carry it already. A panel a module draws itself takes the same classes from `@open-mercato/ui/primitives/side-panel-motion`: `SIDE_PANEL_MOTION[side]` on the panel and `SIDE_PANEL_SCRIM_MOTION` on its scrim, both keyed off `data-state`, with `useSidePanelPresence(open)` keeping it mounted while it slides out. A Radix sheet its parent mounts only while open uses `useSidePanelDismiss(onClose)` so the parent's unmount does not cut the exit. An in-page panel that takes its width (the chat split panel, the AI dock, the record page's form column) animates that width on the same timing.
+
 ### Sides
 
 | `side` | Slot | Default size | Use case |
@@ -5760,6 +5764,7 @@ Modal dialog (Radix-based). v5 added a mobile bottom-sheet layout that automatic
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
 | `size` | `'sm' \| 'default' \| 'lg' \| 'xl'` | `'default'` | Desktop max-width: `max-w-sm` / `lg` / `2xl` / `4xl` |
+| `side` | `'center' \| 'right' \| 'left'` | `'center'` | `right` / `left` makes a side sheet: the full height of the screen against that edge (full screen on a phone), sliding in and out on the shared side-panel motion. Set its width with `className` (`max-w-xl`). Never rebuild a side sheet by overriding the centred modal's position classes |
 | `dismissible` | `boolean` | `true` | Render the close button |
 | `closeSize` | `'sm' \| 'md' \| 'lg'` | `'md'` | Close button size; its position and the header gutter follow it |
 | `className` | `string` | — | Custom classes |

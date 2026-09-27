@@ -7,6 +7,7 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { CloseButton, type CloseButtonSize } from './close-button'
+import { SIDE_PANEL_MOTION, SIDE_PANEL_SCRIM_MOTION } from './side-panel-motion'
 
 /**
  * Modal dialog primitive. Chrome follows the canonical borderless scheme:
@@ -96,13 +97,18 @@ const DialogOverlay = React.forwardRef<
     /** Render above popovers (z-modal-elevated, 55) instead of the default z-modal (40).
      *  Use when this dialog is opened from inside a popover so it isn't occluded. */
     elevated?: boolean
+    /** Fade on a side panel's timing, for the scrim behind a side sheet. */
+    panel?: boolean
   }
->(({ className, elevated, ...props }, ref) => (
+>(({ className, elevated, panel = false, ...props }, ref) => (
   <DialogPrimitive.Overlay
     ref={ref}
     data-slot="dialog-overlay"
     className={cn(
-      'fixed inset-0 bg-scrim animate-fadeIn transition-opacity data-[state=closed]:animate-out',
+      'fixed inset-0 bg-scrim',
+      // `animate-fadeIn` is declared outside Tailwind's layers, so it would
+      // beat the scrim motion's layered classes: the two are alternatives.
+      panel ? SIDE_PANEL_SCRIM_MOTION : 'animate-fadeIn transition-opacity data-[state=closed]:animate-out',
       elevated ? 'z-modal-elevated' : 'z-modal',
       className,
     )}
@@ -112,12 +118,23 @@ const DialogOverlay = React.forwardRef<
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 
 const dialogContentVariants = cva(
-  [
-    'fixed left-1/2 top-1/2 flex h-auto max-h-[calc(100dvh-4rem)] w-full -translate-x-1/2 -translate-y-1/2 flex-col overflow-y-auto rounded-2xl bg-surface shadow-xl animate-fadeInUp focus-visible:outline-none data-[state=closed]:animate-out',
-    'max-sm:inset-x-0 max-sm:top-auto max-sm:bottom-0 max-sm:max-h-[92dvh] max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-b-none',
-  ].join(' '),
+  'fixed flex w-full flex-col overflow-y-auto bg-surface shadow-xl focus-visible:outline-none',
   {
     variants: {
+      /**
+       * `center` is the modal: in the middle of the screen, a bottom sheet on a
+       * phone, rising in. `right` / `left` is a side sheet: the full height of
+       * the screen against that edge, sliding in from it on the motion every
+       * side panel shares, and full screen on a phone.
+       */
+      side: {
+        center: [
+          'left-1/2 top-1/2 h-auto max-h-[calc(100dvh-4rem)] -translate-x-1/2 -translate-y-1/2 rounded-2xl animate-fadeInUp data-[state=closed]:animate-out',
+          'max-sm:inset-x-0 max-sm:top-auto max-sm:bottom-0 max-sm:max-h-[92dvh] max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-b-none',
+        ].join(' '),
+        right: `inset-y-0 right-0 max-sm:max-w-none sm:rounded-l-2xl ${SIDE_PANEL_MOTION.right}`,
+        left: `inset-y-0 left-0 max-sm:max-w-none sm:rounded-r-2xl ${SIDE_PANEL_MOTION.left}`,
+      },
       size: {
         sm: 'max-w-sm',
         default: 'max-w-lg',
@@ -126,6 +143,7 @@ const dialogContentVariants = cva(
       },
     },
     defaultVariants: {
+      side: 'center',
       size: 'default',
     },
   },
@@ -235,6 +253,7 @@ const DialogContent = React.forwardRef<
       closeAriaLabel,
       disableBodyWrap = false,
       closeSize,
+      side,
       ...props
     },
     ref,
@@ -264,14 +283,15 @@ const DialogContent = React.forwardRef<
 
     return (
       <DialogPortal>
-        <DialogOverlay elevated={elevated} />
+        <DialogOverlay elevated={elevated} panel={side === 'right' || side === 'left'} />
         <DialogPrimitive.Content
           ref={ref}
           data-dialog-content=""
           data-slot="dialog-content"
           data-size={size ?? 'default'}
+          data-side={side ?? 'center'}
           className={cn(
-            dialogContentVariants({ size }),
+            dialogContentVariants({ side, size }),
             elevated ? 'z-modal-elevated' : 'z-modal',
             className,
           )}

@@ -6,6 +6,7 @@ import { IconButton } from '../../primitives/icon-button'
 import { Switch } from '../../primitives/switch'
 import { Input } from '../../primitives/input'
 import { SearchInput } from '../../primitives/search-input'
+import { SIDE_PANEL_MOTION, useSidePanelPresence } from '../../primitives/side-panel-motion'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import {
   DndContext,
@@ -264,6 +265,7 @@ export function ColumnChooserPanel({
   ...sectionProps
 }: ColumnChooserPanelProps) {
   const t = useT()
+  const { present, state } = useSidePanelPresence(open)
   React.useEffect(() => {
     if (!open) return
     if (typeof document === 'undefined') return
@@ -272,9 +274,12 @@ export function ColumnChooserPanel({
       delete document.body.dataset.columnChooserOpen
     }
   }, [open])
-  if (!open) return null
+  if (!present) return null
   return (
-    <div className="fixed inset-y-0 right-0 z-modal w-80 border-l bg-surface shadow-lg flex flex-col">
+    <div
+      data-state={state}
+      className={`fixed inset-y-0 right-0 z-modal w-80 border-l bg-surface shadow-lg flex flex-col ${SIDE_PANEL_MOTION.right}`}
+    >
       <div className="flex items-center justify-between border-b px-4 py-3">
         <h3 className="font-semibold text-sm">
           {t('ui.columnChooser.title', 'Columns')}

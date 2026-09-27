@@ -393,21 +393,9 @@ export default function ClaimsAiTriggerWidget({ context }: ClaimsAiTriggerProps)
       </ButtonGroup>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent
-        disableBodyWrap
-          className={cn(
-            // Mobile: full-screen sheet (no rounded corners, fills the
-            // viewport). Desktop (≥sm): right-anchored side sheet.
-            // The Dialog centres its panel with plain `left-1/2 top-1/2` and
-            // translate classes, which the plain classes below replace; the
-            // `sm:` classes then anchor the desktop side sheet. Its phone bottom
-            // sheet lives under `max-sm:`, so the full-screen edges are restated
-            // there too.
-            'top-0 left-0 right-0 bottom-0 translate-x-0 translate-y-0 max-w-none w-screen h-svh max-h-svh rounded-none',
-            'max-sm:top-0 max-sm:max-h-svh',
-            'sm:top-0 sm:bottom-0 sm:right-0 sm:left-auto sm:translate-x-0 sm:translate-y-0',
-            'sm:max-w-xl sm:w-full sm:rounded-l-xl sm:h-screen sm:max-h-screen',
-            'flex flex-col gap-3 p-4 z-modal',
-          )}
+          side="right"
+          disableBodyWrap
+          className="max-w-xl gap-3 p-4 z-modal"
           data-ai-warranty-claims-inject-sheet=""
         >
           <DialogHeader>

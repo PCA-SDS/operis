@@ -685,6 +685,12 @@
         "type": "COLOR"
       }
     },
+    "ease-panel": {
+      "kind": "easing",
+      "value": "cubic-bezier(0.32, 0.72, 0, 1)",
+      "figma": null,
+      "note": "Side panels. Everything that enters from the side of the screen moves on Apple's sheet curve: a quick start that settles slowly, so a panel glides in and out instead of sliding at one speed and stopping dead. The timing lives with the classes in `packages/ui/src/primitives/side-panel-motion.ts`."
+    },
     "focus-ring": {
       "kind": "color",
       "light": "#0071E3",

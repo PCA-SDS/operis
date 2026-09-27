@@ -8,6 +8,7 @@ import {
   SegmentedControlItem,
 } from '@open-mercato/ui/primitives/segmented-control'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@open-mercato/ui/primitives/sheet'
+import { useSidePanelDismiss } from '@open-mercato/ui/primitives/side-panel-motion'
 import {
   ScheduleView,
   type ScheduleItem,
@@ -66,6 +67,9 @@ function toScheduleItem(task: TaskCalendarItemDto): ScheduleItem {
  */
 export function CalendarPanel({ onClose }: { onClose: () => void }) {
   const t = useT()
+  // Mounted only while open, so it closes itself first and lets the parent
+  // unmount it once the slide out has played.
+  const { open, dismiss } = useSidePanelDismiss(onClose)
   const [view, setView] = React.useState<ScheduleViewMode>('month')
   const [mode, setMode] = React.useState<TaskCalendarMode>('scheduled')
   const [range, setRange] = React.useState<ScheduleRange>(() => startOfMonthGrid(new Date()))
@@ -93,7 +97,7 @@ export function CalendarPanel({ onClose }: { onClose: () => void }) {
 
   return (
     <>
-      <Sheet open onOpenChange={(open) => (open ? undefined : onClose())}>
+      <Sheet open={open} onOpenChange={(next) => (next ? undefined : dismiss())}>
         <SheetContent
           side="right"
           className="flex w-full flex-col gap-0 sm:max-w-[64rem]"

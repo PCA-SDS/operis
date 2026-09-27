@@ -5,6 +5,7 @@ import { Alert } from '../primitives/alert'
 import { Button } from '../primitives/button'
 import { Checkbox } from '../primitives/checkbox'
 import { Spinner } from '../primitives/spinner'
+import { SIDE_PANEL_MOTION, SIDE_PANEL_SCRIM_MOTION, useSidePanelPresence } from '../primitives/side-panel-motion'
 import { useConfirmDialog } from './confirm-dialog'
 import { flash } from './FlashMessages'
 import { surfaceRecordConflict } from './conflicts'
@@ -72,6 +73,7 @@ export function PerspectiveSidebar({
   apiWarning,
 }: PerspectiveSidebarProps) {
   const t = useT()
+  const { present, state } = useSidePanelPresence(open)
   const { confirm, ConfirmDialogElement } = useConfirmDialog()
 
   React.useEffect(() => {
@@ -353,15 +355,23 @@ export function PerspectiveSidebar({
     })
   }
 
-  if (!open) return null
+  if (!present) return null
 
   const isNew = mode.type === 'new'
   const isShare = mode.type === 'share'
 
   return (
-    <div className="fixed inset-0 z-modal">
-      <div className="absolute inset-0 bg-scrim" onClick={() => onOpenChange(false)} role="presentation" />
-      <div className="fixed right-0 top-0 flex h-full w-full flex-col bg-surface shadow-xl sm:w-80">
+    <div className="fixed inset-0 z-modal data-[state=closed]:pointer-events-none" data-state={state}>
+      <div
+        data-state={state}
+        className={`absolute inset-0 bg-scrim ${SIDE_PANEL_SCRIM_MOTION}`}
+        onClick={() => onOpenChange(false)}
+        role="presentation"
+      />
+      <div
+        data-state={state}
+        className={`fixed right-0 top-0 flex h-full w-full flex-col bg-surface shadow-xl sm:w-80 ${SIDE_PANEL_MOTION.right}`}
+      >
         <div className="flex shrink-0 items-center px-5 pt-5 pb-3 sm:px-6 sm:pt-6">
           <Button
             type="button"

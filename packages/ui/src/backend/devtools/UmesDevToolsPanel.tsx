@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { CloseButton } from '@open-mercato/ui/primitives/close-button'
+import { SIDE_PANEL_MOTION, useSidePanelPresence } from '@open-mercato/ui/primitives/side-panel-motion'
 import { useUmesDevTools } from './useUmesDevTools'
 import { ExtensionPointList } from './components/ExtensionPointList'
 import { ConflictWarnings } from './components/ConflictWarnings'
@@ -24,6 +25,7 @@ const TABS: { id: TabId; label: string }[] = [
 
 export function UmesDevToolsPanel() {
   const [isOpen, setIsOpen] = useState(false)
+  const { present, state } = useSidePanelPresence(isOpen)
   const [activeTab, setActiveTab] = useState<TabId>('extensions')
   const data = useUmesDevTools(isOpen)
 
@@ -40,13 +42,15 @@ export function UmesDevToolsPanel() {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [handleKeyDown])
 
-  if (!isDevToolsEnabled || !isOpen) return null
+  if (!isDevToolsEnabled || !present) return null
 
   const conflictCount = data.conflicts.length
   const hasErrors = data.conflicts.some((c) => c.severity === 'error')
 
   return (
-    <div className="fixed inset-y-0 right-0 z-top flex w-[440px] flex-col border-l bg-surface text-foreground shadow-lg"
+    <div
+      data-state={state}
+      className={`fixed inset-y-0 right-0 z-top flex w-[440px] flex-col border-l bg-surface text-foreground shadow-lg ${SIDE_PANEL_MOTION.right}`}
       style={{ fontSize: '13px' }}
     >
       {/* Header */}

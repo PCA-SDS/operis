@@ -8,6 +8,7 @@ import { CloseButton } from '@open-mercato/ui/primitives/close-button'
 import { DIALOG_TITLE_CLASS } from '@open-mercato/ui/primitives/dialog'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { Tag } from '@open-mercato/ui/primitives/tag'
+import { SIDE_PANEL_MOTION, SIDE_PANEL_SCRIM_MOTION, useSidePanelPresence } from '@open-mercato/ui/primitives/side-panel-motion'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 
 export type AppointmentStaffAssignmentTarget = {
@@ -46,7 +47,7 @@ function assignedMemberIdsFor(target: AppointmentStaffAssignmentTarget) {
 }
 
 export function AppointmentStaffAssignmentSheet({
-  target,
+  target: targetProp,
   staff,
   isLoadingStaff,
   isLoadingMoreStaff,
@@ -71,8 +72,12 @@ export function AppointmentStaffAssignmentSheet({
   onLoadMore: () => void
 }) {
   const t = useT()
-  const hasTarget = Boolean(target)
-  const [isVisible, setIsVisible] = React.useState(false)
+  const { present, state } = useSidePanelPresence(Boolean(targetProp))
+  // The sheet keeps showing the booking it was opened for while it slides
+  // out, since the parent clears `target` the moment it closes.
+  const [lastTarget, setLastTarget] = React.useState(targetProp)
+  if (targetProp && targetProp !== lastTarget) setLastTarget(targetProp)
+  const target = targetProp ?? lastTarget
   const [query, setQuery] = React.useState('')
   const resultsRef = React.useRef<HTMLDivElement>(null)
   const duration = target ? durationMinutes(target) : MIN_DURATION
@@ -83,20 +88,12 @@ export function AppointmentStaffAssignmentSheet({
     return staff.filter((member) => `${member.displayName} ${member.roleLabel} ${(member.roleLabels ?? []).join(' ')}`.toLowerCase().includes(value))
   }, [query, staff])
 
-  React.useEffect(() => {
-    if (!hasTarget) {
-      setIsVisible(false)
-      return
-    }
-    const frame = window.requestAnimationFrame(() => setIsVisible(true))
-    return () => window.cancelAnimationFrame(frame)
-  }, [hasTarget])
-
-  if (!target) return null
+  if (!present || !target) return null
 
   return (
-    <div data-appointment-staff-assignment-sheet="true" className={`fixed inset-0 z-modal flex justify-end bg-scrim transition-opacity duration-150 ease-out ${isVisible ? 'opacity-100' : 'opacity-0'}`} onClick={onClose}>
-      <aside className={`flex h-full w-full max-w-md flex-col bg-surface shadow-xl transition-transform duration-150 ease-out will-change-transform ${isVisible ? 'translate-x-0' : 'translate-x-full'}`} onClick={(event) => event.stopPropagation()}>
+    <div data-appointment-staff-assignment-sheet="true" data-state={state} className="fixed inset-0 z-modal flex justify-end data-[state=closed]:pointer-events-none" onClick={onClose}>
+      <div data-state={state} aria-hidden="true" className={`absolute inset-0 bg-scrim ${SIDE_PANEL_SCRIM_MOTION}`} />
+      <aside data-state={state} className={`relative flex h-full w-full max-w-md flex-col bg-surface shadow-xl ${SIDE_PANEL_MOTION.right}`} onClick={(event) => event.stopPropagation()}>
         <div className="flex shrink-0 items-start justify-between gap-3 px-4 pt-4 pb-3">
           <div className="min-w-0">
             <h2 className={DIALOG_TITLE_CLASS}>{t('appointments.staffAssignment.title', 'Assign staff')}</h2>

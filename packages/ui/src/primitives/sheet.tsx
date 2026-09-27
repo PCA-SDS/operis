@@ -13,6 +13,7 @@ import {
   DIALOG_HEADER_CLASS,
   DIALOG_TITLE_CLASS,
 } from './dialog'
+import { SIDE_PANEL_MOTION, SIDE_PANEL_SCRIM_MOTION } from './side-panel-motion'
 
 const Sheet = DialogPrimitive.Root
 
@@ -29,8 +30,7 @@ const SheetOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     className={cn(
       'fixed inset-x-0 bottom-0 top-[var(--topbar-height,0px)] z-overlay bg-scrim',
-      'data-[state=open]:animate-in data-[state=closed]:animate-out',
-      'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+      SIDE_PANEL_SCRIM_MOTION,
       className,
     )}
     {...props}
@@ -39,23 +39,16 @@ const SheetOverlay = React.forwardRef<
 ))
 SheetOverlay.displayName = DialogPrimitive.Overlay.displayName
 
+// The motion is the one every side panel shares (`side-panel-motion.ts`).
 const sheetVariants = cva(
-  cn(
-    'fixed z-modal flex flex-col gap-4 bg-surface shadow-xl transition ease-in-out',
-    'data-[state=open]:animate-in data-[state=closed]:animate-out',
-    'data-[state=closed]:duration-200 data-[state=open]:duration-300',
-  ),
+  'fixed z-modal flex flex-col gap-4 bg-surface shadow-xl',
   {
     variants: {
       side: {
-        top:
-          'inset-x-0 top-0 data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top',
-        bottom:
-          'inset-x-0 bottom-0 data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
-        left:
-          'top-[var(--topbar-height,0px)] bottom-0 left-0 w-3/4 data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left sm:max-w-md',
-        right:
-          'top-[var(--topbar-height,0px)] bottom-0 right-0 w-full sm:max-w-md data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right',
+        top: `inset-x-0 top-0 ${SIDE_PANEL_MOTION.top}`,
+        bottom: `inset-x-0 bottom-0 ${SIDE_PANEL_MOTION.bottom}`,
+        left: `top-[var(--topbar-height,0px)] bottom-0 left-0 w-3/4 sm:max-w-md ${SIDE_PANEL_MOTION.left}`,
+        right: `top-[var(--topbar-height,0px)] bottom-0 right-0 w-full sm:max-w-md ${SIDE_PANEL_MOTION.right}`,
       },
     },
     defaultVariants: {

@@ -142,8 +142,52 @@ describe('CollapsibleZoneLayout', () => {
       expect(layout).toHaveAttribute('data-zone-layout-mode', 'collapsed')
     })
 
-    expect(screen.queryByText('Zone 1')).not.toBeInTheDocument()
+    // Folded away rather than removed: out of reach and out of the a11y tree.
+    const zone1Column = container.querySelector('[data-zone1]') as HTMLElement
+    expect(zone1Column).toHaveAttribute('inert')
+    expect(zone1Column).toHaveAttribute('aria-hidden', 'true')
+    expect(zone1Column.style.gridTemplateColumns).toBe('0fr')
     expect(screen.getByRole('button', { name: 'Expand form panel' })).toBeInTheDocument()
+  })
+
+  it('folds the form column instead of unmounting it, so typed values survive a collapse', async () => {
+    const { container } = renderWithProviders(
+      <CollapsibleZoneLayout
+        zone1={<input aria-label="Name" defaultValue="" />}
+        zone2={<div>Zone 2</div>}
+        entityName="Brightside Solar"
+        pageType="person-v2-fold"
+        toggleTone="soft"
+      />,
+      { dict: {} },
+    )
+    const layout = container.firstElementChild as HTMLElement
+    await waitFor(() => {
+      expect(layout).toHaveAttribute('data-zone-layout-mode', 'side-by-side')
+    })
+    const input = screen.getByRole('textbox', { name: 'Name' }) as HTMLInputElement
+    fireEvent.change(input, { target: { value: 'Ada' } })
+
+    const rail = container.querySelector('[data-zone-rail]') as HTMLElement
+    const zone1Column = container.querySelector('[data-zone1]') as HTMLElement
+    expect(rail).toHaveAttribute('aria-hidden', 'true')
+    expect(rail.style.gridTemplateColumns).toBe('0fr')
+    expect(zone1Column.style.gridTemplateColumns).toBe('1fr')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse form panel' }))
+    await waitFor(() => {
+      expect(layout).toHaveAttribute('data-zone-layout-mode', 'collapsed')
+    })
+    expect(rail.style.gridTemplateColumns).toBe('1fr')
+    expect(zone1Column.style.gridTemplateColumns).toBe('0fr')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Expand form panel' }))
+    await waitFor(() => {
+      expect(layout).toHaveAttribute('data-zone-layout-mode', 'side-by-side')
+    })
+    // The same input, still holding what was typed before the fold.
+    expect(screen.getByRole('textbox', { name: 'Name' })).toBe(input)
+    expect(input.value).toBe('Ada')
   })
 
   it('stacks zone1 above zone2 when the user expands it in constrained space', async () => {

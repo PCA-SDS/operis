@@ -256,6 +256,12 @@ TODO: Fix that latter to have reference by the package names
   --z-index-banner: 70;
   --z-index-top: 100;
 
+  /* Side panels. Everything that enters from the side of the screen moves on
+     Apple's sheet curve: a quick start that settles slowly, so a panel glides
+     in and out instead of sliding at one speed and stopping dead. The timing
+     lives with the classes in `packages/ui/src/primitives/side-panel-motion.ts`. */
+  --ease-panel: cubic-bezier(0.32, 0.72, 0, 1);
+
   /* ═══ Design System: Shadow Scale ═══
      Apple-style elevation: neutral black at low alpha with a wide, soft blur,
      so a raised surface floats rather than carrying a hard edge.

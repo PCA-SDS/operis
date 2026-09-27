@@ -31,6 +31,7 @@ import { CloseButton } from '@open-mercato/ui/primitives/close-button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { Skeleton } from '@open-mercato/ui/primitives/skeleton'
 import { Tag } from '@open-mercato/ui/primitives/tag'
+import { SIDE_PANEL_SCRIM_MOTION, SIDE_PANEL_TRANSITION, useSidePanelPresence } from '@open-mercato/ui/primitives/side-panel-motion'
 import { DIALOG_TITLE_CLASS, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@open-mercato/ui/primitives/dialog'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
@@ -1066,6 +1067,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
   const [hoveredInsertion, setHoveredInsertion] = React.useState<HoveredInsertion | null>(null)
   const [isCoarsePointer, setIsCoarsePointer] = React.useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false)
+  const mobileSidebarScrim = useSidePanelPresence(mobileSidebarOpen)
   const [popoverState, setPopoverState] = React.useState<PopoverState | null>(null)
   const [staffSheetTarget, setStaffSheetTarget] = React.useState<StaffSheetTarget | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false)
@@ -1801,8 +1803,8 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
           </header>
 
           <div className="flex min-h-0 flex-1">
-            {mobileSidebarOpen ? <div className="fixed inset-0 z-40 bg-scrim lg:hidden" onClick={() => setMobileSidebarOpen(false)} /> : null}
-            <aside className={`fixed inset-y-0 left-0 z-50 flex flex-col min-h-0 w-full max-w-sm border-r border-border bg-surface shadow-lg transition-transform lg:static lg:z-auto lg:w-80 lg:translate-x-0 lg:shadow-none ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+            {mobileSidebarScrim.present ? <div data-state={mobileSidebarScrim.state} className={`fixed inset-0 z-40 bg-scrim lg:hidden ${SIDE_PANEL_SCRIM_MOTION}`} onClick={() => setMobileSidebarOpen(false)} /> : null}
+            <aside className={`fixed inset-y-0 left-0 z-50 flex flex-col min-h-0 w-full max-w-sm border-r border-border bg-surface shadow-lg lg:static lg:z-auto lg:w-80 lg:translate-x-0 lg:shadow-none ${mobileSidebarOpen ? `translate-x-0 ${SIDE_PANEL_TRANSITION.open}` : `-translate-x-full ${SIDE_PANEL_TRANSITION.closed}`}`}>
               <div className="flex h-12 shrink-0 items-center justify-between border-b border-border px-3 lg:hidden">
                 <p className="text-sm font-semibold">{t('appointments.seatPlanner.bookingDetails', 'Booking details')}</p>
                 <IconButton type="button" variant="ghost" aria-label={t('common.close', 'Close')} onClick={() => setMobileSidebarOpen(false)}><PanelLeftClose className="size-4" /></IconButton>

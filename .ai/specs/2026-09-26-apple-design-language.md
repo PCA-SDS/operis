@@ -326,6 +326,40 @@ it arrives the columns are as wide as their headings.
 The border used to sit outside full-height buttons, so the AI trigger beside a table's search was
 38px and made every toolbar holding it 2px taller than the rest.
 
+## Phase 9 — every side panel moves the same way
+
+Side panels had four motions: a `Drawer` slid in 200ms and out 150ms on the default curve, a
+`Sheet` took 300/200ms, the seven AI assistant panels were centred modals pushed to the right edge
+and rose in with the modal's rise-and-fade, and the hand-built panels (version history, columns,
+views, the UMES devtools, portal notifications, the appointment staff sheet, the AI dock and the
+dockable chat) appeared and vanished outright. Three sheets its parent mounted only while open
+(the tasks calendar, the chat task composer, chat's narrow context drawer) could not play an exit
+at all, because the parent's unmount removed them first.
+
+Now there is one motion, in `packages/ui/src/primitives/side-panel-motion.ts`: a panel slides the
+whole way in from its edge in 500ms and out in 300ms on `ease-panel`, Apple's sheet curve (a quick
+start that settles slowly), and its scrim fades on the same timing. The exit holds its last frame
+and takes no clicks.
+
+- **Primitives.** `Drawer` and `Sheet` carry it. `Dialog` gains `side="right" | "left"`, a real
+  side sheet (full height, full screen on a phone), and the seven AI panels use it instead of
+  overriding the modal's position. The modal's entrance is declared outside Tailwind's layers, so a
+  side sheet drops it rather than trying to outrank it.
+- **Hand-built panels** set `data-state` from `useSidePanelPresence`, which keeps them mounted for
+  the slide out. **Sheets their parent unmounts** close themselves with `useSidePanelDismiss` and
+  tell the parent once the exit has played.
+- **In-page panels move their width on the same timing.** The AI dock slides in while the page's
+  reserved padding grows in step, so the content edge meets the dock the whole way; collapsing it
+  to its rail and back does the same. Chat's split panel keeps its width animation on the shared
+  timing. The record pages' form column is now one layout that folds: the column narrows to nothing
+  while the rail widens in and the tabs take the room, 300ms folding and 500ms opening. The folded
+  form stays mounted but inert, so a collapse no longer throws away what was typed.
+
+Measured with the animations sought frame by frame: the Customers AI panel covers 505 of its
+576px exit in the first 100ms and lands at 300ms; docking the AI panel moves the page's padding
+and the dock's edge together (their sum stays at the viewport width at every sample); the record
+page's content edge glides from 864px to 340px as the form folds and back as it opens.
+
 ## Changelog
 
 - 2026-09-26 — Implemented.
@@ -345,3 +379,5 @@ The border used to sit outside full-height buttons, so the AI trigger beside a t
   `CrudForm.loadingSkeleton.test.tsx`, `DataTable.refetchAndBulk.test.tsx`,
   `DashboardScreen.test.tsx`, `button-group.test.tsx`, the backend `loading-shape.test.tsx`, core's
   `loading-skeleton-declarations.test.ts` and shared's `registry.test.ts`.
+- 2026-09-27 — Phase 9: every side panel moves the same way. Unit coverage in
+  `side-panel-motion.test.tsx`, `AiDock.test.tsx` and `CollapsibleZoneLayout.test.tsx`.

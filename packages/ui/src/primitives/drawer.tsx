@@ -15,6 +15,7 @@ import {
   DIALOG_HEADER_INSET_CLASS,
   DIALOG_TITLE_CLASS,
 } from './dialog'
+import { SIDE_PANEL_MOTION, SIDE_PANEL_SCRIM_MOTION } from './side-panel-motion'
 
 /**
  * Side-sheet primitive — slides in from `right` (default), `left`,
@@ -82,8 +83,7 @@ const DrawerOverlay = React.forwardRef<
     data-slot="drawer-overlay"
     className={cn(
       'fixed inset-0 z-overlay bg-scrim',
-      'data-[state=open]:animate-in data-[state=closed]:animate-out',
-      'data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0',
+      SIDE_PANEL_SCRIM_MOTION,
       className,
     )}
     {...props}
@@ -95,26 +95,18 @@ const drawerContentVariants = cva(
   // Base layout — fixed position, flex column so DrawerHeader / Body
   // / Footer compose vertically with the body filling free space.
   // Per Figma the panel has rounded corners on the inner (viewport-
-  // facing) edges only, no border on the seam, and a generous shadow.
-  'fixed z-popover flex flex-col gap-0 bg-surface shadow-2xl outline-none ' +
-    'data-[state=open]:animate-in data-[state=closed]:animate-out ' +
-    'data-[state=open]:duration-200 data-[state=closed]:duration-150',
+  // facing) edges only, no border on the seam, and a generous shadow. The
+  // motion is the one every side panel shares (`side-panel-motion.ts`).
+  'fixed z-popover flex flex-col gap-0 bg-surface shadow-2xl outline-none',
   {
     variants: {
       side: {
         right:
           // Figma Drawer [1.1] width: 400px (not the Tailwind max-w-md 448px)
-          'inset-y-0 right-0 h-full w-full max-w-[400px] rounded-l-2xl ' +
-          'data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right',
-        left:
-          'inset-y-0 left-0 h-full w-full max-w-[400px] rounded-r-2xl ' +
-          'data-[state=open]:slide-in-from-left data-[state=closed]:slide-out-to-left',
-        top:
-          'inset-x-0 top-0 max-h-[80dvh] w-full rounded-b-2xl ' +
-          'data-[state=open]:slide-in-from-top data-[state=closed]:slide-out-to-top',
-        bottom:
-          'inset-x-0 bottom-0 max-h-[80dvh] w-full rounded-t-2xl ' +
-          'data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom',
+          `inset-y-0 right-0 h-full w-full max-w-[400px] rounded-l-2xl ${SIDE_PANEL_MOTION.right}`,
+        left: `inset-y-0 left-0 h-full w-full max-w-[400px] rounded-r-2xl ${SIDE_PANEL_MOTION.left}`,
+        top: `inset-x-0 top-0 max-h-[80dvh] w-full rounded-b-2xl ${SIDE_PANEL_MOTION.top}`,
+        bottom: `inset-x-0 bottom-0 max-h-[80dvh] w-full rounded-t-2xl ${SIDE_PANEL_MOTION.bottom}`,
       },
     },
     defaultVariants: { side: 'right' },

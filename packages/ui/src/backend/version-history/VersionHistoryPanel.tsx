@@ -6,6 +6,7 @@ import type { TranslateFn } from '@open-mercato/shared/lib/i18n/context'
 import { Button } from '../../primitives/button'
 import { CloseButton } from '../../primitives/close-button'
 import { DIALOG_TITLE_CLASS } from '../../primitives/dialog'
+import { SIDE_PANEL_MOTION, SIDE_PANEL_SCRIM_MOTION, useSidePanelPresence } from '../../primitives/side-panel-motion'
 import type { VersionHistoryEntry } from './types'
 import { VersionHistoryDetail } from './VersionHistoryDetail'
 import { formatDate } from '@open-mercato/core/modules/audit_logs/lib/display-helpers'
@@ -46,6 +47,7 @@ export function VersionHistoryPanel({
   canUndoRedo,
   autoCheckAcl = true,
 }: VersionHistoryPanelProps) {
+  const { present, state } = useSidePanelPresence(open)
   const shouldAutoCheck = canUndoRedo === undefined && autoCheckAcl
   const permissions = useAuditPermissions(shouldAutoCheck && open)
 
@@ -138,7 +140,7 @@ export function VersionHistoryPanel({
     }
   }, [t])
 
-  if (!open) return null
+  if (!present) return null
 
   const isEmpty = visibleEntries.length === 0 && !isLoading && !error
   const isInitialLoading = visibleEntries.length === 0 && isLoading
@@ -147,12 +149,14 @@ export function VersionHistoryPanel({
   return (
     <>
       <div
-        className="fixed inset-0 z-overlay bg-scrim"
+        data-state={state}
+        className={`fixed inset-0 z-overlay bg-scrim ${SIDE_PANEL_SCRIM_MOTION}`}
         onClick={() => onOpenChange(false)}
         aria-hidden="true"
       />
       <div
-        className="fixed right-0 top-0 z-modal h-full w-full max-w-md bg-surface shadow-xl"
+        data-state={state}
+        className={`fixed right-0 top-0 z-modal h-full w-full max-w-md bg-surface shadow-xl ${SIDE_PANEL_MOTION.right}`}
         role="dialog"
         aria-modal="true"
         aria-label={t('audit_logs.version_history.title')}

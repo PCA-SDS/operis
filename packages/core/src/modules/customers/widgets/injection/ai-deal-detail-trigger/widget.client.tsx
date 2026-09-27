@@ -37,7 +37,6 @@ import {
   DialogTitle,
 } from '@open-mercato/ui/primitives/dialog'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
-import { cn } from '@open-mercato/shared/lib/utils'
 
 export const CUSTOMERS_AI_DEAL_DETAIL_AGENT_ID = 'customers.account_assistant'
 
@@ -143,12 +142,9 @@ export default function AiDealDetailTriggerWidget({ context, data }: AiDealDetai
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent
-        disableBodyWrap
-          className={cn(
-            'sm:max-w-xl sm:top-0 sm:bottom-0 sm:right-0 sm:left-auto sm:translate-x-0 sm:translate-y-0',
-            'sm:h-screen sm:max-h-screen sm:rounded-none sm:rounded-l-2xl',
-            'flex flex-col gap-3 p-4 z-banner',
-          )}
+          side="right"
+          disableBodyWrap
+          className="max-w-xl gap-3 p-4 z-banner"
           data-ai-customers-deal-sheet=""
         >
           <DialogHeader>
