@@ -1,12 +1,11 @@
 "use client"
 
 import * as React from 'react'
-import { Activity, Building2, History, NotebookPen, Paperclip, Users } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { registerComponent } from '@open-mercato/shared/modules/widgets/component-registry'
 import { useRegisteredComponent } from '@open-mercato/ui/backend/injection/useRegisteredComponent'
-import { Tabs, TabsList, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
 import { formatTabCount } from './utils'
+import { RecordTabsBar, type RecordTab } from './RecordTabsBar'
 
 export type DealTabId =
   | 'activities'
@@ -17,12 +16,7 @@ export type DealTabId =
   | 'changelog'
   | string
 
-type TabDef = {
-  id: DealTabId
-  label: string
-  icon?: React.ReactNode
-  count?: React.ReactNode
-}
+type TabDef = RecordTab & { id: DealTabId }
 
 export const DEAL_DETAIL_TABS_COMPONENT_ID = 'section:customers.deals.detailTabs'
 
@@ -61,35 +55,28 @@ function DefaultDealDetailTabs({
       {
         id: 'activities',
         label: t('customers.deals.detail.tabs.activities', 'Activities'),
-        icon: <Activity className="size-4" />,
       },
       {
         id: 'people',
         label: t('customers.deals.detail.tabs.people', 'People'),
-        icon: <Users className="size-4" />,
         count: formatTabCount(peopleCount),
       },
       {
         id: 'companies',
         label: t('customers.deals.detail.tabs.companies', 'Companies'),
-        icon: <Building2 className="size-4" />,
         count: formatTabCount(companiesCount),
       },
       {
         id: 'notes',
         label: t('customers.deals.detail.tabs.notes', 'Notes'),
-        icon: <NotebookPen className="size-4" />,
       },
       {
         id: 'files',
         label: t('customers.deals.detail.tabs.files', 'Files'),
-        icon: <Paperclip className="size-4" />,
       },
       {
         id: 'changelog',
         label: t('customers.deals.detail.tabs.changelog', 'Changelog'),
-        icon: <History className="size-4" />,
-        count: 'NEW',
       },
     ],
     [companiesCount, peopleCount, t],
@@ -108,23 +95,12 @@ function DefaultDealDetailTabs({
 
   return (
     <div>
-      <Tabs
-        value={activeTab}
-        onValueChange={(value) => onTabChange(value as DealTabId)}
-        variant="underline"
-      >
-        <TabsList
-          aria-label={t('customers.deals.detail.tabs.label', 'Deal detail sections')}
-          className="w-full overflow-x-auto"
-        >
-          {allTabs.map((tab) => (
-            <TabsTrigger key={tab.id} value={tab.id} leading={tab.icon} count={tab.count}>
-              {tab.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
-
+      <RecordTabsBar
+        tabs={allTabs}
+        activeTab={activeTab}
+        onTabChange={(tab) => onTabChange(tab as DealTabId)}
+        ariaLabel={t('customers.deals.detail.tabs.label', 'Deal detail sections')}
+      />
       <div className="pt-5" role="tabpanel">
         {children}
       </div>

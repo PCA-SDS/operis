@@ -2,22 +2,12 @@
 
 import * as React from 'react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
-import { Button } from '@open-mercato/ui/primitives/button'
-import { Tabs, TabsList, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
-import {
-  Users,
-  Handshake,
-  MapPin,
-  Clock,
-  History,
-  Paperclip,
-  Plus,
-} from 'lucide-react'
 import type { SectionAction } from '@open-mercato/ui/backend/detail'
 import { registerComponent } from '@open-mercato/shared/modules/widgets/component-registry'
 import { useRegisteredComponent } from '@open-mercato/ui/backend/injection/useRegisteredComponent'
 import { useDealsAccess } from './useDealsAccess'
 import { formatTabCount } from './utils'
+import { RecordTabsBar, type RecordTab } from './RecordTabsBar'
 
 export type CompanyTabId =
   | 'people'
@@ -28,12 +18,7 @@ export type CompanyTabId =
   | 'files'
   | string
 
-type TabDef = {
-  id: CompanyTabId
-  label: string
-  icon?: React.ReactNode
-  count?: React.ReactNode
-}
+type TabDef = RecordTab & { id: CompanyTabId }
 
 export const COMPANY_DETAIL_TABS_COMPONENT_ID = 'section:customers.companies.detailTabs'
 
@@ -87,7 +72,6 @@ function DefaultCompanyDetailTabs({
       {
         id: 'people',
         label: t('customers.companies.detail.tabs.people', 'People'),
-        icon: <Users className="size-4" />,
         count: formatTabCount(peopleCount),
       },
       ...(canViewDeals
@@ -95,7 +79,6 @@ function DefaultCompanyDetailTabs({
             {
               id: 'deals' as CompanyTabId,
               label: t('customers.companies.detail.tabs.deals', 'Deals'),
-              icon: <Handshake className="size-4" />,
               count: formatTabCount(dealsCount),
             },
           ]
@@ -103,25 +86,20 @@ function DefaultCompanyDetailTabs({
       {
         id: 'addresses',
         label: t('customers.companies.detail.tabs.addresses', 'Addresses'),
-        icon: <MapPin className="size-4" />,
         count: formatTabCount(addressesCount),
       },
       {
         id: 'activity-log',
         label: t('customers.companies.detail.tabs.activityLog', 'Activity log'),
-        icon: <Clock className="size-4" />,
         count: formatTabCount(activitiesCount),
       },
       {
         id: 'changelog',
         label: t('customers.companies.detail.tabs.changelog', 'Changelog'),
-        icon: <History className="size-4" />,
-        count: 'NEW',
       },
       {
         id: 'files',
         label: t('customers.companies.detail.tabs.files', 'Files'),
-        icon: <Paperclip className="size-4" />,
         count: formatTabCount(filesCount),
       },
     ],
@@ -141,40 +119,13 @@ function DefaultCompanyDetailTabs({
 
   return (
     <div>
-      {/* Tab navigation */}
-      <div className="flex items-end justify-between gap-2 border-b">
-        <Tabs
-          value={activeTab}
-          onValueChange={(value) => onTabChange(value as CompanyTabId)}
-          variant="underline"
-          reserveActiveWidth
-          className="min-w-0 flex-1"
-        >
-          <TabsList
-            aria-label={t('customers.companies.detail.tabs.label', 'Company detail sections')}
-            className="-mb-px w-full overflow-x-auto border-b-0 px-1"
-          >
-            {allTabs.map((tab) => (
-              <TabsTrigger key={tab.id} value={tab.id} leading={tab.icon} count={tab.count}>
-                {tab.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-        {sectionAction ? (
-          <Button
-            type="button"
-            onClick={sectionAction.onClick}
-            disabled={sectionAction.disabled}
-            className="mb-1 mr-1 shrink-0"
-          >
-            <Plus className="size-4" />
-            {sectionAction.label}
-          </Button>
-        ) : null}
-      </div>
-
-      {/* Tab content */}
+      <RecordTabsBar
+        tabs={allTabs}
+        activeTab={activeTab}
+        onTabChange={(tab) => onTabChange(tab as CompanyTabId)}
+        ariaLabel={t('customers.companies.detail.tabs.label', 'Company detail sections')}
+        sectionAction={sectionAction}
+      />
       <div className="pt-6" role="tabpanel">
         {children}
       </div>

@@ -2,24 +2,12 @@
 
 import * as React from 'react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
-import { Button } from '@open-mercato/ui/primitives/button'
-import { Tabs, TabsList, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
-import {
-  SquareCheckBig,
-  Mail,
-  Briefcase,
-  Building2,
-  Check,
-  History,
-  Paperclip,
-  Plus,
-  MapPin,
-} from 'lucide-react'
 import type { SectionAction } from '@open-mercato/ui/backend/detail'
 import { registerComponent } from '@open-mercato/shared/modules/widgets/component-registry'
 import { useRegisteredComponent } from '@open-mercato/ui/backend/injection/useRegisteredComponent'
 import { useDealsAccess } from './useDealsAccess'
 import { formatTabCount } from './utils'
+import { RecordTabsBar, type RecordTab } from './RecordTabsBar'
 
 export type PersonTabId =
   | 'activities'
@@ -32,12 +20,7 @@ export type PersonTabId =
   | 'files'
   | string
 
-type TabDef = {
-  id: PersonTabId
-  label: string
-  icon?: React.ReactNode
-  count?: React.ReactNode
-}
+type TabDef = RecordTab & { id: PersonTabId }
 
 export const PERSON_DETAIL_TABS_COMPONENT_ID = 'section:customers.people.detailTabs'
 
@@ -87,20 +70,17 @@ function DefaultPersonDetailTabs({
       {
         id: 'activities',
         label: t('customers.people.detail.tabs.activities', 'Activities'),
-        icon: <SquareCheckBig className="size-4" />,
         count: formatTabCount(activitiesCount),
       },
       {
         id: 'emails',
         label: t('customers.people.detail.tabs.emails', 'Emails'),
-        icon: <Mail className="size-4" />,
       },
       ...(canViewDeals
         ? [
             {
               id: 'deals' as PersonTabId,
               label: t('customers.people.detail.tabs.deals', 'Deals'),
-              icon: <Briefcase className="size-4" />,
               count: formatTabCount(dealsCount),
             },
           ]
@@ -108,31 +88,25 @@ function DefaultPersonDetailTabs({
       {
         id: 'companies',
         label: t('customers.people.detail.tabs.companies', 'Companies'),
-        icon: <Building2 className="size-4" />,
         count: formatTabCount(companiesCount),
       },
       {
         id: 'addresses',
         label: t('customers.people.detail.tabs.addresses', 'Addresses'),
-        icon: <MapPin className="size-4" />,
         count: formatTabCount(addressesCount),
       },
       {
         id: 'tasks',
         label: t('customers.people.detail.tabs.tasks', 'Tasks'),
-        icon: <Check className="size-4" />,
         count: formatTabCount(tasksCount),
       },
       {
         id: 'changelog',
         label: t('customers.people.detail.tabs.changelog', 'Change log'),
-        icon: <History className="size-4" />,
-        count: 'NEW',
       },
       {
         id: 'files',
         label: t('customers.people.detail.tabs.files', 'Files'),
-        icon: <Paperclip className="size-4" />,
         count: formatTabCount(filesCount),
       },
     ],
@@ -152,40 +126,13 @@ function DefaultPersonDetailTabs({
 
   return (
     <div>
-      {/* Tab navigation — full width above both zones */}
-      <div className="flex items-end justify-between gap-2 border-b">
-        <Tabs
-          value={activeTab}
-          onValueChange={(value) => onTabChange(value as PersonTabId)}
-          variant="underline"
-          reserveActiveWidth
-          className="min-w-0 flex-1"
-        >
-          <TabsList
-            aria-label={t('customers.people.detail.tabs.label', 'Person detail sections')}
-            className="-mb-px w-full overflow-x-auto border-b-0 px-1"
-          >
-            {allTabs.map((tab) => (
-              <TabsTrigger key={tab.id} value={tab.id} leading={tab.icon} count={tab.count}>
-                {tab.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-        {sectionAction ? (
-          <Button
-            type="button"
-            onClick={sectionAction.onClick}
-            disabled={sectionAction.disabled}
-            className="mb-1 mr-1 shrink-0"
-          >
-            <Plus className="size-4" />
-            {sectionAction.label}
-          </Button>
-        ) : null}
-      </div>
-
-      {/* Two-column content below tabs */}
+      <RecordTabsBar
+        tabs={allTabs}
+        activeTab={activeTab}
+        onTabChange={(tab) => onTabChange(tab as PersonTabId)}
+        ariaLabel={t('customers.people.detail.tabs.label', 'Person detail sections')}
+        sectionAction={sectionAction}
+      />
       <div className="pt-6">
         {children}
       </div>
