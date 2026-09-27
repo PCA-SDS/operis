@@ -360,6 +360,53 @@ Measured with the animations sought frame by frame: the Customers AI panel cover
 and the dock's edge together (their sum stays at the viewport width at every sample); the record
 page's content edge glides from 864px to 340px as the form folds and back as it opens.
 
+## Phase 10 — the record page
+
+The lower half of a person or company record (details panel, tabs, schedule and history) was
+rebuilt. The worst of it: collapsing the details panel swapped its « button for a column of four,
+an expand arrow and one icon per section, and one of those ("My roles") pointed at a group the
+page no longer has.
+
+- **One sidebar button.** A button with the sidebar glyph shows and hides the panel. It leads the
+  tab row in every state; the panel folds away beside it and the content under the row spans the
+  full width, so the cards line up with the header card. `CollapsibleZoneLayout` loses `sections`
+  and `toggleTone`. A zone-2 toolbar takes the button with `useZoneToggleSlot()`; where none does
+  (the deal page), the layout keeps a column for it. Side by side, collapsed and stacked are one
+  tree, so stacking no longer remounts the form either.
+- **Details panel.** `CollapsibleGroup tone="card"` is an inset group: the title and a disclosure
+  chevron, no field count. The reorder grip waits for hover or focus (it stays on touch screens).
+  The company panel's titles are no longer upper case. An embedded form's empty header-actions row
+  no longer adds 8px above its first group, so the panel's top meets the tab row's.
+- **Pickers.** `DictionaryEntrySelect actionsPlacement="menu"`, and the same on `CompanySelectField`:
+  Add and Manage are the last rows of the menu, and an entry's colour is a dot before its label, in
+  the field and in the menu. The swatch and hex code under the field are gone. The record pages opt
+  in through `createPersonEditFields` / `createCompanyEditFields(t, { dictionaryActions: 'menu' })`;
+  create forms keep their buttons.
+- **Tabs.** `RecordTabsBar` serves the person, company and deal records: text tabs with the count as
+  a quiet number, one weight in every state, no "NEW" pill. Tabs that do not fit go behind More
+  instead of scrolling out of sight, and the active tab always stays in view. The tab's own action
+  is a soft button.
+- **Schedule.** `ActivitiesDayStrip` is a Monday-to-Sunday week, as in Apple Calendar: weekday over
+  date, the selected date in a filled circle, today in accent ink, and up to three dots for the
+  day's events, red when two of them overlap. One header row holds the month (it opens a date
+  picker), ‹ Today › as one group, and Add new. It replaces five 104px tiles, two rows of arrows and
+  the "Weekend" labels. Each event row is its time (red when overdue), glyph, title and one quiet
+  line: type, company or deal, duration.
+- **History.** The person and company histories share one design (`ActivityHistoryParts`): a title,
+  a compact search and one Filter button in place of the chip row. The popover holds the types with
+  their counts, the date range (and the sort order on a company), and Clear; the button takes the
+  accent and a dot while anything is filtered. Rows are list rows: glyph, title, a two-line body and
+  one meta line ("Call · Ada Lovelace · with Sarah · 32m"), the time at the trailing edge, and Mark
+  done while the activity is open, divided by hairlines that start at the text, with year headings.
+  The disabled "AI:" placeholder chips are gone (nothing was behind them), and so is the "See all N
+  activities" line.
+
+Measured at 1600×1000 with the panel open: panel 288–800px, the button at 816, the tab rule from 864
+and the cards 816–1568, the panel's first group and the tab row both starting at y 302. Collapsed:
+the button at 288 and the cards 288–1568, the same span as the header card; the fold runs 300ms on
+`ease-panel`. At 1536px the person record's Change log and Files move behind More. On a 375px phone
+nothing scrolls sideways and the week's controls wrap under the month.
+
 ## Changelog
 
 - 2026-09-26 — Implemented.
@@ -381,3 +428,7 @@ page's content edge glides from 864px to 340px as the form folds and back as it 
   `loading-skeleton-declarations.test.ts` and shared's `registry.test.ts`.
 - 2026-09-27 — Phase 9: every side panel moves the same way. Unit coverage in
   `side-panel-motion.test.tsx`, `AiDock.test.tsx` and `CollapsibleZoneLayout.test.tsx`.
+- 2026-09-27 — Phase 10: the record page. Unit coverage in `CollapsibleZoneLayout.test.tsx`,
+  `CollapsibleGroup.test.tsx`, `DictionaryEntrySelect.test.tsx`, `RecordTabsBar.test.tsx`,
+  `ActivitiesDayStrip.test.tsx`, `ActivitiesDayStrip.abort.test.tsx`, `ActivityTimelineFilters.test.tsx`
+  and `ActivityCard.test.tsx`; TC-UX-001, TC-UX-001b, TC-CRM-051 and TC-CRM-057 follow the new controls.
