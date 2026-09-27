@@ -74,6 +74,10 @@ export type PageMetadata = {
   // - 'settings': Hidden from sidebar, only accessible via Settings hub page
   // - 'profile': Profile dropdown items
   pageContext?: 'main' | 'admin' | 'settings' | 'profile'
+  // Backend pages sit beside their module's sidebar by default. Set `false` on a
+  // page that draws its own module navigation (or needs the full width), so the
+  // shell does not render a second one.
+  moduleSidebar?: boolean
   placement?: {
     section: string
     sectionLabel?: string
@@ -119,6 +123,7 @@ export type ModuleRoute = {
   enabled?: (ctx: RouteVisibilityContext) => boolean | Promise<boolean>
   breadcrumb?: Array<{ label: string; labelKey?: string; href?: string }>
   pageContext?: 'main' | 'admin' | 'settings' | 'profile'
+  moduleSidebar?: boolean
   placement?: {
     section: string
     sectionLabel?: string

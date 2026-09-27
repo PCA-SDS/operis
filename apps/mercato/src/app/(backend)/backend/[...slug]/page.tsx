@@ -7,6 +7,7 @@ import { bootstrap } from '@/bootstrap'
 import { getAuthFromCookies } from '@open-mercato/shared/lib/auth/server'
 import type { AuthContext } from '@open-mercato/shared/lib/auth/server'
 import { ApplyBreadcrumb } from '@open-mercato/ui/backend/AppShell'
+import { BackendModuleFrame } from '@open-mercato/ui/backend/module-nav/BackendModuleFrame'
 import { AccessDeniedMessage } from '@open-mercato/ui/backend/detail'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { resolveFeatureCheckContext } from '@open-mercato/core/modules/directory/utils/organizationScope'
@@ -147,9 +148,17 @@ export default async function BackendCatchAll(props: BackendParams) {
           component-replacement handle, but as a plain block it was an auto-height
           box between `main` and the page — which silently broke `Page fill`'s
           `h-full` for every page that opted in. */}
-      <div className="contents" data-component-handle={pageHandle}>
-        <Component params={match.params} />
-      </div>
+      {/* The route's own metadata decides the module sidebar, so a page that
+          draws its own module navigation never flashes the shell's. */}
+      <BackendModuleFrame
+        enabled={match.route.moduleSidebar !== false}
+        routeGroupId={match.route.groupKey ?? match.route.group ?? null}
+        routeParentHref={[...(match.route.breadcrumb ?? [])].reverse().find((item) => item.href)?.href ?? null}
+      >
+        <div className="contents" data-component-handle={pageHandle}>
+          <Component params={match.params} />
+        </div>
+      </BackendModuleFrame>
     </>
   )
 }

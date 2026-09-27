@@ -3,7 +3,7 @@ export const metadata = {
   requireFeatures: ['resources.areas.view'],
   pageTitle: 'Resource Areas',
   pageTitleKey: 'resources.resourceAreas.page.title',
-  pageGroup: 'Resource Planning',
+  pageGroup: 'Resources',
   pageGroupKey: 'resources.nav.group',
   pageOrder: 35,
   icon: 'map',

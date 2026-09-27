@@ -84,15 +84,6 @@ async function acknowledgeGlobalNotices(page: Page): Promise<void> {
       url: baseUrl,
       sameSite: 'Lax',
     },
-    // The desktop sidebar defaults to a collapsed icon rail that opens on hover.
-    // Specs click nav rows by their labels, so they run with it pinned open; the
-    // collapsed default is covered by TC-AUTH-SIDEBAR-PEEK-001.
-    {
-      name: 'om_sidebar_collapsed',
-      value: '0',
-      url: baseUrl,
-      sameSite: 'Lax',
-    },
   ]);
 }
 

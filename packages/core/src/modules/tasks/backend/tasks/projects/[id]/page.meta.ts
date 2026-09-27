@@ -1,6 +1,7 @@
 export const metadata = {
   requireAuth: true,
   requireFeatures: ['tasks.projects.view'],
+  moduleSidebar: false,
   pageTitle: 'Project',
   pageTitleKey: 'tasks.nav.project',
   breadcrumb: [

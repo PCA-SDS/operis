@@ -252,7 +252,7 @@
   "resources.errors.context_required": "Organization and tenant context required",
   "resources.errors.tenant_required": "Tenant context is required.",
   "resources.errors.unauthorized": "권한이 없습니다",
-  "resources.nav.group": "리소스 계획",
+  "resources.nav.group": "리소스",
   "resources.resourceAreas.actions.add": "리소스 영역 추가",
   "resources.resourceAreas.actions.backToList": "리소스 영역으로 돌아가기",
   "resources.resourceAreas.actions.collapse": "영역 접기",

@@ -35,13 +35,14 @@ function attachmentIdFromFileUrl(logoUrl: string | null | undefined): string | n
 }
 
 /**
- * TC-DIR-015: Sidebar logo upload format and aspect-ratio rendering
+ * TC-DIR-015: Brand logo upload format and aspect-ratio rendering
  * Covers:
  * - UI upload format restriction on /backend/directory/branding
  * - uploaded branding logos storing /api/attachments/file/... original URLs
- * - expanded backend sidebar rendering preserved-aspect-ratio logos with object-contain
+ * - the backend topbar brand rendering preserved-aspect-ratio logos with object-contain
+ *   (the brand moved from the removed global sidebar to the topbar)
  */
-test.describe('TC-DIR-015: Sidebar logo aspect-ratio rendering', () => {
+test.describe('TC-DIR-015: Brand logo aspect-ratio rendering', () => {
   test('stores uploaded wide logos as file URLs and renders them uncropped when aspect preservation is enabled', async ({
     page,
     request,
@@ -65,14 +66,10 @@ test.describe('TC-DIR-015: Sidebar logo aspect-ratio rendering', () => {
       const createBody = await readJsonSafe<{ id?: string }>(createResponse);
       organizationId = expectId(createBody?.id, 'Organization creation response should include id');
 
-      await page.addInitScript(() => {
-        window.localStorage.setItem('om:sidebarCollapsed', '0');
-      });
       await login(page, 'superadmin');
       await page.context().addCookies([
         { name: 'om_selected_tenant', value: tenantId, url: BASE_URL, sameSite: 'Lax' },
         { name: 'om_selected_org', value: organizationId, url: BASE_URL, sameSite: 'Lax' },
-        { name: 'om_sidebar_collapsed', value: '0', url: BASE_URL, sameSite: 'Lax' },
       ]);
 
       await page.goto('/backend/directory/branding', { waitUntil: 'domcontentloaded' });
@@ -122,16 +119,11 @@ test.describe('TC-DIR-015: Sidebar logo aspect-ratio rendering', () => {
       expect(storedAttachmentId, 'Stored file URL should include the uploaded attachment id').toBeTruthy();
       if (storedAttachmentId) attachmentId = storedAttachmentId;
 
+      await page.setViewportSize({ width: 1440, height: 900 });
       await page.goto('/backend', { waitUntil: 'domcontentloaded' });
-      const expandedDashboardLink = page
-        .locator('a[aria-label="Go to dashboard"]')
-        .filter({ hasText: organizationName })
-        .first();
-      if (!(await expandedDashboardLink.isVisible().catch(() => false))) {
-        await page.getByRole('button', { name: 'Toggle sidebar' }).click();
-        await expect(expandedDashboardLink).toBeVisible();
-      }
-      const sidebarLogo = expandedDashboardLink.locator('img[src*="/api/attachments/file/"]').first();
+      const brandLink = page.getByTestId('appshell-brand');
+      await expect(brandLink).toContainText(organizationName);
+      const sidebarLogo = brandLink.locator('img[src*="/api/attachments/file/"]').first();
       await expect(sidebarLogo).toBeVisible();
       await expect(sidebarLogo).toHaveClass(/object-contain/);
       await expect(sidebarLogo).not.toHaveClass(/rounded-full/);
@@ -149,7 +141,7 @@ test.describe('TC-DIR-015: Sidebar logo aspect-ratio rendering', () => {
       expect(metrics.naturalWidth, 'The uploaded test logo should be wider than tall').toBeGreaterThan(
         metrics.naturalHeight,
       );
-      expect(metrics.width, 'The expanded sidebar logo box should be wider than tall').toBeGreaterThan(metrics.height);
+      expect(metrics.width, 'The topbar logo box should be wider than tall').toBeGreaterThan(metrics.height);
     } finally {
       await deleteAttachmentIfExists(request, token, attachmentId);
       await deleteGeneralEntityIfExists(request, token, ORGANIZATIONS_API, organizationId);

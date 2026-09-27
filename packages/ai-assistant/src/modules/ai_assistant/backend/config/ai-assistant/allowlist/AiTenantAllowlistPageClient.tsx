@@ -115,7 +115,7 @@ export function AiTenantAllowlistPageClient(): React.JSX.Element {
 
   if (settingsQuery.isLoading) {
     return (
-      <div className="flex max-w-3xl flex-col gap-4">
+      <div className="flex flex-col gap-4">
         {pageHeader}
         <div className="flex w-fit items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm text-muted-foreground" role="status">
           <Loader2 className="size-4 animate-spin" />
@@ -127,7 +127,7 @@ export function AiTenantAllowlistPageClient(): React.JSX.Element {
 
   if (settingsQuery.isError || !settingsQuery.data) {
     return (
-      <div className="flex max-w-3xl flex-col gap-4">
+      <div className="flex flex-col gap-4">
         {pageHeader}
         <Alert status="error">
           <AlertTitle>{t('ai_assistant.allowlist.loadError.title', 'Failed to load allowlist')}</AlertTitle>
@@ -305,7 +305,7 @@ export function AiTenantAllowlistPageClient(): React.JSX.Element {
     )
 
   return (
-    <div className="flex flex-col gap-6 max-w-3xl">
+    <div className="flex flex-col gap-6">
       {pageHeader}
 
       {envBanner}

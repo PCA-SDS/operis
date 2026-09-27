@@ -3,7 +3,7 @@ export const metadata = {
   requireFeatures: ['workflows.view_logs'],
   pageTitle: 'Workflow Events',
   pageTitleKey: 'workflows.events.title',
-  pageGroup: 'Workflows',
+  pageGroup: 'Automation',
   pageGroupKey: 'workflows.module.name',
   pagePriority: 40,
   pageOrder: 130,

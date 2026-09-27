@@ -252,7 +252,7 @@
   "resources.errors.context_required": "Organization and tenant context required",
   "resources.errors.tenant_required": "Tenant context is required.",
   "resources.errors.unauthorized": "Unauthorized",
-  "resources.nav.group": "Resource Planning",
+  "resources.nav.group": "Resources",
   "resources.resourceAreas.actions.add": "Add resource area",
   "resources.resourceAreas.actions.backToList": "Back to resource areas",
   "resources.resourceAreas.actions.collapse": "Collapse area",

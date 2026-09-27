@@ -403,7 +403,7 @@ export function DictionaryEntriesEditor({ dictionaryId, dictionaryName, readOnly
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-md border">
+      <div className="overflow-x-auto rounded-md border">
         <Table columnCount={4} density="compact">
           <TableHeader>
             <TableRow>

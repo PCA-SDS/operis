@@ -527,12 +527,16 @@ export async function resolveBackendChromePayload({
     }
   }
 
+  // A personal layout is read under the same key `/api/auth/sidebar/preferences` saves it
+  // under: the caller's own tenant and organization, not the one being viewed. Reading the
+  // viewed scope showed a multi-organization user the default order whenever they viewed
+  // anything but their home organization, as though their changes had not been saved.
   const effectiveUserId = auth.isApiKey ? auth.userId : auth.sub
   if (effectiveUserId) {
     userPreference = await findSidebarPreference(em, {
       userId: effectiveUserId,
-      tenantId: scopedTenantId,
-      organizationId: scopedOrganizationId,
+      tenantId: auth.tenantId ?? null,
+      organizationId: auth.orgId ?? null,
       locale,
     })
   }

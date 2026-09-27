@@ -122,82 +122,37 @@ Elevation is carried by the shadow scale, not by stacking borders. A list-view c
 `rounded-xl bg-surface shadow-md` with **no border** — a border plus a shadow reads as two
 competing edges.
 
-## Sidebar
+## Page gutter
 
-The backend rail is **not** a step on the neutral ladder. It is painted in the CTA navy
-(`--sidebar` is the same value as `--primary` in light mode), so anything rendered inside it
-must come from the `sidebar-*` family — `text-foreground` on navy is unreadable and a
-`surface-muted` hover is invisible.
+Every backend page spans the full width of the content column. The shell's `main` owns the only page
+gutter: `px-4 pt-4` (16px sides and top) at every screen size, with no `max-w-*` cap.
 
-| Part of the rail | Token |
-|---|---|
-| The column itself, and anything that must match it (sticky footer, scroll fade) | `bg-sidebar` |
-| Row label at rest, brand mark, drawer ink | `text-sidebar-foreground` |
-| Icons at rest, group overlines, quiet meta | `text-sidebar-muted-foreground` |
-| Row hover fill / ink | `bg-sidebar-accent`, `text-sidebar-accent-foreground` |
-| Active row pill / its ink | `bg-sidebar-primary`, `text-sidebar-primary-foreground` |
-| Hairline, divider, child guide line | `border-sidebar-border` / `bg-sidebar-border` |
-| Focus ring inside the rail | `ring-sidebar-ring` |
+- A page MUST NOT add its own outer padding, margin or width cap (`max-w-*`, `mx-auto`, `px-*`/`pt-*` on
+  its root or on a wrapper around all of its content). Width caps belong on self-contained pieces only: a
+  dialog, a line of prose, an image preview.
+- A full-bleed page (an editor canvas) undoes exactly the gutter: `-mx-4 -mt-4`.
 
-### The rail's one grid
+## Navigation: module switcher and module sidebars
 
-The aside owns a 12px gutter (`px-3`). **Every** box inside spans that full inner width — no
-negative margins, no extra right pad — and every box carrying an icon pads another 12px, so the
-logo, the search glyph, the group overlines and every row icon start at the same x. Break this and
-the rows silently end up a few pixels narrower than the search field above them.
+There is **no global sidebar**. The topbar's `ModuleSwitcher` lists the modules the viewer can reach; each
+module's pages sit beside that module's own sidebar. Spec:
+`.ai/specs/2026-09-25-module-switcher-and-module-sidebars.md`.
 
-| Element | Box |
-|---|---|
-| Brand row | `h-16` — the topbar's height, so the two share a centre line and the aside takes no top padding |
-| Search field | `SearchInput` `size="lg" tone="sidebar"` — `lg` **is** this row box (`h-10 px-3 gap-3`, `size-5` glyph slot), so the magnifier lands on the icon column. Never re-paint it with `className` |
-| Group heading | `h-8`, `px-3` |
-| Nav row | `h-10`, `px-3`, `gap-3` |
-| Subpage row | `h-9`, `pl-6 pr-3`, `gap-3` — one 12px step in, so a child icon lands where a parent label starts |
-| Icon slot | `size-5` with `[&_svg]:size-4`, `shrink-0` |
-| Label | `min-w-0 flex-1 truncate` — without `min-w-0` a flex item keeps its content width and `truncate` overflows the row instead of clipping |
-| Column stack / between groups | `gap-3` |
-| Between rows in a group | `gap-1` |
-| Group divider | `mt-3 border-t`, inset to the row edges (the nav's own `gap-3` supplies the 12px below) |
-| Sticky footer | `-mx-3 px-3 pt-3 border-t empty:hidden` — the ONE full-bleed rule, because it divides the column rather than the list |
-
-`AppShell` (`packages/ui/src/backend/AppShell.tsx`) owns the rail. Its contract:
-
-- It is a 69px icon column by default that opens to 272px OVER the page (`z-top`) on hover or
-  keyboard focus, and can be pinned open as its own 272px column (topbar `PanelLeft` toggle,
-  `Ctrl/⌘+B`, or the in-panel pin; persisted in the `om_sidebar_collapsed` cookie that the layout
-  reads server-side).
-  Collapse is purely visual: the SAME rows narrow around content held at the expanded width
-  (`SIDEBAR_RAIL_CONTENT`) and their labels fade, so nothing reflows and icons never move. Never
-  add an icon-only row variant; route new rail rows through `SidebarNavLink`. Group headings carry
-  an icon too (declare new group ids in `navGroupIconRows`, `auth/lib/backendChrome.tsx`); it stays
-  visible when collapsed. Below `lg:` the same
-  nav renders inside the mobile drawer, which never collapses. See
-  `.ai/specs/2026-09-23-collapsible-sidebar-rail.md`.
-- Row chrome is declared once at the top of the file (`SIDEBAR_ITEM_BASE`, `SIDEBAR_ITEM_BOX`,
-  `SIDEBAR_CHILD_BOX`, `SIDEBAR_GROUP_LABEL`, `sidebarItemStateClass`). Reuse those constants — a
-  hand-rolled row makes the rail read as several lists stacked together.
-- Group headings are `text-xs font-bold uppercase tracking-wide text-sidebar-muted-foreground`
-  (the table-column-header treatment), NOT `text-overline` — see the Typography caveat.
-- Settings / Profile **swap** their section nav into the same rail, with
-  `appshell-section-back-to-main` as the way out. Do not reintroduce a second aside.
-- Main-nav **subpages are always listed** — indented via `SIDEBAR_CHILD_BOX`, with no guide line
-  beside them. A subpage that only unfolds once you are already on its parent cannot be found from
-  the sidebar. (The Settings / Profile section nav still reveals children on their branch: its
-  "User Entities" row expands to one child per user-defined entity.)
-- Group expand/collapse goes through `SidebarCollapse`: a `grid-template-rows` `0fr → 1fr`
-  transition plus an opacity fade, with the clip released once open so hover pills and focus rings
-  are not cropped. `Chevron` turns a quarter turn. Keep both at `SIDEBAR_COLLAPSE_MS`, and keep the
-  `motion-reduce:` escapes.
-- The brand header is a link with **no hover fill** — it is an identity mark, not a nav row.
-- Every interactive element in the rail takes `outline-none focus-visible:shadow-focus`.
-- Group headings are real `Button`s with `type="button"`, `aria-expanded` and `aria-controls`
-  pointing at the collapse region's id; the `<nav>` carries an `aria-label`.
-- The scroll affordance anchors to the nav's own scroll frame, not to the aside — from the aside it
-  paints over the sticky footer, whose top edge is not the aside's bottom edge. Its fade paints
-  ONLY while there is more list below (held on at the bottom it washes out the last row and
-  promises content that is not there), and the list reserves the overlay's band (`pb-10`) while it
-  is on screen so the last row can always be scrolled clear of the chevron.
-- A widget injected into a `backend:sidebar:*` spot MUST style itself from this family too.
+- Build every module sidebar from `@open-mercato/ui/backend/module-nav/ModuleSidebar`
+  (`ModuleLayout`, `ModuleSidebar`, `ModuleSidebarLink`, `ModuleSidebarAction`, `ModuleSidebarDivider`,
+  `ModuleSidebarSectionLabel`, `ModuleSidebarSkeleton`). They are the Task Manager's sidebar, extracted; never
+  hand-roll a nav row or restate its classes.
+- A backend page gets the generic module sidebar automatically (`BackendModuleFrame`, mounted by the backend
+  catch-all). A page that draws its own module navigation sets `moduleSidebar: false` in its `page.meta.ts`
+  and renders `ModuleLayout` with its own `ModuleSidebar` — never both.
+- Tokens are the page-side neutrals, not the `sidebar-*` family: panel `bg-surface-muted`, idle row
+  `text-muted-foreground hover:bg-surface-strong hover:text-foreground`, active row
+  `bg-primary-soft text-primary` with `aria-current="page"`.
+- The `sidebar-*` (navy) tokens remain only for the sidebar customization preview
+  (`sidebar/SidebarCustomizationEditor.tsx`, chrome in `sidebar/chrome.tsx`).
+- A widget injected into a `backend:sidebar:*` spot now renders inside a module sidebar and MUST style
+  itself with the page-side tokens above. Anything that must stay visible on every page belongs in
+  `backend:topbar:actions` instead.
 
 ## Corner Radius
 - NEVER use arbitrary radius values (`rounded-[24px]`, `rounded-[32px]`, etc.)

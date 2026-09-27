@@ -115,7 +115,7 @@ test.describe('TC-CAL-002: Calendar page load & week grid hydration', () => {
       await expect(page.getByText(/\(GMT[+-]\d/)).toBeVisible();
 
       // -- Sidebar: Calendar entry inside the Customers group -----------------
-      const sidebar = page.locator('aside').first();
+      const sidebar = page.getByTestId('module-sidebar');
       await expect(sidebar).toContainText('Customers');
       await expect(sidebar.getByRole('link', { name: 'Calendar', exact: true })).toBeVisible();
     } finally {

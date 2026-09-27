@@ -190,7 +190,7 @@ export function AiUsageStatsPageClient() {
   const totalSessions = sumBigintRows(dailyRows, 'sessionCount')
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6">
       <div className="flex items-center gap-2">
         <BarChart2 className="text-muted-foreground" size={20} />
         <h2 className="text-lg font-semibold">

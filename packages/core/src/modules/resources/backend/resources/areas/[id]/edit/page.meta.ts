@@ -11,7 +11,7 @@ export const metadata: PageMetadata = {
   requireFeatures: ['resources.areas.manage'],
   pageTitle: 'Edit Resource Area',
   pageTitleKey: 'resources.resourceAreas.form.editTitle',
-  pageGroup: 'Resource Planning',
+  pageGroup: 'Resources',
   pageGroupKey: 'resources.nav.group',
   breadcrumb: [
     { label: 'Resource Areas', labelKey: 'resources.resourceAreas.page.title', href: '/backend/resources/areas' },

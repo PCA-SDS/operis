@@ -13,7 +13,7 @@ export const metadata = {
   requireFeatures: ['resources.manage_resources'],
   pageTitle: 'Create Resource',
   pageTitleKey: 'resources.resources.form.createTitle',
-  pageGroup: 'Resource Planning',
+  pageGroup: 'Resources',
   pageGroupKey: 'resources.nav.group',
   pageOrder: 31.1,
   icon: createPageIcon,

@@ -1,6 +1,7 @@
 export const metadata = {
   requireAuth: true,
   requireFeatures: ['tasks.view'],
+  moduleSidebar: false,
   pageTitle: 'Completed',
   pageTitleKey: 'tasks.sidebar.completed',
   pageGroup: 'Tasks',

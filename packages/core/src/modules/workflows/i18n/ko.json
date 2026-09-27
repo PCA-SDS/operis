@@ -904,7 +904,7 @@
   "workflows.mobile.validate": "검증",
   "workflows.mobile.viewFullGraph": "전체 그래프 보기",
   "workflows.module.description": "비즈니스 프로세스를 자동화 관리합니다",
-  "workflows.module.name": "워크플로우 엔진",
+  "workflows.module.name": "자동화",
   "workflows.nav.graphTest": "그래프 테스트",
   "workflows.nodeEditor.endStepsNotEditable": "END 단계는 편집할 수 없습니다. 이는 워크플로우의 고정된 종료 지점을 나타냅니다.",
   "workflows.nodeEditor.jsonSchemaFormat": "이 폼은 JSON 스키마 형식을 사용합니다. 시각적 편집을 위해 필드가 변환되었습니다. 저장하면 단순화된 형식으로 다시 변환됩니다. 원본 JSON 스키마를 유지하려면 아래 \"고급 설정 (JSON)\" 섹션에서 편집하세요.",

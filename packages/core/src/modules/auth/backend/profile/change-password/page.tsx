@@ -11,7 +11,6 @@ export default function ProfileChangePasswordPage() {
       <PageBody>
         <ProfilePasswordForm
           title={t('auth.changePassword.title', 'Change Password')}
-          className="max-w-2xl"
         />
       </PageBody>
     </Page>

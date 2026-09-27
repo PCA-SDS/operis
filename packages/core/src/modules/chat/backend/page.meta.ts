@@ -1,6 +1,7 @@
 export const metadata = {
   requireAuth: true,
   requireFeatures: ['chat.view'],
+  moduleSidebar: false,
   pageTitle: 'Conversations',
   pageTitleKey: 'chat.nav.conversations',
   pageGroup: 'Chat',

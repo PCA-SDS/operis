@@ -904,7 +904,7 @@
   "workflows.mobile.validate": "Validar",
   "workflows.mobile.viewFullGraph": "Ver grafo completo",
   "workflows.module.description": "Orquesta procesos de negocio",
-  "workflows.module.name": "Motor de flujos de trabajo",
+  "workflows.module.name": "Automatización",
   "workflows.nav.graphTest": "Prueba de grafo",
   "workflows.nodeEditor.endStepsNotEditable": "Los pasos FIN no se pueden editar. Representan puntos de salida fijos del flujo de trabajo.",
   "workflows.nodeEditor.jsonSchemaFormat": "Este formulario usa formato JSON Schema. Los campos se han convertido para edicion visual. Al guardar, se convertiran al formato simplificado. Para conservar el JSON Schema original, editalo en la seccion \"Configuracion avanzada (JSON)\" de abajo.",

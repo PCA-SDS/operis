@@ -431,7 +431,7 @@ export default function PipelineStagesPage() {
   return (
     <Page>
       <PageBody>
-        <div className="space-y-6 max-w-2xl">
+        <div className="space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">
               {t('customers.config.pipelineStages.title', 'Pipeline stages')}

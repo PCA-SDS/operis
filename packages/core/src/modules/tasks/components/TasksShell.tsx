@@ -4,6 +4,7 @@ import * as React from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { CalendarRange } from 'lucide-react'
 import { Button } from '@open-mercato/ui/primitives/button'
+import { ModuleLayout } from '@open-mercato/ui/backend/module-nav/ModuleSidebar'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { CalendarPanel } from './CalendarPanel'
 import { ProjectFormDialog } from './ProjectFormDialog'
@@ -65,13 +66,16 @@ export function TasksShell({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)] gap-4 text-foreground md:grid-cols-[14rem_minmax(0,1fr)] md:grid-rows-1 md:gap-6">
-        <TasksSidebar
-          onQuickAdd={controls.openQuickAdd}
-          onNewProject={() => controls.openProjectForm('new')}
-        />
-        <div className="flex min-h-0 min-w-0 flex-col">{children}</div>
-      </div>
+      <ModuleLayout
+        sidebar={
+          <TasksSidebar
+            onQuickAdd={controls.openQuickAdd}
+            onNewProject={() => controls.openProjectForm('new')}
+          />
+        }
+      >
+        {children}
+      </ModuleLayout>
 
       {quickAddOpen && <QuickAddDialog onClose={controls.closeQuickAdd} />}
       {projectForm && (

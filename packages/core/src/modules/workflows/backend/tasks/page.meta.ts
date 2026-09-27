@@ -3,7 +3,7 @@ export const metadata = {
   requireFeatures: ['workflows.view_tasks'],
   pageTitle: 'User Tasks',
   pageTitleKey: 'workflows.tasks.title',
-  pageGroup: 'Workflows',
+  pageGroup: 'Automation',
   pageGroupKey: 'workflows.module.name',
   pagePriority: 30,
   pageOrder: 120,

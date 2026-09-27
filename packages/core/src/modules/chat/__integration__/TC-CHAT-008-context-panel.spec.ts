@@ -251,17 +251,20 @@ test.describe('TC-CHAT-008: contextual side panel', () => {
     await expect(panel).not.toContainText(`pinned marker for ${title}`, { timeout: 10_000 })
   })
 
-  test('splits on a 1280 laptop by standing the conversation rail down', async ({
+  test('splits on a small laptop by standing the conversation rail down', async ({
     page,
     request,
   }) => {
     const token = await getAuthToken(request, 'admin')
     const conversationId = await createSpaceWithPin(request, token, `Panel L ${Date.now()}`)
 
-    // The size of a standard laptop, and the one this layout used to give up on:
-    // the rail took enough of it that a transcript and a panel could not both
-    // fit, so pins covered the conversation instead of sitting beside it.
-    await page.setViewportSize({ width: 1280, height: 900 })
+    // A width where the rail, a transcript and a panel cannot all fit, but a
+    // transcript and a panel can: the chat shell here is 960px, inside the
+    // 729–1009px band where `railStandsDownForPanel` applies. (This used to be
+    // 1280, when the app's own navigation rail was pinned open beside the chat;
+    // chat pages now carry no module sidebar, so 1280 fits all three and the
+    // rail rightly stays.)
+    await page.setViewportSize({ width: 1024, height: 900 })
     await login(page, 'admin')
     await page.goto(`/backend/chat/${conversationId}`)
 

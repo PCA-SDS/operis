@@ -34,6 +34,7 @@ export function resolvePageRouteMetadata(pattern: string, metadata: PageMetadata
     enabled: metadata?.enabled,
     breadcrumb: metadata?.breadcrumb,
     pageContext: metadata?.pageContext,
+    moduleSidebar: metadata?.moduleSidebar,
     placement: metadata?.placement,
   }
 }

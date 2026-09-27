@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from 'react'
+import Link from 'next/link'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import type { InjectionWidgetModule } from '@open-mercato/shared/modules/widgets/injection'
 import { ProjectColorDot } from '../../../lib/timesheets-ui/ProjectColorDot'
@@ -40,23 +41,24 @@ function TimerSidebarIndicator() {
   if (!timer.running || !timer.entryId) return null
 
   return (
-    <a
+    <Link
       href="/backend/staff/timesheets"
-      className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors cursor-pointer"
+      className="inline-flex h-9 min-w-0 items-center gap-2 rounded-lg px-3 text-xs font-medium text-foreground transition-colors hover:bg-surface-strong focus:outline-none focus-visible:shadow-focus"
       title={t('staff.timesheets.sidebar.timerRunning', 'Timer running — click to view')}
+      aria-label={t('staff.timesheets.sidebar.timerRunning', 'Timer running — click to view')}
     >
       <span className="relative flex h-2.5 w-2.5 shrink-0">
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-status-error-icon opacity-75" />
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-status-error-icon opacity-75 motion-reduce:animate-none" />
         <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-status-error-solid" />
       </span>
       {timer.projectName ? (
-        <span className="inline-flex items-center gap-1 truncate">
+        <span className="hidden max-w-40 items-center gap-1 truncate lg:inline-flex">
           <ProjectColorDot colorKey={timer.projectColor} projectName={timer.projectName} size="xs" />
           <span className="truncate">{timer.projectName}</span>
         </span>
       ) : null}
-      <span className="ml-auto font-mono tabular-nums shrink-0">{formatElapsed(elapsed)}</span>
-    </a>
+      <span className="font-mono tabular-nums shrink-0">{formatElapsed(elapsed)}</span>
+    </Link>
   )
 }
 
@@ -64,7 +66,7 @@ const widget: InjectionWidgetModule = {
   metadata: {
     id: 'staff.injection.timer-sidebar-indicator',
     title: 'Active timer indicator',
-    description: 'Shows a pulsing indicator in the sidebar when a timesheet timer is running.',
+    description: 'Shows a pulsing indicator in the topbar when a timesheet timer is running.',
     features: ['staff.timesheets.manage_own'],
   },
   Widget: TimerSidebarIndicator,

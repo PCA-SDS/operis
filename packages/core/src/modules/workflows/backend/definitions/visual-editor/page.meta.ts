@@ -13,7 +13,7 @@ export const metadata = {
   requireFeatures: ['workflows.manage'],
   pageTitle: 'Workflow Visual Editor',
   pageTitleKey: 'workflows.backend.definitions.visual_editor.title',
-  pageGroup: 'Workflows',
+  pageGroup: 'Automation',
   pageGroupKey: 'workflows.module.name',
   pagePriority: 10,
   pageOrder: 150,

@@ -3,6 +3,7 @@ export const metadata = {
   // Creating the conversation is the point of this route, so it needs the write
   // feature rather than `chat.view`.
   requireFeatures: ['chat.send'],
+  moduleSidebar: false,
   navHidden: true,
   pageTitle: 'Chat',
   pageTitleKey: 'chat.nav.title',
