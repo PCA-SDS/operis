@@ -1,4 +1,4 @@
-import { Page, PageBody } from '@open-mercato/ui/backend/Page'
+import { Page, PageBody, PageHeader } from '@open-mercato/ui/backend/Page'
 import { Alert, AlertDescription, AlertTitle } from '@open-mercato/ui/primitives/alert'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { parseBooleanWithDefault } from '@open-mercato/shared/lib/boolean'
@@ -21,6 +21,7 @@ export default async function AttachmentsConfigurationPage() {
 
   return (
     <Page>
+      <PageHeader title={t('attachments.storage.nav.title', 'Storage')} />
       <PageBody className="space-y-6">
         {partitionsLocked ? (
           <Alert status="warning">

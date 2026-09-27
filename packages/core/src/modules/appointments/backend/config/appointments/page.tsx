@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Page, PageBody } from '@open-mercato/ui/backend/Page'
+import { Page, PageBody, PageHeader } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { AppointmentStatusSettings } from '../../../components/AppointmentStatusSettings'
@@ -18,12 +18,15 @@ export default async function AppointmentsConfigurationPage({
 
   return (
     <Page>
-      <PageBody className="space-y-8">
-        {returnTo ? (
-          <Button asChild variant="outline" size="sm">
+      <PageHeader
+        title={translate('appointments.config.nav.appointments', 'Appointments')}
+        actions={returnTo ? (
+          <Button asChild variant="outline">
             <Link href={returnTo}>{translate('common.back', 'Back')}</Link>
           </Button>
-        ) : null}
+        ) : undefined}
+      />
+      <PageBody className="space-y-8">
         <AppointmentStatusSettings />
         <AppointmentEmailSettings />
       </PageBody>
