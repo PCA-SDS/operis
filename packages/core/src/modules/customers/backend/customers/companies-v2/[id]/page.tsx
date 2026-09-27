@@ -5,14 +5,12 @@ import { extensionPoints } from '@open-mercato/core/modules/customers/extension-
 import Link from 'next/link'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
-import { Building2, Hash, Users, BarChart3, StickyNote } from 'lucide-react'
 import { updateCrud, deleteCrud } from '@open-mercato/ui/backend/utils/crud'
 import { apiCallOrThrow, readApiResultOrThrow, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { surfaceRecordConflict } from '@open-mercato/ui/backend/conflicts'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
-import { CUSTOMER_CUSTOM_ATTRIBUTES_IN_PRODUCT } from '@open-mercato/shared/lib/product-scope'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { AttachmentsSection, ErrorMessage, RecordNotFoundState, type SectionAction } from '@open-mercato/ui/backend/detail'
 import { DetailPageSkeleton } from '@open-mercato/ui/backend/skeletons/PageSkeletons'
@@ -22,7 +20,7 @@ import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuarde
 import { buildRecordInjectionContext, useSetCurrentRecordInjectionContext } from '@open-mercato/ui/backend/injection/recordContext'
 import { createTranslatorWithFallback } from '@open-mercato/shared/lib/i18n/translate'
 import { CrudForm } from '@open-mercato/ui/backend/CrudForm'
-import { CollapsibleZoneLayout, type ZoneSectionDescriptor } from '@open-mercato/ui/backend/crud/CollapsibleZoneLayout'
+import { CollapsibleZoneLayout } from '@open-mercato/ui/backend/crud/CollapsibleZoneLayout'
 import { createCrudFormError } from '@open-mercato/ui/backend/utils/serverErrors'
 import { E } from '#generated/entities.ids.generated'
 import { useOrganizationScopeDetail } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
@@ -99,16 +97,6 @@ export default function CompanyDetailV2Page({ params }: { params?: { id?: string
     () => (data ? mapCompanyOverviewToFormValues(data) : undefined),
     [data],
   )
-  const zoneSections = React.useMemo<ZoneSectionDescriptor[]>(() => [
-    { id: 'identity', icon: Building2, label: t('customers.companies.form.sections.identity', 'Identity') },
-    { id: 'contact', icon: Hash, label: t('customers.companies.form.sections.contact', 'Contact') },
-    { id: 'classification', icon: Users, label: t('customers.companies.form.sections.classification', 'Classification') },
-    { id: 'businessProfile', icon: BarChart3, label: t('customers.companies.form.sections.businessProfile', 'Business profile') },
-    { id: 'notes', icon: StickyNote, label: t('customers.companies.form.groups.notes', 'Notes') },
-    ...(CUSTOMER_CUSTOM_ATTRIBUTES_IN_PRODUCT
-      ? [{ id: 'customFields', icon: Hash, label: t('customers.companies.form.groups.customAttributes', 'Custom attributes') }]
-      : []),
-  ], [t])
   const [scheduleDialogOpen, setScheduleDialogOpen] = React.useState(false)
   const [scheduleEditData, setScheduleEditData] = React.useState<ScheduleActivityEditData | null>(null)
   const [activityRefreshKey, setActivityRefreshKey] = React.useState(0)
@@ -511,10 +499,8 @@ export default function CompanyDetailV2Page({ params }: { params?: { id?: string
           {/* Two-zone layout: zone1 = form, zone2 = tabs */}
           <CollapsibleZoneLayout
             pageType="company-v2"
-            toggleTone="soft"
             entityName={companyName}
             isDirty={isDirty}
-            sections={zoneSections}
             zone1={
               <div ref={formWrapperRef}>
                 <CrudForm<CompanyEditFormValues>

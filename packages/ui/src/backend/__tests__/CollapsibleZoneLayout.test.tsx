@@ -2,9 +2,18 @@
 
 import * as React from 'react'
 import { act, fireEvent, screen, waitFor } from '@testing-library/react'
-import { User } from 'lucide-react'
 import { renderWithProviders } from '@open-mercato/shared/lib/testing/renderWithProviders'
-import { CollapsibleZoneLayout } from '../crud/CollapsibleZoneLayout'
+import { CollapsibleZoneLayout, useZoneToggleSlot } from '../crud/CollapsibleZoneLayout'
+
+function TabRow() {
+  const toggle = useZoneToggleSlot()
+  return (
+    <div data-testid="tab-row">
+      {toggle}
+      <span>Tabs</span>
+    </div>
+  )
+}
 
 let currentWidth = 1400
 let resizeObserverTarget: Element | null = null
@@ -157,7 +166,6 @@ describe('CollapsibleZoneLayout', () => {
         zone2={<div>Zone 2</div>}
         entityName="Brightside Solar"
         pageType="person-v2-fold"
-        toggleTone="soft"
       />,
       { dict: {} },
     )
@@ -168,17 +176,13 @@ describe('CollapsibleZoneLayout', () => {
     const input = screen.getByRole('textbox', { name: 'Name' }) as HTMLInputElement
     fireEvent.change(input, { target: { value: 'Ada' } })
 
-    const rail = container.querySelector('[data-zone-rail]') as HTMLElement
     const zone1Column = container.querySelector('[data-zone1]') as HTMLElement
-    expect(rail).toHaveAttribute('aria-hidden', 'true')
-    expect(rail.style.gridTemplateColumns).toBe('0fr')
     expect(zone1Column.style.gridTemplateColumns).toBe('1fr')
 
     fireEvent.click(screen.getByRole('button', { name: 'Collapse form panel' }))
     await waitFor(() => {
       expect(layout).toHaveAttribute('data-zone-layout-mode', 'collapsed')
     })
-    expect(rail.style.gridTemplateColumns).toBe('1fr')
     expect(zone1Column.style.gridTemplateColumns).toBe('0fr')
 
     fireEvent.click(screen.getByRole('button', { name: 'Expand form panel' }))
@@ -188,6 +192,37 @@ describe('CollapsibleZoneLayout', () => {
     // The same input, still holding what was typed before the fold.
     expect(screen.getByRole('textbox', { name: 'Name' })).toBe(input)
     expect(input.value).toBe('Ada')
+  })
+
+  it('shows and hides the form with one sidebar button that never leaves its place', async () => {
+    const { container } = renderWithProviders(
+      <CollapsibleZoneLayout
+        zone1={<div>Zone 1</div>}
+        zone2={<div>Zone 2</div>}
+        entityName="Brightside Solar"
+        pageType="person-v2-toggle"
+      />,
+      { dict: {} },
+    )
+    const layout = container.firstElementChild as HTMLElement
+    await waitFor(() => {
+      expect(layout).toHaveAttribute('data-zone-layout-mode', 'side-by-side')
+    })
+    const toggle = screen.getByRole('button', { name: 'Collapse form panel' })
+    const zone1Column = container.querySelector('[data-zone1]') as HTMLElement
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(toggle).toHaveAttribute('aria-controls', zone1Column.id)
+    // The button leads zone 2's row, so it sits beside the tabs in every state.
+    expect(toggle.closest('[data-zone-toggle]')?.nextElementSibling).toHaveTextContent('Zone 2')
+
+    fireEvent.click(toggle)
+    await waitFor(() => {
+      expect(layout).toHaveAttribute('data-zone-layout-mode', 'collapsed')
+    })
+    expect(screen.getByRole('button', { name: 'Expand form panel' })).toBe(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    // Collapsed is the form folded away, with nothing drawn in its place.
+    expect(screen.getAllByRole('button')).toEqual([toggle])
   })
 
   it('stacks zone1 above zone2 when the user expands it in constrained space', async () => {
@@ -227,184 +262,84 @@ describe('CollapsibleZoneLayout', () => {
     expect(screen.getByRole('button', { name: 'Collapse form panel' })).toBeInTheDocument()
   })
 
-  it('expands and navigates to a section from the collapsed rail', async () => {
+  it('keeps the sidebar button beside zone 2 when the form stacks above it', async () => {
     currentWidth = 1180
     Object.defineProperty(window, 'innerWidth', {
       configurable: true,
       writable: true,
       value: currentWidth,
     })
-    const scrollIntoView = jest.fn()
-    Object.defineProperty(Element.prototype, 'scrollIntoView', {
-      configurable: true,
-      writable: true,
-      value: scrollIntoView,
-    })
-
     const { container } = renderWithProviders(
       <CollapsibleZoneLayout
-        zone1={(
-          <div id="collapsible-group-wrapper-personalData">
-            <button type="button" aria-controls="collapsible-group-personalData">Personal group</button>
-          </div>
-        )}
+        zone1={<input aria-label="Name" defaultValue="" />}
         zone2={<div>Zone 2</div>}
         entityName="Ada Lovelace"
-        pageType="person-v2"
-        sections={[
-          { id: 'personalData', icon: User, label: 'Personal data' },
-        ]}
+        pageType="person-v2-stacked"
       />,
       { dict: {} },
     )
-
     const layout = container.firstElementChild as HTMLElement
-
     await waitFor(() => {
       expect(layout).toHaveAttribute('data-zone-layout-mode', 'collapsed')
     })
-
-    fireEvent.click(screen.getByRole('button', { name: 'Personal data' }))
-
+    const input = screen.getByRole('textbox', { hidden: true, name: 'Name' }) as HTMLInputElement
+    const toggle = screen.getByRole('button', { name: 'Expand form panel' })
+    fireEvent.click(toggle)
     await waitFor(() => {
       expect(layout).toHaveAttribute('data-zone-layout-mode', 'stacked')
-      expect(screen.getByText('Personal group')).toHaveFocus()
     })
-    expect(scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' })
+    expect(screen.getByRole('button', { name: 'Collapse form panel' })).toBe(toggle)
+    expect(toggle.closest('[data-zone-toggle]')?.nextElementSibling).toHaveTextContent('Zone 2')
+    // Stacking rearranges the one tree rather than drawing a second form.
+    expect(screen.getByRole('textbox', { name: 'Name' })).toBe(input)
   })
 
-  it('focuses the first input field inside the activated section when available', async () => {
-    currentWidth = 1180
-    Object.defineProperty(window, 'innerWidth', {
-      configurable: true,
-      writable: true,
-      value: currentWidth,
-    })
-    const scrollIntoView = jest.fn()
-    Object.defineProperty(Element.prototype, 'scrollIntoView', {
-      configurable: true,
-      writable: true,
-      value: scrollIntoView,
-    })
-
+  it('lets the tab row take the sidebar button, so the content under it spans zone 2', async () => {
     const { container } = renderWithProviders(
-      <CollapsibleZoneLayout
-        zone1={(
-          <div id="collapsible-group-wrapper-personalData">
-            <button type="button" aria-controls="collapsible-group-personalData" aria-expanded="true">Personal group</button>
-            <input type="hidden" name="hidden-field" defaultValue="hidden" />
-            <input type="text" name="first-name" placeholder="First name" />
-            <input type="text" name="last-name" placeholder="Last name" />
-          </div>
-        )}
-        zone2={<div>Zone 2</div>}
-        entityName="Ada Lovelace"
-        pageType="person-v2"
-        sections={[
-          { id: 'personalData', icon: User, label: 'Personal data' },
-        ]}
-      />,
-      { dict: {} },
-    )
-
-    const layout = container.firstElementChild as HTMLElement
-
-    await waitFor(() => {
-      expect(layout).toHaveAttribute('data-zone-layout-mode', 'collapsed')
-    })
-
-    fireEvent.click(screen.getByRole('button', { name: 'Personal data' }))
-
-    await waitFor(() => {
-      expect(layout).toHaveAttribute('data-zone-layout-mode', 'stacked')
-      expect(screen.getByPlaceholderText('First name')).toHaveFocus()
-    })
-  })
-
-  it('expands a collapsed inner group when activated from the rail', async () => {
-    currentWidth = 1180
-    Object.defineProperty(window, 'innerWidth', {
-      configurable: true,
-      writable: true,
-      value: currentWidth,
-    })
-    Object.defineProperty(Element.prototype, 'scrollIntoView', {
-      configurable: true,
-      writable: true,
-      value: jest.fn(),
-    })
-
-    const headingClickHandler = jest.fn()
-
-    const { container } = renderWithProviders(
-      <CollapsibleZoneLayout
-        zone1={(
-          <div id="collapsible-group-wrapper-personalData">
-            <button
-              type="button"
-              aria-controls="collapsible-group-personalData"
-              aria-expanded="false"
-              onClick={headingClickHandler}
-            >
-              Personal group
-            </button>
-          </div>
-        )}
-        zone2={<div>Zone 2</div>}
-        entityName="Ada Lovelace"
-        pageType="person-v2"
-        sections={[
-          { id: 'personalData', icon: User, label: 'Personal data' },
-        ]}
-      />,
-      { dict: {} },
-    )
-
-    const layout = container.firstElementChild as HTMLElement
-
-    await waitFor(() => {
-      expect(layout).toHaveAttribute('data-zone-layout-mode', 'collapsed')
-    })
-
-    fireEvent.click(screen.getByRole('button', { name: 'Personal data' }))
-
-    await waitFor(() => {
-      expect(layout).toHaveAttribute('data-zone-layout-mode', 'stacked')
-      expect(headingClickHandler).toHaveBeenCalled()
-    })
-  })
-
-  it('keeps the outline collapse toggle by default', async () => {
-    renderWithProviders(
-      <CollapsibleZoneLayout zone1={<div>Zone 1</div>} zone2={<div>Zone 2</div>} entityName="Brightside Solar" pageType="tone-default" />,
-      { dict: {} },
-    )
-    const collapse = await screen.findByRole('button', { name: 'Collapse form panel' })
-    expect(collapse.className).toContain('bg-card')
-    expect(collapse.className).not.toContain('bg-primary-soft')
-  })
-
-  it('renders 36px soft toggles and a primary expand when toggleTone is soft', async () => {
-    renderWithProviders(
       <CollapsibleZoneLayout
         zone1={<div>Zone 1</div>}
-        zone2={<div>Zone 2</div>}
+        zone2={(
+          <div>
+            <TabRow />
+            <div>Cards</div>
+          </div>
+        )}
         entityName="Brightside Solar"
-        pageType="tone-soft"
-        toggleTone="soft"
-        sections={[{ id: 'identity', icon: User, label: 'Identity' }]}
+        pageType="person-v2-claimed"
       />,
       { dict: {} },
     )
-    const collapse = await screen.findByRole('button', { name: 'Collapse form panel' })
-    expect(collapse.className).toContain('bg-primary-soft')
-    expect(collapse.className).toContain('size-9')
+    const layout = container.firstElementChild as HTMLElement
+    await waitFor(() => {
+      expect(layout).toHaveAttribute('data-zone-layout-mode', 'side-by-side')
+    })
+    const toggle = screen.getByRole('button', { name: 'Collapse form panel' })
+    expect(screen.getByTestId('tab-row')).toContainElement(toggle)
+    // The layout drew no column of its own for it.
+    expect(container.querySelector('[data-zone-toggle]')).toBeNull()
 
-    fireEvent.click(collapse)
-    const expand = await screen.findByRole('button', { name: 'Expand form panel' })
-    expect(expand.className).toContain('bg-primary')
-    expect(expand.className).toContain('size-9')
-    const section = screen.getByRole('button', { name: 'Identity' })
-    expect(section.className).toContain('bg-primary-soft')
+    fireEvent.click(toggle)
+    await waitFor(() => {
+      expect(layout).toHaveAttribute('data-zone-layout-mode', 'collapsed')
+    })
+    expect(screen.getByRole('button', { name: 'Expand form panel' })).toBe(toggle)
+  })
+
+  it('gives nothing to a tab row outside the layout', () => {
+    renderWithProviders(<TabRow />, { dict: {} })
+    expect(screen.queryByRole('button')).toBeNull()
+  })
+
+  it('draws no sidebar button below the desktop breakpoint', async () => {
+    desktopViewport = false
+    const { container } = renderWithProviders(
+      <CollapsibleZoneLayout zone1={<div>Zone 1</div>} zone2={<div>Zone 2</div>} entityName="Brightside Solar" pageType="mobile" />,
+      { dict: {} },
+    )
+    const layout = container.firstElementChild as HTMLElement
+    await waitFor(() => {
+      expect(layout).toHaveAttribute('data-zone-layout-mode', 'side-by-side')
+    })
+    expect(screen.queryByRole('button')).toBeNull()
   })
 })

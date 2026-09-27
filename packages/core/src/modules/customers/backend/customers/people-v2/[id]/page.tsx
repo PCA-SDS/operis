@@ -4,10 +4,9 @@ import * as React from 'react'
 import { extensionPoints } from '@open-mercato/core/modules/customers/extension-points'
 import Link from 'next/link'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
-import { User, Hash, Users, Building2 } from 'lucide-react'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { CrudForm } from '@open-mercato/ui/backend/CrudForm'
-import { CollapsibleZoneLayout, type ZoneSectionDescriptor } from '@open-mercato/ui/backend/crud/CollapsibleZoneLayout'
+import { CollapsibleZoneLayout } from '@open-mercato/ui/backend/crud/CollapsibleZoneLayout'
 import { useIsMobile } from '@open-mercato/ui/hooks/useIsMobile'
 import { updateCrud, deleteCrud } from '@open-mercato/ui/backend/utils/crud'
 import { apiCallOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
@@ -19,7 +18,6 @@ import { E } from '#generated/entities.ids.generated'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { surfaceRecordConflict } from '@open-mercato/ui/backend/conflicts'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
-import { CUSTOMER_CUSTOM_ATTRIBUTES_IN_PRODUCT } from '@open-mercato/shared/lib/product-scope'
 import { useOrganizationScopeDetail } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { AttachmentsSection, ErrorMessage, RecordNotFoundState, type SectionAction } from '@open-mercato/ui/backend/detail'
@@ -128,15 +126,6 @@ export default function PersonDetailV2Page({ params }: { params?: { id?: string 
   )
 
   const groups = React.useMemo(() => createPersonPersonalDataGroups(t), [t])
-
-  const zoneSections = React.useMemo<ZoneSectionDescriptor[]>(() => [
-    { id: 'personalData', icon: User, label: t('customers.people.form.groups.personalData', 'Personal data') },
-    { id: 'companyRole', icon: Building2, label: t('customers.people.form.groups.companyRole', 'Company & role') },
-    ...(CUSTOMER_CUSTOM_ATTRIBUTES_IN_PRODUCT
-      ? [{ id: 'customFields', icon: Hash, label: t('customers.people.form.groups.customAttributes', 'Custom attributes') }]
-      : []),
-    { id: 'roles', icon: Users, label: t('customers.people.form.groups.roles', 'My roles') },
-  ], [t])
 
   // Data loading
   const initialLoadDoneRef = React.useRef(false)
@@ -743,10 +732,8 @@ export default function PersonDetailV2Page({ params }: { params?: { id?: string 
             ) : (
               <CollapsibleZoneLayout
                 pageType="person-v2"
-                toggleTone="soft"
                 entityName={personName}
                 isDirty={isDirty}
-                sections={zoneSections}
                 zone1={zone1Content}
                 zone2={zone2Content}
               />
