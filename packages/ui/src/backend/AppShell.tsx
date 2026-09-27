@@ -376,11 +376,10 @@ function AppShellBody({ productName, logo, email, canManageUpgradeActions = fals
           to pin the shell to the viewport for pages that opted into
           `<Page fill>`, and does nothing at all for every other page. */}
       <div data-app-shell-column="" className="flex min-h-svh min-w-0 flex-col">
-        {/* Apple's navigation material: a frosted white sheet over the grey page,
+        {/* Apple's navigation material: a frosted white sheet over the page,
             `surface` at 80% with a blur and a saturation lift so what scrolls
-            beneath reads as colour, not grey, and a hairline under it. It was
-            the page ground at 80%, the same grey as the page, so the bar had
-            no surface of its own. */}
+            beneath reads as colour, not grey, and a hairline under it, which is
+            what holds the bar off the white page ground. */}
         <header className="sticky top-0 z-sticky flex h-16 min-w-0 shrink-0 items-center gap-2 border-b border-border bg-surface/80 px-4 backdrop-blur-xl backdrop-saturate-150 sm:gap-3 md:px-6 xl:px-8">
           <div
             data-testid="backend-chrome-ready"

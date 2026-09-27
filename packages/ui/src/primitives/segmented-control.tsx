@@ -38,10 +38,13 @@ import { cn } from '@open-mercato/shared/lib/utils'
  * looks (a black pill on the page, a white pill inset on grey in dialogs) read
  * as two different controls.
  *
- * **Tone picks the rail, nothing else.** `default` is a white rail, for the grey
- * page ground and grey panels; `inset` takes the grey control fill, for a white
- * surface such as a dialog, card or popover, where a white rail would vanish.
- * It is the same flip the fields make. The pill and the labels do not change.
+ * **Tone picks the rail, nothing else.** `default` is the rail for the page
+ * ground and `inset` the field well for a raised surface (a card, a dialog, a
+ * popover). In light both are the grey control fill, since a white rail
+ * vanished once the ground turned white; in dark the ground's rail is the
+ * raised surface, so the raised-grey pill stands off it, and the well steps
+ * off a card. Inside a grey form section both turn white with the fields
+ * (`globals.css`). The pill and the labels do not change.
  *
  * **Geometry.** The track owns the height; items stretch to it rather than
  * carrying their own. `flush` (the default) lets the pill fill the track.
@@ -120,14 +123,13 @@ const trackVariants = cva(
       /**
        * The rail only; the pill and the labels are the same in both.
        *
-       * `default` — a white rail, for the grey page ground and grey panels.
+       * `default` — the page ground's rail (`--segmented-rail`).
        *
-       * `inset` — the grey control fill, for a white surface (a dialog, a card,
-       * a popover), where a white rail would disappear. The same flip the
-       * fields make.
+       * `inset` — the field well, for a card, a dialog or a popover, where in
+       * dark the ground's rail would match the surface.
        */
       tone: {
-        default: 'border border-transparent bg-surface shadow-xs',
+        default: 'border border-transparent bg-segmented-rail',
         inset: 'border border-transparent bg-input-bg',
       },
       size: {

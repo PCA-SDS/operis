@@ -132,7 +132,7 @@ export function CalendarHeader({
           <>
             <IconButton
               type="button"
-              variant="white"
+              variant="outline"
               size="lg"
               className={cn('shrink-0', CHROME_FLAT_CONTROL, 'text-foreground')}
               aria-label={previousLabel}
@@ -142,7 +142,7 @@ export function CalendarHeader({
             </IconButton>
             <IconButton
               type="button"
-              variant="white"
+              variant="outline"
               size="lg"
               className={cn('shrink-0', CHROME_FLAT_CONTROL, 'text-foreground')}
               aria-label={nextLabel}
@@ -192,11 +192,9 @@ export function CalendarHeader({
         </Button>
       ) : null}
       {onNewTask ? (
-        /* The one raised action on the row: `outline` for its white `bg-surface`
-           fill and full-ink label, with the hairline and lift turned off so it
-           still matches the borderless treatment. `bg-surface`, never
-           `bg-background` — background is the page ground, and painting a
-           control with it renders a grey block on a white bar. */
+        /* `outline` for its soft grey fill and full-ink label, like Today and
+           the arrows, with the hairline and lift turned off so it still matches
+           the borderless treatment. */
         <Button
           type="button"
           variant="outline"

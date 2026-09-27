@@ -49,12 +49,12 @@ const searchInputWrapperVariants = cva(
            moment you click it. `--tw-ring-shadow` is a separate slot in the
            same `box-shadow` list, so a ring composes with the drop shadow.
 
-           The drop shadow is the light `shadow-xs` of a white control on the
-           page ground (the switcher rails), and hovering does not change the
-           fill: a medium shadow made the topbar field look taller than the 36px
-           controls beside it, and a grey hover sank it into the grey bar. */
+           A white field on the white page ground, so it carries the card's
+           hairline (`card-edge`, transparent in dark) under the light
+           `shadow-xs`, and hovering does not change the fill: a medium shadow
+           made a field look taller than the 36px controls beside it. */
         raised:
-          'bg-surface shadow-xs focus-within:ring-2 focus-within:ring-focus-ring/30',
+          'border-card-edge bg-surface shadow-xs focus-within:ring-2 focus-within:ring-focus-ring/30',
         /* On navy a blue halo is invisible, so focus paints the edge instead —
            which is why the box keeps a transparent border at rest. */
         sidebar:

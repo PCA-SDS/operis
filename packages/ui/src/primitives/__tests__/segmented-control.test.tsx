@@ -162,7 +162,7 @@ describe('SegmentedControl', () => {
     const root = container.querySelector('[data-slot="segmented-control"]') as HTMLElement
     expect(root.className).toContain('custom-class')
     expect(root.className).toContain('rounded-lg')
-    expect(root.className).toContain('bg-surface')
+    expect(root.className).toContain('bg-segmented-rail')
   })
 
   it('renders the sliding indicator only inside the checked item', () => {
@@ -209,12 +209,13 @@ describe('SegmentedControl', () => {
   it('draws the same pill and labels in both tones; the tone only picks the rail', () => {
     // A dialog's switcher used to be a white pill inset on grey with muted
     // labels, a different control from the page's black pill. Now only the
-    // rail flips, the way fields flip between white and grey surfaces.
+    // rail changes: the page ground's rail, or the field well on a surface.
     const page = render(<Controlled />)
     const pageRoot = page.container.querySelector('[data-slot="segmented-control"]') as HTMLElement
     const pageIndicator = page.container.querySelector('[data-slot="segmented-control-indicator"]') as HTMLElement
     const pageItem = page.container.querySelector('[data-slot="segmented-control-item"]') as HTMLElement
-    expect(pageRoot.className).toContain('bg-surface')
+    expect(pageRoot.className).toContain('bg-segmented-rail')
+    expect(pageRoot.className).not.toContain('bg-surface')
     const pageLook = { pill: pageIndicator.className, radius: pageIndicator.style.borderRadius, item: pageItem.className }
     page.unmount()
 
