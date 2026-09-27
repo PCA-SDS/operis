@@ -230,6 +230,31 @@ products.
 - Modules withheld from v1 (deals, sales, WMS, warranty and the rest) keep the old chip pattern
   until they return to the product.
 
+## Phase 5 — forms get room
+
+The create and edit pages read as cramped. Measured on Create Company at 1440px: a section title sat
+16px under the panel above it, the same 16px as above its own panel, so titles did not group with
+their sections; rows of fields and the columns within a row were 16px apart; the main and side
+columns were 16px apart; and the side column's three Lifecycle dates each got about 90px, cutting
+their placeholders to "Pick a ...".
+
+### Shared form chrome (`formChrome.ts`, `CrudForm`)
+
+- **Spacing on the 8px grid:** 8px from label to control (unchanged), 24px between fields across and
+  down, 32px panel padding from `sm`, and 32px between sections and between the two columns. A
+  section title now sits 36px under the panel above it and 16px over its own.
+- **Fields split by the width they are given.** `half` and `third` fields sit side by side only when
+  the screen is `md`+ AND the field grid's own column is at least 28rem, via a named container
+  query (`@container/crud-fields`). The side column's dates now stack at full width; the main
+  column is unchanged. On a tablet, where the form column is about 400px, fields stack rather than
+  splitting into two 190px halves.
+- A group's explanatory line is 14px, the size of a section description (was 12px).
+
+### Call sites
+
+- **Create person:** Primary email and Primary phone sit side by side, as on Create company (they
+  were a full row each). The person edit form shares the fields and follows.
+
 ## Changelog
 
 - 2026-09-26 — Implemented.
@@ -239,3 +264,4 @@ products.
   `segmented-control.test.tsx`, `button.test.tsx`, `WeekdayToggles.test.tsx`,
   `ScheduleSection.test.tsx`, `DateTimeFields.test.tsx`, `ViewSwitcher.test.tsx` and the invoice
   dashboard's `page.test.tsx`.
+- 2026-09-27 — Phase 5: forms get room. Unit coverage in `CrudForm.spacing.test.tsx`.

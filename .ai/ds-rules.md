@@ -365,6 +365,13 @@ const dealStatusMap: StatusMap<'open' | 'won' | 'lost'> = {
 ## Forms
 - USE `FormField` wrapper for standalone forms (portal, auth, custom pages)
 - CrudForm handles field layout internally — do NOT wrap CrudForm fields in FormField
+- Form spacing lives in `formChrome.ts` and nowhere else: 8px label to control, 24px between fields (across and
+  down, `gap-6`), 32px panel padding (`sm:p-8`), and 32px between sections and between the main and side
+  columns (`FORM_SECTION_STACK`, `FORM_COLUMNS`). A section title then sits twice as far from the panel above
+  it as from its own.
+- A field's `half` / `third` layout applies only when the screen is `md`+ AND the field grid's own column is at
+  least 28rem (`FORM_FIELD_GRID_CONTAINER`). A narrow side column therefore stacks its fields instead of
+  cutting three date pickers down to "Pick a ...".
 - Every input MUST have a visible label (never placeholder-only)
 - Error messages use `text-status-error-text` (FormField handles this automatically)
 

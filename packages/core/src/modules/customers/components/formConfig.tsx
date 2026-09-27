@@ -1010,8 +1010,8 @@ export const createPersonFormFields = (t: Translator, options?: { defaultCountry
       ),
     },
     contactSection,
-    createPrimaryEmailField(t),
-    createPrimaryPhoneField(t, defaultCountryIso2),
+    { ...createPrimaryEmailField(t), layout: 'half' },
+    { ...createPrimaryPhoneField(t, defaultCountryIso2), layout: 'half' },
     companySection,
     {
       id: 'companyEntityId',
