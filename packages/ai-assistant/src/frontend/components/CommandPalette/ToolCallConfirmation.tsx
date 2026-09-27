@@ -97,7 +97,7 @@ export function ToolCallConfirmation({
         </span>
       </div>
 
-      <div className="font-mono text-xs bg-background rounded p-2 mb-3 overflow-auto max-h-32">
+      <div className="font-mono text-xs bg-muted rounded p-2 mb-3 overflow-auto max-h-32">
         <div className={cn('font-medium', destructive ? 'text-destructive' : 'text-primary')}>
           {toolCall.toolName}
         </div>
