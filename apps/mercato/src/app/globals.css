@@ -90,6 +90,7 @@ TODO: Fix that latter to have reference by the package names
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-card-edge: var(--card-edge);
 
   /* ═══ Design System: Surface & Chrome Scale ═══
      The four-step neutral ladder the whole product is built on. `surface` is
@@ -143,6 +144,7 @@ TODO: Fix that latter to have reference by the package names
   /* Input family — text-entry chrome, separate from the generic surface ladder
      so form density can be tuned without moving cards and menus. */
   --color-input-bg: var(--input-bg);
+  --color-segmented-rail: var(--segmented-rail);
   --color-input-border: var(--input-border);
   --color-input-border-focus: var(--input-border-focus);
   --color-input-placeholder: var(--input-placeholder);
@@ -354,16 +356,18 @@ TODO: Fix that latter to have reference by the package names
   --brand-dropbox: #0061FF;
   --brand-linkedin: #0A66C2;
   /* ═══ Apple palette — light ═══
-     Minimal and white, after Apple's Human Interface Guidelines and apple.com:
-     a #F5F5F7 page ground under white surfaces (the grouped-list pattern of
-     System Settings and iCloud), near-black #1D1D1F ink with #6E6E73 as the
-     secondary label, hairlines from the system gray ramp, and Apple blue as the
-     one saturated colour. Fills are neutral greys, never tinted.
+     Bright and white, after Apple's Human Interface Guidelines and apple.com:
+     content sits on white, as it does in Mail, Notes and Reminders, and grey is
+     kept for fills (hover, selection, controls, wells). Near-black #1D1D1F ink
+     with #6E6E73 as the secondary label, hairlines from the system gray ramp,
+     and Apple blue as the one saturated colour. Fills are neutral greys, never
+     tinted.
 
-     The ground/surface ladder keeps a visible step at every rung, because a
-     hovered white card must never land on the page colour:
-       surface #FFFFFF -> background #F5F5F7 -> muted #EDEDF0 -> strong #E3E3E8 */
-  --background: #F5F5F7;
+     A card is white on white, so it carries a hairline (`--card-edge`) instead
+     of relying on the ground's colour. Hovers and selection step down the fill
+     ladder, never back to white:
+       background = surface #FFFFFF -> muted #EDEDF0 -> strong #E3E3E8 */
+  --background: #FFFFFF;
   --foreground: #1D1D1F;
   --surface: #FFFFFF;
   --surface-muted: #EDEDF0;
@@ -373,6 +377,7 @@ TODO: Fix that latter to have reference by the package names
   --disabled-foreground: #AEAEB2;
   --card: #FFFFFF;
   --card-foreground: #1D1D1F;
+  --card-edge: #E5E5EA;
   --popover: #FFFFFF;
   --popover-foreground: #1D1D1F;
   /* Apple blue. The system blue #007AFF carries white text at only 4.0:1, so
@@ -430,6 +435,10 @@ TODO: Fix that latter to have reference by the package names
   --input-border-focus: #0071E3;
   --input-placeholder: #86868B;
   --input-disabled-bg: #F2F2F7;
+  /* A switcher's rail on the page ground: the control fill, since a white
+     rail vanished on the white ground. On a card or in a dialog the rail is
+     the field well (`--input-bg`) instead; see dark for why they differ. */
+  --segmented-rail: #E8E8ED;
   /* Chart series — Apple's system colours. */
   --chart-1: #007AFF;
   --chart-2: #30B0C7;
@@ -572,6 +581,8 @@ TODO: Fix that latter to have reference by the package names
   --disabled-foreground: #636366;
   --card: #1C1C1E;
   --card-foreground: #F5F5F7;
+  /* In dark the card's fill already steps off the black ground. */
+  --card-edge: #00000000;
   --popover: #2C2C2E;
   --popover-foreground: #F5F5F7;
   --primary: #0071E3;
@@ -617,6 +628,9 @@ TODO: Fix that latter to have reference by the package names
   --input-border-focus: #0A84FF;
   --input-placeholder: #8E8E93;
   --input-disabled-bg: #1C1C1E;
+  /* The raised surface, not the #2C2C2E well: the selected pill is a raised
+     grey, and on the well it all but disappears. */
+  --segmented-rail: #1C1C1E;
   /* Chart series — Apple's system colours, dark variants. */
   --chart-1: #0A84FF;
   --chart-2: #40C8E0;
@@ -735,7 +749,8 @@ TODO: Fix that latter to have reference by the package names
     [data-slot='select-trigger'],
     [data-slot='date-picker-trigger'],
     [data-slot='date-range-picker-trigger'],
-    [data-slot='rich-editor-content']
+    [data-slot='rich-editor-content'],
+    [data-slot='segmented-control']
   ):not(
     [data-slot='input-wrapper'] *,
     [data-slot='search-input-wrapper'] *
@@ -1311,6 +1326,11 @@ body[data-ai-chat-open="true"] .om-demo-feedback-floating {
  * A module sidebar sticks under the topbar on document-scrolling pages. Here
  * `main` is the scroller, so the sidebar sticks to its top instead and is
  * capped at its row (`module-nav/ModuleSidebar.tsx`).
+ *
+ * A locked page stops 16px short of the window's bottom edge, the room the
+ * calendar leaves under its grid (`useAvailableHeight`), so every locked page's
+ * cards and rails end on one line instead of running into the edge. A full-bleed
+ * page undoes it along with the rest of the gutter.
  */
 [data-app-shell-column]:has([data-slot='page'][data-fill='true']) {
   height: 100svh;
@@ -1322,7 +1342,7 @@ body[data-ai-chat-open="true"] .om-demo-feedback-floating {
   flex-direction: column;
   min-height: 0;
   overflow-y: auto;
-  padding-bottom: 0 !important;
+  padding-bottom: 1rem !important;
   --module-sidebar-top: 0px;
   --module-sidebar-max-height: 100%;
 }
@@ -1338,7 +1358,7 @@ body[data-ai-chat-open="true"] .om-demo-feedback-floating {
     flex-direction: column;
     min-height: 0;
     overflow-y: auto;
-    padding-bottom: 0 !important;
+    padding-bottom: 1rem !important;
     --module-sidebar-top: 0px;
     --module-sidebar-max-height: 100%;
   }
@@ -1355,7 +1375,7 @@ body[data-ai-chat-open="true"] .om-demo-feedback-floating {
     flex-direction: column;
     min-height: 0;
     overflow-y: auto;
-    padding-bottom: 0 !important;
+    padding-bottom: 1rem !important;
     --module-sidebar-top: 0px;
     --module-sidebar-max-height: 100%;
   }
@@ -1372,7 +1392,7 @@ body[data-ai-chat-open="true"] .om-demo-feedback-floating {
     flex-direction: column;
     min-height: 0;
     overflow-y: auto;
-    padding-bottom: 0 !important;
+    padding-bottom: 1rem !important;
     --module-sidebar-top: 0px;
     --module-sidebar-max-height: 100%;
   }

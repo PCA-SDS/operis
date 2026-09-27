@@ -988,9 +988,17 @@ function StaffSheet(props: {
   )
 }
 
+/**
+ * The planner fills the pane edge to edge: it undoes the shell's gutter on every
+ * side, including the bottom gap a locked page keeps. It grows into the undone
+ * gutter as a flex item; a page's usual `h-full` would only shift it up and
+ * leave the gap under it. The loading skeleton takes the same frame.
+ */
+const SEAT_PLANNER_FRAME = '!gap-0 !space-y-0 h-auto flex-1 -mx-4 -mb-4 -mt-4 overflow-hidden md:-mx-6 md:-mt-6 xl:-mx-8'
+
 function SeatPlannerLoadingSkeleton() {
   return (
-    <Page fill className="!gap-0 !space-y-0">
+    <Page fill className={SEAT_PLANNER_FRAME}>
       <PageBody fill className="!space-y-0 overflow-hidden p-0">
         <div className="flex h-full min-h-0 flex-col overflow-hidden bg-surface" aria-busy="true">
           <div className="flex h-14 shrink-0 items-center justify-between border-b border-border px-4 py-3">
@@ -1758,7 +1766,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
   }
 
   return (
-    <Page fill className="!gap-0 !space-y-0 -mx-4 -mb-1 -mt-4 overflow-hidden md:-mx-6 md:-mt-6 xl:-mx-8">
+    <Page fill className={SEAT_PLANNER_FRAME}>
       <PageBody fill className="!space-y-0 overflow-hidden p-0">
         <div className="flex h-full min-h-0 flex-col overflow-hidden bg-surface">
           <header className="shrink-0 border-b border-border bg-surface">

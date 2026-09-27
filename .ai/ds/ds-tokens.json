@@ -110,10 +110,10 @@
     },
     "background": {
       "kind": "color",
-      "light": "#F5F5F7",
+      "light": "#FFFFFF",
       "dark": "#000000",
       "hex": {
-        "light": "#f5f5f7",
+        "light": "#ffffff",
         "dark": "#000000"
       },
       "themeInvariant": false,
@@ -122,7 +122,7 @@
         "name": "background",
         "type": "COLOR"
       },
-      "note": "═══ Apple palette — light ═══ Minimal and white, after Apple's Human Interface Guidelines and apple.com: a #F5F5F7 page ground under white surfaces (the grouped-list pattern of System Settings and iCloud), near-black #1D1D1F ink with #6E6E73 as the secondary label, hairlines from the system gray ramp, and Apple blue as the one saturated colour. Fills are neutral greys, never tinted. The ground/surface ladder keeps a visible step at every rung, because a hovered white card must never land on the page colour: surface #FFFFFF -> background #F5F5F7 -> muted #EDEDF0 -> strong #E3E3E8"
+      "note": "═══ Apple palette — light ═══ Bright and white, after Apple's Human Interface Guidelines and apple.com: content sits on white, as it does in Mail, Notes and Reminders, and grey is kept for fills (hover, selection, controls, wells). Near-black #1D1D1F ink with #6E6E73 as the secondary label, hairlines from the system gray ramp, and Apple blue as the one saturated colour. Fills are neutral greys, never tinted. A card is white on white, so it carries a hairline (`--card-edge`) instead of relying on the ground's colour. Hovers and selection step down the fill ladder, never back to white: background = surface #FFFFFF -> muted #EDEDF0 -> strong #E3E3E8"
     },
     "badge-bg": {
       "kind": "color",
@@ -412,6 +412,22 @@
         "name": "card",
         "type": "COLOR"
       }
+    },
+    "card-edge": {
+      "kind": "color",
+      "light": "#E5E5EA",
+      "dark": "#00000000",
+      "hex": {
+        "light": "#e5e5ea",
+        "dark": "#00000000"
+      },
+      "themeInvariant": false,
+      "themeAlias": "color-card-edge",
+      "figma": {
+        "name": "card-edge",
+        "type": "COLOR"
+      },
+      "note": "In dark the card's fill already steps off the black ground."
     },
     "card-foreground": {
       "kind": "color",
@@ -1188,6 +1204,22 @@
         "name": "secondary-foreground",
         "type": "COLOR"
       }
+    },
+    "segmented-rail": {
+      "kind": "color",
+      "light": "#E8E8ED",
+      "dark": "#1C1C1E",
+      "hex": {
+        "light": "#e8e8ed",
+        "dark": "#1c1c1e"
+      },
+      "themeInvariant": false,
+      "themeAlias": "color-segmented-rail",
+      "figma": {
+        "name": "segmented-rail",
+        "type": "COLOR"
+      },
+      "note": "A switcher's rail on the page ground: the control fill, since a white rail vanished on the white ground. On a card or in a dialog the rail is the field well (`--input-bg`) instead; see dark for why they differ."
     },
     "shadow-2xl": {
       "kind": "expression",
