@@ -170,17 +170,27 @@ export function CalendarHeader({
           and `max-w-full` lets its controls wrap on a phone rather than
           overflow. */}
       <div className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2">
-        {controls}
-      {/* Create actions lead the cluster, then the view switcher, then the
-          shortcuts affordance. The create buttons are the only things on this
-          bar that add something rather than re-frame what is already there, so
-          they are what the eye should land on first; the view switcher and the
-          keyboard hint are both re-framing controls and read as one group
-          behind them. `onNewEvent` is permission-gated (`canManage` in
-          CalendarScreen), so on a read-only account the row collapses to
-          New task -> views. The two create actions stay adjacent
-          in every case — splitting them around the switcher would read as two
-          unrelated buttons rather than one create affordance. */}
+      {/* New event leads the group, New task beside it, then the scope
+          switcher (Mine / Everyone) and the view switcher. The create buttons
+          are the only things on this bar that add something rather than
+          re-frame what is already there, so they are what the eye should land
+          on first; both switchers re-frame the view and read as one pair behind
+          them. `onNewEvent` is permission-gated (`canManage` in CalendarScreen),
+          so on a read-only account the row collapses to New task -> scope ->
+          views. The two create actions stay adjacent in every case — splitting
+          them around a switcher would read as two unrelated buttons rather than
+          one create affordance. */}
+      {onNewEvent ? (
+        <Button
+          type="button"
+          onClick={onNewEvent}
+          className="shrink-0"
+          aria-label={t('customers.calendar.actions.newEvent', 'New event')}
+        >
+          <Plus aria-hidden="true" />
+          <span className="hidden lg:inline">{t('customers.calendar.actions.newEvent', 'New event')}</span>
+        </Button>
+      ) : null}
       {onNewTask ? (
         /* The one raised action on the row: `outline` for its white `bg-surface`
            fill and full-ink label, with the hairline and lift turned off so it
@@ -198,17 +208,7 @@ export function CalendarHeader({
           <span className="hidden xl:inline">{t('customers.calendar.actions.newTask', 'New task')}</span>
         </Button>
       ) : null}
-      {onNewEvent ? (
-        <Button
-          type="button"
-          onClick={onNewEvent}
-          className="shrink-0"
-          aria-label={t('customers.calendar.actions.newEvent', 'New event')}
-        >
-          <Plus aria-hidden="true" />
-          <span className="hidden lg:inline">{t('customers.calendar.actions.newEvent', 'New event')}</span>
-        </Button>
-      ) : null}
+      {controls}
       {onViewChange ? (
         <SegmentedControl
           value={view}

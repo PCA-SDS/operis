@@ -148,6 +148,29 @@ describe('CalendarHeader', () => {
     expect(pill.style.borderRadius).toBe('10px')
   })
 
+  it('leads the right-hand group with New event, then New task, the scope switcher and the view switcher', () => {
+    const { getByRole, getByTestId } = renderWithProviders(
+      <CalendarHeader
+        view="week"
+        anchor={ANCHOR}
+        range={RANGE}
+        onToday={jest.fn()}
+        onViewChange={jest.fn()}
+        onNewEvent={jest.fn()}
+        onNewTask={jest.fn()}
+        controls={<div data-testid="scope-switcher" />}
+      />,
+    )
+
+    const group = getByRole('button', { name: 'New event' }).parentElement as HTMLElement
+    expect(Array.from(group.children)).toEqual([
+      getByRole('button', { name: 'New event' }),
+      getByRole('button', { name: 'New task' }),
+      getByTestId('scope-switcher'),
+      getByRole('radiogroup', { name: 'Calendar view' }),
+    ])
+  })
+
   it('omits controls the caller does not supply, so a read-only user sees no create action', () => {
     const { queryByRole } = renderWithProviders(
       <CalendarHeader view="week" anchor={ANCHOR} range={RANGE} onViewChange={jest.fn()} />,

@@ -399,6 +399,7 @@ None.
 - **Balanced columns.** Attendees (Participants, To) move from the foot of the WHEN column to the WHERE/WHO column under Location. A meeting or event is three fields beside three (Starts · Location, Ends · Attendees, Repeat · Resources) instead of four beside two with an empty corner; a task keeps its Assignee under Repeat and is three beside two, with the gap at the bottom right.
 - **All day** is the shared `SwitchField`: its label is 14px medium ink like the field labels beside it (it was 12px grey) and clicking it flips the switch. It is 20px tall, the label line's own height, so the row does not grow.
 - **Weekdays** are the shared `WeekdayToggles`, `Button variant="toggle"`: pressed is the switcher's pill, not the blue primary fill. `ScheduleActivityDialog` uses the same row.
+- **Bar order.** The right-hand group leads with New event (New task beside it when tasks are on), then Mine / Everyone, then Day / Week / Month, so the two switchers sit together. Re-measured through Day, Month, Week, both arrows, Mine, Everyone and Today at 375, 768, 1024, 1178 and 1440px: no control moves. Pinned in `CalendarHeader.test.tsx`.
 - **Copy:** the create title is "New event", matching the button that opens it, and the settings save reads "Save changes"; TC-CAL-007, 008 and 010 follow the new name. Unit coverage in `WeekdayToggles.test.tsx` and `ScheduleSection.test.tsx`.
 
 ### 2026-09-27 — one height across the calendar bar, and nothing on it moves

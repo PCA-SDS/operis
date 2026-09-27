@@ -226,9 +226,9 @@ export interface UpcomingCardsProps {
 }
 
 export interface CalendarHeaderProps {
-  /** Search, range preset and jump-to-date — the scope controls, rendered
-   *  between the date cluster and the view switcher so the whole bar is one
-   *  row rather than two stacked ones. */
+  /** The scope controls (the Mine / Everyone switcher and the truncation
+   *  notice), rendered after the create actions and before the view switcher,
+   *  so the two switchers sit together. */
   controls?: ReactNode
   view: CalendarView
   anchor: Date
