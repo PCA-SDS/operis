@@ -1,11 +1,8 @@
 import { z } from 'zod'
-import { emptyStringToNull } from '@open-mercato/shared/lib/validation'
+import { emptyStringToNull, emailSchema, clearableStringSchema } from '@open-mercato/shared/lib/validation'
 import { isReservedEmailSystemVariable } from '../lib/accountingDefaults'
 
 const uuid = () => z.string().uuid()
-
-const clearableStringSchema = (max: number) =>
-  z.preprocess(emptyStringToNull, z.string().trim().max(max).nullable().optional())
 
 const templateKeySchema = z
   .string()
@@ -129,7 +126,7 @@ export const emailAccountingDefaultsSchema = z
   .object({
     expected_updated_at: z.string().datetime().optional(),
     default_sender_name: clearableStringSchema(200),
-    default_reply_to: z.preprocess(emptyStringToNull, z.string().email().max(320).nullable().optional()),
+    default_reply_to: z.preprocess(emptyStringToNull, emailSchema().nullable().optional()),
     placeholders: accountingDefaultValuesSchema.default({}),
     link_placeholders: accountingDefaultValuesSchema.default({}),
     rules: jsonObjectSchema.default({}),

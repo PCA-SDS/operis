@@ -12,7 +12,8 @@ import {
   buildReferencesId,
   getOrCreateThreadToken,
 } from '../lib/thread-token'
-import { stringOrUndefined, stripBrackets } from '../lib/email-mime'
+import { stripBrackets } from '../lib/email-mime'
+import { trimToUndefined } from '@open-mercato/shared/lib/string'
 import type { ChannelAdapterRegistry } from '../lib/registry'
 import { isUniqueViolation } from '../lib/pg-errors'
 import { Message } from '../../messages/data/entities'
@@ -481,7 +482,7 @@ const deliverOutboundMessageCommand: CommandHandler<
         // which compare against stripped ids — resolve it. `assembleRfc2822`
         // re-applies brackets when this id is later used to build reply headers.
         messageId: stripBrackets(
-          stringOrUndefined((converted.metadata as Record<string, unknown> | undefined)?.messageId) ??
+          trimToUndefined((converted.metadata as Record<string, unknown> | undefined)?.messageId) ??
             sendResult.externalMessageId,
         ),
       }

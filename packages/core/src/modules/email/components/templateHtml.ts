@@ -1,5 +1,6 @@
 import { sanitizeRichTextHtml } from '@open-mercato/shared/lib/html/sanitizeRichText'
 import { escapeHtml } from '@open-mercato/shared/lib/html/escapeHtml'
+import { isRecord } from '@open-mercato/shared/lib/guards'
 
 /**
  * Pure template rendering and parsing.
@@ -81,10 +82,6 @@ export function buildTemplateBlocks(blocks: TemplateBlockFormValue[]) {
     },
     children: [],
   }))
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
 
 /** jsonb columns arrive parsed, but a stringified column would silently read as "no blocks". */

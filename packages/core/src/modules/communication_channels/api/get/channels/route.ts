@@ -8,6 +8,7 @@ import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/d
 import { resolveOrganizationScopeFilter } from '@open-mercato/core/modules/directory/utils/organizationScopeFilter'
 import { CommunicationChannel } from '../../../data/entities'
 import { channelOrgScopeWhereFromFilter } from '../../../lib/access-control'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 export const metadata = {
   path: '/communication_channels/channels',
@@ -15,8 +16,7 @@ export const metadata = {
 }
 
 const listQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(50),
+  ...paginationQuerySchema().shape,
   providerKey: z.string().optional(),
   channelType: z.string().optional(),
   isActive: z
