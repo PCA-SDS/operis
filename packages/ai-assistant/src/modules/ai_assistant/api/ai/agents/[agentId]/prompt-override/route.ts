@@ -11,6 +11,7 @@ import { hasRequiredFeatures } from '../../../../../lib/auth'
 import { AiAgentPromptOverrideRepository } from '../../../../../data/repositories/AiAgentPromptOverrideRepository'
 import type { AiAgentPromptOverride } from '../../../../../data/entities'
 import { findReservedKeys } from '../../../../../lib/prompt-override-merge'
+import { jsonError } from '../../../../jsonError'
 
 const logger = createLogger('ai_assistant')
 
@@ -106,15 +107,6 @@ export const metadata = {
 
 interface RouteContext {
   params: Promise<{ agentId: string }>
-}
-
-function jsonError(
-  status: number,
-  message: string,
-  code: string,
-  extra?: Record<string, unknown>,
-): NextResponse {
-  return NextResponse.json({ error: message, code, ...(extra ?? {}) }, { status })
 }
 
 interface ResolvedAuth {

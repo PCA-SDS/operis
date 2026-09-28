@@ -9,6 +9,7 @@ import type { RbacService } from '@open-mercato/core/modules/auth/services/rbacS
 import { AiTokenUsageRepository } from '../../../../data/repositories/AiTokenUsageRepository'
 import { hasRequiredFeatures } from '../../../../lib/auth'
 import { toInteger, toIsoString } from '../../../../lib/usage-serialization'
+import { jsonError } from '../../../jsonError'
 
 const logger = createLogger('ai_assistant')
 
@@ -57,10 +58,6 @@ export const metadata = {
 
 interface RouteContext {
   params: Promise<{ sessionId: string }>
-}
-
-function jsonError(status: number, message: string, code: string, extra?: Record<string, unknown>): NextResponse {
-  return NextResponse.json({ error: message, code, ...(extra ?? {}) }, { status })
 }
 
 export async function GET(req: NextRequest, context: RouteContext): Promise<Response> {

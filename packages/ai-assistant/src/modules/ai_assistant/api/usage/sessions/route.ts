@@ -8,6 +8,7 @@ import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import type { RbacService } from '@open-mercato/core/modules/auth/services/rbacService'
 import { hasRequiredFeatures } from '../../../lib/auth'
 import { toInteger, toIsoString } from '../../../lib/usage-serialization'
+import { jsonError } from '../../jsonError'
 
 const logger = createLogger('ai_assistant')
 
@@ -65,10 +66,6 @@ export const openApi: OpenApiRouteDoc = {
 export const metadata = {
   path: '/ai_assistant/usage/sessions',
   GET: { requireAuth: true, requireFeatures: [REQUIRED_FEATURE] },
-}
-
-function jsonError(status: number, message: string, code: string, extra?: Record<string, unknown>): NextResponse {
-  return NextResponse.json({ error: message, code, ...(extra ?? {}) }, { status })
 }
 
 export async function GET(req: NextRequest): Promise<Response> {

@@ -13,6 +13,7 @@ import {
   AiAgentRuntimeOverrideValidationError,
 } from '../../../../../data/repositories/AiAgentRuntimeOverrideRepository'
 import type { AiAgentRuntimeOverride } from '../../../../../data/entities'
+import { jsonError } from '../../../../jsonError'
 
 const logger = createLogger('ai_assistant')
 
@@ -128,15 +129,6 @@ export const metadata = {
 
 interface RouteContext {
   params: Promise<{ agentId: string }>
-}
-
-function jsonError(
-  status: number,
-  message: string,
-  code: string,
-  extra?: Record<string, unknown>,
-): NextResponse {
-  return NextResponse.json({ error: message, code, ...(extra ?? {}) }, { status })
 }
 
 interface ResolvedAuth {

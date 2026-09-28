@@ -1,21 +1,11 @@
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import type { AiToolDefinition } from '@open-mercato/ai-assistant/modules/ai_assistant/lib/types'
 import { listMcpScopes, toolNamesForScopes } from './scope-registry'
+import { isToolDefinition } from '@open-mercato/ai-assistant/modules/ai_assistant/lib/tool-guards'
 
 const logger = createLogger('mcp').child({ component: 'tool-loading' })
 
 let cache: Promise<Map<string, AiToolDefinition>> | null = null
-
-function isToolDefinition(value: unknown): value is AiToolDefinition {
-  if (!value || typeof value !== 'object') return false
-  const candidate = value as Record<string, unknown>
-  return (
-    typeof candidate.name === 'string' &&
-    typeof candidate.description === 'string' &&
-    candidate.inputSchema !== undefined &&
-    typeof candidate.handler === 'function'
-  )
-}
 
 /**
  * Build the complete set of MCP-reachable tools.

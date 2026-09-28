@@ -1,4 +1,3 @@
-import { createLogger } from '@open-mercato/shared/lib/logger'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
@@ -8,52 +7,13 @@ import { executeTool } from './tool-executor'
 import { loadAllModuleTools, indexToolsForSearch } from './tool-loader'
 import { authenticateMcpRequest, extractApiKeyFromHeaders, hasRequiredFeatures } from './auth'
 import { jsonSchemaToZod } from './schema-utils'
-import { getApiKeyFromMcpJson } from './mcp-dev-key-resolution'
+import { getApiKeyFromMcpJson, log } from './mcp-dev-key-resolution'
 import type { McpToolContext } from './types'
 import type { SearchService } from '@open-mercato/search/service'
 import type { RbacService } from '@open-mercato/core/modules/auth/services/rbacService'
-
-const logger = createLogger('ai_assistant')
+import { parseJsonBody } from './http-server'
 
 const DEFAULT_PORT = 3001
-
-const log = (message: string, ...args: unknown[]) => {
-  logger.info(message, args.length > 0 ? { details: args.map((arg) => String(arg)).join(' ') } : undefined)
-}
-
-/**
- * Maximum request body size (1MB).
- */
-const MAX_BODY_SIZE = 1 * 1024 * 1024
-
-/**
- * Parse JSON body from request with size limit.
- */
-async function parseJsonBody(req: IncomingMessage): Promise<unknown> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = []
-    let totalSize = 0
-
-    req.on('data', (chunk: Buffer) => {
-      totalSize += chunk.length
-      if (totalSize > MAX_BODY_SIZE) {
-        req.destroy()
-        reject(new Error('Request payload too large'))
-        return
-      }
-      chunks.push(chunk)
-    })
-    req.on('end', () => {
-      try {
-        const body = Buffer.concat(chunks).toString('utf-8')
-        resolve(body ? JSON.parse(body) : undefined)
-      } catch (error) {
-        reject(error)
-      }
-    })
-    req.on('error', reject)
-  })
-}
 
 /**
  * Create MCP server with tools pre-authenticated for dev use.

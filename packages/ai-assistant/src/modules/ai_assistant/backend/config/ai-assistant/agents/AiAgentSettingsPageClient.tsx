@@ -50,6 +50,7 @@ import { apiCall, apiCallOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { useAiShortcuts } from '@open-mercato/ui/ai'
+import { AiConfigLoading } from '../AiConfigLoading'
 
 // The agent picker is deliberately duplicated between the playground and this
 // settings page. Duplicated markup is under the 50-line threshold, so extraction
@@ -267,18 +268,6 @@ async function fetchMutationPolicy(agentId: string): Promise<MutationPolicyRespo
   )
   if (!result) throw new Error(`Failed to load mutation policy (${status})`)
   return result
-}
-
-function SettingsLoading({ message }: { message: string }) {
-  return (
-    <div
-      className="flex items-center gap-2 rounded-lg border border-border bg-surface p-4 text-sm text-muted-foreground"
-      role="status"
-    >
-      <Loader2 className="size-4 animate-spin" aria-hidden />
-      <span>{message}</span>
-    </div>
-  )
 }
 
 function EmptyAgents() {
@@ -734,7 +723,7 @@ function MutationPolicySection({ agent }: { agent: AgentSettings }) {
         </Alert>
 
         {query.isLoading ? (
-          <SettingsLoading
+          <AiConfigLoading
             message={t(
               'ai_assistant.agents.mutation_policy.loading',
               'Loading mutation policy...',
@@ -1328,7 +1317,7 @@ function AgentModelOverrideSection({ agent }: { agent: AgentSettings }) {
         </div>
 
         {settingsQuery.isLoading ? (
-          <SettingsLoading
+          <AiConfigLoading
             message={t(
               'ai_assistant.agents.model_override.loading',
               'Loading provider catalog...',
@@ -1790,7 +1779,7 @@ function LoopPolicySection({ agent }: { agent: AgentSettings }) {
 
       <div className="mt-3 flex flex-col gap-4">
         {query.isLoading ? (
-          <SettingsLoading
+          <AiConfigLoading
             message={t('ai_assistant.agents.loop_policy.loading', 'Loading loop policy...')}
           />
         ) : query.isError ? (
@@ -2390,7 +2379,7 @@ function AgentDetailPanel({ agent }: { agent: AgentSettings }) {
         </header>
         <div className="mt-3 flex flex-col gap-2">
           {overrideQuery.isLoading ? (
-            <SettingsLoading
+            <AiConfigLoading
               message={t(
                 'ai_assistant.agents.override.history.loading',
                 'Loading override history...',
@@ -2510,7 +2499,7 @@ export function AiAgentSettingsPageClient() {
     return (
       <div className="flex min-w-0 flex-col gap-6">
         {pageHeader}
-        <SettingsLoading
+        <AiConfigLoading
           message={t('ai_assistant.agents.loadingAgents', 'Loading AI agents...')}
         />
       </div>

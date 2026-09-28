@@ -11,6 +11,7 @@ import { hasRequiredFeatures } from '../../../../../lib/auth'
 import { serializePendingActionForClient } from '../../../../../lib/pending-action-client'
 import { checkStatusAndExpiry } from '../../../../../lib/pending-action-recheck'
 import { executePendingActionCancel } from '../../../../../lib/pending-action-cancel'
+import { jsonError } from '../../../../jsonError'
 
 const logger = createLogger('ai_assistant')
 
@@ -89,15 +90,6 @@ export const metadata = {
 
 interface RouteContext {
   params: Promise<{ id: string }>
-}
-
-function jsonError(
-  status: number,
-  message: string,
-  code: string,
-  extra?: Record<string, unknown>,
-): NextResponse {
-  return NextResponse.json({ error: message, code, ...(extra ?? {}) }, { status })
 }
 
 async function readRequestBody(req: NextRequest): Promise<unknown> {
