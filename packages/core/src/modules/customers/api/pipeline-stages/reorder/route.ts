@@ -8,13 +8,10 @@ import { pipelineStageReorderSchema, type PipelineStageReorderInput } from '../.
 import { withScopedPayload } from '../../utils'
 import { CrudHttpError, isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
-import {
-  runCrudMutationGuardAfterSuccess,
-  validateCrudMutationGuard,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const logger = createLogger('customers')
 
@@ -49,19 +46,19 @@ export async function POST(req: Request) {
     const scoped = withScopedPayload(body, ctx, translate)
     const input = pipelineStageReorderSchema.parse(scoped)
 
-    const guardResult = await validateCrudMutationGuard(ctx.container, {
-      tenantId,
-      organizationId,
-      userId: auth.sub,
-      resourceKind: PIPELINE_STAGE_RESOURCE_KIND,
-      resourceId: organizationId,
-      operation: 'custom',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      mutationPayload: input,
+    const guardResult = await runRouteMutationGuards({
+      container: ctx.container,
+      req,
+      auth: { userId: auth.sub, tenantId, organizationId },
+      input: {
+        resourceKind: PIPELINE_STAGE_RESOURCE_KIND,
+        resourceId: organizationId,
+        operation: 'custom',
+        mutationPayload: input,
+      },
     })
-    if (guardResult && !guardResult.ok) {
-      return NextResponse.json(guardResult.body, { status: guardResult.status })
+    if (!guardResult.ok) {
+      return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
     }
 
     const commandBus = (ctx.container.resolve('commandBus') as CommandBus)
@@ -69,19 +66,7 @@ export async function POST(req: Request) {
       'customers.pipeline-stages.reorder',
       { input, ctx },
     )
-    if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-      await runCrudMutationGuardAfterSuccess(ctx.container, {
-        tenantId,
-        organizationId,
-        userId: auth.sub,
-        resourceKind: PIPELINE_STAGE_RESOURCE_KIND,
-        resourceId: organizationId,
-        operation: 'custom',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
-        metadata: guardResult.metadata ?? null,
-      })
-    }
+    await guardResult.runAfterSuccess()
     return NextResponse.json({ ok: true })
   } catch (err) {
     if (isCrudHttpError(err)) {

@@ -4,10 +4,6 @@ import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import type { TranslateWithFallbackFn } from '@open-mercato/shared/lib/i18n/translate'
-import {
-  runCrudMutationGuardAfterSuccess,
-  validateCrudMutationGuard,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
 import type { ProgressService } from '../../../../progress/lib/progressService'
 import {
   CUSTOMERS_DEALS_BULK_UPDATE_OWNER_QUEUE,
@@ -18,6 +14,7 @@ import {
   dealsBulkUpdateResponseSchema as responseSchema,
 } from '../../../data/validators'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { runRouteMutationGuards, type RouteMutationGuardResult } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const logger = createLogger('customers')
 
@@ -65,25 +62,25 @@ async function postImpl(req: Request, translate: TranslateWithFallbackFn): Promi
   // The guard at the bulk-entry point is best-effort: failures (e.g. a guard that
   // expects a single-record id, or transient lock-table errors) must NOT take the whole
   // bulk enqueue down — swallow so the bulk job still gets queued.
-  let guardResult: Awaited<ReturnType<typeof validateCrudMutationGuard>> = null
+  let guardResult: RouteMutationGuardResult | null = null
   try {
-    guardResult = await validateCrudMutationGuard(container, {
-      tenantId: auth.tenantId,
-      organizationId: auth.orgId,
-      userId: auth.sub,
-      resourceKind: 'customers.deal',
-      resourceId: ids.join(','),
-      operation: 'custom',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      mutationPayload: { ids, ownerUserId: parsed.data.ownerUserId },
+    guardResult = await runRouteMutationGuards({
+      container,
+      req,
+      auth: { userId: auth.sub, tenantId: auth.tenantId, organizationId: auth.orgId },
+      input: {
+        resourceKind: 'customers.deal',
+        resourceId: ids.join(','),
+        operation: 'custom',
+        mutationPayload: { ids, ownerUserId: parsed.data.ownerUserId },
+      },
     })
   } catch (guardError) {
     logger.warn('mutation-guard skipped', { component: 'deals.bulk-update-owner', err: guardError })
     guardResult = null
   }
   if (guardResult && !guardResult.ok) {
-    return NextResponse.json(guardResult.body, { status: guardResult.status })
+    return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
   }
 
   let progressService: ProgressService
@@ -168,18 +165,8 @@ async function postImpl(req: Request, translate: TranslateWithFallbackFn): Promi
   }
 
   // After-success half of the mutation-guard contract — see bulk-update-stage route.
-  if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-    await runCrudMutationGuardAfterSuccess(container, {
-      tenantId: auth.tenantId,
-      organizationId: auth.orgId,
-      userId: auth.sub,
-      resourceKind: 'customers.deal',
-      resourceId: ids.join(','),
-      operation: 'custom',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      metadata: guardResult.metadata ?? null,
-    })
+  if (guardResult?.ok) {
+    await guardResult.runAfterSuccess()
   }
 
   return NextResponse.json(

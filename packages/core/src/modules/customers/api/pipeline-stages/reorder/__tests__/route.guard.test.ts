@@ -5,8 +5,8 @@ const organizationId = '22222222-2222-4222-8222-222222222222'
 const userId = '33333333-3333-4333-8333-333333333333'
 const stageId = '55555555-5555-4555-8555-555555555555'
 
-const validateCrudMutationGuardMock = jest.fn()
-const runCrudMutationGuardAfterSuccessMock = jest.fn()
+const runRouteMutationGuardsMock = jest.fn()
+const runAfterSuccessMock = jest.fn()
 const commandBusExecuteMock = jest.fn()
 
 const commandBus = { execute: commandBusExecuteMock }
@@ -38,9 +38,8 @@ jest.mock('@open-mercato/shared/lib/i18n/server', () => ({
   })),
 }))
 
-jest.mock('@open-mercato/shared/lib/crud/mutation-guard', () => ({
-  validateCrudMutationGuard: (...args: unknown[]) => validateCrudMutationGuardMock(...args),
-  runCrudMutationGuardAfterSuccess: (...args: unknown[]) => runCrudMutationGuardAfterSuccessMock(...args),
+jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
+  runRouteMutationGuards: (...args: unknown[]) => runRouteMutationGuardsMock(...args),
 }))
 
 import { POST } from '../route'
@@ -55,8 +54,8 @@ const reorderRequest = () =>
 describe('customers pipeline-stages reorder route mutation guard', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    validateCrudMutationGuardMock.mockResolvedValue({ ok: true, shouldRunAfterSuccess: true, metadata: { token: 'guard' } })
-    runCrudMutationGuardAfterSuccessMock.mockResolvedValue(undefined)
+    runRouteMutationGuardsMock.mockResolvedValue({ ok: true, runAfterSuccess: runAfterSuccessMock })
+    runAfterSuccessMock.mockResolvedValue(undefined)
     commandBusExecuteMock.mockResolvedValue(undefined)
   })
 
@@ -64,28 +63,28 @@ describe('customers pipeline-stages reorder route mutation guard', () => {
     const response = await POST(reorderRequest())
 
     expect(response.status).toBe(200)
-    expect(validateCrudMutationGuardMock).toHaveBeenCalledWith(
-      container,
+    expect(runRouteMutationGuardsMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        tenantId,
-        organizationId,
-        userId,
-        resourceKind: 'customers.pipelineStage',
-        resourceId: organizationId,
-        operation: 'custom',
+        container,
+        auth: expect.objectContaining({ tenantId, organizationId, userId }),
+        input: expect.objectContaining({
+          resourceKind: 'customers.pipelineStage',
+          resourceId: organizationId,
+          operation: 'custom',
+        }),
       }),
     )
     expect(commandBusExecuteMock).toHaveBeenCalledWith('customers.pipeline-stages.reorder', expect.anything())
-    expect(runCrudMutationGuardAfterSuccessMock).toHaveBeenCalled()
+    expect(runAfterSuccessMock).toHaveBeenCalled()
   })
 
   it('short-circuits the reorder command when the guard blocks the mutation', async () => {
-    validateCrudMutationGuardMock.mockResolvedValueOnce({ ok: false, status: 423, body: { error: 'locked' } })
+    runRouteMutationGuardsMock.mockResolvedValueOnce({ ok: false, errorStatus: 423, errorBody: { error: 'locked' } })
 
     const response = await POST(reorderRequest())
 
     expect(response.status).toBe(423)
     expect(commandBusExecuteMock).not.toHaveBeenCalled()
-    expect(runCrudMutationGuardAfterSuccessMock).not.toHaveBeenCalled()
+    expect(runAfterSuccessMock).not.toHaveBeenCalled()
   })
 })

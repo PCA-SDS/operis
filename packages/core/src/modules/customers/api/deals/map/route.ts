@@ -23,6 +23,7 @@ import {
   type DealMapLocation,
 } from '../../../lib/dealsMapLocation'
 import { E } from '#generated/entities.ids.generated'
+import { nonEmptyStringOrNull } from '@open-mercato/shared/lib/string'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['customers.deals.view', 'customers.activities.view'] },
@@ -142,10 +143,6 @@ function groupAssociations(rows: LinkRow[]): Map<string, DealMapAssociation[]> {
   return byDeal
 }
 
-function toStringOrNull(value: unknown): string | null {
-  return typeof value === 'string' && value.length > 0 ? value : null
-}
-
 function toFiniteNumberOrNull(value: unknown): number | null {
   if (typeof value === 'number') return Number.isFinite(value) ? value : null
   if (typeof value === 'string' && value.trim().length > 0) {
@@ -157,7 +154,7 @@ function toFiniteNumberOrNull(value: unknown): number | null {
 
 function toIsoStringOrNull(value: unknown): string | null {
   if (value instanceof Date) return value.toISOString()
-  return toStringOrNull(value)
+  return nonEmptyStringOrNull(value)
 }
 
 function readArrayParam(searchParams: URLSearchParams, key: string): string[] | null {
@@ -521,16 +518,16 @@ export async function GET(req: Request) {
       if (!id) return null
       return {
         id,
-        title: toStringOrNull(row.title),
-        status: toStringOrNull(row.status),
-        pipelineId: toStringOrNull(row.pipeline_id),
-        pipelineStageId: toStringOrNull(row.pipeline_stage_id),
-        pipelineStage: toStringOrNull(row.pipeline_stage),
+        title: nonEmptyStringOrNull(row.title),
+        status: nonEmptyStringOrNull(row.status),
+        pipelineId: nonEmptyStringOrNull(row.pipeline_id),
+        pipelineStageId: nonEmptyStringOrNull(row.pipeline_stage_id),
+        pipelineStage: nonEmptyStringOrNull(row.pipeline_stage),
         valueAmount: toFiniteNumberOrNull(row.value_amount),
-        valueCurrency: toStringOrNull(row.value_currency),
+        valueCurrency: nonEmptyStringOrNull(row.value_currency),
         probability: toFiniteNumberOrNull(row.probability),
         expectedCloseAt: toIsoStringOrNull(row.expected_close_at),
-        ownerUserId: toStringOrNull(row.owner_user_id),
+        ownerUserId: nonEmptyStringOrNull(row.owner_user_id),
         updatedAt: toIsoStringOrNull(row.updated_at),
         companies: companiesByDeal.get(id) ?? [],
         people: peopleByDeal.get(id) ?? [],

@@ -9,8 +9,8 @@ const progressJobId = '66666666-6666-4666-8666-666666666666'
 
 const createJobMock = jest.fn()
 const enqueueMock = jest.fn()
-const validateCrudMutationGuardMock = jest.fn()
-const runCrudMutationGuardAfterSuccessMock = jest.fn()
+const runRouteMutationGuardsMock = jest.fn()
+const runAfterSuccessMock = jest.fn()
 
 const container = {
   resolve: jest.fn((name: string) => {
@@ -33,10 +33,8 @@ jest.mock('@open-mercato/shared/lib/di/container', () => ({
   createRequestContainer: jest.fn(async () => container),
 }))
 
-jest.mock('@open-mercato/shared/lib/crud/mutation-guard', () => ({
-  validateCrudMutationGuard: (...args: unknown[]) => validateCrudMutationGuardMock(...args),
-  runCrudMutationGuardAfterSuccess: (...args: unknown[]) =>
-    runCrudMutationGuardAfterSuccessMock(...args),
+jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
+  runRouteMutationGuards: (...args: unknown[]) => runRouteMutationGuardsMock(...args),
 }))
 
 jest.mock('@open-mercato/shared/lib/i18n/server', () => ({
@@ -61,12 +59,8 @@ describe('customers deals bulk-update-owner route', () => {
     jest.clearAllMocks()
     createJobMock.mockResolvedValue({ id: progressJobId })
     enqueueMock.mockResolvedValue(undefined)
-    validateCrudMutationGuardMock.mockResolvedValue({
-      ok: true,
-      shouldRunAfterSuccess: true,
-      metadata: { token: 'guard' },
-    })
-    runCrudMutationGuardAfterSuccessMock.mockResolvedValue(undefined)
+    runRouteMutationGuardsMock.mockResolvedValue({ ok: true, runAfterSuccess: runAfterSuccessMock })
+    runAfterSuccessMock.mockResolvedValue(undefined)
   })
 
   it('creates a progress job and enqueues the scoped owner update payload', async () => {
@@ -97,7 +91,7 @@ describe('customers deals bulk-update-owner route', () => {
       ownerUserId,
       scope: { organizationId, tenantId, userId },
     })
-    expect(runCrudMutationGuardAfterSuccessMock).toHaveBeenCalled()
+    expect(runAfterSuccessMock).toHaveBeenCalled()
   })
 
   it('accepts ownerUserId=null (clearing the owner)', async () => {
@@ -129,11 +123,7 @@ describe('customers deals bulk-update-owner route', () => {
   })
 
   it('returns mutation-guard status when the guard rejects', async () => {
-    validateCrudMutationGuardMock.mockResolvedValueOnce({
-      ok: false,
-      status: 409,
-      body: { error: { code: 'RECORD_LOCKED' } },
-    })
+    runRouteMutationGuardsMock.mockResolvedValueOnce({ ok: false, errorStatus: 409, errorBody: { error: { code: 'RECORD_LOCKED' } } })
 
     const response = await POST(
       new Request('http://localhost/api/customers/deals/bulk-update-owner', {
@@ -146,6 +136,6 @@ describe('customers deals bulk-update-owner route', () => {
     expect(response.status).toBe(409)
     expect(createJobMock).not.toHaveBeenCalled()
     expect(enqueueMock).not.toHaveBeenCalled()
-    expect(runCrudMutationGuardAfterSuccessMock).not.toHaveBeenCalled()
+    expect(runAfterSuccessMock).not.toHaveBeenCalled()
   })
 })
