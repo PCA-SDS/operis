@@ -215,6 +215,8 @@ describe('GET /api/directory/organization-switcher caching', () => {
       items: [],
       selectedId: null,
       canManage: false,
+      tenantId,
+      isSuperAdmin: false,
     }
     computeHierarchyMock.mockReturnValue({
       ordered: [],
