@@ -1,25 +1,20 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import type { EntityManager } from '@mikro-orm/postgresql'
-import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
-import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
-import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
-import type { CommandBus, CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
+import type { CommandBus } from '@open-mercato/shared/lib/commands'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { CrudHttpError, isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { parseScopedCommandInput } from '@open-mercato/shared/lib/api/scoped'
 import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { plannerAvailabilityDateSpecificReplaceSchema } from '../data/validators'
-import { serializeOperationMetadata } from '@open-mercato/shared/lib/commands/operationMetadata'
-import {
-  runCrudMutationGuardAfterSuccess,
-  validateCrudMutationGuard,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
+import { attachOperationMetadataHeader } from '@open-mercato/shared/lib/commands/operationMetadata'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 import { PlannerAvailabilityRule } from '../data/entities'
 import { parseAvailabilityRuleWindow } from '../lib/availabilitySchedule'
-import { assertAvailabilityWriteAccess, resolveAvailabilityActorId } from './access'
+import { assertAvailabilityWriteAccess, resolveAvailabilityActorId, resolveAvailabilityRequestContext } from './access'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
+import { toLocalDateKey } from '@open-mercato/shared/lib/date/format'
 
 const logger = createLogger('planner').child({ component: 'availability' })
 
@@ -27,42 +22,9 @@ export const metadata = {
   POST: { requireAuth: true },
 }
 
-type RequestContext = {
-  ctx: CommandRuntimeContext
-}
-
-async function resolveRequestContext(req: Request): Promise<RequestContext> {
-  const container = await createRequestContainer()
-  const auth = await getAuthFromRequest(req)
-  const { translate } = await resolveTranslations()
-
-  if (!auth || !auth.tenantId) {
-    throw new CrudHttpError(401, { error: translate('planner.availability.errors.unauthorized', 'Unauthorized') })
-  }
-
-  const scope = await resolveOrganizationScopeForRequest({ container, auth, request: req })
-  const organizationId = scope?.selectedId ?? auth.orgId ?? null
-  if (!organizationId) {
-    throw new CrudHttpError(400, {
-      error: translate('planner.availability.errors.organizationRequired', 'Organization context is required'),
-    })
-  }
-
-  const ctx: CommandRuntimeContext = {
-    container,
-    auth,
-    organizationScope: scope,
-    selectedOrganizationId: organizationId,
-    organizationIds: scope?.filterIds ?? (auth.orgId ? [auth.orgId] : null),
-    request: req,
-  }
-
-  return { ctx }
-}
-
 export async function POST(req: Request) {
   try {
-    const { ctx } = await resolveRequestContext(req)
+    const { ctx } = await resolveAvailabilityRequestContext(req)
     const { translate } = await resolveTranslations()
     const payload = await readJsonSafe(req, {})
     const normalized = normalizeDateSpecificPayload(payload)
@@ -94,47 +56,31 @@ export async function POST(req: Request) {
         const blocked = rules.some((rule) => {
           const window = parseAvailabilityRuleWindow(rule)
           if (window.repeat !== 'once') return false
-          return dateSet.has(formatDateKey(window.startAt))
+          return dateSet.has(toLocalDateKey(window.startAt))
         })
         if (blocked) {
           throw new CrudHttpError(403, { error: translate('planner.availability.errors.unauthorized', 'Unauthorized') })
         }
       }
     }
-    const guardInput = {
-      tenantId: input.tenantId,
-      organizationId: input.organizationId,
-      userId: resolveAvailabilityActorId(ctx.auth),
-      resourceKind: 'planner.availability',
-      resourceId: input.subjectId,
-      operation: 'custom' as const,
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-    }
-    const guardResult = await validateCrudMutationGuard(ctx.container, { ...guardInput, mutationPayload: input })
-    if (guardResult && !guardResult.ok) {
-      return NextResponse.json(guardResult.body, { status: guardResult.status })
+    const guardResult = await runRouteMutationGuards({
+      container: ctx.container,
+      req,
+      auth: {
+        userId: resolveAvailabilityActorId(ctx.auth),
+        tenantId: input.tenantId,
+        organizationId: input.organizationId,
+      },
+      input: { resourceKind: 'planner.availability', resourceId: input.subjectId, operation: 'custom', mutationPayload: input },
+    })
+    if (!guardResult.ok) {
+      return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
     }
     const commandBus = ctx.container.resolve('commandBus') as CommandBus
     const { logEntry } = await commandBus.execute('planner.availability.date-specific.replace', { input, ctx })
-    if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-      await runCrudMutationGuardAfterSuccess(ctx.container, { ...guardInput, metadata: guardResult.metadata ?? null })
-    }
+    await guardResult.runAfterSuccess()
     const response = NextResponse.json({ ok: true })
-    if (logEntry?.undoToken && logEntry?.id && logEntry?.commandId) {
-      response.headers.set(
-        'x-om-operation',
-        serializeOperationMetadata({
-          id: logEntry.id,
-          undoToken: logEntry.undoToken,
-          commandId: logEntry.commandId,
-          actionLabel: logEntry.actionLabel ?? null,
-          resourceKind: logEntry.resourceKind ?? 'planner.availability',
-          resourceId: logEntry.resourceId ?? null,
-          executedAt: logEntry.createdAt instanceof Date ? logEntry.createdAt.toISOString() : undefined,
-        })
-      )
-    }
+    attachOperationMetadataHeader(response, logEntry, { resourceKind: 'planner.availability' })
     return response
   } catch (err) {
     if (isCrudHttpError(err)) {
@@ -214,11 +160,4 @@ function resolveDateSet(input: { date?: string; dates?: string[] }): Set<string>
     })
   }
   return dates
-}
-
-function formatDateKey(value: Date): string {
-  const year = value.getFullYear()
-  const month = String(value.getMonth() + 1).padStart(2, '0')
-  const day = String(value.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
 }

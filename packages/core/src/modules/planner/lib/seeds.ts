@@ -7,6 +7,7 @@ import {
   UNAVAILABILITY_REASON_DICTIONARIES,
   type UnavailabilityReasonSubjectType,
 } from './unavailabilityReasons'
+import { formatDuration } from './availabilitySchedule'
 
 export type PlannerSeedScope = { tenantId: string; organizationId: string }
 
@@ -48,15 +49,6 @@ const UNAVAILABILITY_REASON_DEFAULTS: Record<UnavailabilityReasonSubjectType, Ar
   ruleset: [
     { value: 'Unspecified', label: 'Unspecified' },
   ],
-}
-
-function formatDuration(minutes: number): string {
-  const clamped = Math.max(1, minutes)
-  const hours = Math.floor(clamped / 60)
-  const mins = clamped % 60
-  if (hours > 0 && mins > 0) return `PT${hours}H${mins}M`
-  if (hours > 0) return `PT${hours}H`
-  return `PT${mins}M`
 }
 
 function buildAvailabilityRrule(start: Date, end: Date, weekdayCode: string): string {

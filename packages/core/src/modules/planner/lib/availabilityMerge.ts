@@ -1,3 +1,5 @@
+import { startOfUtcDay } from '@open-mercato/shared/lib/date/format'
+
 type AvailabilityKind = 'availability' | 'unavailability'
 
 export type AvailabilityRuleLike = {
@@ -92,10 +94,6 @@ function toDayKey(value: Date): string {
   return value.toISOString().slice(0, 10)
 }
 
-function startOfDay(value: Date): Date {
-  return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()))
-}
-
 function expandRule(rule: AvailabilityRuleLike, parsed: ParsedRule, range: AvailabilityRange): AvailabilityWindow[] {
   const { startAt, durationMinutes, freq, count, repeat, weekday } = parsed
   if (repeat === 'once') {
@@ -128,7 +126,7 @@ function expandRule(rule: AvailabilityRuleLike, parsed: ParsedRule, range: Avail
   let cursor = new Date(startAt)
   let remaining = count ?? Number.POSITIVE_INFINITY
   if (weekday !== undefined) {
-    const startOfCursorDay = startOfDay(cursor)
+    const startOfCursorDay = startOfUtcDay(cursor)
     const daysUntilWeekday = (weekday - startOfCursorDay.getUTCDay() + 7) % 7
     cursor = new Date(startOfCursorDay.getTime() + daysUntilWeekday * DAY_MS)
     cursor = new Date(cursor.getTime() + (startAt.getTime() - startOfCursorDay.getTime()))

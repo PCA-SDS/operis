@@ -12,6 +12,8 @@ import {
 import { ensureOrganizationScope, ensureTenantScope, extractUndoPayload } from './shared'
 import { enforceCommandOptimisticLock } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
 import type { PlannerAvailabilityKind, PlannerAvailabilitySubjectType } from '../data/entities'
+import { parseTimeInput, parseAcceptanceMinutes, buildAvailabilityRrule } from '../lib/availabilitySchedule'
+import { toLocalDateKey } from '@open-mercato/shared/lib/date/format'
 
 const AVAILABILITY_RULE_RESOURCE_KIND = 'planner.availability.rule'
 
@@ -56,19 +58,6 @@ type DateSpecificUndoPayload = {
   after: AvailabilityRuleSnapshot[]
 }
 
-function parseTimeInput(value: string): { hours: number; minutes: number } | null {
-  const [hours, minutes] = value.split(':').map((part) => Number(part))
-  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null
-  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null
-  return { hours, minutes }
-}
-
-function parseAcceptanceMinutes(value?: string | null): number | null {
-  if (!value) return null
-  const parsed = parseTimeInput(value)
-  return parsed ? parsed.hours * 60 + parsed.minutes : null
-}
-
 function toDateForDay(value: string, time: string, timezone: string): Date | null {
   if (!value) return null
   const parsed = parseTimeInput(time)
@@ -81,22 +70,6 @@ function toDateForDay(value: string, time: string, timezone: string): Date | nul
     timezone,
   )
   return Number.isNaN(date.getTime()) ? null : date
-}
-
-function formatDuration(minutes: number): string {
-  const clamped = Math.max(1, minutes)
-  const hours = Math.floor(clamped / 60)
-  const mins = clamped % 60
-  if (hours > 0 && mins > 0) return `PT${hours}H${mins}M`
-  if (hours > 0) return `PT${hours}H`
-  return `PT${mins}M`
-}
-
-function buildAvailabilityRrule(start: Date, end: Date): string {
-  const dtStart = start.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z'
-  const durationMinutes = Math.max(1, Math.round((end.getTime() - start.getTime()) / 60000))
-  const duration = formatDuration(durationMinutes)
-  return `DTSTART:${dtStart}\nDURATION:${duration}\nRRULE:FREQ=DAILY;COUNT=1`
 }
 
 function addCalendarDay(value: string): string | null {
@@ -118,13 +91,6 @@ export function buildFullDayRrule(date: string, timezone: string): string | null
   const end = toDateForDay(nextDate, '00:00', timezone)
   if (!end) return null
   return buildAvailabilityRrule(start, end)
-}
-
-function formatDateKey(value: Date): string {
-  const year = value.getFullYear()
-  const month = String(value.getMonth() + 1).padStart(2, '0')
-  const day = String(value.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
 }
 
 function toAvailabilityRuleSnapshot(record: PlannerAvailabilityRule): AvailabilityRuleSnapshot {
@@ -170,7 +136,7 @@ async function loadDateSpecificSnapshots(
     .filter((rule) => {
       const window = parseAvailabilityRuleWindow(rule)
       if (window.repeat !== 'once') return false
-      return params.dates.has(formatDateKey(window.startAt))
+      return params.dates.has(toLocalDateKey(window.startAt))
     })
     .map(toAvailabilityRuleSnapshot)
 }
@@ -259,7 +225,7 @@ const replaceDateSpecificAvailabilityCommand: CommandHandler<PlannerAvailability
         const toDelete = existing.filter((rule) => {
           const window = parseAvailabilityRuleWindow(rule)
           if (window.repeat !== 'once') return false
-          return dates.has(formatDateKey(window.startAt))
+          return dates.has(toLocalDateKey(window.startAt))
         })
         enforceCommandOptimisticLock({
           resourceKind: AVAILABILITY_RULE_RESOURCE_KIND,

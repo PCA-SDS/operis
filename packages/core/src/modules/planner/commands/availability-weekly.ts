@@ -20,6 +20,7 @@ import type { PlannerAvailabilityKind, PlannerAvailabilitySubjectType } from '..
 import { ensureOrganizationScope, ensureTenantScope, extractUndoPayload } from './shared'
 import { plannerAvailabilityRuleSetCrudEvents } from '../lib/crud'
 import { E } from '#generated/entities.ids.generated'
+import { toDateForWeekday, parseAcceptanceMinutes, formatDuration } from '../lib/availabilitySchedule'
 
 const AVAILABILITY_RULE_RESOURCE_KIND = 'planner.availability.rule'
 const AVAILABILITY_RULE_SET_CACHE_RESOURCE_KIND = 'planner.availability-rule-set'
@@ -56,39 +57,6 @@ type AvailabilityRuleSnapshot = {
 type WeeklyUndoPayload = {
   before: AvailabilityRuleSnapshot[]
   after: AvailabilityRuleSnapshot[]
-}
-
-function parseTimeInput(value: string): { hours: number; minutes: number } | null {
-  const [hours, minutes] = value.split(':').map((part) => Number(part))
-  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null
-  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null
-  return { hours, minutes }
-}
-
-function parseAcceptanceMinutes(value?: string | null): number | null {
-  if (!value) return null
-  const parsed = parseTimeInput(value)
-  return parsed ? parsed.hours * 60 + parsed.minutes : null
-}
-
-function toDateForWeekday(weekday: number, time: string): Date | null {
-  const parsed = parseTimeInput(time)
-  if (!parsed) return null
-  const now = new Date()
-  const base = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const diff = (weekday - base.getDay() + 7) % 7
-  const target = new Date(base.getTime() + diff * 24 * 60 * 60 * 1000)
-  target.setHours(parsed.hours, parsed.minutes, 0, 0)
-  return target
-}
-
-function formatDuration(minutes: number): string {
-  const clamped = Math.max(1, minutes)
-  const hours = Math.floor(clamped / 60)
-  const mins = clamped % 60
-  if (hours > 0 && mins > 0) return `PT${hours}H${mins}M`
-  if (hours > 0) return `PT${hours}H`
-  return `PT${mins}M`
 }
 
 function buildWeeklyRrule(start: Date, end: Date): string {

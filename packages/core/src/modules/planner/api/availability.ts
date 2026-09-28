@@ -11,6 +11,8 @@ import { plannerAvailabilityRuleCreateSchema, plannerAvailabilityRuleUpdateSchem
 import { E } from '#generated/entities.ids.generated'
 import { createPlannerCrudOpenApi, createPagedListResponseSchema, defaultOkResponseSchema } from './openapi'
 import { assertAvailabilityWriteAccess } from './access'
+import { parseCommaSeparatedList } from '@open-mercato/shared/lib/string'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 // Field constants for PlannerAvailabilityRule entity
 const F = {
@@ -47,22 +49,13 @@ const rawBodySchema = z.object({}).passthrough()
 
 const listSchema = z
   .object({
-    page: z.coerce.number().int().min(1).default(1),
-    pageSize: z.coerce.number().int().min(1).max(100).default(50),
+    ...paginationQuerySchema().shape,
     subjectType: z.enum(['member', 'resource', 'ruleset']).optional(),
     subjectIds: z.string().optional(),
     sortField: z.string().optional(),
     sortDir: z.enum(['asc', 'desc']).optional(),
   })
   .passthrough()
-
-const parseIds = (value?: string) => {
-  if (!value) return []
-  return value
-    .split(',')
-    .map((item) => item.trim())
-    .filter((item) => item.length > 0)
-}
 
 const crud = makeCrudRoute({
   metadata: routeMetadata,
@@ -109,7 +102,7 @@ const crud = makeCrudRoute({
       if (query.subjectType) {
         filters[F.subject_type] = query.subjectType
       }
-      const subjectIds = parseIds(query.subjectIds)
+      const subjectIds = parseCommaSeparatedList(query.subjectIds)
       if (subjectIds.length) {
         filters[F.subject_id] = { $in: subjectIds }
       }
