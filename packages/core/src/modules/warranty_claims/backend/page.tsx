@@ -42,9 +42,12 @@ import {
 import { ClaimSlaIndicator } from './components/claimSla'
 import { ClaimsKpiStrip, type WarrantyClaimsStats } from './components/ClaimsKpiStrip'
 import { WarrantyWorkspace } from './components/WarrantyWorkspace'
-import { useUserDisplayNames } from './components/useUserDisplayNames'
+import { useUserDisplayNames, toStringOrNull } from './components/useUserDisplayNames'
 import { extensionPoints } from '../extension-points'
 import { appendSkippedBulkCount } from '../lib/bulkFeedback'
+import { isRecord } from '@open-mercato/shared/lib/guards'
+import { toNonEmptyStringArray } from '@open-mercato/shared/lib/string'
+import { createClientProgressJobId, calculateEtaSeconds, calculateProgress } from '@open-mercato/ui/backend/utils/bulkDelete'
 
 type ClaimType = 'warranty' | 'return' | 'core_return' | 'vendor_recovery'
 type ClaimChannel = 'staff' | 'portal' | 'api'
@@ -124,14 +127,6 @@ const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 const GOODS_FLOW_STATUSES: ClaimStatus[] = ['approved', 'awaiting_return', 'received', 'inspecting']
 const RESOLVED_STATUSES: ClaimStatus[] = ['resolved', 'closed']
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
-
-function toStringOrNull(value: unknown): string | null {
-  return typeof value === 'string' && value.trim().length ? value : null
-}
-
 function normalizeClaimRow(value: unknown): ClaimRow | null {
   if (!isRecord(value)) return null
   const id = toStringOrNull(value.id)
@@ -157,11 +152,6 @@ function normalizeClaimRow(value: unknown): ClaimRow | null {
 
 function normalizeClaimChannel(value: string | null | undefined): ClaimChannel | null {
   return value === 'staff' || value === 'portal' || value === 'api' ? value : null
-}
-
-function valueAsStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return []
-  return value.filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
 }
 
 function toDateOnlyOrNull(value: unknown): string | null {
@@ -230,7 +220,7 @@ function parseClaimListUrlState(searchParams: SearchParamsLike): RestoredClaimLi
 }
 
 function appendClaimListFilterParams(params: URLSearchParams, filterValues: FilterValues): void {
-  const statuses = valueAsStringArray(filterValues.status)
+  const statuses = toNonEmptyStringArray(filterValues.status)
   if (statuses.length) params.set('status', statuses.join(','))
   const claimType = toStringOrNull(filterValues.claimType)
   if (claimType) params.set('claimType', claimType)
@@ -308,28 +298,6 @@ type BulkProgressLabels = {
   name: string
 }
 
-function createClientProgressJobId(jobType: string): string {
-  const cryptoRef =
-    typeof globalThis !== 'undefined'
-      ? (globalThis as { crypto?: { randomUUID?: () => string } }).crypto
-      : undefined
-  if (cryptoRef && typeof cryptoRef.randomUUID === 'function') {
-    return `client:${cryptoRef.randomUUID()}`
-  }
-  return `client:${jobType}:${Date.now()}:${Math.random().toString(36).slice(2)}`
-}
-
-function calculateBulkProgressPercent(processed: number, total: number): number {
-  if (total <= 0) return 100
-  return Math.max(0, Math.min(100, Math.round((processed / total) * 100)))
-}
-
-function calculateBulkEtaSeconds(startedAtMs: number, processed: number, total: number): number | null {
-  if (processed <= 0 || processed >= total) return null
-  const elapsedSeconds = Math.max(1, Math.round((Date.now() - startedAtMs) / 1000))
-  return Math.ceil((elapsedSeconds / processed) * (total - processed))
-}
-
 async function runBulkClaimActionWithProgress(
   rows: ClaimRow[],
   progress: BulkProgressLabels,
@@ -370,10 +338,10 @@ async function runBulkClaimActionWithProgress(
         description: null,
         meta: null,
         status: 'running',
-        progressPercent: calculateBulkProgressPercent(processed, rows.length),
+        progressPercent: calculateProgress(processed, rows.length),
         processedCount: processed,
         totalCount: rows.length,
-        etaSeconds: calculateBulkEtaSeconds(startedAtMs, processed, rows.length),
+        etaSeconds: calculateEtaSeconds(startedAtMs, processed, rows.length),
         cancellable: false,
         startedAt,
       })
@@ -939,7 +907,7 @@ export default function WarrantyClaimsPage() {
     setPage(1)
   }, [])
 
-  const currentStatusFilter = valueAsStringArray(filterValues.status)
+  const currentStatusFilter = toNonEmptyStringArray(filterValues.status)
   const myClaimsActive = Boolean(currentUserId) && toStringOrNull(filterValues.assigneeUserId) === currentUserId
   const overdueActive = filterValues.overdueOnly === true
   const slaAtRiskActive = filterValues.slaAtRiskOnly === true

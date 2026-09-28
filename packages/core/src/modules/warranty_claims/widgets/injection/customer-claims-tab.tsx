@@ -13,11 +13,10 @@ import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
 import { Badge } from '@open-mercato/ui/primitives/badge'
 import {
   StatusBadge,
-  type StatusBadgeVariant,
 } from '@open-mercato/ui/primitives/status-badge'
 import type { InjectionWidgetComponentProps } from '@open-mercato/shared/modules/widgets/injection'
 import type { WarrantyClaimStatus } from '../../data/validators'
-import { CLAIM_STATUS_BADGE_VARIANTS } from '../../backend/components/ClaimStatusBadge'
+import { titleize, claimStatusVariant } from './claimsTab'
 
 const CUSTOMER_CLAIMS_RESOURCE_KINDS = new Set(['customers.person', 'customers.company'])
 
@@ -44,20 +43,6 @@ function isValidContext(ctx: unknown): ctx is CustomerClaimsContext {
   const candidate = ctx as { resourceKind?: unknown; resourceId?: unknown }
   if (typeof candidate.resourceKind !== 'string' || !CUSTOMER_CLAIMS_RESOURCE_KINDS.has(candidate.resourceKind)) return false
   return typeof candidate.resourceId === 'string' && candidate.resourceId.trim().length > 0
-}
-
-function titleize(value: string | null | undefined): string {
-  if (!value) return ''
-  return value
-    .split(/[_\s-]+/)
-    .filter(Boolean)
-    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`)
-    .join(' ')
-}
-
-function claimStatusVariant(status: string | null | undefined): StatusBadgeVariant {
-  if (!status) return 'neutral'
-  return CLAIM_STATUS_BADGE_VARIANTS[status as WarrantyClaimStatus] ?? 'neutral'
 }
 
 function ClaimStatusBadge({ status }: { status: string | null | undefined }) {

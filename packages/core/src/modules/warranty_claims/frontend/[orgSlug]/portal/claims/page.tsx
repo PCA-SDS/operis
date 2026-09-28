@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { ChevronRight, Plus, ShieldCheck } from 'lucide-react'
 import { useLocale, useT } from '@open-mercato/shared/lib/i18n/context'
-import { formatRelativeTime } from '@open-mercato/shared/lib/time'
+import { formatRelativeTime, formatDate } from '@open-mercato/shared/lib/time'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Tabs, TabsList, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
@@ -39,17 +39,6 @@ type PortalClaimsResponse = {
   page: number
   pageSize: number
   totalPages: number
-}
-
-function formatDate(value: string | null, fallback: string, locale: string): string {
-  if (!value) return fallback
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleDateString(locale || undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  })
 }
 
 export default function WarrantyClaimsPortalListPage({ params }: Props) {
@@ -189,7 +178,7 @@ export default function WarrantyClaimsPortalListPage({ params }: Props) {
     {
       accessorKey: 'createdAt',
       header: t('warranty_claims.portal.list.column.submittedAt', 'Submitted'),
-      cell: ({ row }) => formatDate(row.original.createdAt, t('warranty_claims.portal.value.notAvailable'), locale),
+      cell: ({ row }) => formatDate(row.original.createdAt, { fallback: t('warranty_claims.portal.value.notAvailable'), locale }),
       meta: { maxWidth: 160 },
     },
     {

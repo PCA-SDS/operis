@@ -1,5 +1,7 @@
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import type { CrudFieldOption } from '@open-mercato/ui/backend/CrudForm'
+import { isRecord } from '@open-mercato/shared/lib/guards'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
 
 export type LoadOrderOptionsParams = {
   customerId?: string | null
@@ -14,26 +16,18 @@ export type LoadSalesReturnOptionsParams = {
 
 const DEFAULT_FALLBACK_LABEL = '—'
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
-
-function toStringOrNull(value: unknown): string | null {
-  return typeof value === 'string' && value.trim().length ? value.trim() : null
-}
-
 function normalizeOrderOption(item: unknown, fallbackLabel: string): CrudFieldOption | null {
   if (!isRecord(item)) return null
-  const id = toStringOrNull(item.id)
+  const id = normalizeOptionalString(item.id)
   if (!id) return null
-  return { value: id, label: toStringOrNull(item.orderNumber) ?? fallbackLabel }
+  return { value: id, label: normalizeOptionalString(item.orderNumber) ?? fallbackLabel }
 }
 
 function normalizeSalesReturnOption(item: unknown, fallbackLabel: string): CrudFieldOption | null {
   if (!isRecord(item)) return null
-  const id = toStringOrNull(item.id)
+  const id = normalizeOptionalString(item.id)
   if (!id) return null
-  const returnNumber = toStringOrNull(item.return_number) ?? toStringOrNull(item.returnNumber)
+  const returnNumber = normalizeOptionalString(item.return_number) ?? normalizeOptionalString(item.returnNumber)
   return { value: id, label: returnNumber ?? fallbackLabel }
 }
 

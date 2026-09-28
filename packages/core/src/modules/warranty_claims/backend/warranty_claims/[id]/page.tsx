@@ -27,6 +27,11 @@ import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primiti
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@open-mercato/ui/primitives/select'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@open-mercato/ui/primitives/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
+import { isRecord } from '@open-mercato/shared/lib/guards'
+import { toFiniteNumberOrNull } from '@open-mercato/shared/lib/number'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
+import { normalizeDictionaryOption } from '../../components/dictionaryOptions'
+import { formatCurrency } from '@open-mercato/shared/lib/units/money'
 // Lazy-load the chat surface so the claim detail route chunk does not carry the AI
 // SDK runtime for every operator — it only renders once a triage chat session is open.
 const LazyAiChat = React.lazy(async () => {
@@ -310,23 +315,6 @@ const UNASSIGNED_SELECT_VALUE = '__unassigned__'
 const CLEAR_SELECT_VALUE = '__clear__'
 const AGENT_ID = 'warranty_claims.claims_assistant'
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
-
-function toStringOrNull(value: unknown): string | null {
-  return typeof value === 'string' && value.trim().length ? value.trim() : null
-}
-
-function toNumberOrNull(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string' && value.trim().length) {
-    const parsed = Number(value)
-    return Number.isFinite(parsed) ? parsed : null
-  }
-  return null
-}
-
 function toTranslateParams(value: unknown): TranslateParams | undefined {
   if (!isRecord(value)) return undefined
   const params: TranslateParams = {}
@@ -340,9 +328,9 @@ function toTranslateParams(value: unknown): TranslateParams | undefined {
 
 function normalizeRiskSignal(value: unknown): ClaimRiskSignal | null {
   if (!isRecord(value)) return null
-  const id = toStringOrNull(value.id)
-  const level = toStringOrNull(value.level)
-  const messageKey = toStringOrNull(value.messageKey)
+  const id = normalizeOptionalString(value.id)
+  const level = normalizeOptionalString(value.level)
+  const messageKey = normalizeOptionalString(value.messageKey)
   if (!id || !messageKey || (level !== 'low' && level !== 'medium' && level !== 'high')) return null
   const relatedClaimNumbers = Array.isArray(value.relatedClaimNumbers)
     ? value.relatedClaimNumbers.filter((claimNumber): claimNumber is string => typeof claimNumber === 'string' && claimNumber.length > 0)
@@ -358,7 +346,7 @@ function normalizeRiskSignal(value: unknown): ClaimRiskSignal | null {
 
 function normalizeRiskAssessment(value: unknown): ClaimRiskAssessment {
   if (!isRecord(value)) return EMPTY_RISK_ASSESSMENT
-  const level = toStringOrNull(value.level)
+  const level = normalizeOptionalString(value.level)
   const normalizedLevel: ClaimRiskLevel =
     level === 'low' || level === 'medium' || level === 'high' || level === 'none'
       ? level
@@ -411,7 +399,7 @@ function triageLineHeading(
   t: TranslateFn,
 ): string {
   const name = suggestedLine.productName ?? suggestedLine.sku ?? suggestedLine.serialNumber ?? null
-  const lineNo = toNumberOrNull(suggestedLine.lineNo)
+  const lineNo = toFiniteNumberOrNull(suggestedLine.lineNo)
     ?? lines.find((line) => line.id === suggestedLine.lineId)?.lineNo
     ?? null
   const label = name ?? t('warranty_claims.detail.lines.unnamed', 'Unnamed line')
@@ -421,7 +409,7 @@ function triageLineHeading(
 function formatTimelineBody(event: ClaimEvent, t: TranslateFn, userNames: Record<string, string>): string | null {
   if (event.body) return event.body
   const payload = event.payload
-  const action = payload ? toStringOrNull(payload.action) : null
+  const action = payload ? normalizeOptionalString(payload.action) : null
   if (event.kind === 'system' && action === 'sla_paused') return t('warranty_claims.timeline.slaPaused')
   if (event.kind === 'system' && action === 'sla_resumed') return t('warranty_claims.timeline.slaResumed')
   if (event.kind === 'system' && action === 'auto_approved') return t('warranty_claims.timeline.autoApproved')
@@ -436,15 +424,15 @@ function formatTimelineBody(event: ClaimEvent, t: TranslateFn, userNames: Record
   if (event.kind === 'system' && action === 'credit_memo_orphaned') return t('warranty_claims.timeline.creditMemoOrphaned')
   if (event.kind === 'system' && action === 'undo_credit_memo_created') return t('warranty_claims.timeline.undoCreditMemoCreated')
   if (event.kind === 'assignment') {
-    const assigneeUserId = payload ? toStringOrNull(payload.assigneeUserId) : null
+    const assigneeUserId = payload ? normalizeOptionalString(payload.assigneeUserId) : null
     if (!assigneeUserId) return t('warranty_claims.timeline.unassigned')
     return t('warranty_claims.timeline.assignedTo', { name: userNames[assigneeUserId] ?? t('warranty_claims.detail.unknownUser') })
   }
-  const from = payload ? toStringOrNull(payload.from) ?? toStringOrNull(payload.fromStatus) : null
-  const to = payload ? toStringOrNull(payload.to) ?? toStringOrNull(payload.toStatus) : null
+  const from = payload ? normalizeOptionalString(payload.from) ?? normalizeOptionalString(payload.fromStatus) : null
+  const to = payload ? normalizeOptionalString(payload.to) ?? normalizeOptionalString(payload.toStatus) : null
   if (event.kind === 'status_changed' && from && to) {
     const statusLine = `${t(`warranty_claims.status.${from}`)} → ${t(`warranty_claims.status.${to}`)}`
-    const systemNote = payload ? toStringOrNull(payload.systemNote) : null
+    const systemNote = payload ? normalizeOptionalString(payload.systemNote) : null
     if (systemNote && systemNote.startsWith('warranty_claims.')) {
       return `${statusLine} — ${t(systemNote)}`
     }
@@ -476,108 +464,101 @@ function riskSignalVariant(signal: ClaimRiskSignal): 'warning' | 'error' {
 
 function normalizeClaim(value: unknown): ClaimRecord | null {
   if (!isRecord(value)) return null
-  const id = toStringOrNull(value.id)
+  const id = normalizeOptionalString(value.id)
   if (!id) return null
   return {
     id,
-    claimNumber: toStringOrNull(value.claimNumber),
-    claimType: toStringOrNull(value.claimType),
-    channel: toStringOrNull(value.channel),
-    status: toStringOrNull(value.status),
-    priority: toStringOrNull(value.priority),
-    customerId: toStringOrNull(value.customerId),
-    customerName: toStringOrNull(value.customerName),
-    orderId: toStringOrNull(value.orderId),
-    orderNumber: toStringOrNull(value.orderNumber),
-    salesReturnId: toStringOrNull(value.salesReturnId),
-    replacementOrderId: toStringOrNull(value.replacementOrderId),
-    creditMemoId: toStringOrNull(value.creditMemoId),
+    claimNumber: normalizeOptionalString(value.claimNumber),
+    claimType: normalizeOptionalString(value.claimType),
+    channel: normalizeOptionalString(value.channel),
+    status: normalizeOptionalString(value.status),
+    priority: normalizeOptionalString(value.priority),
+    customerId: normalizeOptionalString(value.customerId),
+    customerName: normalizeOptionalString(value.customerName),
+    orderId: normalizeOptionalString(value.orderId),
+    orderNumber: normalizeOptionalString(value.orderNumber),
+    salesReturnId: normalizeOptionalString(value.salesReturnId),
+    replacementOrderId: normalizeOptionalString(value.replacementOrderId),
+    creditMemoId: normalizeOptionalString(value.creditMemoId),
     awaitingStaffReply: parseBooleanFromUnknown(value.awaitingStaffReply) ?? false,
-    vendorName: toStringOrNull(value.vendorName),
-    vendorRef: toStringOrNull(value.vendorRef),
-    totalClaimedAmount: toStringOrNull(value.totalClaimedAmount),
-    totalApprovedAmount: toStringOrNull(value.totalApprovedAmount),
-    totalRecoveredAmount: toStringOrNull(value.totalRecoveredAmount),
-    slaDueAt: toStringOrNull(value.slaDueAt),
-    slaPausedAt: toStringOrNull(value.slaPausedAt),
-    submittedAt: toStringOrNull(value.submittedAt),
-    assigneeUserId: toStringOrNull(value.assigneeUserId),
-    assigneeName: toStringOrNull(value.assigneeName),
-    createdAt: toStringOrNull(value.createdAt),
-    updatedAt: toStringOrNull(value.updatedAt),
-    currencyCode: toStringOrNull(value.currencyCode),
-    notes: toStringOrNull(value.notes),
-    reasonCode: toStringOrNull(value.reasonCode),
-    rejectionReasonCode: toStringOrNull(value.rejectionReasonCode),
-    resolutionSummary: toStringOrNull(value.resolutionSummary),
-    returnLabelUrl: toStringOrNull(value.returnLabelUrl),
-    returnTrackingNumber: toStringOrNull(value.returnTrackingNumber),
-    returnCarrier: toStringOrNull(value.returnCarrier),
+    vendorName: normalizeOptionalString(value.vendorName),
+    vendorRef: normalizeOptionalString(value.vendorRef),
+    totalClaimedAmount: normalizeOptionalString(value.totalClaimedAmount),
+    totalApprovedAmount: normalizeOptionalString(value.totalApprovedAmount),
+    totalRecoveredAmount: normalizeOptionalString(value.totalRecoveredAmount),
+    slaDueAt: normalizeOptionalString(value.slaDueAt),
+    slaPausedAt: normalizeOptionalString(value.slaPausedAt),
+    submittedAt: normalizeOptionalString(value.submittedAt),
+    assigneeUserId: normalizeOptionalString(value.assigneeUserId),
+    assigneeName: normalizeOptionalString(value.assigneeName),
+    createdAt: normalizeOptionalString(value.createdAt),
+    updatedAt: normalizeOptionalString(value.updatedAt),
+    currencyCode: normalizeOptionalString(value.currencyCode),
+    notes: normalizeOptionalString(value.notes),
+    reasonCode: normalizeOptionalString(value.reasonCode),
+    rejectionReasonCode: normalizeOptionalString(value.rejectionReasonCode),
+    resolutionSummary: normalizeOptionalString(value.resolutionSummary),
+    returnLabelUrl: normalizeOptionalString(value.returnLabelUrl),
+    returnTrackingNumber: normalizeOptionalString(value.returnTrackingNumber),
+    returnCarrier: normalizeOptionalString(value.returnCarrier),
   }
 }
 
 function normalizeLine(value: unknown): ClaimLine | null {
   if (!isRecord(value)) return null
-  const id = toStringOrNull(value.id)
+  const id = normalizeOptionalString(value.id)
   if (!id) return null
   return {
     id,
-    claimId: toStringOrNull(value.claimId),
-    lineNo: toNumberOrNull(value.lineNo),
-    productId: toStringOrNull(value.productId),
-    variantId: toStringOrNull(value.variantId),
-    productName: toStringOrNull(value.productName),
-    orderLineId: toStringOrNull(value.orderLineId),
-    sku: toStringOrNull(value.sku),
-    serialNumber: toStringOrNull(value.serialNumber),
-    purchaseDate: toStringOrNull(value.purchaseDate),
-    warrantyMonths: toNumberOrNull(value.warrantyMonths),
-    faultCode: toStringOrNull(value.faultCode),
-    faultDescription: toStringOrNull(value.faultDescription),
-    qtyClaimed: toStringOrNull(value.qtyClaimed),
-    qtyApproved: toStringOrNull(value.qtyApproved),
-    qtyReceived: toStringOrNull(value.qtyReceived),
-    disposition: toStringOrNull(value.disposition),
-    lineStatus: toStringOrNull(value.lineStatus),
-    creditAmount: toStringOrNull(value.creditAmount),
-    restockingFee: toStringOrNull(value.restockingFee),
-    coreChargeAmount: toStringOrNull(value.coreChargeAmount),
-    coreCreditAmount: toStringOrNull(value.coreCreditAmount),
-    vendorClaimLineId: toStringOrNull(value.vendorClaimLineId),
-    conditionOnReceipt: toStringOrNull(value.conditionOnReceipt),
-    conditionGrade: toStringOrNull(value.conditionGrade),
-    quarantineStatus: toStringOrNull(value.quarantineStatus),
-    inspectionNotes: toStringOrNull(value.inspectionNotes),
+    claimId: normalizeOptionalString(value.claimId),
+    lineNo: toFiniteNumberOrNull(value.lineNo),
+    productId: normalizeOptionalString(value.productId),
+    variantId: normalizeOptionalString(value.variantId),
+    productName: normalizeOptionalString(value.productName),
+    orderLineId: normalizeOptionalString(value.orderLineId),
+    sku: normalizeOptionalString(value.sku),
+    serialNumber: normalizeOptionalString(value.serialNumber),
+    purchaseDate: normalizeOptionalString(value.purchaseDate),
+    warrantyMonths: toFiniteNumberOrNull(value.warrantyMonths),
+    faultCode: normalizeOptionalString(value.faultCode),
+    faultDescription: normalizeOptionalString(value.faultDescription),
+    qtyClaimed: normalizeOptionalString(value.qtyClaimed),
+    qtyApproved: normalizeOptionalString(value.qtyApproved),
+    qtyReceived: normalizeOptionalString(value.qtyReceived),
+    disposition: normalizeOptionalString(value.disposition),
+    lineStatus: normalizeOptionalString(value.lineStatus),
+    creditAmount: normalizeOptionalString(value.creditAmount),
+    restockingFee: normalizeOptionalString(value.restockingFee),
+    coreChargeAmount: normalizeOptionalString(value.coreChargeAmount),
+    coreCreditAmount: normalizeOptionalString(value.coreCreditAmount),
+    vendorClaimLineId: normalizeOptionalString(value.vendorClaimLineId),
+    conditionOnReceipt: normalizeOptionalString(value.conditionOnReceipt),
+    conditionGrade: normalizeOptionalString(value.conditionGrade),
+    quarantineStatus: normalizeOptionalString(value.quarantineStatus),
+    inspectionNotes: normalizeOptionalString(value.inspectionNotes),
     assessmentPayload: isRecord(value.assessmentPayload) ? value.assessmentPayload : null,
-    updatedAt: toStringOrNull(value.updatedAt),
+    updatedAt: normalizeOptionalString(value.updatedAt),
   }
 }
 
 function normalizeEvent(value: unknown): ClaimEvent | null {
   if (!isRecord(value)) return null
-  const id = toStringOrNull(value.id)
+  const id = normalizeOptionalString(value.id)
   if (!id) return null
   return {
     id,
-    kind: toStringOrNull(value.kind) ?? 'system',
-    visibility: toStringOrNull(value.visibility) ?? 'internal',
-    body: toStringOrNull(value.body),
+    kind: normalizeOptionalString(value.kind) ?? 'system',
+    visibility: normalizeOptionalString(value.visibility) ?? 'internal',
+    body: normalizeOptionalString(value.body),
     payload: isRecord(value.payload) ? value.payload : null,
-    actorUserId: toStringOrNull(value.actorUserId),
-    actorCustomerId: toStringOrNull(value.actorCustomerId),
-    createdAt: toStringOrNull(value.createdAt),
+    actorUserId: normalizeOptionalString(value.actorUserId),
+    actorCustomerId: normalizeOptionalString(value.actorCustomerId),
+    createdAt: normalizeOptionalString(value.createdAt),
   }
 }
 
-function normalizeDictionaryOption(item: unknown): CrudFieldOption | null {
-  if (!isRecord(item)) return null
-  const value = toStringOrNull(item.value)
-  if (!value) return null
-  return { value, label: toStringOrNull(item.label) ?? value }
-}
-
 function nullableText(value: unknown): string | null {
-  return toStringOrNull(value)
+  return normalizeOptionalString(value)
 }
 
 function buildConflictError(
@@ -602,18 +583,11 @@ function isDraftReplyNotConfigured(value: unknown): boolean {
 }
 
 function readDraftReply(value: unknown): string | null {
-  return toStringOrNull(readDraftReplyPayload(value).draft)
+  return normalizeOptionalString(readDraftReplyPayload(value).draft)
 }
 
 function readErrorKey(value: unknown): string | null {
-  return isRecord(value) ? toStringOrNull(value.error) : null
-}
-
-function formatAmount(value: string | null, currencyCode: string | null, fallback: string): string {
-  const amount = toNumberOrNull(value)
-  if (amount === null) return fallback
-  if (!currencyCode) return amount.toLocaleString()
-  return new Intl.NumberFormat(undefined, { style: 'currency', currency: currencyCode }).format(amount)
+  return isRecord(value) ? normalizeOptionalString(value.error) : null
 }
 
 function eventIcon(kind: string) {
@@ -990,7 +964,7 @@ export default function WarrantyClaimDetailPage({ params }: { params?: { id?: st
   }, [loadData])
 
   useAppEvent('warranty_claims.claim.*', (event) => {
-    const eventClaimId = toStringOrNull(event.payload.claimId)
+    const eventClaimId = normalizeOptionalString(event.payload.claimId)
     if (eventClaimId === id) void loadData()
   }, [id, loadData])
 
@@ -1000,7 +974,7 @@ export default function WarrantyClaimDetailPage({ params }: { params?: { id?: st
     for (const event of events) {
       if (event.actorUserId) collected.add(event.actorUserId)
       if (event.kind === 'assignment') {
-        const assigneeUserId = toStringOrNull(event.payload?.assigneeUserId)
+        const assigneeUserId = normalizeOptionalString(event.payload?.assigneeUserId)
         if (assigneeUserId) collected.add(assigneeUserId)
       }
     }
@@ -1027,7 +1001,7 @@ export default function WarrantyClaimDetailPage({ params }: { params?: { id?: st
     const controller = new AbortController()
     const idsParam = encodeURIComponent(claimCustomerId)
     const hasMatch = (payload: { items?: unknown[] } | null) =>
-      (payload?.items ?? []).some((item) => isRecord(item) && toStringOrNull(item.id) === claimCustomerId)
+      (payload?.items ?? []).some((item) => isRecord(item) && normalizeOptionalString(item.id) === claimCustomerId)
     const resolveCustomerHref = async (): Promise<string | null> => {
       const people = await apiCall<{ items?: unknown[] }>(
         `/api/customers/people?ids=${idsParam}&pageSize=1`,
@@ -1791,7 +1765,7 @@ export default function WarrantyClaimDetailPage({ params }: { params?: { id?: st
     {
       accessorKey: 'creditAmount',
       header: t('warranty_claims.detail.lines.column.credit'),
-      cell: ({ row }) => formatAmount(row.original.creditAmount, claim?.currencyCode ?? null, noValue),
+      cell: ({ row }) => formatCurrency(row.original.creditAmount, claim?.currencyCode ?? null, { fallback: noValue }),
     },
   ], [allowedDispositions, claim?.currencyCode, linesInlineEditable, noValue, saveLineInlineField, t])
 
@@ -2035,7 +2009,7 @@ export default function WarrantyClaimDetailPage({ params }: { params?: { id?: st
                   <div>
                     <p className="text-xs text-muted-foreground">{t('warranty_claims.detail.totalClaimed')}</p>
                     <p className="mt-1 text-base font-semibold text-foreground">
-                      {formatAmount(claim.totalClaimedAmount, claim.currencyCode, noValue)}
+                      {formatCurrency(claim.totalClaimedAmount, claim.currencyCode, { fallback: noValue })}
                     </p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       {t('warranty_claims.detail.lines.count', { count: lines.length })}
@@ -2044,7 +2018,7 @@ export default function WarrantyClaimDetailPage({ params }: { params?: { id?: st
                   <div className="xl:border-l xl:border-border xl:pl-5">
                     <p className="text-xs text-muted-foreground">{t('warranty_claims.detail.totalApproved')}</p>
                     <p className="mt-1 text-base font-semibold text-foreground">
-                      {formatAmount(claim.totalApprovedAmount, claim.currencyCode, noValue)}
+                      {formatCurrency(claim.totalApprovedAmount, claim.currencyCode, { fallback: noValue })}
                     </p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       {t('warranty_claims.detail.lines.approvedCount', { count: approvedLineCount })}
@@ -2053,7 +2027,7 @@ export default function WarrantyClaimDetailPage({ params }: { params?: { id?: st
                   <div className="xl:border-l xl:border-border xl:pl-5">
                     <p className="text-xs text-muted-foreground">{t('warranty_claims.detail.totalRecovered')}</p>
                     <p className="mt-1 text-base font-semibold text-foreground">
-                      {formatAmount(claim.totalRecoveredAmount, claim.currencyCode, noValue)}
+                      {formatCurrency(claim.totalRecoveredAmount, claim.currencyCode, { fallback: noValue })}
                     </p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       {claim.vendorName ?? t('warranty_claims.detail.lines.noVendorClaims')}

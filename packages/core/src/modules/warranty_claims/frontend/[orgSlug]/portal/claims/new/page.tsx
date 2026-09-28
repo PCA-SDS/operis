@@ -41,6 +41,9 @@ import {
   TroubleshootingWalker,
   type TroubleshootingWalkerGuide,
 } from '../../../../../backend/components/TroubleshootingWalker'
+import { trimToUndefined } from '@open-mercato/shared/lib/string'
+import { CURRENCY_CODE_PATTERN } from '@open-mercato/shared/lib/validation'
+import { formatDate } from '@open-mercato/shared/lib/time'
 
 type Props = { params: { orgSlug: string } }
 
@@ -190,11 +193,6 @@ function createStagedAttachment(file: File): StagedAttachment {
   return { localId: `claim-attachment-${stagedAttachmentId}`, file }
 }
 
-function optionalText(value: string): string | undefined {
-  const trimmed = value.trim()
-  return trimmed.length ? trimmed : undefined
-}
-
 function isPositiveQuantity(value: string): boolean {
   const qtyClaimed = Number(value)
   return Number.isFinite(qtyClaimed) && qtyClaimed > 0
@@ -213,17 +211,6 @@ function defaultQuantity(value: string | number | null | undefined): string {
   return String(parsePositiveNumber(value) ?? 1)
 }
 
-function formatDate(value: string | null, fallback: string, locale: string): string {
-  if (!value) return fallback
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleDateString(locale || undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  })
-}
-
 function formatQuantity(value: string | number | null | undefined, fallback: string, locale: string): string {
   const parsed = parsePositiveNumber(value)
   return parsed === null ? fallback : parsed.toLocaleString(locale || undefined)
@@ -232,7 +219,7 @@ function formatQuantity(value: string | number | null | undefined, fallback: str
 function formatOrderTotal(value: string | number | null, currencyCode: string | null, fallback: string, locale: string): string {
   const parsed = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : Number.NaN
   if (!Number.isFinite(parsed)) return fallback
-  if (currencyCode && /^[A-Z]{3}$/.test(currencyCode)) {
+  if (currencyCode && CURRENCY_CODE_PATTERN.test(currencyCode)) {
     return new Intl.NumberFormat(locale || undefined, { style: 'currency', currency: currencyCode }).format(parsed)
   }
   const formatted = parsed.toLocaleString(locale || undefined)
@@ -246,12 +233,12 @@ function optionLabel(options: PortalOption[], value: string): string {
 function isBlankLineDraft(line: LineDraft): boolean {
   return !line.orderLineId
     && !line.productId
-    && !optionalText(line.productName ?? '')
-    && !optionalText(line.sku)
-    && !optionalText(line.serialNumber)
-    && !optionalText(line.faultCode)
-    && !optionalText(line.faultDescription)
-    && (!optionalText(line.qtyClaimed) || line.qtyClaimed === '1')
+    && !trimToUndefined(line.productName ?? '')
+    && !trimToUndefined(line.sku)
+    && !trimToUndefined(line.serialNumber)
+    && !trimToUndefined(line.faultCode)
+    && !trimToUndefined(line.faultDescription)
+    && (!trimToUndefined(line.qtyClaimed) || line.qtyClaimed === '1')
 }
 
 function warrantyStatusVariant(status: WarrantyStatus): StatusBadgeVariant {
@@ -673,12 +660,12 @@ export default function WarrantyClaimPortalNewPage({ params }: Props) {
     if (!validateStep('items') || !validateStep('details')) return null
 
     const normalizedLines: PortalClaimLineInput[] = lines.map((line) => ({
-      orderLineId: optionalText(line.orderLineId ?? ''),
-      productId: optionalText(line.productId ?? ''),
-      productName: optionalText(line.productName ?? ''),
-      sku: optionalText(line.sku),
-      serialNumber: optionalText(line.serialNumber),
-      faultCode: optionalText(line.faultCode),
+      orderLineId: trimToUndefined(line.orderLineId ?? ''),
+      productId: trimToUndefined(line.productId ?? ''),
+      productName: trimToUndefined(line.productName ?? ''),
+      sku: trimToUndefined(line.sku),
+      serialNumber: trimToUndefined(line.serialNumber),
+      faultCode: trimToUndefined(line.faultCode),
       faultDescription: line.faultDescription.trim(),
       qtyClaimed: Number(line.qtyClaimed),
       purchaseDate: line.purchaseDate,
@@ -689,9 +676,9 @@ export default function WarrantyClaimPortalNewPage({ params }: Props) {
       // Only a real selected order becomes `orderId` (a UUID). A typed "my order isn't listed"
       // reference travels as free text so the API no longer rejects it as a non-UUID (WQA-002).
       orderId: noOrder ? undefined : (selectedOrderId || undefined),
-      orderReference: noOrder || selectedOrderId ? undefined : optionalText(orderReference),
+      orderReference: noOrder || selectedOrderId ? undefined : trimToUndefined(orderReference),
       reasonCode: reasonCode.trim(),
-      notes: optionalText(notes),
+      notes: trimToUndefined(notes),
       lines: normalizedLines,
     }
   }, [lines, noOrder, notes, orderReference, reasonCode, selectedOrderId, validateStep])
@@ -1014,7 +1001,7 @@ export default function WarrantyClaimPortalNewPage({ params }: Props) {
                         <div className="min-w-0 flex-1">
                           <p className="font-medium text-foreground">{order.orderNumber}</p>
                           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                            <span>{formatDate(order.placedAt, t('warranty_claims.portal.value.notAvailable'), locale)}</span>
+                            <span>{formatDate(order.placedAt, { fallback: t('warranty_claims.portal.value.notAvailable'), locale })}</span>
                             <span>{formatOrderTotal(order.grandTotalGrossAmount, order.currencyCode, t('warranty_claims.portal.value.notAvailable'), locale)}</span>
                           </div>
                         </div>
@@ -1081,7 +1068,7 @@ export default function WarrantyClaimPortalNewPage({ params }: Props) {
                     <h3 className="text-sm font-semibold">{t('warranty_claims.portal.new.orderLinesTitle')}</h3>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {selectedOrderNumber}
-                      {selectedOrderPlacedAt ? ` - ${formatDate(selectedOrderPlacedAt, t('warranty_claims.portal.value.notAvailable'), locale)}` : ''}
+                      {selectedOrderPlacedAt ? ` - ${formatDate(selectedOrderPlacedAt, { fallback: t('warranty_claims.portal.value.notAvailable'), locale })}` : ''}
                     </p>
                   </div>
                   {orderLinesLoading ? <Spinner /> : null}
@@ -1318,7 +1305,7 @@ export default function WarrantyClaimPortalNewPage({ params }: Props) {
                     <div>
                       <dt className="text-xs text-muted-foreground">{t('warranty_claims.portal.new.productOrSku')}</dt>
                       <dd className="mt-1 font-medium">
-                        {optionalText(line.productName ?? '') ?? optionalText(line.sku) ?? t('warranty_claims.portal.value.notAvailable')}
+                        {trimToUndefined(line.productName ?? '') ?? trimToUndefined(line.sku) ?? t('warranty_claims.portal.value.notAvailable')}
                       </dd>
                     </div>
                     <div>

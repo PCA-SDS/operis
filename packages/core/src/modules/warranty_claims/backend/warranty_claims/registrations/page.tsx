@@ -26,6 +26,8 @@ import { REGISTRATION_COVERAGE_TYPES, REGISTRATION_SOURCES } from '../../../data
 import { normalizeRegistration, type RegistrationRecord } from './registrationForm'
 import { WarrantyWorkspace } from '../../components/WarrantyWorkspace'
 import { extensionPoints } from '../../../extension-points'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
+import { formatDate } from '@open-mercato/shared/lib/time'
 
 type RegistrationsResponse = {
   items?: unknown[]
@@ -37,12 +39,8 @@ type RegistrationsResponse = {
 const PAGE_SIZE = 20
 type RegistrationSegment = 'all' | 'standard' | 'extended' | 'expiring' | 'none'
 
-function toStringOrNull(value: unknown): string | null {
-  return typeof value === 'string' && value.trim().length ? value.trim() : null
-}
-
 function getCustomerDisplayName(record: Record<string, unknown>): string | null {
-  return toStringOrNull(record.display_name) ?? toStringOrNull(record.displayName)
+  return normalizeOptionalString(record.display_name) ?? normalizeOptionalString(record.displayName)
 }
 
 function useCustomerDisplayNames(customerIds: readonly (string | null | undefined)[]): Record<string, string> {
@@ -52,7 +50,7 @@ function useCustomerDisplayNames(customerIds: readonly (string | null | undefine
   React.useEffect(() => {
     const unresolvedIds = new Set<string>()
     for (const customerId of customerIds) {
-      const normalized = toStringOrNull(customerId)
+      const normalized = normalizeOptionalString(customerId)
       if (normalized && !resolvedCustomerIdsRef.current.has(normalized)) {
         unresolvedIds.add(normalized)
       }
@@ -78,7 +76,7 @@ function useCustomerDisplayNames(customerIds: readonly (string | null | undefine
       .then(([people, companies]) => {
         const nextNames: Record<string, string> = {}
         for (const record of [...(people.items ?? []), ...(companies.items ?? [])]) {
-          const customerId = toStringOrNull(record.id)
+          const customerId = normalizeOptionalString(record.id)
           const displayName = getCustomerDisplayName(record)
           if (customerId && displayName) nextNames[customerId] = displayName
         }
@@ -117,12 +115,6 @@ function registrationSegmentQuery(segment: RegistrationSegment): Record<string, 
   if (segment === 'standard' || segment === 'extended' || segment === 'none') return { coverageType: segment }
   if (segment === 'expiring') return { expiry: 'expiring_30d' }
   return {}
-}
-
-function formatDate(value: string | null, locale: string): string | null {
-  if (!value) return null
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? null : date.toLocaleDateString(locale || undefined)
 }
 
 function hasExpired(value: string | null): boolean {
@@ -172,11 +164,11 @@ export default function WarrantyClaimRegistrationsPage() {
       sortDir: 'desc',
     })
     if (search.trim()) params.set('search', search.trim())
-    const coverageType = toStringOrNull(filterValues.coverageType)
+    const coverageType = normalizeOptionalString(filterValues.coverageType)
     if (coverageType) params.set('coverageType', coverageType)
-    const source = toStringOrNull(filterValues.source)
+    const source = normalizeOptionalString(filterValues.source)
     if (source) params.set('source', source)
-    const expiry = toStringOrNull(filterValues.expiry)
+    const expiry = normalizeOptionalString(filterValues.expiry)
     if (expiry) params.set('expiry', expiry)
     return params.toString()
   }, [filterValues, page, search])
@@ -425,7 +417,7 @@ export default function WarrantyClaimRegistrationsPage() {
         header: t('warranty_claims.registrations.list.column.warrantyExpiry', 'Warranty expiry'),
         cell: ({ row }) => (
           <span className={hasExpired(row.original.warrantyExpiresAt) ? 'text-sm text-status-error-text' : 'text-sm text-muted-foreground'}>
-            {formatDate(row.original.warrantyExpiresAt, locale) ?? t('warranty_claims.common.noValue', 'Not set')}
+            {formatDate(row.original.warrantyExpiresAt, { locale }) ?? t('warranty_claims.common.noValue', 'Not set')}
           </span>
         ),
       },
@@ -438,13 +430,13 @@ export default function WarrantyClaimRegistrationsPage() {
     ]
   }, [customerNames, locale, t])
 
-  const activeTab = toStringOrNull(filterValues.coverageType) === 'standard'
+  const activeTab = normalizeOptionalString(filterValues.coverageType) === 'standard'
     ? 'standard'
-    : toStringOrNull(filterValues.coverageType) === 'extended'
+    : normalizeOptionalString(filterValues.coverageType) === 'extended'
       ? 'extended'
-      : toStringOrNull(filterValues.coverageType) === 'none'
+      : normalizeOptionalString(filterValues.coverageType) === 'none'
         ? 'none'
-        : toStringOrNull(filterValues.expiry) === 'expiring_30d'
+        : normalizeOptionalString(filterValues.expiry) === 'expiring_30d'
           ? 'expiring'
           : 'all'
 

@@ -4,16 +4,13 @@ import type { CrudFieldOption } from '@open-mercato/ui/backend/CrudForm'
 import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import type { TranslateFn } from '@open-mercato/shared/lib/i18n/context'
 import { localizeDictionaryLabel } from '../../lib/dictionaryLabels'
+import { isRecord } from '@open-mercato/shared/lib/guards'
 
 const CLAIM_REASON_DICTIONARY_KEY = 'warranty_claims.warranty_claim_reason'
 
 type DictionaryListItem = {
   id?: string
   key?: string
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
 function toStringOrNull(value: unknown): string | null {
