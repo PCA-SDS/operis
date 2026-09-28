@@ -30,13 +30,11 @@
 import type { AwilixContainer } from 'awilix'
 import { CrudHttpError, isCrudHttpError } from './errors'
 import {
-  OPTIMISTIC_LOCK_CONFLICT_CODE,
-  OPTIMISTIC_LOCK_CONFLICT_ERROR,
   OPTIMISTIC_LOCK_ENV_VAR,
   OPTIMISTIC_LOCK_HEADER_NAME,
-  type OptimisticLockConflictBody,
 } from './optimistic-lock-headers'
 import {
+  buildOptimisticLockConflictBody,
   normalizeIsoToken,
   parseOptimisticLockEnv,
   type OptimisticLockConfig,
@@ -83,18 +81,6 @@ export function readOptimisticLockExpected(
   const direct = headers.get(OPTIMISTIC_LOCK_HEADER_NAME)
   if (typeof direct === 'string' && direct.trim().length > 0) return direct.trim()
   return null
-}
-
-export function buildOptimisticLockConflictBody(
-  currentIso: string,
-  expectedIso: string,
-): OptimisticLockConflictBody {
-  return {
-    error: OPTIMISTIC_LOCK_CONFLICT_ERROR,
-    code: OPTIMISTIC_LOCK_CONFLICT_CODE,
-    currentUpdatedAt: currentIso,
-    expectedUpdatedAt: expectedIso,
-  }
 }
 
 export type AssertOptimisticLockInput = {
