@@ -9,14 +9,10 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import type { CommandBus } from '@open-mercato/shared/lib/commands'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import type { RbacService } from '@open-mercato/core/modules/auth/services/rbacService'
-import { serializeOperationMetadata } from '@open-mercato/shared/lib/commands/operationMetadata'
+import { attachOperationMetadataHeader } from '@open-mercato/shared/lib/commands/operationMetadata'
 import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { z } from 'zod'
 import { resolveLabelActorUserId } from '../auth'
-import {
-  runCrudMutationGuardAfterSuccess,
-  validateCrudMutationGuard,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
 import {
   createMissingCustomerLabelTablesError,
   isMissingCustomerLabelTable,
@@ -24,6 +20,8 @@ import {
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { resolveRequiredFeature, resolveResourceKind } from '../assignment'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const logger = createLogger('customers')
 
@@ -34,15 +32,6 @@ export const metadata = {
 const labelAssignmentRequestSchema = labelAssignmentSchema.extend({
   organizationId: z.string().uuid().optional(),
 })
-
-function resolveResourceKind(kind: 'person' | 'company' | null | undefined): string {
-  if (kind === 'company') return 'customers.company'
-  return 'customers.person'
-}
-
-function resolveRequiredFeature(kind: 'person' | 'company' | null | undefined): string {
-  return kind === 'company' ? 'customers.companies.manage' : 'customers.people.manage'
-}
 
 export async function POST(req: Request) {
   try {
@@ -98,19 +87,14 @@ export async function POST(req: Request) {
       throw new CrudHttpError(403, { error: translate('customers.errors.access_denied', 'Access denied') })
     }
 
-    const guardResult = await validateCrudMutationGuard(container, {
-      tenantId: auth.tenantId,
-      organizationId,
-      userId: actorUserId,
-      resourceKind,
-      resourceId: body.entityId,
-      operation: 'custom',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      mutationPayload: body,
+    const guardResult = await runRouteMutationGuards({
+      container,
+      req,
+      auth: { userId: actorUserId, tenantId: auth.tenantId, organizationId },
+      input: { resourceKind, resourceId: body.entityId, operation: 'custom', mutationPayload: body },
     })
-    if (guardResult && !guardResult.ok) {
-      return NextResponse.json(guardResult.body, { status: guardResult.status })
+    if (!guardResult.ok) {
+      return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
     }
 
     const commandInput = labelAssignCommandSchema.parse({
@@ -136,34 +120,14 @@ export async function POST(req: Request) {
       },
     )
 
-    if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-      await runCrudMutationGuardAfterSuccess(container, {
-        tenantId: auth.tenantId,
-        organizationId,
-        userId: actorUserId,
-        resourceKind,
-        resourceId: body.entityId,
-        operation: 'custom',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
-        metadata: guardResult.metadata ?? null,
-      })
-    }
+    await guardResult.runAfterSuccess()
 
     const response = NextResponse.json({ id: result.assignmentId }, { status: result.created ? 201 : 200 })
-    if (result.created && logEntry?.undoToken && logEntry.id && logEntry.commandId) {
-      response.headers.set(
-        'x-om-operation',
-        serializeOperationMetadata({
-          id: logEntry.id,
-          undoToken: logEntry.undoToken,
-          commandId: logEntry.commandId,
-          actionLabel: logEntry.actionLabel ?? null,
-          resourceKind: logEntry.resourceKind ?? 'customers.labelAssignment',
-          resourceId: logEntry.resourceId ?? result.assignmentId,
-          executedAt: logEntry.createdAt instanceof Date ? logEntry.createdAt.toISOString() : new Date().toISOString(),
-        }),
-      )
+    if (result.created) {
+      attachOperationMetadataHeader(response, logEntry, {
+        resourceKind: 'customers.labelAssignment',
+        resourceId: result.assignmentId,
+      })
     }
     return response
   } catch (err) {

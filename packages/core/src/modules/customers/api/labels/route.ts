@@ -9,7 +9,7 @@ import { CrudHttpError, isCrudHttpError } from '@open-mercato/shared/lib/crud/er
 import type { EntityManager, FilterQuery } from '@mikro-orm/postgresql'
 import type { CommandBus } from '@open-mercato/shared/lib/commands'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
-import { serializeOperationMetadata } from '@open-mercato/shared/lib/commands/operationMetadata'
+import { attachOperationMetadataHeader } from '@open-mercato/shared/lib/commands/operationMetadata'
 import { findWithDecryption, findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { decryptEntitiesWithFallbackScope } from '@open-mercato/shared/lib/encryption/subscriber'
 import { mapWithConcurrency } from '@open-mercato/shared/lib/query/bounded-decrypt'
@@ -17,16 +17,15 @@ import { resolveEncryptedSortMaxRows, sortRowsInMemory } from '@open-mercato/sha
 import { SortDir } from '@open-mercato/shared/lib/query/types'
 import { resolveLabelActorUserId } from './auth'
 import {
-  runCrudMutationGuardAfterSuccess,
-  validateCrudMutationGuard,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
-import {
   createMissingCustomerLabelTablesError,
   isMissingCustomerLabelTable,
 } from './table-errors'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { slugifyLabel } from '../../lib/detailHelpers'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const logger = createLogger('customers')
 
@@ -41,8 +40,7 @@ const querySchema = z.object({
   entityId: z.string().uuid().optional(),
   organizationId: z.string().uuid().optional(),
   ids: z.string().optional(),
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(50),
+  ...paginationQuerySchema().shape,
   search: z.string().optional(),
 })
 
@@ -175,14 +173,6 @@ export async function GET(req: Request) {
   }
 }
 
-function slugifyLabel(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-}
-
 export async function POST(req: Request) {
   try {
     const { translate } = await resolveTranslations()
@@ -206,19 +196,19 @@ export async function POST(req: Request) {
     }
     const slug = body.slug || slugifyLabel(body.label)
 
-    const guardResult = await validateCrudMutationGuard(container, {
-      tenantId: auth.tenantId,
-      organizationId,
-      userId: actorUserId,
-      resourceKind: 'customers.label',
-      resourceId: organizationId,
-      operation: 'custom',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      mutationPayload: body,
+    const guardResult = await runRouteMutationGuards({
+      container,
+      req,
+      auth: { userId: actorUserId, tenantId: auth.tenantId, organizationId },
+      input: {
+        resourceKind: 'customers.label',
+        resourceId: organizationId,
+        operation: 'custom',
+        mutationPayload: body,
+      },
     })
-    if (guardResult && !guardResult.ok) {
-      return NextResponse.json(guardResult.body, { status: guardResult.status })
+    if (!guardResult.ok) {
+      return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
     }
 
     const commandInput = labelCreateCommandSchema.parse({
@@ -245,39 +235,17 @@ export async function POST(req: Request) {
       },
     )
 
-    if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-      await runCrudMutationGuardAfterSuccess(container, {
-        tenantId: auth.tenantId,
-        organizationId,
-        userId: actorUserId,
-        resourceKind: 'customers.label',
-        resourceId: organizationId,
-        operation: 'custom',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
-        metadata: guardResult.metadata ?? null,
-      })
-    }
+    await guardResult.runAfterSuccess()
 
     const response = NextResponse.json({
       id: result.labelId,
       slug: result.slug,
       label: result.label,
     }, { status: 201 })
-    if (logEntry?.undoToken && logEntry.id && logEntry.commandId) {
-      response.headers.set(
-        'x-om-operation',
-        serializeOperationMetadata({
-          id: logEntry.id,
-          undoToken: logEntry.undoToken,
-          commandId: logEntry.commandId,
-          actionLabel: logEntry.actionLabel ?? null,
-          resourceKind: logEntry.resourceKind ?? 'customers.label',
-          resourceId: logEntry.resourceId ?? result.labelId,
-          executedAt: logEntry.createdAt instanceof Date ? logEntry.createdAt.toISOString() : new Date().toISOString(),
-        }),
-      )
-    }
+    attachOperationMetadataHeader(response, logEntry, {
+      resourceKind: 'customers.label',
+      resourceId: result.labelId,
+    })
     return response
   } catch (err) {
     if (isMissingCustomerLabelTable(err)) {
