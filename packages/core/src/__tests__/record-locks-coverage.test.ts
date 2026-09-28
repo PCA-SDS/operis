@@ -103,7 +103,7 @@ const RECORD_LOCKS_DECISIONS: Record<string, RecordLockDecision> = {
   'feature_toggles:FeatureToggle': { status: 'exempt', resourceKind: '', reason: 'OSS-floor-only — the global FeatureToggle is a non-tenant, superadmin-only entity; record_locks enrichment is tenant/org-scoped, so the global toggle stays guarded by the OSS `updated_at` floor only (no presence). Per-tenant overrides ARE command-guarded (feature_toggles:FeatureToggleOverride, Phase 6b).' },
 
   // --- workflows ---
-  'workflows:WorkflowDefinition': { status: 'enabled', resourceKind: 'workflows.definition', reason: 'enabled — Phase 6; form detail + visual editor presence; route uses validateCrudMutationGuard + generic reader (floor + record_locks).' },
+  'workflows:WorkflowDefinition': { status: 'enabled', resourceKind: 'workflows.definition', reason: 'enabled — Phase 6; form detail + visual editor presence; route uses runRouteMutationGuards + generic reader (floor + record_locks).' },
 
   // --- directory ---
   'directory:Organization': { status: 'enabled', resourceKind: 'directory.organization', reason: 'enabled — Phase 5; presence + CRUD decorator (admin view).' },

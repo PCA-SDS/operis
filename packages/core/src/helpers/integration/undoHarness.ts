@@ -1,6 +1,10 @@
 import { type APIRequestContext, type APIResponse, expect, test } from '@playwright/test'
 import { randomInt } from 'node:crypto'
 import { parseBooleanWithDefault } from '@open-mercato/shared/lib/boolean'
+import {
+  deserializeOperationMetadata,
+  OPERATION_METADATA_HEADER_NAME,
+} from '@open-mercato/shared/lib/commands/operationMetadata'
 import { apiRequest } from './api'
 import { expectId, readJsonSafe } from './generalFixtures'
 
@@ -13,7 +17,6 @@ import { expectId, readJsonSafe } from './generalFixtures'
  * the real undo/redo endpoints so tests can assert full state restoration per TC-UNDO-001.
  */
 
-const HEADER_PREFIX = 'omop:'
 const UNDO_PATH = '/api/audit_logs/audit-logs/actions/undo'
 const REDO_PATH = '/api/audit_logs/audit-logs/actions/redo'
 const ACTIONS_PATH = '/api/audit_logs/audit-logs/actions'
@@ -49,22 +52,14 @@ export function skipIfUndoTestsDisabled(): void {
 
 /** Parse the `x-om-operation` header into a structured operation, or null when absent/malformed. */
 export function extractOperation(response: APIResponse): Operation | null {
-  const header = response.headers()['x-om-operation']
-  if (!header || typeof header !== 'string') return null
-  const trimmed = header.startsWith(HEADER_PREFIX) ? header.slice(HEADER_PREFIX.length) : header
-  try {
-    const parsed = JSON.parse(decodeURIComponent(trimmed)) as Record<string, unknown>
-    if (typeof parsed.id !== 'string' || typeof parsed.commandId !== 'string') return null
-    if (typeof parsed.undoToken !== 'string' || !parsed.undoToken) return null
-    return {
-      logId: parsed.id,
-      undoToken: parsed.undoToken,
-      commandId: parsed.commandId,
-      resourceKind: (parsed.resourceKind as string) ?? null,
-      resourceId: (parsed.resourceId as string) ?? null,
-    }
-  } catch {
-    return null
+  const parsed = deserializeOperationMetadata(response.headers()[OPERATION_METADATA_HEADER_NAME])
+  if (!parsed) return null
+  return {
+    logId: parsed.id,
+    undoToken: parsed.undoToken,
+    commandId: parsed.commandId,
+    resourceKind: parsed.resourceKind,
+    resourceId: parsed.resourceId,
   }
 }
 
