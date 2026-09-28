@@ -47,6 +47,10 @@ merge is not possible. Changes are ported one upstream commit at a time.
 - **Scaffold-template tests** stay guarded by `whenTemplatePresent()`.
 - **Load effects cancel their requests.** New upstream effects that fetch data get an
   `AbortController` (Operis guard `list-load-request-cancellation`).
+- **Migration reindex imports use absolute paths.** MikroORM 7.1.9 reports a migration's path
+  relative to the app folder, and `import()` resolves a relative path against the CLI build
+  folder instead, so the #5819 reindex step could not read any declaration. The reader now
+  resolves the path first.
 - **Operis-only locales** (`vi`, `fr`, `zh`) receive new keys through
   `yarn i18n:check-sync --fix`, which fills English text as a placeholder to translate.
 
