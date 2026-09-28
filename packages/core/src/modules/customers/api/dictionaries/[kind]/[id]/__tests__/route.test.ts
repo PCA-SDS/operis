@@ -1,6 +1,5 @@
-jest.mock('@open-mercato/shared/lib/crud/mutation-guard', () => ({
-  validateCrudMutationGuard: jest.fn(async () => null),
-  runCrudMutationGuardAfterSuccess: jest.fn(async () => undefined),
+jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
+  runRouteMutationGuards: jest.fn(async () => ({ ok: true, runAfterSuccess: async () => undefined })),
 }))
 
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'

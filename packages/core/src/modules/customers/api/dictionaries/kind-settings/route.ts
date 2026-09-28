@@ -8,18 +8,15 @@ import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import type { CommandBus } from '@open-mercato/shared/lib/commands'
-import {
-  runCrudMutationGuardAfterSuccess,
-  validateCrudMutationGuard,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
-import { resolveAuthActorId } from '@open-mercato/core/modules/customers/lib/interactionRequestContext'
+import { resolveAuthActorId } from '@open-mercato/shared/lib/auth/actor'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
-import { serializeOperationMetadata } from '@open-mercato/shared/lib/commands/operationMetadata'
+import { attachOperationMetadataHeader } from '@open-mercato/shared/lib/commands/operationMetadata'
 import {
   customerKindSettingsUpsertSchema,
   type CustomerKindSettingsUpsertInput,
 } from '../../../data/validators'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const logger = createLogger('customers')
 
@@ -106,19 +103,19 @@ export async function PATCH(req: Request) {
     }
     const payload = patchSchema.parse(await readJsonSafe(req, {}))
     const guardUserId = resolveAuthActorId(context.auth!)
-    const guardResult = await validateCrudMutationGuard(context.container, {
-      tenantId: context.tenantId,
-      organizationId: context.organizationId,
-      userId: guardUserId,
-      resourceKind: 'customers.settings',
-      resourceId: context.organizationId,
-      operation: 'custom',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      mutationPayload: payload,
+    const guardResult = await runRouteMutationGuards({
+      container: context.container,
+      req,
+      auth: { userId: guardUserId, tenantId: context.tenantId, organizationId: context.organizationId },
+      input: {
+        resourceKind: 'customers.settings',
+        resourceId: context.organizationId,
+        operation: 'custom',
+        mutationPayload: payload,
+      },
     })
-    if (guardResult && !guardResult.ok) {
-      return NextResponse.json(guardResult.body, { status: guardResult.status })
+    if (!guardResult.ok) {
+      return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
     }
 
     const commandInput: CustomerKindSettingsUpsertInput = customerKindSettingsUpsertSchema.parse({
@@ -146,19 +143,7 @@ export async function PATCH(req: Request) {
       ctx: context.ctx,
     })
 
-    if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-      await runCrudMutationGuardAfterSuccess(context.container, {
-        tenantId: context.tenantId,
-        organizationId: context.organizationId,
-        userId: guardUserId,
-        resourceKind: 'customers.settings',
-        resourceId: context.organizationId,
-        operation: 'custom',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
-        metadata: guardResult.metadata ?? null,
-      })
-    }
+    await guardResult.runAfterSuccess()
 
     const response = NextResponse.json({
       id: result.settingId,
@@ -167,20 +152,10 @@ export async function PATCH(req: Request) {
       visibleInTags: result.visibleInTags,
       sortOrder: result.sortOrder,
     })
-    if (logEntry?.undoToken && logEntry.id && logEntry.commandId) {
-      response.headers.set(
-        'x-om-operation',
-        serializeOperationMetadata({
-          id: logEntry.id,
-          undoToken: logEntry.undoToken,
-          commandId: logEntry.commandId,
-          actionLabel: logEntry.actionLabel ?? null,
-          resourceKind: logEntry.resourceKind ?? 'customers.dictionaryKindSetting',
-          resourceId: logEntry.resourceId ?? result.settingId,
-          executedAt: logEntry.createdAt instanceof Date ? logEntry.createdAt.toISOString() : new Date().toISOString(),
-        }),
-      )
-    }
+    attachOperationMetadataHeader(response, logEntry, {
+      resourceKind: 'customers.dictionaryKindSetting',
+      resourceId: result.settingId,
+    })
     return response
   } catch (err) {
     if (isCrudHttpError(err)) {

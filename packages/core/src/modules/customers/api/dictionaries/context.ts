@@ -79,15 +79,6 @@ export type DictionaryRouteContext = {
   ctx: CommandRuntimeContext
 }
 
-export function resolveDictionaryActorId(
-  auth: Awaited<ReturnType<typeof getAuthFromRequest>>,
-): string {
-  if (auth && typeof auth.sub === 'string' && auth.sub.trim().length > 0) return auth.sub
-  if (auth && typeof auth.userId === 'string' && auth.userId.trim().length > 0) return auth.userId
-  if (auth && typeof auth.keyId === 'string' && auth.keyId.trim().length > 0) return auth.keyId
-  return 'system'
-}
-
 export function mapDictionaryKind(kind: string | undefined) {
   const parsed = paramsSchema.parse({ kind })
   const mappedKind = Object.prototype.hasOwnProperty.call(KIND_MAP, parsed.kind)

@@ -6,15 +6,12 @@ import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 import type { CommandBus } from '@open-mercato/shared/lib/commands'
-import {
-  validateCrudMutationGuard,
-  runCrudMutationGuardAfterSuccess,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
 import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
 import { CustomerInteraction } from '../../../../data/entities'
 import type { InteractionUpdateInput } from '../../../../data/validators'
-import { resolveAuthActorId } from '../../../../lib/interactionRequestContext'
+import { resolveAuthActorId } from '@open-mercato/shared/lib/auth/actor'
 import { emitCustomersEvent } from '../../../../events'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 export const metadata = {
   path: '/customers/interactions/[id]/visibility',
@@ -87,18 +84,14 @@ export async function PATCH(req: Request, context: RouteContext): Promise<Respon
 
   const organizationId = interaction.organizationId ?? null
 
-  const guardResult = await validateCrudMutationGuard(container, {
-    tenantId: auth.tenantId,
-    organizationId,
-    userId,
-    resourceKind: 'customers.interaction',
-    resourceId: id,
-    operation: 'custom',
-    requestMethod: req.method,
-    requestHeaders: req.headers,
+  const guardResult = await runRouteMutationGuards({
+    container,
+    req,
+    auth: { userId, tenantId: auth.tenantId, organizationId },
+    input: { resourceKind: 'customers.interaction', resourceId: id, operation: 'custom' },
   })
-  if (guardResult && !guardResult.ok) {
-    return NextResponse.json(guardResult.body, { status: guardResult.status })
+  if (!guardResult.ok) {
+    return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
   }
 
   // No-op: visibility is already at the requested value.
@@ -128,19 +121,7 @@ export async function PATCH(req: Request, context: RouteContext): Promise<Respon
     },
   )
 
-  if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-    await runCrudMutationGuardAfterSuccess(container, {
-      tenantId: auth.tenantId,
-      organizationId,
-      userId,
-      resourceKind: 'customers.interaction',
-      resourceId: id,
-      operation: 'custom',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      metadata: guardResult.metadata ?? null,
-    })
-  }
+  await guardResult.runAfterSuccess()
 
   // Emit audit event best-effort — failure must NOT roll back the DB flush.
   try {

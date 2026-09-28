@@ -11,8 +11,8 @@ const em = {
   flush: jest.fn(),
 }
 
-const validateCrudMutationGuardMock = jest.fn()
-const runCrudMutationGuardAfterSuccessMock = jest.fn()
+const runRouteMutationGuardsMock = jest.fn()
+const runAfterSuccessMock = jest.fn()
 const commandBusExecuteMock = jest.fn()
 
 const commandBus = { execute: commandBusExecuteMock }
@@ -36,9 +36,8 @@ jest.mock('../../context', () => ({
   })),
 }))
 
-jest.mock('@open-mercato/shared/lib/crud/mutation-guard', () => ({
-  validateCrudMutationGuard: (...args: unknown[]) => validateCrudMutationGuardMock(...args),
-  runCrudMutationGuardAfterSuccess: (...args: unknown[]) => runCrudMutationGuardAfterSuccessMock(...args),
+jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
+  runRouteMutationGuards: (...args: unknown[]) => runRouteMutationGuardsMock(...args),
 }))
 
 jest.mock('@open-mercato/shared/lib/i18n/server', () => ({
@@ -60,8 +59,8 @@ describe('customer dictionary kind settings route', () => {
       ...payload,
     }))
     em.flush.mockResolvedValue(undefined)
-    validateCrudMutationGuardMock.mockResolvedValue({ ok: true, shouldRunAfterSuccess: true, metadata: { token: 'guard' } })
-    runCrudMutationGuardAfterSuccessMock.mockResolvedValue(undefined)
+    runRouteMutationGuardsMock.mockResolvedValue({ ok: true, runAfterSuccess: runAfterSuccessMock })
+    runAfterSuccessMock.mockResolvedValue(undefined)
     commandBusExecuteMock.mockResolvedValue({
       result: {
         settingId: '44444444-4444-4444-8444-444444444444',
@@ -113,28 +112,18 @@ describe('customer dictionary kind settings route', () => {
 
     expect(metadata.PATCH.requireFeatures).toEqual(['customers.settings.manage'])
     expect(response.status).toBe(200)
-    expect(validateCrudMutationGuardMock).toHaveBeenCalledWith(
-      expect.objectContaining({ resolve: expect.any(Function) }),
+    expect(runRouteMutationGuardsMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        tenantId,
-        organizationId,
-        userId,
-        resourceKind: 'customers.settings',
-        resourceId: organizationId,
-        operation: 'custom',
+        container: expect.objectContaining({ resolve: expect.any(Function) }),
+        auth: expect.objectContaining({ tenantId, organizationId, userId }),
+        input: expect.objectContaining({
+          resourceKind: 'customers.settings',
+          resourceId: organizationId,
+          operation: 'custom',
+        }),
       }),
     )
-    expect(runCrudMutationGuardAfterSuccessMock).toHaveBeenCalledWith(
-      expect.objectContaining({ resolve: expect.any(Function) }),
-      expect.objectContaining({
-        tenantId,
-        organizationId,
-        userId,
-        resourceKind: 'customers.settings',
-        resourceId: organizationId,
-        operation: 'custom',
-      }),
-    )
+    expect(runAfterSuccessMock).toHaveBeenCalled()
     expect(commandBusExecuteMock).toHaveBeenCalledWith(
       'customers.dictionaryKindSettings.upsert',
       expect.objectContaining({

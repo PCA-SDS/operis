@@ -3,8 +3,8 @@ const organizationId = '22222222-2222-4222-8222-222222222222'
 const userId = '33333333-3333-4333-8333-333333333333'
 
 const em = {}
-const validateCrudMutationGuardMock = jest.fn()
-const runCrudMutationGuardAfterSuccessMock = jest.fn()
+const runRouteMutationGuardsMock = jest.fn()
+const runAfterSuccessMock = jest.fn()
 const commandBusExecuteMock = jest.fn()
 const loadCustomerSettingsMock = jest.fn()
 const invalidateDictionaryCacheMock = jest.fn()
@@ -45,9 +45,8 @@ jest.mock('@open-mercato/shared/lib/i18n/server', () => ({
   }),
 }))
 
-jest.mock('@open-mercato/shared/lib/crud/mutation-guard', () => ({
-  validateCrudMutationGuard: (...args: unknown[]) => validateCrudMutationGuardMock(...args),
-  runCrudMutationGuardAfterSuccess: (...args: unknown[]) => runCrudMutationGuardAfterSuccessMock(...args),
+jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
+  runRouteMutationGuards: (...args: unknown[]) => runRouteMutationGuardsMock(...args),
 }))
 
 jest.mock('../../../../commands/settings', () => ({
@@ -64,8 +63,8 @@ describe('customer dictionary sort modes settings route', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     loadCustomerSettingsMock.mockResolvedValue(null)
-    validateCrudMutationGuardMock.mockResolvedValue({ ok: true, shouldRunAfterSuccess: true, metadata: { token: 'guard' } })
-    runCrudMutationGuardAfterSuccessMock.mockResolvedValue(undefined)
+    runRouteMutationGuardsMock.mockResolvedValue({ ok: true, runAfterSuccess: runAfterSuccessMock })
+    runAfterSuccessMock.mockResolvedValue(undefined)
     commandBusExecuteMock.mockResolvedValue({
       result: {
         settingsId: '44444444-4444-4444-8444-444444444444',
@@ -128,20 +127,20 @@ describe('customer dictionary sort modes settings route', () => {
         sources: 'label_desc',
       },
     })
-    expect(validateCrudMutationGuardMock).toHaveBeenCalledWith(
-      container,
+    expect(runRouteMutationGuardsMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        tenantId,
-        organizationId,
-        userId,
-        resourceKind: 'customers.settings',
-        resourceId: organizationId,
-        operation: 'update',
-        mutationPayload: expect.objectContaining({
-          dictionarySortModes: {
-            statuses: 'label_asc',
-            sources: 'label_desc',
-          },
+        container,
+        auth: expect.objectContaining({ tenantId, organizationId, userId }),
+        input: expect.objectContaining({
+          resourceKind: 'customers.settings',
+          resourceId: organizationId,
+          operation: 'update',
+          mutationPayload: expect.objectContaining({
+            dictionarySortModes: {
+              statuses: 'label_asc',
+              sources: 'label_desc',
+            },
+          }),
         }),
       }),
     )
@@ -158,7 +157,7 @@ describe('customer dictionary sort modes settings route', () => {
         }),
       }),
     )
-    expect(runCrudMutationGuardAfterSuccessMock).toHaveBeenCalled()
+    expect(runAfterSuccessMock).toHaveBeenCalled()
     expect(invalidateDictionaryCacheMock).toHaveBeenCalled()
   })
 })

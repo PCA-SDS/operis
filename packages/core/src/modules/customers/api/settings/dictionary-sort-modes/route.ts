@@ -8,10 +8,6 @@ import type { CommandBus, CommandRuntimeContext } from '@open-mercato/shared/lib
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { CrudHttpError, isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
-import {
-  runCrudMutationGuardAfterSuccess,
-  validateCrudMutationGuard,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
 import type { CacheStrategy } from '@open-mercato/cache'
 import {
   dictionaryEntrySortModeSchema,
@@ -31,6 +27,8 @@ import {
 import { invalidateDictionaryCache } from '../../dictionaries/cache'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { resolveAuthActorId } from '@open-mercato/shared/lib/auth/actor'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const logger = createLogger('customers')
 
@@ -102,14 +100,6 @@ async function resolveSettingsContext(req: Request): Promise<SettingsRouteContex
   }
 }
 
-function resolveActorId(ctx: CommandRuntimeContext): string {
-  const auth = ctx.auth
-  if (auth && typeof auth.sub === 'string' && auth.sub.trim().length > 0) return auth.sub
-  if (auth && typeof auth.userId === 'string' && auth.userId.trim().length > 0) return auth.userId
-  if (auth && typeof auth.keyId === 'string' && auth.keyId.trim().length > 0) return auth.keyId
-  return 'system'
-}
-
 function normalizeDictionarySortModes(value: unknown): Partial<Record<string, DictionaryEntrySortMode>> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
   const result: Partial<Record<string, DictionaryEntrySortMode>> = {}
@@ -176,21 +166,21 @@ export async function PATCH(req: Request) {
     }
     const scoped = withScopedPayload({ dictionarySortModes }, ctx, translate)
     const input = customerDictionarySortModesUpsertSchema.parse(scoped)
-    const userId = resolveActorId(ctx)
+    const userId = resolveAuthActorId(ctx.auth)
 
-    const guardResult = await validateCrudMutationGuard(ctx.container, {
-      tenantId,
-      organizationId,
-      userId,
-      resourceKind: 'customers.settings',
-      resourceId: organizationId,
-      operation: 'update',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      mutationPayload: input,
+    const guardResult = await runRouteMutationGuards({
+      container: ctx.container,
+      req,
+      auth: { userId, tenantId, organizationId },
+      input: {
+        resourceKind: 'customers.settings',
+        resourceId: organizationId,
+        operation: 'update',
+        mutationPayload: input,
+      },
     })
-    if (guardResult && !guardResult.ok) {
-      return NextResponse.json(guardResult.body, { status: guardResult.status })
+    if (!guardResult.ok) {
+      return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
     }
 
     const commandBus = ctx.container.resolve('commandBus') as CommandBus
@@ -201,19 +191,7 @@ export async function PATCH(req: Request) {
 
     await invalidateCustomerDictionarySortCache(cache, tenantId, organizationId, input.dictionarySortModes)
 
-    if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-      await runCrudMutationGuardAfterSuccess(ctx.container, {
-        tenantId,
-        organizationId,
-        userId,
-        resourceKind: 'customers.settings',
-        resourceId: organizationId,
-        operation: 'update',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
-        metadata: guardResult.metadata ?? null,
-      })
-    }
+    await guardResult.runAfterSuccess()
 
     return NextResponse.json({
       dictionarySortModes: normalizeDictionarySortModes(result?.dictionarySortModes ?? input.dictionarySortModes),
