@@ -1,8 +1,8 @@
 "use client"
 import * as React from 'react'
 import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
-import { formatOrganizationTreeLabel } from '../lib/tree'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { formatTreeLabel } from '@open-mercato/shared/lib/tree'
 
 export type OrganizationTreeNode = {
   id: string
@@ -83,7 +83,7 @@ function buildOptions(
           labelKey === 'pathLabel'
             ? (node.pathLabel || node.name || node.id)
             : (node.name || node.pathLabel || node.id)
-        const baseLabel = formatOrganizationTreeLabel(display, nodeDepth)
+        const baseLabel = formatTreeLabel(display, nodeDepth)
         const label = `${baseLabel}${isInactive ? inactiveSuffix : ''}`
         acc.push({
           value: node.id,

@@ -5,6 +5,7 @@ import { getModules } from '@open-mercato/shared/lib/modules/registry'
 import { getOwningModuleId, hasEnabledModulesRegistry } from '@open-mercato/shared/security/enabledModulesRegistry'
 import { TenantModule, Tenant } from '@open-mercato/core/modules/directory/data/entities'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { isStringArray } from '@open-mercato/shared/lib/guards'
 
 const logger = createLogger('directory').child({ component: 'tenant-modules' })
 
@@ -273,10 +274,6 @@ export type TenantModuleState = {
   aiAssistantAvailable: boolean
   /** Whether that assistant is switched on for this tenant. */
   aiAssistantEnabled: boolean
-}
-
-function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((entry) => typeof entry === 'string')
 }
 
 /**

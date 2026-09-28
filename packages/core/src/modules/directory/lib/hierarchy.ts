@@ -197,3 +197,16 @@ export async function rebuildHierarchyForTenant(em: EntityManager, tenantId: str
   await em.flush()
   return hierarchy
 }
+
+export async function resolveOrganizationAndAncestorIds(
+  em: EntityManager,
+  tenantId: string,
+  organizationId: string,
+): Promise<string[]> {
+  const organization = await em.findOne(Organization, {
+    id: organizationId,
+    tenant: tenantId,
+    deletedAt: null,
+  })
+  return Array.from(new Set([organizationId, ...(organization?.ancestorIds ?? [])]))
+}

@@ -19,6 +19,7 @@ import { surfaceRecordConflict } from '@open-mercato/ui/backend/conflicts'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { computeIndent } from '@open-mercato/ui/backend/utils/treeIndent'
 
 type OrganizationRow = {
   id: string
@@ -49,17 +50,9 @@ type OrganizationsResponse = {
   isSuperAdmin?: boolean
 }
 
-const TREE_BASE_INDENT = 18
-const TREE_STEP_INDENT = 14
-
 function formatTreeLabel(name: string, depth: number): string {
   if (depth <= 0) return name
   return `${'\u00A0'.repeat(Math.max(0, (depth - 1) * 2))}↳ ${name}`
-}
-
-function computeIndent(depth: number): number {
-  if (depth <= 0) return 0
-  return TREE_BASE_INDENT + (depth - 1) * TREE_STEP_INDENT
 }
 
 export default function DirectoryOrganizationsPage() {

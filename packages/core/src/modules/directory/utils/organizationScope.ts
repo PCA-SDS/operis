@@ -8,6 +8,8 @@ import type { AuthContext } from '@open-mercato/shared/lib/auth/server'
 import { getCurrentCacheTenant, runWithCacheTenant, type CacheStrategy } from '@open-mercato/cache'
 import { parseSelectedOrganizationCookie, parseSelectedTenantCookie } from './scopeCookies'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
+import { UUID_SHAPE_PATTERN } from '@open-mercato/shared/lib/validation'
 
 const logger = createLogger('directory').child({ component: 'org-scope-cache' })
 
@@ -50,8 +52,6 @@ function resolveOrgScopeTtlMs(): number {
   return parsed
 }
 
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
 /**
  * Both cookie-derived components of the cache key (`om_selected_org`,
  * `om_selected_tenant`) are attacker-controllable: any authenticated user can
@@ -68,7 +68,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 function isPersistableScopeKeyPart(value: string | null): boolean {
   if (value === null) return true
   if (isAllOrganizationsSelection(value)) return true
-  return UUID_PATTERN.test(value)
+  return UUID_SHAPE_PATTERN.test(value)
 }
 
 function buildOrgScopeCacheKey(parts: {
@@ -178,12 +178,6 @@ function getRequestScopeMemo(request: unknown): Map<string, Promise<Organization
   return memo
 }
 
-function normalizeOrganizationId(value: unknown): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  return trimmed.length > 0 ? trimmed : null
-}
-
 export function getSelectedOrganizationFromRequest(req: Request | { cookies?: { get: (name: string) => { value: string } | undefined }; headers?: { get(name: string): string | null } }): string | null {
   const cookieContainer = (req as { cookies?: { get: (name: string) => { value: string } | undefined } }).cookies
   if (cookieContainer && typeof cookieContainer.get === 'function') {
@@ -210,7 +204,7 @@ export function getSelectedTenantFromRequest(
 
 function normalizeOrganizationIds(ids: string[]): string[] {
   return Array.from(new Set(
-    ids.map((value) => normalizeOrganizationId(value)).filter((value): value is string => {
+    ids.map((value) => normalizeOptionalString(value)).filter((value): value is string => {
       if (!value) return false
       if (isAllOrganizationsSelection(value)) return false
       return true
@@ -253,7 +247,7 @@ async function loadOrgDescendantMap(em: EntityManager, tenantId: string, ids: st
 function expandWithDescendants(map: OrgDescendantMap, ids: string[]): Set<string> {
   const set = new Set<string>()
   for (const value of ids) {
-    const id = normalizeOrganizationId(value)
+    const id = normalizeOptionalString(value)
     if (!id || isAllOrganizationsSelection(id)) continue
     const expansion = map.get(id)
     if (!expansion) continue
@@ -283,7 +277,7 @@ async function loadUserMembershipOrganizationIds(
   )
   return Array.from(new Set(
     memberships
-      .map((membership) => normalizeOrganizationId(membership.organizationId))
+      .map((membership) => normalizeOptionalString(membership.organizationId))
       .filter((value): value is string => value !== null),
   ))
 }
@@ -319,13 +313,13 @@ export async function resolveOrganizationScope({
   if (!tenantId) {
     return { selectedId: null, filterIds: null, allowedIds: null, tenantId: null }
   }
-  const normalizedRequestedSelection = normalizeOrganizationId(selectedId)
+  const normalizedRequestedSelection = normalizeOptionalString(selectedId)
   const explicitAllOrgsChoice =
     normalizedRequestedSelection !== null && isAllOrganizationsSelection(normalizedRequestedSelection)
   const normalizedSelectedId = explicitAllOrgsChoice
     ? null
     : normalizedRequestedSelection
-  const contextOrgId = actorTenantId && actorTenantId === tenantId ? normalizeOrganizationId(auth.orgId) : null
+  const contextOrgId = actorTenantId && actorTenantId === tenantId ? normalizeOptionalString(auth.orgId) : null
   const acl = await rbac.loadAcl(auth.sub, { tenantId, organizationId: contextOrgId })
   const aclIsSuperAdmin = acl?.isSuperAdmin === true
   const effectiveSuperAdmin = aclIsSuperAdmin || isSuperAdminActor
@@ -333,7 +327,7 @@ export async function resolveOrganizationScope({
     ? null
     : Array.isArray(acl?.organizations)
       ? acl.organizations
-        .map((value) => normalizeOrganizationId(value))
+        .map((value) => normalizeOptionalString(value))
         .filter((value): value is string => value !== null)
       : null
   const aclOrganizationIds = effectiveSuperAdmin
@@ -346,7 +340,7 @@ export async function resolveOrganizationScope({
     ? []
     : await loadUserMembershipOrganizationIds(em, tenantId, auth.sub)
 
-  const accountOrgId = actorTenantId && actorTenantId === tenantId ? normalizeOrganizationId(auth.orgId) : null
+  const accountOrgId = actorTenantId && actorTenantId === tenantId ? normalizeOptionalString(auth.orgId) : null
   const fallbackOrgId = accountOrgId ?? null
 
   // Every id that could be expanded below — accessible set, fallback (account)
@@ -481,7 +475,7 @@ export async function resolveOrganizationScopeForRequest({
     return null
   }
   if (!em || !rbac) {
-    const fallbackSelected = normalizeOrganizationId(selectedId ?? auth.orgId ?? null)
+    const fallbackSelected = normalizeOptionalString(selectedId ?? auth.orgId ?? null)
     return {
       selectedId: fallbackSelected,
       filterIds: fallbackSelected ? [fallbackSelected] : null,
