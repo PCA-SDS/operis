@@ -16,6 +16,7 @@ import type {
   TaskStatus,
 } from '../data/types'
 import { TASK_STATUSES } from '../data/types'
+import { toLocalDateKey, addDaysToIsoDate } from '@open-mercato/shared/lib/date/format'
 
 export type StatusTone = 'neutral' | 'info' | 'pink' | 'error' | 'warning' | 'success' | 'muted'
 
@@ -129,19 +130,14 @@ export function formatTaskDateTime(iso: string | null | undefined): string {
 }
 
 export function localTodayIso(): string {
-  return localIsoOf(new Date())
+  return toLocalDateKey(new Date())
 }
 
 export function localDayOf(iso: string | null | undefined): string {
   if (!iso) return ''
   const date = new Date(iso)
   if (Number.isNaN(date.getTime())) return ''
-  return localIsoOf(date)
-}
-
-function localIsoOf(date: Date): string {
-  const pad = (value: number) => String(value).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+  return toLocalDateKey(date)
 }
 
 export function isOverdue(iso: string | null | undefined): boolean {
@@ -161,12 +157,6 @@ export function formatTaskTime(hhmm: string | null | undefined): string {
   return `${hour12}:${String(minute).padStart(2, '0')} ${meridiem}`
 }
 
-export function addLocalDays(iso: string, days: number): string {
-  const date = new Date(`${iso}T00:00:00.000Z`)
-  date.setUTCDate(date.getUTCDate() + days)
-  return date.toISOString().slice(0, 10)
-}
-
 export type DayHeadingParts = {
   dayMonth: string
   weekday: string
@@ -182,7 +172,7 @@ export function dayHeadingParts(iso: string): DayHeadingParts | null {
   return {
     dayMonth: date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', timeZone: 'UTC' }),
     weekday: date.toLocaleDateString(undefined, { weekday: 'long', timeZone: 'UTC' }),
-    relative: day === today ? 'today' : day === addLocalDays(today, 1) ? 'tomorrow' : null,
+    relative: day === today ? 'today' : day === addDaysToIsoDate(today, 1) ? 'tomorrow' : null,
   }
 }
 
@@ -191,8 +181,8 @@ export function dueChipRelative(iso: string): 'today' | 'yesterday' | 'tomorrow'
   const today = localTodayIso()
   const day = iso.slice(0, 10)
   if (day === today) return 'today'
-  if (day === addLocalDays(today, -1)) return 'yesterday'
-  if (day === addLocalDays(today, 1)) return 'tomorrow'
+  if (day === addDaysToIsoDate(today, -1)) return 'yesterday'
+  if (day === addDaysToIsoDate(today, 1)) return 'tomorrow'
   return null
 }
 

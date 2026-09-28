@@ -5,7 +5,6 @@ import {
   resolveService,
   resolveTasksRequest,
   runGuardedCommand,
-  searchParamsToObject,
   toErrorResponse,
 } from '../shared'
 import { projectCreateRequestSchema, projectListQuerySchema } from '../../data/validators'
@@ -18,6 +17,7 @@ import {
   projectDetailSchema,
   projectListItemSchema,
 } from '../openapi'
+import { searchParamsToObject } from '@open-mercato/shared/lib/http/query'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['tasks.projects.view'] },

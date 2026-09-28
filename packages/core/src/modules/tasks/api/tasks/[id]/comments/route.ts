@@ -6,7 +6,6 @@ import {
   resolveService,
   resolveTasksRequest,
   runGuardedCommand,
-  searchParamsToObject,
   toErrorResponse,
 } from '../../../shared'
 import { commentListQuerySchema, commentWriteRequestSchema } from '../../../../data/validators'
@@ -14,6 +13,7 @@ import type { CommentService } from '../../../../services/commentService'
 import { COMMON_ERRORS, TASKS_TAG, pagedSchema, taskCommentSchema } from '../../../openapi'
 import { loadPeopleByIds } from '../../../../lib/people'
 import { toCommentDto } from '../../../../services/commentService'
+import { searchParamsToObject } from '@open-mercato/shared/lib/http/query'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['tasks.view'] },

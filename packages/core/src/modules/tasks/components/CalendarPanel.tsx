@@ -21,16 +21,12 @@ import { TaskPanel } from './TaskPanel'
 import { ErrorState } from './ui-bits'
 import { TASK_STATUS_META, browserTimeZone, taskRef } from './format'
 import { useTaskCalendar, useTaskError } from './hooks'
+import { toLocalDateKey } from '@open-mercato/shared/lib/date/format'
 
 /** A task without a wall-clock time occupies a nominal hour on the grid; an
  *  all-day lane would be an extra concept for something that is really "some
  *  time that day". */
 const DEFAULT_SLOT_MINUTES = 60
-
-function isoDay(date: Date): string {
-  const pad = (value: number) => String(value).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
-}
 
 function startOfMonthGrid(reference: Date): ScheduleRange {
   const start = new Date(reference.getFullYear(), reference.getMonth(), 1)
@@ -78,8 +74,8 @@ export function CalendarPanel({ onClose }: { onClose: () => void }) {
 
   const { data, isLoading, error, retry } = useTaskCalendar({
     mode,
-    from: isoDay(range.start),
-    to: isoDay(range.end),
+    from: toLocalDateKey(range.start),
+    to: toLocalDateKey(range.end),
     search,
   })
   const errorMessage = useTaskError(error, t('tasks.common.loadFailed', "This didn't load"))

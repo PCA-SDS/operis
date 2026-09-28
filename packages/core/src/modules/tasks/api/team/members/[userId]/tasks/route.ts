@@ -4,12 +4,12 @@ import {
   jsonOk,
   resolveService,
   resolveTasksRequest,
-  searchParamsToObject,
   toErrorResponse,
 } from '../../../../shared'
 import { teamTasksQuerySchema } from '../../../../../data/validators'
 import type { TeamService } from '../../../../../services/teamService'
 import { COMMON_ERRORS, TASKS_TAG, pagedSchema, taskListItemSchema } from '../../../../openapi'
+import { searchParamsToObject } from '@open-mercato/shared/lib/http/query'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['tasks.team.view'] },

@@ -12,6 +12,7 @@ import { Tabs, TabsList, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
 import { TimePicker, formatTimePickerDisplay } from '@open-mercato/ui/primitives/time-picker'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
+import { toLocalDateKey } from '@open-mercato/shared/lib/date/format'
 
 // The card vocabulary the whole module is built from. Cards sit on
 // `modal-muted` (a raised plane a shade quieter than a dialog) with a shadow
@@ -256,7 +257,7 @@ export function DateInput({
     <DatePicker
       id={id}
       value={parsed && !Number.isNaN(parsed.getTime()) ? parsed : null}
-      onChange={(next) => onChange(next ? isoDayOf(next) : '')}
+      onChange={(next) => onChange(next ? toLocalDateKey(next) : '')}
       disabled={disabled}
       size={variant === 'form' ? 'default' : 'sm'}
       footer="today-clear"
@@ -265,13 +266,6 @@ export function DateInput({
       className={cn(PICKER_BASE[variant], invalid && 'border-destructive text-destructive')}
     />
   )
-}
-
-/** The DatePicker hands back a local `Date`; a due date is a calendar day, so
- *  read the local Y/M/D rather than the UTC ones. */
-function isoDayOf(date: Date): string {
-  const pad = (value: number) => String(value).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
 }
 
 /** Time input over the DS `TimePicker`. The primitive only anchors itself in a
