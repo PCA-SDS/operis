@@ -1,3 +1,5 @@
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
+
 export type SchedulerSafeCommandDefinition = {
   commandId: string
   requiredFeatures: readonly [string, ...string[]]
@@ -13,12 +15,6 @@ export type SchedulerCommandRbacService = {
 
 const schedulerSafeCommands = new Map<string, SchedulerSafeCommandDefinition>()
 
-function normalizeCommandId(commandId: unknown): string | null {
-  if (typeof commandId !== 'string') return null
-  const trimmed = commandId.trim()
-  return trimmed.length > 0 ? trimmed : null
-}
-
 function normalizeFeatures(features: readonly string[]): [string, ...string[]] | null {
   const normalized = features
     .map((feature) => feature.trim())
@@ -28,7 +24,7 @@ function normalizeFeatures(features: readonly string[]): [string, ...string[]] |
 
 export function registerSchedulerSafeCommands(commands: readonly SchedulerSafeCommandDefinition[]): void {
   for (const command of commands) {
-    const commandId = normalizeCommandId(command.commandId)
+    const commandId = normalizeOptionalString(command.commandId)
     const requiredFeatures = normalizeFeatures(command.requiredFeatures)
     if (!commandId || !requiredFeatures) {
       throw new Error('[internal] Scheduler-safe commands require a commandId and requiredFeatures')
@@ -38,7 +34,7 @@ export function registerSchedulerSafeCommands(commands: readonly SchedulerSafeCo
 }
 
 export function getSchedulerSafeCommand(commandId: unknown): SchedulerSafeCommandDefinition | null {
-  const normalized = normalizeCommandId(commandId)
+  const normalized = normalizeOptionalString(commandId)
   if (!normalized) return null
   return schedulerSafeCommands.get(normalized) ?? null
 }
@@ -63,7 +59,7 @@ export async function assertSchedulerSafeCommandAuthorized(params: {
     throw new Error('Scheduled command is not allowed')
   }
 
-  const actorUserId = normalizeCommandId(params.actorUserId)
+  const actorUserId = normalizeOptionalString(params.actorUserId)
   if (!actorUserId) {
     throw new Error('Scheduled command requires an authenticated creator')
   }

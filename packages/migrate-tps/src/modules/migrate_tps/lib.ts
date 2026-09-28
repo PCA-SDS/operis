@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import * as pg from 'pg'
 
 export function parseTpsMigrateFlags(rest: string[]): { tenantId: string | undefined; organizationId: string | undefined; replace: boolean } {
   let tenantId: string | undefined
@@ -112,3 +113,19 @@ export const TPS_LOCATION_MAPPING: TpsLocationMapping[] = [
   { tpsKey: 'phuMyHung',  orgName: 'Phú Mỹ Hưng', slug: 'phu-my-hung' },
   { tpsKey: 'hoanKiem',   orgName: 'Hoàn Kiếm',   slug: 'hoan-kiem' },
 ]
+
+export type Client = InstanceType<typeof pg.Client>
+
+export async function connectTps(url: string): Promise<Client> {
+  const isLocalhost = url.includes('localhost') || url.includes('127.0.0.1')
+  const client = new pg.Client({
+    connectionString: url,
+    ssl: isLocalhost ? false : { rejectUnauthorized: false },
+  })
+  await client.connect()
+  return client
+}
+
+export async function queryTps<T>(client: Client, text: string): Promise<{ rows: T[] }> {
+  return (await client.query(text)) as unknown as { rows: T[] }
+}

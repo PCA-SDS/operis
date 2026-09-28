@@ -11,9 +11,7 @@ import { CustomerEntity } from '@open-mercato/core/modules/customers/data/entiti
 import { CatalogProduct, CatalogProductCategoryAssignment, CatalogProductOption, CatalogProductOptionGroup, CatalogProductPrice, CatalogProductVariant } from '@open-mercato/core/modules/catalog/data/entities'
 import { ResourcesAssignment, ResourcesResource } from '@open-mercato/core/modules/resources/data/entities'
 import { StaffTeamMember } from '@open-mercato/core/modules/staff/data/entities'
-import { TPS_LOCATION_MAPPING } from './lib'
-
-type Client = InstanceType<typeof pg.Client>
+import { TPS_LOCATION_MAPPING, queryTps, type Client } from './lib'
 
 type TpsBooking = {
   id: string
@@ -126,10 +124,6 @@ async function connectTps(url: string): Promise<Client> {
   })
   await client.connect()
   return client
-}
-
-async function queryTps<T>(client: Client, text: string): Promise<{ rows: T[] }> {
-  return (await client.query(text)) as unknown as { rows: T[] }
 }
 
 async function ensureStatus(

@@ -1,10 +1,9 @@
 import type { ModuleCli } from '@open-mercato/shared/modules/registry'
 import type { EntityManager } from '@mikro-orm/postgresql'
-import * as pg from 'pg'
 import { randomUUID } from 'crypto'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { createLogger } from '@open-mercato/shared/lib/logger'
-import { parseTpsMigrateFlags, parseTpsCsv } from './lib'
+import { parseTpsMigrateFlags, parseTpsCsv, connectTps, type Client } from './lib'
 import {
   ResourcesResource,
   ResourcesResourceArea,
@@ -15,8 +14,6 @@ import {
   PlannerAvailabilityRuleSet,
   PlannerAvailabilityRule,
 } from '@open-mercato/core/modules/planner/data/entities'
-
-type Client = InstanceType<typeof pg.Client>
 
 const logger = createLogger('migrate_tps')
 
@@ -56,20 +53,6 @@ export interface TpsSeat {
   is_active: boolean | string
   deleted_at: string | null
   created_at?: string | null
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-async function connectTps(url: string): Promise<Client> {
-  const isLocalhost = url.includes('localhost') || url.includes('127.0.0.1')
-  const client = new pg.Client({
-    connectionString: url,
-    ssl: isLocalhost ? false : { rejectUnauthorized: false },
-  })
-  await client.connect()
-  return client
 }
 
 function parseLocationFlag(rest: string[]): string | null {

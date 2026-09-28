@@ -6,6 +6,7 @@ import { ProgressJob } from '@open-mercato/core/modules/progress/data/entities'
 import type { ProgressService, ProgressServiceContext } from '@open-mercato/core/modules/progress/lib/progressService'
 import type { SyncRunService } from '@open-mercato/core/modules/data_sync/lib/sync-run-service'
 import { startDataSyncRun } from '@open-mercato/core/modules/data_sync/lib/start-run'
+import { finiteNumberOrNull } from '@open-mercato/shared/lib/number'
 
 export const AKENEO_FIRST_IMPORT_QUEUE = 'sync-akeneo-first-import'
 
@@ -72,10 +73,6 @@ function readString(value: unknown): string | null {
   return typeof value === 'string' && value.trim().length > 0 ? value : null
 }
 
-function readNumber(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null
-}
-
 function buildSequenceStatus(job: ProgressJob): FirstImportSequenceStatus {
   const meta = (job.meta && typeof job.meta === 'object') ? job.meta : null
   const currentStep = readString(meta?.currentStep)
@@ -95,9 +92,9 @@ function buildSequenceStatus(job: ProgressJob): FirstImportSequenceStatus {
       || currentRunStatus === 'cancelled'
       ? currentRunStatus
       : null,
-    progressPercent: readNumber(meta?.currentRunProgressPercent),
-    processedCount: readNumber(meta?.currentRunProcessedCount),
-    totalCount: readNumber(meta?.currentRunTotalCount),
+    progressPercent: finiteNumberOrNull(meta?.currentRunProgressPercent),
+    processedCount: finiteNumberOrNull(meta?.currentRunProcessedCount),
+    totalCount: finiteNumberOrNull(meta?.currentRunTotalCount),
     errorMessage: job.errorMessage ?? null,
   }
 }

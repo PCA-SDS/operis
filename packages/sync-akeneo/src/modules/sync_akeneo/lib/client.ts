@@ -11,6 +11,7 @@ import {
   type UrlSafetyReason,
 } from '@open-mercato/shared/lib/url-safety'
 import { dedupeStrings, labelFromLocalizedRecord, safeRecord, type AkeneoAttribute, type AkeneoAttributeOption, type AkeneoCategory, type AkeneoChannel, type AkeneoCredentialShape, type AkeneoFamily, type AkeneoFamilyVariant, type AkeneoLocale, type AkeneoProduct, type AkeneoProductModel } from './shared'
+import { sleep } from '@open-mercato/shared/lib/async'
 
 type TokenState = {
   accessToken: string
@@ -241,10 +242,6 @@ function coerceCredentials(credentials: Record<string, unknown>): AkeneoCredenti
     username,
     password,
   }
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 const DEFAULT_AKENEO_REQUEST_TIMEOUT_MS = 30_000

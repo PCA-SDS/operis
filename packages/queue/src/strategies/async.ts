@@ -4,6 +4,7 @@ import type { RedisProtocolVersion } from '@open-mercato/shared/lib/redis/connec
 import { getTelemetryRuntime } from '@open-mercato/shared/lib/telemetry/runtime'
 import { attachTraceMetadata, runJobInTrace } from '../tracing'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { payloadMatchesScope } from './scope'
 
 const packageLogger = createLogger('queue')
 
@@ -65,19 +66,6 @@ interface BullMQModule {
 type BullMQOtelModule = { BullMQOtel: new (tracerName: string) => object }
 
 const REMOVABLE_JOB_STATES = ['waiting', 'delayed', 'prioritized', 'paused', 'waiting-children']
-
-function payloadMatchesScope(payload: unknown, scope: QueueJobScope): boolean {
-  if (!payload || typeof payload !== 'object') return false
-  const scopedPayload = payload as { tenantId?: unknown; organizationId?: unknown; jobType?: unknown }
-  if (scopedPayload.tenantId !== scope.tenantId) return false
-  if (scope.organizationId !== undefined) {
-    if ((scopedPayload.organizationId ?? null) !== scope.organizationId) return false
-  }
-  if (scope.jobTypes?.length) {
-    return typeof scopedPayload.jobType === 'string' && scope.jobTypes.includes(scopedPayload.jobType)
-  }
-  return true
-}
 
 /**
  * Resolves Redis connection options from various sources.

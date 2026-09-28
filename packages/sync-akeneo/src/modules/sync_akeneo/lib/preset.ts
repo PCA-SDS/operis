@@ -1,5 +1,4 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
-import { parseBooleanToken } from '@open-mercato/shared/lib/boolean'
 import { findOneWithDecryption, findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { CatalogPriceKind } from '@open-mercato/core/modules/catalog/data/entities'
 import { SyncMapping } from '@open-mercato/core/modules/data_sync/data/entities'
@@ -16,6 +15,8 @@ import {
   normalizeAkeneoMapping,
   type AkeneoCredentialShape,
 } from './shared'
+import { readBooleanEnv, readEnvValue } from '@open-mercato/shared/lib/env'
+import { inferPriceKindCode } from './fieldKeys'
 
 const AKENEO_INTEGRATION_ID = 'sync_akeneo'
 
@@ -71,14 +72,6 @@ export type ApplyAkeneoPresetResult =
   | { status: 'skipped'; reason: string }
   | { status: 'configured'; discoveryApplied: true }
 
-function readEnvValue(env: NodeJS.ProcessEnv, keys: string[]): string | undefined {
-  for (const key of keys) {
-    const value = env[key]?.trim()
-    if (value) return value
-  }
-  return undefined
-}
-
 function readCsvEnv(env: NodeJS.ProcessEnv, keys: string[]): string[] | undefined {
   const raw = readEnvValue(env, keys)
   if (!raw) return undefined
@@ -87,14 +80,6 @@ function readCsvEnv(env: NodeJS.ProcessEnv, keys: string[]): string[] | undefine
     .map((value) => value.trim())
     .filter((value) => value.length > 0)
   return values.length > 0 ? Array.from(new Set(values)) : undefined
-}
-
-function readBooleanEnv(env: NodeJS.ProcessEnv, keys: string[]): boolean | undefined {
-  for (const key of keys) {
-    const parsed = parseBooleanToken(env[key])
-    if (parsed !== null) return parsed
-  }
-  return undefined
 }
 
 function readJsonEnv(env: NodeJS.ProcessEnv, keys: string[], label: string): Record<string, unknown> | undefined {
@@ -172,16 +157,6 @@ export function readAkeneoEnvPreset(env: NodeJS.ProcessEnv = process.env): Akene
       'OM_INTEGRATION_AKENEO_ATTRIBUTES_SETTINGS_JSON',
     ),
   }
-}
-
-function inferPriceKindCode(attributeCode: string): string {
-  const normalized = attributeCode.trim().toLowerCase()
-  return normalized.includes('sale')
-    || normalized.includes('promo')
-    || normalized.includes('special')
-    || normalized.includes('discount')
-    ? 'sale'
-    : 'regular'
 }
 
 function buildDiscoveredFieldsetMappings(discovery: DiscoverySnapshot): Array<{

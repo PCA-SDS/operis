@@ -2,7 +2,7 @@ import {
   AppOriginConfigurationError,
   AppOriginRejectedError,
   getSecurityEmailBaseUrl,
-  resolveRequestOrigin,
+  resolveRequestOrigin, normalizeOriginPort, isLoopbackHostname,
 } from '@open-mercato/shared/lib/url'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 
@@ -28,17 +28,6 @@ function normalizeOrigin(raw: string): string | null {
   }
 }
 
-function originPort(url: URL): string {
-  if (url.port) return url.port
-  if (url.protocol === 'https:') return '443'
-  if (url.protocol === 'http:') return '80'
-  return ''
-}
-
-function isLoopbackHostname(hostname: string): boolean {
-  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
-}
-
 function originsMatchForRedirect(configuredOrigin: string, requestOrigin: string): boolean {
   if (configuredOrigin === requestOrigin) return true
   try {
@@ -48,7 +37,7 @@ function originsMatchForRedirect(configuredOrigin: string, requestOrigin: string
       configured.protocol === request.protocol &&
       isLoopbackHostname(configured.hostname) &&
       isLoopbackHostname(request.hostname) &&
-      originPort(configured) === originPort(request)
+      normalizeOriginPort(configured) === normalizeOriginPort(request)
     )
   } catch {
     return false

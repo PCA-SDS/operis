@@ -28,6 +28,7 @@ import { inferAkeneoProductMapping } from '../../../lib/inference'
 import type { AkeneoDiscoveryResponse } from '../../../data/validators'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@open-mercato/ui/primitives/table'
 import { TableEmptyRow } from '@open-mercato/ui/backend/TableEmptyRow'
+import { inferPriceKindCode, normalizeFieldKey } from '../../../lib/fieldKeys'
 
 type MappingRecordResponse = {
   items?: Array<{
@@ -433,15 +434,6 @@ function serializeFieldsetMappingRows(rows: FieldsetMappingRow[]): string {
     .join('\n')
 }
 
-function normalizeFieldKey(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .slice(0, 100)
-}
-
 function inferCustomFieldKind(attributeType: string): CustomFieldRow['kind'] {
   if (attributeType === 'pim_catalog_boolean') return 'boolean'
   if (attributeType === 'pim_catalog_number') return 'float'
@@ -456,16 +448,6 @@ function inferCustomFieldKind(attributeType: string): CustomFieldRow['kind'] {
     return 'select'
   }
   return 'text'
-}
-
-function inferPriceKindCode(attributeCode: string): string {
-  const normalized = attributeCode.trim().toLowerCase()
-  return normalized.includes('sale')
-    || normalized.includes('promo')
-    || normalized.includes('special')
-    || normalized.includes('discount')
-    ? 'sale'
-    : 'regular'
 }
 
 function buildSelectValues(values: Array<string | null | undefined>, currentValue?: string | null): string[] {

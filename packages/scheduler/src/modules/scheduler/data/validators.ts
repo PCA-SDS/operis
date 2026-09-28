@@ -4,6 +4,7 @@ import { validateInterval } from '../lib/intervalParser'
 import { commandRegistry } from '@open-mercato/shared/lib/commands/registry'
 import { parseBooleanToken } from '@open-mercato/shared/lib/boolean'
 import { isSchedulerSafeCommandId } from '../lib/scheduler-safe-commands'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 /**
  * Validate that a command exists in the command registry
@@ -226,8 +227,7 @@ export const scheduleDeleteSchema = z.object({
  * List schedules query schema
  */
 export const scheduleListQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  ...paginationQuerySchema({ defaultPageSize: 20 }).shape,
   id: z.string().uuid().optional(),
   search: z.string().optional(),
   scopeType: z.enum(['system', 'organization', 'tenant']).optional(),
@@ -252,8 +252,7 @@ export const scheduleTriggerSchema = z.object({
  * Get schedule runs query schema
  */
 export const scheduleRunsQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  ...paginationQuerySchema({ defaultPageSize: 20 }).shape,
   scheduledJobId: z.uuid().optional(),
   status: z.enum(['running', 'completed', 'failed', 'skipped']).optional(),
   triggerType: z.enum(['scheduled', 'manual']).optional(),

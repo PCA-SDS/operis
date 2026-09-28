@@ -10,9 +10,7 @@ import { CustomerEntity, CustomerPersonProfile } from '@open-mercato/core/module
 import { computeEmailLookupHash, resolvePhoneIdentity } from '@open-mercato/core/modules/customers/lib/contactIdentity'
 import { computeEmailHash } from '@open-mercato/core/modules/auth/lib/emailHash'
 import { StaffTeamMember, StaffTeamRole } from '@open-mercato/core/modules/staff/data/entities'
-import { TPS_LOCATION_MAPPING } from './lib'
-
-type Client = InstanceType<typeof pg.Client>
+import { TPS_LOCATION_MAPPING, queryTps, type Client } from './lib'
 
 type TpsCustomer = {
   id: string
@@ -58,10 +56,6 @@ async function connectTps(url: string): Promise<Client> {
   })
   await client.connect()
   return client
-}
-
-async function queryTps<T>(client: Client, text: string): Promise<{ rows: T[] }> {
-  return (await client.query(text)) as unknown as { rows: T[] }
 }
 
 function splitName(value: string): { firstName: string; lastName: string } {

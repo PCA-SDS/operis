@@ -1,10 +1,11 @@
 import { z } from 'zod'
 import { buildPasswordSchema } from '@open-mercato/shared/lib/auth/passwordPolicy'
+import { emailSchema } from '@open-mercato/shared/lib/validation'
 
 const passwordSchema = buildPasswordSchema({ maxLength: 120 })
 
 export const onboardingStartSchema = z.object({
-  email: z.string().email(),
+  email: emailSchema(),
   firstName: z.string().min(1).max(120),
   lastName: z.string().min(1).max(120),
   organizationName: z.string().min(1).max(240),

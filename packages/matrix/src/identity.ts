@@ -1,4 +1,5 @@
 import { MatrixNamespaceError } from './errors'
+import { UUID_SHAPE_PATTERN } from '@open-mercato/shared/lib/validation'
 
 /**
  * Everything needed to map between Operis user ids and Matrix user ids.
@@ -36,8 +37,6 @@ const MXID_PATTERN = /^@([a-z0-9._=/+-]+):([a-zA-Z0-9.-]+(?::\d{1,5})?)$/
  */
 const USER_LOCALPART_PATTERN = /^(.+?)u_([0-9a-f]{32})$/
 
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
 export function parseMxid(userId: string): ParsedMxid | null {
   const match = MXID_PATTERN.exec(userId)
   if (!match) return null
@@ -54,7 +53,7 @@ export function parseMxid(userId: string): ParsedMxid | null {
  */
 export function localpartForUser(config: MatrixIdentityConfig, operisUserId: string): string {
   const trimmed = operisUserId.trim()
-  if (!UUID_PATTERN.test(trimmed)) {
+  if (!UUID_SHAPE_PATTERN.test(trimmed)) {
     throw new MatrixNamespaceError(
       '[internal] expected a UUID when deriving a Matrix localpart',
       operisUserId,

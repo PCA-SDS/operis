@@ -5,33 +5,7 @@ import type { CredentialsService } from '@open-mercato/core/modules/integrations
 import type { IntegrationStateService } from '@open-mercato/core/modules/integrations/lib/state-service'
 import type { IntegrationLogService } from '@open-mercato/core/modules/integrations/lib/log-service'
 import { applyAkeneoEnvPreset, readAkeneoEnvPreset } from './lib/preset'
-
-function parseArgs(args: string[]): Record<string, string | boolean> {
-  const result: Record<string, string | boolean> = {}
-
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i]
-    if (!arg.startsWith('--')) continue
-
-    const key = arg.slice(2)
-    if (key.includes('=')) {
-      const [name, value] = key.split('=')
-      result[name] = value
-      continue
-    }
-
-    const next = args[i + 1]
-    if (next && !next.startsWith('--')) {
-      result[key] = next
-      i += 1
-      continue
-    }
-
-    result[key] = true
-  }
-
-  return result
-}
+import { parseCliArgs } from '@open-mercato/shared/lib/cli/args'
 
 function printHelp(): void {
   console.log('Usage: yarn mercato sync_akeneo configure-from-env --tenant <tenantId> --org <organizationId> [--force]')
@@ -64,7 +38,7 @@ function printHelp(): void {
 const configureFromEnvCommand: ModuleCli = {
   command: 'configure-from-env',
   async run(rest) {
-    const args = parseArgs(rest)
+    const args = parseCliArgs(rest)
     const tenantId = String(args.tenantId ?? args.tenant ?? '')
     const organizationId = String(args.organizationId ?? args.orgId ?? args.org ?? '')
     const force = args.force === true

@@ -3,8 +3,8 @@ import { z } from 'zod'
 import { ComboboxInput, type ComboboxOption } from '@open-mercato/ui/backend/inputs/ComboboxInput'
 import { Label } from '@open-mercato/ui/primitives/label'
 import { Switch } from '@open-mercato/ui/primitives/switch'
-import { JsonBuilder } from '@open-mercato/ui/backend/JsonBuilder'
-import type { CrudField, CrudFormGroup, CrudCustomFieldRenderProps } from '@open-mercato/ui/backend/CrudForm'
+import type { CrudField, CrudFormGroup } from '@open-mercato/ui/backend/CrudForm'
+import { JsonBuilderCrudField } from '@open-mercato/ui/backend/JsonBuilderCrudField'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -27,20 +27,6 @@ export type ScheduleFormValues = {
 export type TargetOptions = {
   queues: ComboboxOption[]
   commands: ComboboxOption[]
-}
-
-// ---------------------------------------------------------------------------
-// Components
-// ---------------------------------------------------------------------------
-
-export function PayloadJsonEditor({ value, setValue, disabled }: CrudCustomFieldRenderProps) {
-  return (
-    <JsonBuilder
-      value={value || {}}
-      onChange={setValue}
-      disabled={disabled}
-    />
-  )
 }
 
 export function ScheduledJobEnabledSwitch({
@@ -271,7 +257,7 @@ export function scheduledJobFields(
       type: 'custom',
       label: t('scheduler.form.target_payload', 'Job Arguments (JSON)'),
       description: t('scheduler.form.target_payload.description', 'Optional JSON payload. Fields tenantId and organizationId are injected automatically at execution time.'),
-      component: (props) => <PayloadJsonEditor {...props} />,
+      component: (props) => <JsonBuilderCrudField {...props} />,
     },
   ]
 }
