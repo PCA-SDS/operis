@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 export const progressJobStatusSchema = z.enum(['pending', 'running', 'completed', 'failed', 'cancelled'])
 
@@ -38,8 +39,7 @@ export const listProgressJobsSchema = z.object({
   parentJobId: z.string().uuid().optional(),
   includeCompleted: z.enum(['true', 'false']).optional(),
   completedSince: z.string().optional(),
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  ...paginationQuerySchema({ defaultPageSize: 20 }).shape,
   search: z.string().optional(),
   sortField: z.enum(['createdAt', 'startedAt', 'finishedAt']).optional(),
   sortDir: z.enum(['asc', 'desc']).optional(),

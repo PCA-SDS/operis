@@ -3,27 +3,15 @@ import { z } from 'zod'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
-import {
-  runCrudMutationGuardAfterSuccess,
-  validateCrudMutationGuard,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
 import { clearRolePerspectives } from '../../../../services/perspectiveService'
 import { Role } from '@open-mercato/core/modules/auth/data/entities'
 import type { OpenApiMethodDoc, OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { perspectivesTag, perspectivesErrorSchema, perspectivesSuccessSchema } from '../../../openapi'
+import { decodeParam } from '../../params'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 export const metadata = {
   DELETE: { requireAuth: true, requireFeatures: ['perspectives.role_defaults'] },
-}
-
-const decodeParam = (value: string | string[] | undefined): string => {
-  if (!value) return ''
-  const raw = Array.isArray(value) ? value[0] : value
-  try {
-    return decodeURIComponent(raw)
-  } catch {
-    return raw
-  }
 }
 
 const rolePerspectiveDeleteBodySchema = z.object({
@@ -74,19 +62,19 @@ export async function DELETE(req: Request, ctx: { params: { tableId: string; rol
   const role = await em.findOne(Role, { id: roleId, deletedAt: null, ...(scope as any) } as any)
   if (!role) return NextResponse.json({ error: 'Role not found' }, { status: 404 })
 
-  const guardResult = await validateCrudMutationGuard(container, {
-    tenantId: auth.tenantId ?? '',
-    organizationId: auth.orgId ?? null,
-    userId: auth.sub,
-    resourceKind: 'perspectives.role_perspective',
-    resourceId: roleId,
-    operation: 'delete',
-    requestMethod: req.method,
-    requestHeaders: req.headers,
-    mutationPayload: { tableId, roleId },
+  const guardResult = await runRouteMutationGuards({
+    container,
+    req,
+    auth: { userId: auth.sub, tenantId: auth.tenantId ?? '', organizationId: auth.orgId ?? null },
+    input: {
+      resourceKind: 'perspectives.role_perspective',
+      resourceId: roleId,
+      operation: 'delete',
+      mutationPayload: { tableId, roleId },
+    },
   })
-  if (guardResult && !guardResult.ok) {
-    return NextResponse.json(guardResult.body, { status: guardResult.status })
+  if (!guardResult.ok) {
+    return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
   }
 
   let clearedCount = 0
@@ -107,18 +95,8 @@ export async function DELETE(req: Request, ctx: { params: { tableId: string; rol
     throw err
   }
 
-  if (clearedCount > 0 && guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-    await runCrudMutationGuardAfterSuccess(container, {
-      tenantId: auth.tenantId ?? '',
-      organizationId: auth.orgId ?? null,
-      userId: auth.sub,
-      resourceKind: 'perspectives.role_perspective',
-      resourceId: roleId,
-      operation: 'delete',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      metadata: guardResult.metadata ?? null,
-    })
+  if (clearedCount > 0) {
+    await guardResult.runAfterSuccess()
   }
 
   return NextResponse.json({ success: true })

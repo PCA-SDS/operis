@@ -9,6 +9,7 @@ import { usePortalContext } from '@open-mercato/ui/portal/PortalContext'
 import { PortalPageHeader } from '@open-mercato/ui/portal/components/PortalPageHeader'
 import { PortalCard, PortalCardHeader, PortalStatRow, PortalCardDivider } from '@open-mercato/ui/portal/components/PortalCard'
 import { InjectionSpot } from '@open-mercato/ui/backend/injection/InjectionSpot'
+import { formatDateTime } from '@open-mercato/shared/lib/time'
 
 type Props = { params: { orgSlug: string } }
 
@@ -35,12 +36,7 @@ export default function PortalProfilePage({ params }: Props) {
 
   if (!user) return null
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return t('portal.dashboard.never', 'Never')
-    return new Date(dateString).toLocaleDateString(undefined, {
-      year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
-    })
-  }
+  const never = t('portal.dashboard.never', 'Never')
 
   return (
     <div className="flex flex-col gap-8">
@@ -67,9 +63,9 @@ export default function PortalProfilePage({ params }: Props) {
               }
             />
             <PortalCardDivider />
-            <PortalStatRow label={t('portal.dashboard.lastLogin', 'Last login')} value={formatDate(user.lastLoginAt)} />
+            <PortalStatRow label={t('portal.dashboard.lastLogin', 'Last login')} value={formatDateTime(user.lastLoginAt, { fallback: never })} />
             <PortalCardDivider />
-            <PortalStatRow label={t('portal.dashboard.memberSince', 'Member since')} value={formatDate(user.createdAt)} />
+            <PortalStatRow label={t('portal.dashboard.memberSince', 'Member since')} value={formatDateTime(user.createdAt, { fallback: never })} />
             {isPortalAdmin ? (
               <>
                 <PortalCardDivider />
