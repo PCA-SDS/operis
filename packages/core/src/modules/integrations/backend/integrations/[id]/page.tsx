@@ -1,7 +1,7 @@
 "use client"
 import * as React from 'react'
 import { extensionPoints } from '@open-mercato/core/modules/integrations/extension-points'
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { z } from 'zod'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { CrudForm, type CrudField } from '@open-mercato/ui/backend/CrudForm'
@@ -44,6 +44,7 @@ import { IntegrationScheduleTab } from '../../../../data_sync/components/Integra
 import {
   buildIntegrationDetailInjectedTabs,
   filterIntegrationDetailWidgetsByKind,
+  replaceIntegrationDetailTabUrl,
   type IntegrationDetailInjectedTab,
   resolveIntegrationDetailWidgetSpotId,
   resolveRequestedIntegrationDetailTab,
@@ -417,7 +418,6 @@ function splitLogPayload(payload: Record<string, unknown> | null | undefined) {
 
 export default function IntegrationDetailPage({ params }: IntegrationDetailPageProps) {
   const pathname = usePathname()
-  const router = useRouter()
   const searchParams = useSearchParams()
   const integrationId = resolveRouteId(params?.id) ?? resolvePathnameId(pathname)
   const t = useT()
@@ -1026,13 +1026,12 @@ export default function IntegrationDetailPage({ params }: IntegrationDetailPageP
     const nextTab = resolveRequestedIntegrationDetailTab(nextValue, visibleTabIds)
     setActiveTab(nextTab)
     if (!currentIntegrationId) return
-    const basePath = `/backend/integrations/${encodeURIComponent(currentIntegrationId)}`
-    const params = new URLSearchParams(searchParams?.toString() ?? '')
-    if (nextTab === 'credentials') params.delete('tab')
-    else params.set('tab', nextTab)
-    const query = params.toString()
-    router.replace(query ? `${basePath}?${query}` : basePath)
-  }, [resolveCurrentIntegrationId, router, searchParams, visibleTabIds])
+    replaceIntegrationDetailTabUrl({
+      integrationId: currentIntegrationId,
+      nextTab,
+      currentSearchParams: searchParams?.toString() ?? '',
+    })
+  }, [resolveCurrentIntegrationId, searchParams, visibleTabIds])
 
   React.useEffect(() => {
     if (!runIdFromUrl) {

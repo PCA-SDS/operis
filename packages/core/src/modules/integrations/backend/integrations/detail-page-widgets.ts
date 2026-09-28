@@ -26,6 +26,25 @@ export function resolveRequestedIntegrationDetailTab(
   return visibleTabIds[0] ?? 'credentials'
 }
 
+export function replaceIntegrationDetailTabUrl(input: {
+  integrationId: string
+  nextTab: string
+  currentSearchParams: string | URLSearchParams
+}): string {
+  const basePath = `/backend/integrations/${encodeURIComponent(input.integrationId)}`
+  const params = new URLSearchParams(input.currentSearchParams)
+  if (input.nextTab === 'credentials') params.delete('tab')
+  else params.set('tab', input.nextTab)
+  const query = params.toString()
+  const nextUrl = query ? `${basePath}?${query}` : basePath
+
+  if (typeof window !== 'undefined') {
+    window.history.replaceState(window.history.state, '', nextUrl)
+  }
+
+  return nextUrl
+}
+
 export function filterIntegrationDetailWidgetsByKind(
   widgets: readonly LoadedInjectionSpotWidget[],
   kind: IntegrationDetailPlacementKind,
