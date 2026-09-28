@@ -17,6 +17,9 @@ import {
 } from '@open-mercato/ai-assistant/modules/ai_assistant/lib/model-factory'
 import { joinProviderModel } from '@open-mercato/shared/lib/ai/model-id'
 import { extractionOutputSchema } from '../data/validators'
+import { withTimeout } from '@open-mercato/shared/lib/async'
+
+export { withTimeout }
 
 // Vercel AI SDK provider factories return LanguageModelV1 but generateObject()
 // expects a narrower LanguageModel union. The types are structurally compatible
@@ -99,26 +102,6 @@ export async function createStructuredModel(
     }
     default:
       throw new Error(`Unsupported provider: ${providerId}`)
-  }
-}
-
-export async function withTimeout<T>(
-  operation: Promise<T>,
-  timeoutMs: number,
-  timeoutMessage: string,
-): Promise<T> {
-  let timeoutHandle: ReturnType<typeof setTimeout> | undefined
-
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeoutHandle = setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs)
-  })
-
-  try {
-    return await Promise.race([operation, timeoutPromise])
-  } finally {
-    if (timeoutHandle) {
-      clearTimeout(timeoutHandle)
-    }
   }
 }
 

@@ -10,7 +10,6 @@ jest.mock('@open-mercato/core/modules/inbox_ops/lib/llmProvider', () => ({
     model: 'mock-model',
     modelWithProvider: 'openai/gpt-4o',
   })),
-  withTimeout: jest.fn(async (promise: Promise<unknown>) => promise),
 }))
 
 import { translateProposalContent } from '../translationProvider'

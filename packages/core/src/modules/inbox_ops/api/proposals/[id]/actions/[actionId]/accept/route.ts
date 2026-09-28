@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
-import { serializeOperationMetadata } from '@open-mercato/shared/lib/commands/operationMetadata'
+import { attachOperationMetadataHeader } from '@open-mercato/shared/lib/commands/operationMetadata'
 import { runWithCacheTenant } from '@open-mercato/cache'
 import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { InboxProposal, InboxProposalAction } from '../../../../../../data/entities'
@@ -70,27 +70,7 @@ export async function POST(req: Request) {
       } : null,
     })
 
-    const operationLogEntry = result.operationLogEntry
-    if (operationLogEntry?.undoToken && operationLogEntry.id && operationLogEntry.commandId) {
-      const executedAt = operationLogEntry.createdAt instanceof Date
-        ? operationLogEntry.createdAt.toISOString()
-        : typeof operationLogEntry.createdAt === 'string' && operationLogEntry.createdAt.trim().length > 0
-          ? operationLogEntry.createdAt
-          : new Date().toISOString()
-
-      response.headers.set(
-        'x-om-operation',
-        serializeOperationMetadata({
-          id: operationLogEntry.id,
-          undoToken: operationLogEntry.undoToken,
-          commandId: operationLogEntry.commandId,
-          actionLabel: operationLogEntry.actionLabel ?? null,
-          resourceKind: operationLogEntry.resourceKind ?? null,
-          resourceId: operationLogEntry.resourceId ?? null,
-          executedAt,
-        }),
-      )
-    }
+    attachOperationMetadataHeader(response, result.operationLogEntry)
 
     return response
   } catch (err) {

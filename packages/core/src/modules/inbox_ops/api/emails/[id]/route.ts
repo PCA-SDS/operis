@@ -1,10 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
-import {
-  runCrudMutationGuardAfterSuccess,
-  validateCrudMutationGuard,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
 import { InboxEmail } from '../../../data/entities'
 import {
   resolveRequestContext,
@@ -13,6 +9,7 @@ import {
 } from '../../routeHelpers'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { canViewEmailContent, serializeInboxEmail } from '../response'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const logger = createLogger('inbox_ops').child({ component: 'emails' })
 
@@ -71,18 +68,14 @@ export async function DELETE(req: Request) {
 
     const ctx = await resolveRequestContext(req)
 
-    const guardResult = await validateCrudMutationGuard(ctx.container, {
-      tenantId: ctx.tenantId,
-      organizationId: ctx.organizationId,
-      userId: ctx.userId,
-      resourceKind: 'inbox_ops:inbox_email',
-      resourceId: id,
-      operation: 'delete',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
+    const guardResult = await runRouteMutationGuards({
+      container: ctx.container,
+      req,
+      auth: { userId: ctx.userId, tenantId: ctx.tenantId, organizationId: ctx.organizationId },
+      input: { resourceKind: 'inbox_ops:inbox_email', resourceId: id, operation: 'delete' },
     })
-    if (guardResult && !guardResult.ok) {
-      return NextResponse.json(guardResult.body, { status: guardResult.status })
+    if (!guardResult.ok) {
+      return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
     }
 
     const updated = await ctx.em.nativeUpdate(
@@ -100,19 +93,7 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: 'Email not found' }, { status: 404 })
     }
 
-    if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-      await runCrudMutationGuardAfterSuccess(ctx.container, {
-        tenantId: ctx.tenantId,
-        organizationId: ctx.organizationId,
-        userId: ctx.userId,
-        resourceKind: 'inbox_ops:inbox_email',
-        resourceId: id,
-        operation: 'delete',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
-        metadata: guardResult.metadata ?? null,
-      })
-    }
+    await guardResult.runAfterSuccess()
 
     return NextResponse.json({ ok: true })
   } catch (err) {

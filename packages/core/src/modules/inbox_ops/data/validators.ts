@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { emailSchema } from '@open-mercato/shared/lib/validation'
+import { emailSchema, paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 const uuid = () => z.string().uuid()
 const coerceNumericString = z.preprocess(
@@ -269,14 +269,12 @@ export const proposalListQuerySchema = z.object({
   status: z.enum(['pending', 'partial', 'accepted', 'rejected']).optional(),
   category: proposalCategoryFilterSchema.optional(),
   search: z.string().trim().max(200).optional(),
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(25),
+  ...paginationQuerySchema({ defaultPageSize: 25 }).shape,
 })
 
 export const emailListQuerySchema = z.object({
   status: z.enum(['received', 'processing', 'processed', 'needs_review', 'failed']).optional(),
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(25),
+  ...paginationQuerySchema({ defaultPageSize: 25 }).shape,
 })
 
 export const actionEditSchema = z.object({

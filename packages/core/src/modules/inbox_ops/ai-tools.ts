@@ -7,8 +7,9 @@ import { authorizeFeatures } from '@open-mercato/shared/security/featurePolicy'
 import { InboxProposal, InboxProposalAction, InboxDiscrepancy } from './data/entities'
 import { inboxProposalCategoryEnum } from './data/validators'
 import { executeAction } from './lib/executionEngine'
-import { resolveConfiguredStructuredModel, withTimeout } from './lib/llmProvider'
+import { resolveConfiguredStructuredModel } from './lib/llmProvider'
 import { resolveOptionalEventBus } from './lib/eventBus'
+import { withTimeout } from '@open-mercato/shared/lib/async'
 
 type ToolContext = {
   tenantId: string | null
