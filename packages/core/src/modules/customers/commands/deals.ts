@@ -46,6 +46,7 @@ import { E } from '#generated/entities.ids.generated'
 import { findWithDecryption, findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { isMissingDealStageTransitionTable, warnMissingDealStageTransitionTable } from '../lib/dealStageTransitionTable'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { toNumericString } from '@open-mercato/shared/lib/number'
 
 const logger = createLogger('customers')
 
@@ -423,11 +424,6 @@ async function loadDealSnapshot(em: EntityManager, id: string): Promise<DealSnap
     })),
     custom,
   }
-}
-
-function toNumericString(value: number | null | undefined): string | null {
-  if (value === undefined || value === null) return null
-  return value.toString()
 }
 
 async function syncDealPeople(

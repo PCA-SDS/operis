@@ -40,6 +40,7 @@ import {
   CUSTOMER_INTERACTION_TODO_ADAPTER_SOURCE,
 } from './lib/interactionCompatibility'
 import { CUSTOMER_CUSTOM_FIELD_SETS } from './customFieldDefaults'
+import { CURRENCY_CODE_PATTERN } from '@open-mercato/shared/lib/validation'
 
 type SeedArgs = {
   tenantId: string
@@ -1323,7 +1324,7 @@ function resolveCurrencyCodes(): string[] {
       : []
   const normalizedSupported = supported
     .map((code) => code.toUpperCase())
-    .filter((code) => /^[A-Z]{3}$/.test(code))
+    .filter((code) => CURRENCY_CODE_PATTERN.test(code))
   const uniqueSupported: string[] = []
   const seen = new Set<string>(normalizedPriority)
   for (const code of normalizedSupported) {

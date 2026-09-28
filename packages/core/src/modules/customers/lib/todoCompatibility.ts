@@ -86,7 +86,7 @@ function resolveLegacyTodoSource(source: string | null | undefined): string {
     : EXAMPLE_TODO_SOURCE
 }
 
-function extractTodoTitle(record: Record<string, unknown>): string | null {
+export function extractTodoTitle(record: Record<string, unknown>): string | null {
   const candidates = ['title', 'subject', 'name', 'summary', 'text', 'description']
   for (const key of candidates) {
     const value = record[key]
@@ -121,7 +121,7 @@ function parseDateValue(value: unknown): string | null {
   return null
 }
 
-function readCustomField(record: Record<string, unknown>, key: string): unknown {
+export function readCustomField(record: Record<string, unknown>, key: string): unknown {
   const custom = record.custom ?? record.customFields ?? record.cf
   if (custom && typeof custom === 'object') {
     const bucket = custom as Record<string, unknown>

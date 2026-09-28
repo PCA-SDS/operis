@@ -23,7 +23,7 @@ import {
 import {
   findDeletedPersonCompanyLink,
   loadPersonCompanyLinks,
-  promoteFallbackPrimaryLink,
+  promoteFallbackPrimaryLink, clearPrimaryFlags,
 } from '../lib/personCompanies'
 import {
   ensureOrganizationScope,
@@ -167,14 +167,6 @@ async function requirePersonProfile(
   return profile
 }
 
-async function clearPrimaryFlagsForPerson(em: EntityManager, person: CustomerEntity): Promise<void> {
-  await em.nativeUpdate(
-    CustomerPersonCompanyLink,
-    { person, organizationId: person.organizationId, tenantId: person.tenantId, isPrimary: true },
-    { isPrimary: false },
-  )
-}
-
 const createPersonCompanyLinkCommand: CommandHandler<PersonCompanyLinkCreateInput, { linkId: string; created: boolean; undeleted: boolean }> = {
   id: 'customers.personCompanyLinks.create',
   async execute(rawInput, ctx) {
@@ -195,7 +187,7 @@ const createPersonCompanyLinkCommand: CommandHandler<PersonCompanyLinkCreateInpu
     if (existingLive) {
       if (makePrimary && !existingLive.isPrimary) {
         await withAtomicFlush(em, [
-          () => clearPrimaryFlagsForPerson(em, person),
+          () => clearPrimaryFlags(em, person),
           () => {
             existingLive.isPrimary = true
             profile.company = company
@@ -211,7 +203,7 @@ const createPersonCompanyLinkCommand: CommandHandler<PersonCompanyLinkCreateInpu
       async () => {
         const deletedLink = await findDeletedPersonCompanyLink(em, person, company)
         if (makePrimary) {
-          await clearPrimaryFlagsForPerson(em, person)
+          await clearPrimaryFlags(em, person)
         }
         if (deletedLink) {
           deletedLink.deletedAt = null
@@ -363,7 +355,7 @@ const createPersonCompanyLinkCommand: CommandHandler<PersonCompanyLinkCreateInpu
     await withAtomicFlush(em, [
       async () => {
         if (after.isPrimary) {
-          await clearPrimaryFlagsForPerson(em, person)
+          await clearPrimaryFlags(em, person)
         }
         if (!link) {
           link = em.create(CustomerPersonCompanyLink, {
@@ -446,7 +438,7 @@ const updatePersonCompanyLinkCommand: CommandHandler<PersonCompanyLinkUpdateInpu
     await withAtomicFlush(em, [
       async () => {
         if (parsed.isPrimary) {
-          await clearPrimaryFlagsForPerson(em, person)
+          await clearPrimaryFlags(em, person)
           link.isPrimary = true
           profile.company = linkedCompany
         } else if (!parsed.isPrimary) {
@@ -554,7 +546,7 @@ const updatePersonCompanyLinkCommand: CommandHandler<PersonCompanyLinkUpdateInpu
       async () => {
         if (!person || !profile) return
         if (before.isPrimary) {
-          await clearPrimaryFlagsForPerson(em, person)
+          await clearPrimaryFlags(em, person)
           link.isPrimary = true
           if (company) profile.company = company
         } else {
@@ -717,7 +709,7 @@ const deletePersonCompanyLinkCommand: CommandHandler<PersonCompanyLinkDeleteInpu
         link.deletedAt = null
         link.isPrimary = before.isPrimary
         if (person && before.isPrimary) {
-          await clearPrimaryFlagsForPerson(em, person)
+          await clearPrimaryFlags(em, person)
           link.isPrimary = true
           if (profile && company) profile.company = company
         }

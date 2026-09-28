@@ -2,6 +2,8 @@ import type {
   CalendarInteractionItem, CalendarItem } from '../../components/calendar/types'
 import { parseRecurrenceRule } from './recurrence'
 import { DEFAULT_CREATE_DURATION_MINUTES } from './grid'
+import { finiteNumberOrNull } from '@open-mercato/shared/lib/number'
+import { nonEmptyStringOrNull } from '@open-mercato/shared/lib/string'
 
 export type EditorKind = 'meeting' | 'call' | 'email' | 'note' | 'event' | 'task'
 
@@ -372,14 +374,6 @@ export function buildInteractionPayload(state: EditorFormState, options: BuildPa
   return payload
 }
 
-function readUnknownString(value: unknown): string | null {
-  return typeof value === 'string' && value.length > 0 ? value : null
-}
-
-function readUnknownNumber(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null
-}
-
 type ParsedRepeat = Pick<EditorFormState, 'repeatFreq' | 'repeatDays' | 'repeatEndType' | 'repeatCount' | 'repeatUntilDate'>
 
 function parseRepeatFromRule(rawRule: unknown, start: Date): ParsedRepeat {
@@ -390,7 +384,7 @@ function parseRepeatFromRule(rawRule: unknown, start: Date): ParsedRepeat {
     repeatCount: 8,
     repeatUntilDate: '',
   }
-  const ruleText = readUnknownString(rawRule)
+  const ruleText = nonEmptyStringOrNull(rawRule)
   if (!ruleText) return fallback
   const parsed = parseRecurrenceRule(ruleText)
   if (!parsed) return fallback
@@ -422,7 +416,7 @@ function parseParticipants(item: CalendarInteractionItem): EditorParticipant[] {
   const rawParticipants = Array.isArray(item.raw.participants) ? item.raw.participants : []
   const statusByUserId = new Map<string, string | null>()
   for (const raw of rawParticipants) {
-    statusByUserId.set(raw.userId, readUnknownString((raw as Record<string, unknown>).status))
+    statusByUserId.set(raw.userId, nonEmptyStringOrNull((raw as Record<string, unknown>).status))
   }
   return item.participants.map((participant) => ({
     userId: participant.userId,
@@ -455,8 +449,8 @@ export function parseItemToFormState(item: CalendarInteractionItem): EditorFormS
     preservedLinkedEntities,
     assigneeUserId: item.ownerUserId,
     assigneeName: null,
-    priority: priorityFromNumber(readUnknownNumber(raw.priority)),
-    description: readUnknownString(raw.body) ?? '',
+    priority: priorityFromNumber(finiteNumberOrNull(raw.priority)),
+    description: nonEmptyStringOrNull(raw.body) ?? '',
     status: item.status,
   }
 }

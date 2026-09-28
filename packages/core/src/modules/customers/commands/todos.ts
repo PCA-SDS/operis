@@ -1,5 +1,5 @@
-import { commandRegistry, registerCommand } from '@open-mercato/shared/lib/commands'
-import type { CommandHandler, CommandLogMetadata, CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
+import { registerCommand } from '@open-mercato/shared/lib/commands'
+import type { CommandHandler, CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import type { QueryEngine } from '@open-mercato/shared/lib/query/types'
 import { CustomerTodoLink } from '../data/entities'
@@ -13,7 +13,7 @@ import {
   extractUndoPayload,
   ensureOrganizationScope,
   ensureTenantScope,
-  resolveParentResourceKind,
+  resolveParentResourceKind, normalizeUndoCreateLogEntry, type InteractionSnapshot, type InteractionUndoPayload, getRequiredHandler,
 } from './shared'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { notFound } from '@open-mercato/shared/lib/crud/errors'
@@ -25,35 +25,6 @@ import { resolveLegacyTodoDetails } from '../lib/todoCompatibility'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 
 const logger = createLogger('customers')
-
-type InteractionSnapshot = {
-  interaction: {
-    id: string
-    organizationId: string
-    tenantId: string
-    entityId: string
-    entityKind: string | null
-    dealId: string | null
-    interactionType: string
-    title: string | null
-    body: string | null
-    status: string
-    scheduledAt: Date | null
-    occurredAt: Date | null
-    priority: number | null
-    authorUserId: string | null
-    ownerUserId: string | null
-    appearanceIcon: string | null
-    appearanceColor: string | null
-    source: string | null
-  }
-  custom?: Record<string, unknown>
-}
-
-type InteractionUndoPayload = {
-  before?: InteractionSnapshot | null
-  after?: InteractionSnapshot | null
-}
 
 type LegacyTodoDetail = {
   title: string | null
@@ -79,14 +50,6 @@ const unlinkSchema = z.object({
   tenantId: z.string().uuid(),
   organizationId: z.string().uuid(),
 })
-
-function getRequiredHandler<TInput, TResult>(id: string): CommandHandler<TInput, TResult> {
-  const handler = commandRegistry.get(id) as CommandHandler<TInput, TResult> | null
-  if (!handler) {
-    throw new Error(`Missing command handler: ${id}`)
-  }
-  return handler
-}
 
 function collectTodoCustomValues(input: TodoLinkWithTodoCreateInput): Record<string, unknown> {
   const values: Record<string, unknown> = {}
@@ -141,18 +104,6 @@ function mapTodoCreateInput(
     source: CUSTOMER_INTERACTION_TODO_ADAPTER_SOURCE,
     ...(Object.keys(customValues).length > 0 ? { customValues } : {}),
   }
-}
-
-function normalizeUndoCreateLogEntry(
-  logEntry: unknown,
-  payload: InteractionUndoPayload | null | undefined,
-): CommandLogMetadata | Record<string, unknown> {
-  const base = logEntry && typeof logEntry === 'object' ? { ...(logEntry as Record<string, unknown>) } : {}
-  const resourceId =
-    typeof base.resourceId === 'string' && base.resourceId.trim().length > 0
-      ? base.resourceId
-      : payload?.after?.interaction.id ?? null
-  return resourceId ? { ...base, resourceId } : base
 }
 
 async function loadInteractionSnapshot(

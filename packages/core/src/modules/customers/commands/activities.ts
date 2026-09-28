@@ -1,5 +1,5 @@
-import { commandRegistry, registerCommand } from '@open-mercato/shared/lib/commands'
-import type { CommandHandler, CommandLogMetadata } from '@open-mercato/shared/lib/commands'
+import { registerCommand } from '@open-mercato/shared/lib/commands'
+import type { CommandHandler } from '@open-mercato/shared/lib/commands'
 import { parseWithCustomFields } from '@open-mercato/shared/lib/commands/helpers'
 import {
   activityCreateSchema,
@@ -9,46 +9,9 @@ import {
   type InteractionCreateInput,
   type InteractionUpdateInput,
 } from '../data/validators'
-import { extractUndoPayload, resolveParentResourceKind } from './shared'
+import { extractUndoPayload, resolveParentResourceKind, normalizeUndoCreateLogEntry, type InteractionSnapshot, type InteractionUndoPayload, getRequiredHandler } from './shared'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { CUSTOMER_INTERACTION_ACTIVITY_ADAPTER_SOURCE } from '../lib/interactionCompatibility'
-
-type InteractionSnapshot = {
-  interaction: {
-    id: string
-    organizationId: string
-    tenantId: string
-    entityId: string
-    entityKind: string | null
-    dealId: string | null
-    interactionType: string
-    title: string | null
-    body: string | null
-    status: string
-    scheduledAt: Date | null
-    occurredAt: Date | null
-    priority: number | null
-    authorUserId: string | null
-    ownerUserId: string | null
-    appearanceIcon: string | null
-    appearanceColor: string | null
-    source: string | null
-  }
-  custom?: Record<string, unknown>
-}
-
-type InteractionUndoPayload = {
-  before?: InteractionSnapshot | null
-  after?: InteractionSnapshot | null
-}
-
-function getRequiredHandler<TInput, TResult>(id: string): CommandHandler<TInput, TResult> {
-  const handler = commandRegistry.get(id) as CommandHandler<TInput, TResult> | null
-  if (!handler) {
-    throw new Error(`Missing command handler: ${id}`)
-  }
-  return handler
-}
 
 function mapActivityCreateInput(
   input: ActivityCreateInput,
@@ -93,18 +56,6 @@ function mapActivityUpdateInput(
     ...(input.appearanceColor !== undefined ? { appearanceColor: input.appearanceColor ?? null } : {}),
     ...(Object.keys(custom).length > 0 ? { customValues: custom } : {}),
   }
-}
-
-function normalizeUndoCreateLogEntry(
-  logEntry: unknown,
-  payload: InteractionUndoPayload | null | undefined,
-): CommandLogMetadata | Record<string, unknown> {
-  const base = logEntry && typeof logEntry === 'object' ? { ...(logEntry as Record<string, unknown>) } : {}
-  const resourceId =
-    typeof base.resourceId === 'string' && base.resourceId.trim().length > 0
-      ? base.resourceId
-      : payload?.after?.interaction.id ?? null
-  return resourceId ? { ...base, resourceId } : base
 }
 
 /** @deprecated Use interaction commands instead. Maintained as a compatibility bridge per SPEC-046b. */

@@ -45,7 +45,7 @@ import {
   ensureDictionaryEntry,
   emitQueryIndexDeleteEvents,
   emitQueryIndexUpsertEvents,
-  type QueryIndexEventEntry,
+  type QueryIndexEventEntry, normalizeHexColor, customerEntityIndexEntry,
 } from './shared'
 import { withAtomicFlush } from '@open-mercato/shared/lib/commands/flush'
 import { resolveRedoSnapshot } from '@open-mercato/shared/lib/commands/redo'
@@ -218,21 +218,6 @@ const personCrudEvents: CrudEventsConfig<CustomerEntity> = {
     organizationId: ctx.identifiers.organizationId,
     tenantId: ctx.identifiers.tenantId,
   }),
-}
-
-function personEntityIndexEntry(entity: CustomerEntity): QueryIndexEventEntry {
-  return {
-    entityType: E.customers.customer_entity,
-    recordId: entity.id,
-    tenantId: entity.tenantId,
-    organizationId: entity.organizationId,
-  }
-}
-
-function normalizeHexColor(value: string | null | undefined): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim().toLowerCase()
-  return /^#([0-9a-f]{6})$/.test(trimmed) ? trimmed : null
 }
 
 type PersonDeleteBlockerCounts = {
@@ -768,7 +753,7 @@ const createPersonCommand: CommandHandler<PersonCreateInput, { entityId: string;
       indexer: personCrudIndexer,
       events: personCrudEvents,
     })
-    await emitQueryIndexUpsertEvents(ctx, [personEntityIndexEntry(entity)])
+    await emitQueryIndexUpsertEvents(ctx, [customerEntityIndexEntry(entity)])
 
     return { entityId: entity.id, personId: profile.id }
   },
@@ -829,7 +814,7 @@ const createPersonCommand: CommandHandler<PersonCreateInput, { entityId: string;
       indexer: personCrudIndexer,
       events: personCrudEvents,
     })
-    await emitQueryIndexDeleteEvents(ctx, [personEntityIndexEntry(entity)])
+    await emitQueryIndexDeleteEvents(ctx, [customerEntityIndexEntry(entity)])
   },
   redo: async ({ logEntry, ctx }) => {
     const after = resolveRedoSnapshot<PersonSnapshot>(logEntry)
@@ -960,7 +945,7 @@ const createPersonCommand: CommandHandler<PersonCreateInput, { entityId: string;
       indexer: personCrudIndexer,
       events: personCrudEvents,
     })
-    await emitQueryIndexUpsertEvents(ctx, [personEntityIndexEntry(restoredEntity)])
+    await emitQueryIndexUpsertEvents(ctx, [customerEntityIndexEntry(restoredEntity)])
 
     return { entityId: restoredEntity.id, personId: profile.id }
   },
@@ -1153,7 +1138,7 @@ const updatePersonCommand: CommandHandler<PersonUpdateInput, { entityId: string 
       indexer: personCrudIndexer,
       events: personCrudEvents,
     })
-    await emitQueryIndexUpsertEvents(ctx, [personEntityIndexEntry(record)])
+    await emitQueryIndexUpsertEvents(ctx, [customerEntityIndexEntry(record)])
 
     // Expose the freshly-bumped updatedAt for inline-edit sequential-save lock refresh (#2055).
     return { entityId: record.id, updatedAt: record.updatedAt }
@@ -1308,7 +1293,7 @@ const updatePersonCommand: CommandHandler<PersonUpdateInput, { entityId: string 
       events: personCrudEvents,
     })
     if (indexedEntity) {
-      await emitQueryIndexUpsertEvents(ctx, [personEntityIndexEntry(indexedEntity)])
+      await emitQueryIndexUpsertEvents(ctx, [customerEntityIndexEntry(indexedEntity)])
     }
 
     const resetValues = buildCustomFieldResetMap(before.custom, payload?.after?.custom)
@@ -1431,7 +1416,7 @@ const deletePersonCommand: CommandHandler<{ body?: Record<string, unknown>; quer
         events: personCrudEvents,
       })
 
-      await emitQueryIndexDeleteEvents(ctx, [personEntityIndexEntry(record)])
+      await emitQueryIndexDeleteEvents(ctx, [customerEntityIndexEntry(record)])
       await emitQueryIndexDeleteEvents(ctx, indexDeletes)
       await emitQueryIndexUpsertEvents(ctx, dealUpserts)
       return { entityId: record.id }
@@ -1852,7 +1837,7 @@ const deletePersonCommand: CommandHandler<{ body?: Record<string, unknown>; quer
       if (Object.keys(resetValues).length) {
         await setCustomFieldsForPerson(ctx, entity.id, profile.id, entity.organizationId, entity.tenantId, resetValues)
       }
-      await emitQueryIndexUpsertEvents(ctx, [personEntityIndexEntry(entity)])
+      await emitQueryIndexUpsertEvents(ctx, [customerEntityIndexEntry(entity)])
       await emitQueryIndexUpsertEvents(ctx, upsertEntries)
       await emitQueryIndexUpsertEvents(ctx, dealUpserts)
     },

@@ -42,7 +42,7 @@ import {
   loadEntityTagIds,
   emitQueryIndexDeleteEvents,
   emitQueryIndexUpsertEvents,
-  type QueryIndexEventEntry,
+  type QueryIndexEventEntry, normalizeHexColor, customerEntityIndexEntry,
 } from './shared'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import {
@@ -110,15 +110,6 @@ function buildCompanyHasDependentsError(
     { blockers: summary },
   )
   return new CrudHttpError(422, { error: message, code: 'COMPANY_HAS_DEPENDENTS' })
-}
-
-function companyEntityIndexEntry(entity: CustomerEntity): QueryIndexEventEntry {
-  return {
-    entityType: E.customers.customer_entity,
-    recordId: entity.id,
-    tenantId: entity.tenantId,
-    organizationId: entity.organizationId,
-  }
 }
 
 type CompanyAddressSnapshot = {
@@ -481,12 +472,6 @@ async function setCompanyCustomFields(
   }
 }
 
-function normalizeHexColor(value: string | null | undefined): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim().toLowerCase()
-  return /^#([0-9a-f]{6})$/.test(trimmed) ? trimmed : null
-}
-
 // Client-lifecycle statuses aligned with PCA ERP's crm.company_clients. A status
 // outside this set (a tenant-defined dictionary value) leaves the dates untouched.
 const COMPANY_LIFECYCLE_STATUSES = new Set(['prospect', 'active', 'inactive', 'blacklisted'])
@@ -616,7 +601,7 @@ const createCompanyCommand: CommandHandler<CompanyCreateInput, { entityId: strin
       indexer: companyCrudIndexer,
       events: companyCrudEvents,
     })
-    await emitQueryIndexUpsertEvents(ctx, [companyEntityIndexEntry(entity)])
+    await emitQueryIndexUpsertEvents(ctx, [customerEntityIndexEntry(entity)])
 
     return { entityId: entity.id, companyId: profile.id }
   },
@@ -671,7 +656,7 @@ const createCompanyCommand: CommandHandler<CompanyCreateInput, { entityId: strin
       indexer: companyCrudIndexer,
       events: companyCrudEvents,
     })
-    await emitQueryIndexDeleteEvents(ctx, [companyEntityIndexEntry(entity)])
+    await emitQueryIndexDeleteEvents(ctx, [customerEntityIndexEntry(entity)])
   },
   redo: async ({ logEntry, ctx }) => {
     const after = resolveRedoSnapshot<CompanySnapshot>(logEntry)
@@ -804,7 +789,7 @@ const createCompanyCommand: CommandHandler<CompanyCreateInput, { entityId: strin
       indexer: companyCrudIndexer,
       events: companyCrudEvents,
     })
-    await emitQueryIndexUpsertEvents(ctx, [companyEntityIndexEntry(restoredEntity)])
+    await emitQueryIndexUpsertEvents(ctx, [customerEntityIndexEntry(restoredEntity)])
 
     return { entityId: restoredEntity.id, companyId: restoredProfile.id }
   },
@@ -905,7 +890,7 @@ const updateCompanyCommand: CommandHandler<CompanyUpdateInput, { entityId: strin
       indexer: companyCrudIndexer,
       events: companyCrudEvents,
     })
-    await emitQueryIndexUpsertEvents(ctx, [companyEntityIndexEntry(record)])
+    await emitQueryIndexUpsertEvents(ctx, [customerEntityIndexEntry(record)])
 
     // Expose the freshly-bumped updatedAt so the CRUD update response can hand it to
     // inline-edit detail pages for sequential-save lock-token refresh (#2055).
@@ -1089,7 +1074,7 @@ const updateCompanyCommand: CommandHandler<CompanyUpdateInput, { entityId: strin
       indexer: companyCrudIndexer,
       events: companyCrudEvents,
     })
-    await emitQueryIndexUpsertEvents(ctx, [companyEntityIndexEntry(entity)])
+    await emitQueryIndexUpsertEvents(ctx, [customerEntityIndexEntry(entity)])
 
     const resetValues = buildCustomFieldResetMap(before.custom, payload?.after?.custom)
     if (Object.keys(resetValues).length) {
@@ -1264,7 +1249,7 @@ const deleteCompanyCommand: CommandHandler<{ body?: Record<string, unknown>; que
         events: companyCrudEvents,
       })
 
-      await emitQueryIndexDeleteEvents(ctx, [companyEntityIndexEntry(record)])
+      await emitQueryIndexDeleteEvents(ctx, [customerEntityIndexEntry(record)])
       await emitQueryIndexDeleteEvents(ctx, indexDeletes)
       await emitQueryIndexUpsertEvents(ctx, memberUpserts)
       await emitQueryIndexUpsertEvents(ctx, dealUpserts)
@@ -1641,7 +1626,7 @@ const deleteCompanyCommand: CommandHandler<{ body?: Record<string, unknown>; que
       if (Object.keys(resetValues).length) {
         await setCompanyCustomFields(ctx, entity.id, profile.id, entity.organizationId, entity.tenantId, resetValues)
       }
-      await emitQueryIndexUpsertEvents(ctx, [companyEntityIndexEntry(entity)])
+      await emitQueryIndexUpsertEvents(ctx, [customerEntityIndexEntry(entity)])
       await emitQueryIndexUpsertEvents(ctx, childUpserts)
       await emitQueryIndexUpsertEvents(ctx, memberUpserts)
       await emitQueryIndexUpsertEvents(ctx, dealUpserts)

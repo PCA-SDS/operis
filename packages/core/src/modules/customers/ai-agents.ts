@@ -26,27 +26,8 @@ import type {
   AiAgentPageContextInput,
 } from '@open-mercato/ai-assistant/modules/ai_assistant/lib/ai-agent-definition'
 import { hydrateCustomersAccountContext } from './ai-agents-context'
-
-type PromptSectionName =
-  | 'role'
-  | 'scope'
-  | 'data'
-  | 'tools'
-  | 'attachments'
-  | 'mutationPolicy'
-  | 'responseStyle'
-  | 'overrides'
-
-interface PromptSection {
-  name: PromptSectionName
-  content: string
-  order?: number
-}
-
-interface PromptTemplate {
-  id: string
-  sections: PromptSection[]
-}
+import { compilePromptTemplate } from '@open-mercato/ai-assistant/modules/ai_assistant/lib/agent-prompt-helpers'
+import type { PromptSection, PromptTemplate } from '@open-mercato/ai-assistant/modules/ai_assistant/lib/prompt-composition-types'
 
 const AGENT_ID = 'customers.account_assistant'
 const MODULE_ID = 'customers'
@@ -249,14 +230,6 @@ const PROMPT_SECTIONS: PromptSection[] = [
 export const promptTemplate: PromptTemplate = {
   id: `${AGENT_ID}.prompt`,
   sections: PROMPT_SECTIONS,
-}
-
-function compilePromptTemplate(template: PromptTemplate): string {
-  return template.sections
-    .slice()
-    .sort((a: PromptSection, b: PromptSection) => (a.order ?? 0) - (b.order ?? 0))
-    .map((section: PromptSection) => section.content.trim())
-    .join('\n\n')
 }
 
 async function resolvePageContext(

@@ -51,14 +51,7 @@ import {
 } from '../lib/interactionStatus'
 import { canChangeEmailVisibility } from '../lib/visibilityFilter'
 import { createLogger } from '@open-mercato/shared/lib/logger'
-
-/** The interaction's customer id, or null when it has none — an internal entry
- *  (a team sync, a personal block) is a real interaction with no customer to
- *  point at. The relation arrives either as a raw id or as a loaded entity. */
-function interactionEntityId(entity: unknown): string | null {
-  if (!entity) return null
-  return typeof entity === 'string' ? entity : ((entity as { id: string }).id ?? null)
-}
+import { interactionEntityId } from '../lib/interactionReadModel'
 
 const logger = createLogger('customers')
 

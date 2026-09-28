@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { isValidPhoneNumber } from '@open-mercato/shared/lib/phone'
-import { emptyStringToNull } from '@open-mercato/shared/lib/validation'
+import { emptyStringToNull, emailSchema, clearableStringSchema } from '@open-mercato/shared/lib/validation'
 import { COORDINATE_RANGES } from '@open-mercato/shared/lib/location/coordinates'
 import { dictionaryEntrySortModeSchema } from '@open-mercato/core/modules/dictionaries/lib/entrySort'
 
@@ -29,7 +29,7 @@ const phoneSchema = z.preprocess(
 
 const clearableEmailSchema = z.preprocess(
   emptyStringToNull,
-  z.string().email().max(320).nullable().optional(),
+  emailSchema().nullable().optional(),
 )
 
 const clearableUrlSchema = z.preprocess(
@@ -43,11 +43,6 @@ const clearableDomainSchema = z.preprocess(
   emptyStringToNull,
   z.string().trim().max(200).nullable().optional(),
 )
-
-// Plain optional string fields that map to nullable columns: blanking a previously-set
-// value on edit must transmit null to clear it, not be silently dropped. See #3050.
-const clearableStringSchema = (max: number) =>
-  z.preprocess(emptyStringToNull, z.string().trim().max(max).nullable().optional())
 
 // Annual revenue maps to a nullable numeric column. `''`/whitespace/null all clear it;
 // `.nullable()` short-circuits before coercion so null does not coerce to 0. See #3050.

@@ -109,7 +109,7 @@ export function summarizePersonCompanies(
   ]
 }
 
-async function clearPrimaryFlags(em: EntityManager, person: CustomerEntity): Promise<void> {
+export async function clearPrimaryFlags(em: EntityManager, person: CustomerEntity): Promise<void> {
   await em.nativeUpdate(
     CustomerPersonCompanyLink,
     { person, organizationId: person.organizationId, tenantId: person.tenantId, isPrimary: true },

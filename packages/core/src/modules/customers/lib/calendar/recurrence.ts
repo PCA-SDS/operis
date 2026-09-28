@@ -1,6 +1,7 @@
 import type {
   CalendarInteractionItem, CalendarItem, CalendarRange } from '../../components/calendar/types'
-import { addCalendarDays, localDayKey } from './time'
+import { addCalendarDays } from './time'
+import { toLocalDateKey } from '@open-mercato/shared/lib/date/format'
 
 const MAX_OCCURRENCES_PER_WINDOW = 100
 /** Hard stop on the generator so a malformed rule can never spin forever. */
@@ -251,7 +252,7 @@ export function expandOccurrences(
     occurrenceIndex += 1
 
     // An excepted date consumes its slot in COUNT but renders nothing.
-    if (exceptions.has(localDayKey(occurrenceStart))) continue
+    if (exceptions.has(toLocalDateKey(occurrenceStart))) continue
 
     const occurrenceEnd = new Date(occurrenceStart.getTime() + durationMs)
     if (occurrenceStart.getTime() > range.to.getTime()) break

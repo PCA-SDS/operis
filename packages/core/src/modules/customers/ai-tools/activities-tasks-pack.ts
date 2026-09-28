@@ -23,29 +23,14 @@ import {
   CustomerInteraction,
   CustomerTodoLink,
 } from '../data/entities'
-import { buildScope, resolveEm } from './_shared'
+import { buildScope, resolveEm, blankToUndefined } from './_shared'
 import {
   assertTenantScope,
   type CustomersAiToolDefinition,
   type CustomersToolContext,
   type CustomersToolLoadBeforeSingleRecord,
 } from './types'
-
-function recordVersionFromUpdatedAt(updatedAt: Date | null | undefined): string | null {
-  if (!updatedAt) return null
-  const value = updatedAt instanceof Date ? updatedAt : new Date(updatedAt)
-  if (Number.isNaN(value.getTime())) return null
-  return value.toISOString()
-}
-
-// LLMs frequently emit `""` for "not provided" — coerce blanks (and surrounding
-// whitespace) to `undefined` BEFORE per-field validators run. Mirrors the
-// `blankToUndefined` helper in deals-pack.ts.
-const blankToUndefined = (value: unknown): unknown => {
-  if (typeof value !== 'string') return value
-  const trimmed = value.trim()
-  return trimmed.length === 0 ? undefined : trimmed
-}
+import { toIsoOrNull } from '@open-mercato/shared/lib/date/normalize'
 
 async function loadDealForScope(
   em: EntityManager,
@@ -451,7 +436,7 @@ const manageDealCommentTool: CustomersAiToolDefinition = {
       return {
         recordId: deal.id,
         entityType: 'customers.deal',
-        recordVersion: recordVersionFromUpdatedAt(deal.updatedAt),
+        recordVersion: toIsoOrNull(deal.updatedAt),
         before: { commentId: null, body: null, dealId: deal.id },
       }
     }
@@ -460,7 +445,7 @@ const manageDealCommentTool: CustomersAiToolDefinition = {
     return {
       recordId: existing.id,
       entityType: 'customers.customer_comment',
-      recordVersion: recordVersionFromUpdatedAt(existing.updatedAt),
+      recordVersion: toIsoOrNull(existing.updatedAt),
       before: {
         body: existing.body ?? null,
         dealId: (existing as any).deal && typeof (existing as any).deal === 'object'
@@ -617,7 +602,7 @@ const manageDealActivityTool: CustomersAiToolDefinition = {
       return {
         recordId: deal.id,
         entityType: 'customers.deal',
-        recordVersion: recordVersionFromUpdatedAt(deal.updatedAt),
+        recordVersion: toIsoOrNull(deal.updatedAt),
         before: { activityId: null, dealId: deal.id },
       }
     }
@@ -626,7 +611,7 @@ const manageDealActivityTool: CustomersAiToolDefinition = {
     return {
       recordId: existing.id,
       entityType: 'customers.customer_activity',
-      recordVersion: recordVersionFromUpdatedAt(existing.updatedAt),
+      recordVersion: toIsoOrNull(existing.updatedAt),
       before: {
         activityType: existing.activityType,
         subject: existing.subject ?? null,
@@ -904,7 +889,7 @@ const manageRecordCommentTool: CustomersAiToolDefinition = {
         return {
           recordId: deal.id,
           entityType: 'customers.deal',
-          recordVersion: recordVersionFromUpdatedAt(deal.updatedAt),
+          recordVersion: toIsoOrNull(deal.updatedAt),
           before: { commentId: null, body: null, entityId, dealId: deal.id },
         }
       }
@@ -920,7 +905,7 @@ const manageRecordCommentTool: CustomersAiToolDefinition = {
     return {
       recordId: existing.id,
       entityType: 'customers.customer_comment',
-      recordVersion: recordVersionFromUpdatedAt(existing.updatedAt),
+      recordVersion: toIsoOrNull(existing.updatedAt),
       before: {
         body: existing.body ?? null,
         dealId: (existing as any).deal && typeof (existing as any).deal === 'object'
@@ -1099,7 +1084,7 @@ const manageRecordActivityTool: CustomersAiToolDefinition = {
         return {
           recordId: deal.id,
           entityType: 'customers.deal',
-          recordVersion: recordVersionFromUpdatedAt(deal.updatedAt),
+          recordVersion: toIsoOrNull(deal.updatedAt),
           before: { activityId: null, dealId: deal.id, entityId },
         }
       }
@@ -1115,7 +1100,7 @@ const manageRecordActivityTool: CustomersAiToolDefinition = {
     return {
       recordId: existing.id,
       entityType: 'customers.customer_activity',
-      recordVersion: recordVersionFromUpdatedAt(existing.updatedAt),
+      recordVersion: toIsoOrNull(existing.updatedAt),
       before: {
         activityType: existing.activityType,
         subject: existing.subject ?? null,

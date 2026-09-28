@@ -27,13 +27,14 @@ import {
   CustomerDeal,
   CustomerPipelineStage,
 } from '../data/entities'
-import { buildScope, resolveEm } from './_shared'
+import { buildScope, resolveEm, toIso, blankToUndefined } from './_shared'
 import {
   assertTenantScope,
   type CustomersAiToolDefinition,
   type CustomersToolContext,
   type CustomersToolLoadBeforeSingleRecord,
 } from './types'
+import { toIsoOrNull } from '@open-mercato/shared/lib/date/normalize'
 
 const listDealsInput = z
   .object({
@@ -164,13 +165,6 @@ const getDealInput = z.object({
 
 type GetDealInput = z.infer<typeof getDealInput>
 
-function toIsoDeal(value: unknown): string | null {
-  if (!value) return null
-  const dt = value instanceof Date ? value : new Date(String(value))
-  if (Number.isNaN(dt.getTime())) return null
-  return dt.toISOString()
-}
-
 const getDealTool: CustomersAiToolDefinition = {
   name: 'customers.get_deal',
   displayName: 'Get deal',
@@ -236,14 +230,14 @@ const getDealTool: CustomersAiToolDefinition = {
           activityType: activity.activityType ?? activity.activity_type ?? null,
           subject: activity.subject ?? null,
           body: activity.body ?? null,
-          occurredAt: toIsoDeal(activity.occurredAt ?? activity.occurred_at),
-          createdAt: toIsoDeal(activity.createdAt ?? activity.created_at),
+          occurredAt: toIso(activity.occurredAt ?? activity.occurred_at),
+          createdAt: toIso(activity.createdAt ?? activity.created_at),
         })),
         notes: comments.map((comment) => ({
           id: comment.id,
           body: comment.body,
           authorUserId: comment.authorUserId ?? comment.author_user_id ?? null,
-          createdAt: toIsoDeal(comment.createdAt ?? comment.created_at),
+          createdAt: toIso(comment.createdAt ?? comment.created_at),
         })),
         people: peopleRows
           .map((person) => {
@@ -319,39 +313,17 @@ const getDealTool: CustomersAiToolDefinition = {
         valueCurrency: dealRow.valueCurrency ?? null,
         probability: dealRow.probability ?? null,
         ownerUserId: dealRow.ownerUserId ?? null,
-        expectedCloseAt: toIsoDeal(dealRow.expectedCloseAt),
+        expectedCloseAt: toIso(dealRow.expectedCloseAt),
         source: dealRow.source ?? null,
         organizationId: dealRow.organizationId ?? null,
         tenantId: dealRow.tenantId ?? null,
-        createdAt: toIsoDeal(dealRow.createdAt),
-        updatedAt: toIsoDeal(dealRow.updatedAt),
+        createdAt: toIso(dealRow.createdAt),
+        updatedAt: toIso(dealRow.updatedAt),
       },
       customFields,
       related,
     }
   },
-}
-
-/**
- * Mutation tool: move a deal to a different pipeline stage. Step 5.13 — first
- * mutation-capable flow on the pending-action contract.
- *
- * Accepts either `toPipelineStageId` (UUID — preferred, tenant-scoped stage
- * record) or `toStage` (free-form string that maps to `CustomerDeal.status`
- * for pipeline roots like `open`/`won`/`lost`). Exactly one must be provided.
- *
- * The handler delegates to the existing `customers.deals.update` command so
- * all side effects (audit log, `customers.deal.updated` event, query index
- * refresh, notifications) stay identical to a direct API write.
- */
-// LLMs frequently emit `""` for "not provided" — coerce blanks (and surrounding
-// whitespace) to `undefined` BEFORE the per-field validators run so the
-// `.uuid()` check on `toPipelineStageId` does not blow up on an empty string
-// the caller actually meant as "skip this field".
-const blankToUndefined = (value: unknown): unknown => {
-  if (typeof value !== 'string') return value
-  const trimmed = value.trim()
-  return trimmed.length === 0 ? undefined : trimmed
 }
 
 const updateDealStageInput = z
@@ -375,13 +347,6 @@ const updateDealStageInput = z
   )
 
 type UpdateDealStageInput = z.infer<typeof updateDealStageInput>
-
-function recordVersionFromUpdatedAt(updatedAt: Date | null | undefined): string | null {
-  if (!updatedAt) return null
-  const value = updatedAt instanceof Date ? updatedAt : new Date(updatedAt)
-  if (Number.isNaN(value.getTime())) return null
-  return value.toISOString()
-}
 
 function titleStatus(value: string | null | undefined): string | undefined {
   if (!value) return undefined
@@ -466,7 +431,7 @@ const updateDealStageTool: CustomersAiToolDefinition = {
     return {
       recordId: deal.id,
       entityType: 'customers.deal',
-      recordVersion: recordVersionFromUpdatedAt(deal.updatedAt),
+      recordVersion: toIsoOrNull(deal.updatedAt),
       before: {
         status: beforeStatus,
         pipelineStageId: beforePipelineStageId,

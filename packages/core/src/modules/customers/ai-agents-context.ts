@@ -25,13 +25,13 @@ import type {
   CustomersToolContext,
 } from './ai-tools/types'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { renderContextBlock } from '@open-mercato/ai-assistant/modules/ai_assistant/lib/agent-prompt-helpers'
+import { RFC4122_UUID_PATTERN } from '@open-mercato/shared/lib/validation'
 
 const logger = createLogger('customers')
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-
 function isUuid(value: unknown): value is string {
-  return typeof value === 'string' && UUID_REGEX.test(value)
+  return typeof value === 'string' && RFC4122_UUID_PATTERN.test(value)
 }
 
 function findTool(name: string): CustomersAiToolDefinition | null {
@@ -55,10 +55,6 @@ function buildToolContext(
     apiKeySecret: undefined,
     sessionId: undefined,
   }
-}
-
-function renderContextBlock(label: string, payload: unknown): string {
-  return `## Page context — ${label}\n${JSON.stringify(payload, null, 2)}`
 }
 
 export interface HydrateCustomersContextInput {
