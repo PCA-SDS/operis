@@ -171,6 +171,36 @@ describe('GET /api/directory/organization-switcher tenant fallback', () => {
     await expect(response.json()).resolves.toMatchObject({ tenantId: alphabeticallyFirstTenantId })
   })
 
+  it('preserves tenant context when a scoped user has no organization switcher menu', async () => {
+    authMock.mockResolvedValue({
+      sub: userId,
+      tenantId: homeTenantId,
+      orgId: null,
+      isSuperAdmin: false,
+    })
+    computeHierarchyMock.mockReturnValue({ ordered: [], map: new Map() })
+    getSelectedOrganizationMock.mockReturnValue(null)
+    resolveOrganizationScopeMock.mockResolvedValue({
+      selectedId: null,
+      filterIds: [],
+      allowedIds: [],
+      tenantId: homeTenantId,
+    })
+    loadAclMock.mockResolvedValue({ isSuperAdmin: false, features: [], organizations: [] })
+    userHasAllFeaturesMock.mockResolvedValue(false)
+
+    const { GET } = await loadRoute()
+    const response = await GET(createRequest())
+
+    await expect(response.json()).resolves.toMatchObject({
+      items: [],
+      selectedId: null,
+      canManage: false,
+      tenantId: homeTenantId,
+      isSuperAdmin: false,
+    })
+  })
+
   it('keeps loading the ACL with the selected organization when a super-admin views another tenant', async () => {
     getSelectedTenantMock.mockReturnValue(alphabeticallyFirstTenantId)
     authMock.mockResolvedValue({

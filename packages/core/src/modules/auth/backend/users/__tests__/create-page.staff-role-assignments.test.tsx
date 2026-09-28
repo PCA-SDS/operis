@@ -48,7 +48,10 @@ describe('users create page — staff role assignment tenant context', () => {
     crudFormPropsCapture.current = null
     apiCallMock.mockImplementation(async (url: string) => {
       if (url === '/api/directory/organization-switcher') {
-        return { ok: true, result: { isSuperAdmin: false, tenantId: 'tenant-1' } }
+        return {
+          ok: true,
+          result: { items: [], selectedId: null, canManage: false, tenantId: 'tenant-1', isSuperAdmin: false },
+        }
       }
       return { ok: true, result: { items: [] } }
     })

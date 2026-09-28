@@ -32,6 +32,8 @@ const organizationSwitcherCachePayloadSchema = organizationSwitcherResponseSchem
     items: true,
     selectedId: true,
     canManage: true,
+    tenantId: true,
+    isSuperAdmin: true,
   }),
 )
 
@@ -283,6 +285,8 @@ export async function GET(req: NextRequest) {
           items: [],
           selectedId: null,
           canManage: false,
+          tenantId,
+          isSuperAdmin: effectiveIsSuperAdmin,
         }
 
     if (cache && cacheKey) {
