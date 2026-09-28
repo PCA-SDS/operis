@@ -21,7 +21,7 @@ import {
   cloneJson,
   ensureOrganizationScope,
   ensureTenantScope,
-  extractUndoPayload,
+  extractUndoPayload, toIso,
 } from './shared'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 
@@ -49,15 +49,6 @@ type ConstraintsScope = {
 }
 
 type CurrentConstraintRecords = CatalogProductConstraint[]
-
-function toIso(value: Date | string | null | undefined): string | null {
-  if (!value) return null
-  if (value instanceof Date) {
-    return Number.isFinite(value.getTime()) ? value.toISOString() : null
-  }
-  const trimmed = value.trim()
-  return trimmed.length > 0 ? trimmed : null
-}
 
 function getLatestUpdatedAt(
   productUpdatedAt: Date | string | null | undefined,

@@ -27,7 +27,6 @@ import { parseScopedCommandInput, resolveCrudRecordId } from "../utils";
 import { splitCustomFieldPayload } from "@open-mercato/shared/lib/crud/custom-fields";
 import { E } from "#generated/entities.ids.generated";
 import * as F from "#generated/entities/catalog_product";
-import { parseBooleanFlag, sanitizeSearchTerm } from "../helpers";
 import { escapeLikePattern } from "@open-mercato/shared/lib/db/escapeLikePattern";
 import type { CrudCtx } from "@open-mercato/shared/lib/crud/factory";
 import { buildScopedWhere } from "@open-mercato/shared/lib/api/crud";
@@ -50,6 +49,9 @@ import {
 import { findWithDecryption } from "@open-mercato/shared/lib/encryption/find";
 import { canonicalizeUnitCode, toUnitLookupKey } from "../../lib/unitCodes";
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { sanitizeSearchTerm } from '@open-mercato/shared/lib/query/sanitizeSearchTerm'
+import { parseBooleanFlag } from '@open-mercato/shared/lib/boolean'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 const logger = createLogger('catalog')
 const rawBodySchema = z.object({}).passthrough();
@@ -59,8 +61,7 @@ const UUID_REGEX =
 
 const listSchema = z
   .object({
-    page: z.coerce.number().int().min(1).default(1),
-    pageSize: z.coerce.number().int().min(1).max(100).default(50),
+    ...paginationQuerySchema().shape,
     id: z.string().uuid().optional(),
     search: z.string().optional(),
     status: z.string().optional(),

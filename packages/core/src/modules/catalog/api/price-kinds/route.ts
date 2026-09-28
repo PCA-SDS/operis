@@ -5,7 +5,6 @@ import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { CatalogPriceKind } from '../../data/entities'
 import { priceKindCreateSchema, priceKindUpdateSchema } from '../../data/validators'
 import { parseScopedCommandInput, resolveCrudRecordId } from '../utils'
-import { parseBooleanFlag, sanitizeSearchTerm } from '../helpers'
 import { escapeLikePattern } from '@open-mercato/shared/lib/db/escapeLikePattern'
 import { E } from '#generated/entities.ids.generated'
 import * as F from '#generated/entities/catalog_price_kind'
@@ -14,6 +13,9 @@ import {
   createPagedListResponseSchema,
   defaultOkResponseSchema,
 } from '../openapi'
+import { sanitizeSearchTerm } from '@open-mercato/shared/lib/query/sanitizeSearchTerm'
+import { parseBooleanFlag } from '@open-mercato/shared/lib/boolean'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 const routeMetadata = {
   GET: { requireAuth: true, requireFeatures: ['catalog.settings.manage'] },
@@ -28,8 +30,7 @@ const rawBodySchema = z.object({}).passthrough()
 
 const listSchema = z
   .object({
-    page: z.coerce.number().int().min(1).default(1),
-    pageSize: z.coerce.number().int().min(1).max(100).default(50),
+    ...paginationQuerySchema().shape,
     search: z.string().optional(),
     isPromotion: z.string().optional(),
     isActive: z.string().optional(),

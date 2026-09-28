@@ -30,7 +30,7 @@ import { Input } from '@open-mercato/ui/primitives/input'
 import { Label } from '@open-mercato/ui/primitives/label'
 import { Textarea } from '@open-mercato/ui/primitives/textarea'
 import { Checkbox } from '@open-mercato/ui/primitives/checkbox'
-import { formatCurrency } from '@open-mercato/ui/utils/format'
+import { formatCurrency } from '@open-mercato/shared/lib/units/money'
 import {
   Select,
   SelectContent,
@@ -58,10 +58,10 @@ import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuarde
 import {
   CATALOG_DURATION_UNIT_OPTIONS,
   DEFAULT_CATALOG_DURATION_UNIT,
-  normalizeCatalogDurationUnit,
   type CatalogDurationUnit,
 } from '../../lib/durationUnits'
 import { cn } from '@open-mercato/shared/lib/utils'
+import { normalizeVariantDurationUnit } from './variantForm'
 
 const logger = createLogger('catalog')
 
@@ -118,10 +118,6 @@ const EMPTY_OPTION_FORM: OptionFormValues = {
   is_addon: false,
 }
 
-function normalizeOptionDurationUnit(value: string | null | undefined): CatalogDurationUnit {
-  return normalizeCatalogDurationUnit(value, DEFAULT_CATALOG_DURATION_UNIT) ?? DEFAULT_CATALOG_DURATION_UNIT
-}
-
 function formatOptionPriceLabel(option: OptionItem, t: ReturnType<typeof useT>, currencyCode?: string): string | null {
   const flat = formatCurrency(option.price_flat, currencyCode)
   const min = formatCurrency(option.price_min, currencyCode)
@@ -136,7 +132,7 @@ function formatOptionPriceLabel(option: OptionItem, t: ReturnType<typeof useT>, 
 
 function formatOptionDurationLabel(option: OptionItem, t: ReturnType<typeof useT>): string | null {
   const unit = CATALOG_DURATION_UNIT_OPTIONS.find(
-    (entry) => entry.value === normalizeOptionDurationUnit(option.duration_unit),
+    (entry) => entry.value === normalizeVariantDurationUnit(option.duration_unit),
   )
   const unitLabel = unit
     ? t(unit.shortLabelKey, unit.shortLabelFallback)
@@ -173,7 +169,7 @@ function toOptionFormValues(option: OptionItem): OptionFormValues {
     duration_max: option.duration_max === null || option.duration_max === undefined
       ? ''
       : String(option.duration_max),
-    duration_unit: normalizeOptionDurationUnit(option.duration_unit),
+    duration_unit: normalizeVariantDurationUnit(option.duration_unit),
     is_addon: option.is_addon ?? false,
   }
 }
@@ -602,7 +598,7 @@ function OptionDialog({
                 <div className="w-32 shrink-0">
                   <Select
                     value={form.duration_unit}
-                    onValueChange={(value) => setForm((f) => ({ ...f, duration_unit: normalizeOptionDurationUnit(value) }))}
+                    onValueChange={(value) => setForm((f) => ({ ...f, duration_unit: normalizeVariantDurationUnit(value) }))}
                   >
                     <SelectTrigger>
                       <SelectValue />

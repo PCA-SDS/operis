@@ -1,18 +1,12 @@
-import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
+import { resolveRequestEm } from '@open-mercato/shared/lib/di/container'
 import { findOneWithDecryption, findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import type { ObjectPreviewData } from '@open-mercato/shared/modules/messages/types'
-import type { EntityManager } from '@mikro-orm/postgresql'
 import { CatalogProduct, CatalogProductCategory, CatalogProductPrice, CatalogProductVariant } from '../data/entities'
 
 type PreviewContext = {
   tenantId: string
   organizationId?: string | null
-}
-
-async function resolveEm() {
-  const { resolve } = await createRequestContainer()
-  return resolve('em') as EntityManager
 }
 
 function formatVariantPrice(amount: string | null | undefined, currencyCode: string | null | undefined): string | null {
@@ -41,7 +35,7 @@ export async function loadCatalogProductPreview(
     return { title: defaultTitle, subtitle: entityId }
   }
 
-  const em = await resolveEm()
+  const em = await resolveRequestEm()
   const entity = await findOneWithDecryption(
     em,
     CatalogProduct,
@@ -81,7 +75,7 @@ export async function loadCatalogVariantPreview(
     return { title: defaultTitle, subtitle: entityId }
   }
 
-  const em = await resolveEm()
+  const em = await resolveRequestEm()
   const variant = await findOneWithDecryption(
     em,
     CatalogProductVariant,
@@ -146,7 +140,7 @@ export async function loadCatalogCategoryPreview(
     return { title: defaultTitle, subtitle: entityId }
   }
 
-  const em = await resolveEm()
+  const em = await resolveRequestEm()
   const entity = await findOneWithDecryption(
     em,
     CatalogProductCategory,

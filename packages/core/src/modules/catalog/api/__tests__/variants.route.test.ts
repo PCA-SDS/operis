@@ -1,5 +1,5 @@
 import { VARIANT_LIST_FIELDS, buildVariantFilters, stripPlaceholderId } from '../variants/route'
-import { sanitizeSearchTerm } from '../helpers'
+import { sanitizeSearchTerm } from '@open-mercato/shared/lib/query/sanitizeSearchTerm'
 
 jest.mock('@open-mercato/shared/lib/i18n/server', () => ({
   resolveTranslations: jest.fn().mockResolvedValue({

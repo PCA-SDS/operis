@@ -28,6 +28,7 @@ import {
   findOneWithDecryption,
 } from "@open-mercato/shared/lib/encryption/find";
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 const logger = createLogger('catalog')
 
@@ -35,8 +36,7 @@ const rawBodySchema = z.object({}).passthrough();
 
 const listSchema = z
   .object({
-    page: z.coerce.number().int().min(1).default(1),
-    pageSize: z.coerce.number().int().min(1).max(100).default(50),
+    ...paginationQuerySchema().shape,
     productId: z.string().uuid().optional(),
     variantId: z.string().uuid().optional(),
     offerId: z.string().uuid().optional(),

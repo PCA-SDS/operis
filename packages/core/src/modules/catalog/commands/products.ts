@@ -67,7 +67,6 @@ import {
   resolveOptionSchemaCode,
   emitCatalogQueryIndexEvent,
   randomSuffix,
-  toNumericString,
   getErrorConstraint,
   getErrorMessage,
 } from "./shared";
@@ -79,6 +78,7 @@ import { canonicalizeUnitCode } from "../lib/unitCodes";
 import {
   resolveCanonicalUnitCode,
 } from "../lib/unitResolution";
+import { toNumericString } from '@open-mercato/shared/lib/number'
 
 type ProductSnapshot = {
   id: string;

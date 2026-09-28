@@ -3,10 +3,6 @@ import { z } from 'zod'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { CrudHttpError, isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
-import {
-  runCrudMutationGuardAfterSuccess,
-  validateCrudMutationGuard,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
 import type { ModuleConfigService } from '@open-mercato/core/modules/configs/lib/module-config-service'
 import type { OpenApiMethodDoc, OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import {
@@ -15,6 +11,7 @@ import {
   UNIT_PRICE_DISPLAY_ENABLED_KEY,
 } from '../../lib/settings'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const logger = createLogger('catalog')
 
@@ -88,19 +85,19 @@ async function PUT(req: Request) {
     const context = await resolveSettingsContext(req)
     const body = bodySchema.parse(await req.json())
 
-    const guardResult = await validateCrudMutationGuard(context.container, {
-      tenantId: context.tenantId,
-      organizationId: context.organizationId,
-      userId: context.actorId,
-      resourceKind: 'catalog.settings',
-      resourceId: UNIT_PRICE_DISPLAY_ENABLED_KEY,
-      operation: 'custom',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      mutationPayload: { unitPriceDisplayEnabled: body.unitPriceDisplayEnabled },
+    const guardResult = await runRouteMutationGuards({
+      container: context.container,
+      req,
+      auth: { userId: context.actorId, tenantId: context.tenantId, organizationId: context.organizationId },
+      input: {
+        resourceKind: 'catalog.settings',
+        resourceId: UNIT_PRICE_DISPLAY_ENABLED_KEY,
+        operation: 'custom',
+        mutationPayload: { unitPriceDisplayEnabled: body.unitPriceDisplayEnabled },
+      },
     })
-    if (guardResult && !guardResult.ok) {
-      return NextResponse.json(guardResult.body, { status: guardResult.status })
+    if (!guardResult.ok) {
+      return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
     }
 
     const configService = context.container.resolve('moduleConfigService') as ModuleConfigService
@@ -111,19 +108,7 @@ async function PUT(req: Request) {
       { tenantId: context.tenantId },
     )
 
-    if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-      await runCrudMutationGuardAfterSuccess(context.container, {
-        tenantId: context.tenantId,
-        organizationId: context.organizationId,
-        userId: context.actorId,
-        resourceKind: 'catalog.settings',
-        resourceId: UNIT_PRICE_DISPLAY_ENABLED_KEY,
-        operation: 'custom',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
-        metadata: guardResult.metadata ?? null,
-      })
-    }
+    await guardResult.runAfterSuccess()
 
     return NextResponse.json({ unitPriceDisplayEnabled: body.unitPriceDisplayEnabled })
   } catch (err) {

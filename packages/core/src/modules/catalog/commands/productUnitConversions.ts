@@ -36,13 +36,13 @@ import {
   ensureTenantScope,
   extractUndoPayload,
   requireProduct,
-  toNumericString,
   getErrorConstraint,
   getErrorMessage,
 } from "./shared";
 import { makeCreateRedo } from "@open-mercato/shared/lib/commands/redo";
 import { toUnitLookupKey } from "../lib/unitCodes";
 import { resolveCanonicalUnitCode } from "../lib/unitResolution";
+import { toNumericString } from '@open-mercato/shared/lib/number'
 
 type ProductUnitConversionSnapshot = {
   id: string;

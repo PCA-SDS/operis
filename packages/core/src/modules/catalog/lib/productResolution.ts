@@ -1,8 +1,7 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { CatalogProduct } from '../data/entities'
-
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+import { RFC_UUID_PATTERN } from '@open-mercato/shared/lib/validation'
 
 export type ResolveCatalogProductLookup = {
   sku?: string | null
@@ -40,7 +39,7 @@ export async function resolveProductBySkuOrExternalId(
   const sku = normalizeLookupValue(lookup.sku)
   if (!externalId && !sku) return null
 
-  if (externalId && UUID_REGEX.test(externalId)) {
+  if (externalId && RFC_UUID_PATTERN.test(externalId)) {
     const byExternalId = await findOneWithDecryption(
       em,
       CatalogProduct,

@@ -7,10 +7,7 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import { CatalogProduct, CatalogProductOptionGroup, CatalogProductOption, CatalogProductPrice, CatalogProductConstraint } from '../../../../data/entities'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import type { CommandBus } from '@open-mercato/shared/lib/commands'
-import {
-  runCatalogMutationGuardAfterSuccess,
-  runCatalogMutationGuards,
-} from '../../../guards'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 import type { CatalogProductOptionTreeSyncInput } from '../../../../data/validators'
 import { CATALOG_DURATION_UNITS, normalizeCatalogDurationUnit } from '../../../../lib/durationUnits'
 
@@ -392,22 +389,18 @@ export async function PUT(
     })) ?? [],
   }
 
-  const guardInput = {
-    tenantId: ctx.auth.tenantId,
-    organizationId: ctx.selectedOrganizationId ?? ctx.auth.orgId ?? null,
-    userId: ctx.auth?.sub ?? '',
-    resourceKind: 'catalog.product',
-    resourceId: productId,
-    operation: 'update' as const,
-    requestMethod: request.method,
-    requestHeaders: request.headers,
-  }
-  const guardResult = await runCatalogMutationGuards(
-    ctx.container,
-    guardInput,
-  )
+  const guardResult = await runRouteMutationGuards({
+    container: ctx.container,
+    req: request,
+    auth: {
+      userId: ctx.auth?.sub ?? '',
+      tenantId: ctx.auth.tenantId,
+      organizationId: ctx.selectedOrganizationId ?? ctx.auth.orgId ?? null,
+    },
+    input: { resourceKind: 'catalog.product', resourceId: productId, operation: 'update' },
+  })
   if (!guardResult.ok) {
-    throw new CrudHttpError(guardResult.errorStatus ?? 422, guardResult.errorBody ?? { error: 'Operation blocked by guard' })
+    throw new CrudHttpError(guardResult.errorStatus, guardResult.errorBody)
   }
 
   const commandBus = ctx.container.resolve('commandBus') as CommandBus
@@ -426,7 +419,7 @@ export async function PUT(
     },
   })
 
-  await runCatalogMutationGuardAfterSuccess(guardResult.afterSuccessCallbacks, guardInput)
+  await guardResult.runAfterSuccess()
 
   // Call GET logic manually to bypass generic fetch
   return GET(request, { params })

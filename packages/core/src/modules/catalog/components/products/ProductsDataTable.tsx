@@ -25,6 +25,7 @@ import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import { useAppEvent } from '@open-mercato/ui/backend/injection/useAppEvent'
 import { E } from '#generated/entities.ids.generated'
 import { ProductImageCell } from './ProductImageCell'
+import { formatDate } from '@open-mercato/shared/lib/time'
 
 type PricingScope = {
   variant_id?: string | null
@@ -90,13 +91,6 @@ type ProductsResponse = {
 
 const PAGE_SIZE = 25
 const ENTITY_ID = E.catalog.catalog_product
-
-function formatDate(value?: string): string {
-  if (!value) return '—'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return '—'
-  return date.toLocaleDateString()
-}
 
 function renderOffers(offers: OfferInfo[] | undefined): React.ReactNode {
   if (!offers || offers.length === 0) return <span className="text-xs text-muted-foreground">—</span>
@@ -465,7 +459,7 @@ export default function ProductsDataTable({
       {
         accessorKey: 'updated_at',
         header: t('catalog.products.table.updatedAt'),
-        cell: ({ row }) => <span className="text-xs text-muted-foreground">{formatDate(row.original.updated_at)}</span>,
+        cell: ({ row }) => <span className="text-xs text-muted-foreground">{formatDate(row.original.updated_at, { fallback: '—' })}</span>,
       },
     ]
     return applyCustomFieldVisibility(base, customFieldDefs)
