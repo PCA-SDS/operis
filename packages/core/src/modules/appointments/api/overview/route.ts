@@ -16,6 +16,10 @@ import { Appointment, AppointmentLine, AppointmentLineOptionGroup } from '../../
 import { deriveScheduleConfirmationStatus } from '../../lib/scheduleTracking'
 import { normalizeLineOptions } from '../../lib/lineOptionSnapshot'
 import { loadResourceAvailabilityWindows, resolveResourceOrganizationIds } from '../../lib/resourceAvailability'
+import {
+  loadOrganizationAvailabilityPolicy,
+  resolveOrganizationAvailabilityWindows,
+} from '@open-mercato/core/modules/planner/lib/organizationAvailability'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['appointments.view'] },
@@ -173,6 +177,25 @@ export async function GET(req: Request) {
       resourceIds: resourceWorkspace.resources.map((resource) => resource.id),
       range: { start, end },
     })
+    const organizationAvailabilityPolicy = await loadOrganizationAvailabilityPolicy(em, {
+      tenantId: auth.tenantId,
+      organizationIds: resourceOrganizationIds,
+    })
+    const timelineWindows = organizationAvailabilityPolicy
+      ? resolveOrganizationAvailabilityWindows(organizationAvailabilityPolicy, {
+          start,
+          end: new Date(end.getTime() + 24 * 60 * 60 * 1000),
+        }).map((window) => ({ startsAt: window.start.toISOString(), endsAt: window.end.toISOString() }))
+      : null
+    const bookingAcceptanceWindows = organizationAvailabilityPolicy
+      ? resolveOrganizationAvailabilityWindows(organizationAvailabilityPolicy, {
+          start,
+          end: new Date(end.getTime() + 24 * 60 * 60 * 1000),
+        }).map((window) => ({
+          startsAt: window.start.toISOString(),
+          latestStartAt: window.latestNewBookingStart.toISOString(),
+        }))
+      : null
 
     const blocks = assignments.flatMap((assignment) => {
       const line = assignmentLineById.get(assignment.sourceEntityId)
@@ -234,6 +257,8 @@ export async function GET(req: Request) {
     return NextResponse.json({
       date,
       organization: { id: organizationId, name: organization?.name ?? organizationId },
+      timelineWindows,
+      bookingAcceptanceWindows,
       resources: resourceWorkspace.resources.map((resource) => ({
         id: resource.id,
         name: resource.name,

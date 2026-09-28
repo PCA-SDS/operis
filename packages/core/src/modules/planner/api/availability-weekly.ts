@@ -16,6 +16,7 @@ import {
 import { assertAvailabilityWriteAccess, resolveAvailabilityActorId } from './access'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
+import { invalidateCrudCache } from '@open-mercato/shared/lib/crud/cache'
 
 const logger = createLogger('planner').child({ component: 'availability' })
 
@@ -79,6 +80,17 @@ export async function POST(req: Request) {
     }
     const commandBus = ctx.container.resolve('commandBus') as CommandBus
     const { logEntry } = await commandBus.execute('planner.availability.weekly.replace', { input, ctx })
+    await invalidateCrudCache(
+      ctx.container,
+      'planner.availability.rule',
+      {
+        id: null,
+        organizationId: input.organizationId,
+        tenantId: input.tenantId,
+      },
+      input.tenantId,
+      'weekly_replace',
+    )
     if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
       await runCrudMutationGuardAfterSuccess(ctx.container, { ...guardInput, metadata: guardResult.metadata ?? null })
     }

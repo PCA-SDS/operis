@@ -1,7 +1,38 @@
-import { Entity, Enum, Index, PrimaryKey, Property } from '@open-mercato/shared/lib/db/decorators'
+import { Entity, Enum, Index, PrimaryKey, Property, Unique } from '@open-mercato/shared/lib/db/decorators'
 
 export type PlannerAvailabilitySubjectType = 'member' | 'resource' | 'ruleset'
 export type PlannerAvailabilityKind = 'availability' | 'unavailability'
+
+@Entity({ tableName: 'planner_organization_availability_settings' })
+@Unique({ name: 'planner_org_availability_settings_scope_unique', properties: ['tenantId', 'organizationId'] })
+export class PlannerOrganizationAvailabilitySettings {
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  @Property({ name: 'operating_hours_rule_set_id', type: 'uuid' })
+  operatingHoursRuleSetId!: string
+
+  @Property({ name: 'last_customer_before_close_minutes', type: 'int', default: 0 })
+  lastCustomerBeforeCloseMinutes: number = 0
+
+  @Property({ name: 'time_overflow_minutes', type: 'int', default: 0 })
+  timeOverflowMinutes: number = 0
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onUpdate: () => new Date() })
+  updatedAt: Date = new Date()
+
+  @Property({ name: 'deleted_at', type: Date, nullable: true })
+  deletedAt?: Date | null
+}
 
 @Entity({ tableName: 'planner_availability_rule_sets' })
 @Index({ name: 'planner_availability_rule_sets_tenant_org_idx', properties: ['tenantId', 'organizationId'] })
@@ -64,6 +95,15 @@ export class PlannerAvailabilityRule {
 
   @Enum({ items: ['availability', 'unavailability'], type: 'text', name: 'kind' })
   kind: PlannerAvailabilityKind = 'availability'
+
+  @Property({ name: 'last_customer_before_close_minutes', type: 'int', nullable: true })
+  lastCustomerBeforeCloseMinutes?: number | null
+
+  @Property({ name: 'last_customer_acceptance_minutes', type: 'int', nullable: true })
+  lastCustomerAcceptanceMinutes?: number | null
+
+  @Property({ name: 'time_overflow_minutes', type: 'int', nullable: true })
+  timeOverflowMinutes?: number | null
 
   @Property({ type: 'text', nullable: true })
   note?: string | null

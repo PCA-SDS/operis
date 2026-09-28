@@ -19,6 +19,12 @@ import {
   resolveDurationMinutes,
 } from './lineOptionSnapshot'
 import { checkPersonIdentity, type PersonCheckResult } from '@open-mercato/core/modules/customers/lib/personLookup'
+import { Organization } from '@open-mercato/core/modules/directory/data/entities'
+import {
+  loadOrganizationAvailabilityPolicy,
+  validateBookingRuntimeAgainstOrganizationAvailability,
+  validateBookingAgainstOrganizationAvailability,
+} from '@open-mercato/core/modules/planner/lib/organizationAvailability'
 
 type StaffEditDeps = BookableServiceDeps & {
   commandBus?: CommandBus
@@ -105,6 +111,49 @@ function stableSerialize(value: unknown): string {
   return JSON.stringify(value) ?? 'null'
 }
 
+async function enforceOrganizationBookingPolicy(
+  em: EntityManager,
+  params: { tenantId: string; organizationId: string; startsAt: Date; endsAt: Date | null; enforceAcceptance?: boolean },
+): Promise<void> {
+  if (!params.endsAt) return
+  const organization = await em.findOne(Organization, {
+    id: params.organizationId,
+    tenant: params.tenantId,
+    deletedAt: null,
+  })
+  const policy = await loadOrganizationAvailabilityPolicy(em, {
+    tenantId: params.tenantId,
+    organizationIds: [params.organizationId, ...(organization?.ancestorIds ?? [])],
+  })
+  if (!policy) return
+  const validation = params.enforceAcceptance === false
+    ? validateBookingRuntimeAgainstOrganizationAvailability(policy, {
+        startsAt: params.startsAt,
+        endsAt: params.endsAt,
+      })
+    : validateBookingAgainstOrganizationAvailability(policy, {
+        startsAt: params.startsAt,
+        endsAt: params.endsAt,
+      })
+  if (validation.valid) return
+  if (validation.code === 'BOOKING_START_AFTER_LAST_CUSTOMER') {
+    throw new CrudHttpError(400, {
+      error: 'The requested start time is after the last customer cutoff.',
+      code: validation.code,
+    })
+  }
+  if (validation.code === 'BOOKING_START_OUTSIDE_OPERATING_HOURS') {
+    throw new CrudHttpError(400, {
+      error: 'The requested start time is outside operating hours.',
+      code: validation.code,
+    })
+  }
+  throw new CrudHttpError(400, {
+    error: 'The requested booking ends after the allowed time overflow.',
+    code: validation.code,
+  })
+}
+
 export async function createAppointmentFromPublicIntake(
   em: EntityManager,
   input: AppointmentPublicCreateInput & { statusCode?: string },
@@ -168,6 +217,12 @@ export async function createAppointmentFromPublicIntake(
     0,
   )
   const requestedEndAt = totalDuration > 0 ? addMinutes(requestedStartAt, totalDuration) : null
+  await enforceOrganizationBookingPolicy(em, {
+    tenantId: input.tenantId,
+    organizationId: input.organizationId,
+    startsAt: requestedStartAt,
+    endsAt: requestedEndAt,
+  })
   const customerName = `${input.customer.firstName.trim()} ${input.customer.lastName.trim()}`.trim()
   const phoneSnapshot = toAppointmentPhoneSnapshot(
     input.customer.phone,
@@ -290,6 +345,13 @@ export async function updateAppointmentFromStaffEdit(
     0,
   )
   const requestedEndAt = totalDuration > 0 ? addMinutes(requestedStartAt, totalDuration) : null
+  await enforceOrganizationBookingPolicy(em, {
+    tenantId: input.tenantId,
+    organizationId: input.organizationId,
+    startsAt: requestedStartAt,
+    endsAt: requestedEndAt,
+    enforceAcceptance: false,
+  })
   const customerName = `${input.customer.firstName.trim()} ${input.customer.lastName.trim()}`.trim()
   const phoneSnapshot = toAppointmentPhoneSnapshot(
     input.customer.phone,

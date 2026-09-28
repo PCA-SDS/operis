@@ -154,6 +154,8 @@ type SeatPlannerWorkspace = {
   }
   lines: SeatPlannerLine[]
   allocations: PlannerAllocation[]
+  timelineWindows: Array<{ startsAt: string; endsAt: string }> | null
+  bookingAcceptanceWindows: Array<{ startsAt: string; latestStartAt: string }> | null
   resources: Resource[]
 }
 
@@ -264,6 +266,19 @@ function buildIsoFromSlot(baseIso: string, time: string): string {
   const [hour = '0', minute = '0'] = time.split(':')
   date.setHours(Number(hour), Number(minute), 0, 0)
   return date.toISOString()
+}
+
+function isBookingStartAllowed(
+  bookingAcceptanceWindows: Array<{ startsAt: string; latestStartAt: string }> | null | undefined,
+  startsAt: string,
+): boolean {
+  if (bookingAcceptanceWindows === null || bookingAcceptanceWindows === undefined) return true
+  const candidateStart = new Date(startsAt).getTime()
+  return bookingAcceptanceWindows.some((window) => {
+    const windowStart = new Date(window.startsAt).getTime()
+    const latestStart = new Date(window.latestStartAt).getTime()
+    return candidateStart >= windowStart && candidateStart <= latestStart
+  })
 }
 
 function addMinutes(iso: string, minutes: number): string {
@@ -1332,19 +1347,29 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
   const timelineBounds = React.useMemo(() => {
     const startCandidates: number[] = []
     const endCandidates: number[] = []
-    for (const resource of workspace?.resources ?? []) {
-      const windows = resource.availabilityWindows
-      if (windows === null || windows === undefined) {
-        startCandidates.push(START_HOUR * 60)
-        endCandidates.push(END_HOUR * 60)
-        continue
-      }
-      for (const window of windows) {
+    if (workspace?.timelineWindows !== undefined && workspace.timelineWindows !== null) {
+      for (const window of workspace.timelineWindows) {
         const start = new Date(window.startsAt)
         const end = new Date(window.endsAt)
         if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) continue
         startCandidates.push(start.getHours() * 60 + start.getMinutes())
         endCandidates.push(end.getHours() * 60 + end.getMinutes())
+      }
+    } else {
+      for (const resource of workspace?.resources ?? []) {
+        const windows = resource.availabilityWindows
+        if (windows === null || windows === undefined) {
+          startCandidates.push(START_HOUR * 60)
+          endCandidates.push(END_HOUR * 60)
+          continue
+        }
+        for (const window of windows) {
+          const start = new Date(window.startsAt)
+          const end = new Date(window.endsAt)
+          if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) continue
+          startCandidates.push(start.getHours() * 60 + start.getMinutes())
+          endCandidates.push(end.getHours() * 60 + end.getMinutes())
+        }
       }
     }
     const startMinutes = startCandidates.length > 0 ? Math.min(...startCandidates) : START_HOUR * 60
@@ -1353,7 +1378,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
       startMinutes: Math.floor(startMinutes / SLOT_MINUTES) * SLOT_MINUTES,
       endMinutes: Math.ceil(endMinutes / SLOT_MINUTES) * SLOT_MINUTES,
     }
-  }, [workspace?.resources])
+  }, [workspace?.resources, workspace?.timelineWindows])
   const slots = React.useMemo(() => buildSlots(timelineBounds.startMinutes, timelineBounds.endMinutes), [timelineBounds])
   const timeMarkers = React.useMemo(() => buildTimeMarkers(timelineBounds.startMinutes, timelineBounds.endMinutes), [timelineBounds])
   const slotGridMarkers = React.useMemo(
@@ -1528,6 +1553,12 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
       return
     }
     const activeIndex = workspace.lines.findIndex((line) => line.id === activeLine.id)
+    const bookingStartAllowed = activeIndex > 0
+      || isBookingStartAllowed(workspace.bookingAcceptanceWindows, buildIsoFromSlot(workspace.appointment.requestedStartAt, time))
+    if (!bookingStartAllowed) {
+      flash(t('appointments.seatPlanner.afterLastCustomerError', 'New bookings cannot start after the last customer acceptance time.'), 'error')
+      return
+    }
     let nextStart = buildIsoFromSlot(workspace.appointment.requestedStartAt, time)
     const plannedAssignments: Array<{ line: SeatPlannerLine; startsAt: string; duration: number }> = []
     for (const line of workspace.lines.slice(Math.max(0, activeIndex))) {
@@ -1921,10 +1952,12 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                             ? buildIsoFromSlot(workspace.appointment.requestedStartAt, hoveredSlot.time)
                             : null
                           const previewEndsAt = previewStartsAt ? addMinutes(previewStartsAt, previewDuration) : null
+                          const activeIndex = activeLine ? workspace.lines.findIndex((line) => line.id === activeLine.id) : -1
                           const previewStaffNames = activeLine?.currentAssignment?.assignedMemberNames
                             ?? (activeLine?.currentAssignment?.assignedMemberName ? [activeLine.currentAssignment.assignedMemberName] : [])
                           const previewBlocked = previewStartsAt && previewEndsAt
                             ? timeToMinutes(hoveredSlot?.time ?? '00:00') < earliestMinutes
+                              || (activeIndex <= 0 && !isBookingStartAllowed(workspace.bookingAcceptanceWindows, previewStartsAt))
                               || !canUseResourceRange(seat.id, previewStartsAt, previewEndsAt)
                               || (allocationsBySeat.get(seat.id) ?? []).some((allocation) => {
                                 if (allocation.appointmentId === workspace.appointment.id) return false
@@ -1943,12 +1976,14 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                               const slotStartsAt = buildIsoFromSlot(workspace.appointment.requestedStartAt, time)
                               const slotEndsAt = addMinutes(slotStartsAt, SLOT_MINUTES)
                               const unavailable = !canUseResourceRange(seat.id, slotStartsAt, slotEndsAt)
+                              const afterLastCustomer = activeIndex <= 0
+                                && !isBookingStartAllowed(workspace.bookingAcceptanceWindows, slotStartsAt)
                               const blocked = beforeEarliest || unavailable || (allocationsBySeat.get(seat.id) ?? []).some((allocation) => {
                                 if (allocation.appointmentId === workspace.appointment.id) return false
                                 const start = new Date(allocation.startsAt)
                                 const end = new Date(allocation.endsAt)
                                 return minutes >= start.getHours() * 60 + start.getMinutes() && minutes < end.getHours() * 60 + end.getMinutes()
-                              })
+                              }) || afterLastCustomer
                               return (
                                 <Button
                                   key={`${seat.id}-${time}-slot`}

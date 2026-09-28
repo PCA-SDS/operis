@@ -311,6 +311,7 @@
   "appointments.seatPlanner.addServiceHint": "Choose one or more services to add to this booking.",
   "appointments.seatPlanner.addServiceTitle": "Add service",
   "appointments.seatPlanner.addingService": "Adding...",
+  "appointments.seatPlanner.afterLastCustomerError": "New bookings cannot start after the last customer acceptance time.",
   "appointments.seatPlanner.assign": "Assign",
   "appointments.seatPlanner.assignResource": "Assign Resource",
   "appointments.seatPlanner.assignStaff": "Assign staff",

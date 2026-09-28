@@ -6,6 +6,7 @@ const isoDateString = z.string().refine((value) => !Number.isNaN(Date.parse(valu
 
 const availabilitySubjectSchema = z.enum(['member', 'resource', 'ruleset'])
 const availabilityKindSchema = z.enum(['availability', 'unavailability'])
+const timeOfDaySchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/)
 
 const scopedCreateFields = {
   tenantId: z.string().uuid(),
@@ -15,6 +16,18 @@ const scopedCreateFields = {
 const scopedUpdateFields = {
   id: z.string().uuid(),
 }
+
+export const plannerOrganizationAvailabilitySettingsSchema = z.object({
+  tenantId: z.string().uuid(),
+  organizationId: z.string().uuid(),
+  operatingHoursRuleSetId: z.string().uuid(),
+  lastCustomerBeforeCloseMinutes: z.number().int().min(0).max(24 * 60).optional().nullable(),
+  timeOverflowMinutes: z.number().int().min(0).max(24 * 60).optional().nullable(),
+})
+
+export type PlannerOrganizationAvailabilitySettingsInput = z.infer<
+  typeof plannerOrganizationAvailabilitySettingsSchema
+>
 
 export const plannerAvailabilityRuleSetCreateSchema = z.object({
   ...scopedCreateFields,
@@ -38,6 +51,9 @@ export const plannerAvailabilityRuleCreateSchema = z.object({
   rrule: z.string().min(1),
   exdates: z.array(isoDateString).optional().default([]),
   kind: availabilityKindSchema.optional().default('availability'),
+  lastCustomerBeforeCloseMinutes: z.number().int().min(0).max(24 * 60).optional().nullable(),
+  lastCustomerAcceptanceTime: timeOfDaySchema.optional().nullable(),
+  timeOverflowMinutes: z.number().int().min(0).max(24 * 60).optional().nullable(),
   note: z.string().trim().max(200).optional().nullable(),
   unavailabilityReasonEntryId: z.string().uuid().optional().nullable(),
   unavailabilityReasonValue: z.string().trim().min(1).max(150).optional().nullable(),
@@ -51,21 +67,44 @@ export const plannerAvailabilityRuleUpdateSchema = z.object({
   rrule: z.string().min(1).optional(),
   exdates: z.array(isoDateString).optional(),
   kind: availabilityKindSchema.optional(),
+  lastCustomerBeforeCloseMinutes: z.number().int().min(0).max(24 * 60).optional().nullable(),
+  lastCustomerAcceptanceTime: timeOfDaySchema.optional().nullable(),
+  timeOverflowMinutes: z.number().int().min(0).max(24 * 60).optional().nullable(),
   note: z.string().trim().max(200).optional().nullable(),
   unavailabilityReasonEntryId: z.string().uuid().optional().nullable(),
   unavailabilityReasonValue: z.string().trim().min(1).max(150).optional().nullable(),
 })
 
+function validateAcceptanceTimeBeforeClose(
+  value: { end: string; lastCustomerAcceptanceTime?: string | null },
+  ctx: z.RefinementCtx,
+) {
+  if (!value.lastCustomerAcceptanceTime) return
+  const [endHours, endMinutes] = value.end.split(':').map(Number)
+  const [acceptanceHours, acceptanceMinutes] = value.lastCustomerAcceptanceTime.split(':').map(Number)
+  if (acceptanceHours * 60 + acceptanceMinutes > endHours * 60 + endMinutes) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['lastCustomerAcceptanceTime'],
+      message: 'Last customer acceptance time cannot be after operating close.',
+    })
+  }
+}
+
 const weeklyWindowSchema = z.object({
   weekday: z.number().int().min(0).max(6),
-  start: z.string().regex(/^\d{2}:\d{2}$/),
-  end: z.string().regex(/^\d{2}:\d{2}$/),
-})
+  start: timeOfDaySchema,
+  end: timeOfDaySchema,
+  lastCustomerAcceptanceTime: timeOfDaySchema.optional().nullable(),
+  timeOverflowMinutes: z.number().int().min(0).max(24 * 60).optional().nullable(),
+}).superRefine(validateAcceptanceTimeBeforeClose)
 
 const dateSpecificWindowSchema = z.object({
-  start: z.string().regex(/^\d{2}:\d{2}$/),
-  end: z.string().regex(/^\d{2}:\d{2}$/),
-})
+  start: timeOfDaySchema,
+  end: timeOfDaySchema,
+  lastCustomerAcceptanceTime: timeOfDaySchema.optional().nullable(),
+  timeOverflowMinutes: z.number().int().min(0).max(24 * 60).optional().nullable(),
+}).superRefine(validateAcceptanceTimeBeforeClose)
 
 const dateSpecificDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 

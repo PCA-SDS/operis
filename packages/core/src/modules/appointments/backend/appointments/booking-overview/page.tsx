@@ -45,7 +45,7 @@ type Appointment = {
   lines: Line[]
 }
 type Block = { id: string; appointmentId: string; lineId: string; resourceId: string | null; resourceName: string | null; assignedMemberId: string | null; assignedMemberName: string | null; assignedMemberIds?: string[]; assignedMemberNames?: string[]; startsAt: string; endsAt: string; state: 'draft' | 'confirmed'; serviceName: string; serviceCategory: string | null }
-type Overview = { date: string; organization: { id: string; name: string }; resources: Resource[]; appointments: Appointment[]; blocks: Block[]; unassignedAppointmentIds: string[]; unconfirmedAppointmentIds: string[]; unconfirmedAppointments: Appointment[] }
+type Overview = { date: string; organization: { id: string; name: string }; timelineWindows: Array<{ startsAt: string; endsAt: string }> | null; bookingAcceptanceWindows: Array<{ startsAt: string; latestStartAt: string }> | null; resources: Resource[]; appointments: Appointment[]; blocks: Block[]; unassignedAppointmentIds: string[]; unconfirmedAppointmentIds: string[]; unconfirmedAppointments: Appointment[] }
 type OrganizationNode = { id: string; name: string; selectable: boolean; children?: OrganizationNode[] }
 const DEPOSIT_RECEIVED_STATUS_CODE = 'deposit_received_booked'
 const STAFF_PAGE_SIZE = 50
@@ -963,6 +963,8 @@ export default function BookingOverviewPage() {
               <AppointmentResourceTimeline
                 date={date}
                 resources={overview.resources}
+                timelineWindows={overview.timelineWindows}
+                bookingAcceptanceWindows={overview.bookingAcceptanceWindows}
                 appointments={overview.appointments}
                 blocks={overview.blocks}
                 fitScreen={isFitScreen}

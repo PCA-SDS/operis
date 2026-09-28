@@ -100,9 +100,8 @@ function expandRule(rule: AvailabilityRuleLike, parsed: ParsedRule, range: Avail
   const { startAt, durationMinutes, freq, count, repeat, weekday } = parsed
   if (repeat === 'once') {
     if (shouldExcludeOccurrence(startAt, rule.exdates)) return []
-    const isFullDay = durationMinutes >= 24 * 60
-    const start = isFullDay ? startAt : startOfDay(startAt)
-    const end = isFullDay ? new Date(startAt.getTime() + durationMinutes * 60000) : new Date(start.getTime() + DAY_MS)
+    const start = startAt
+    const end = new Date(startAt.getTime() + durationMinutes * 60000)
     if (end <= range.start || start >= range.end) return []
     return [{ start, end, ruleId: rule.id }]
   }
@@ -204,30 +203,26 @@ export function getMergedAvailabilityWindows(params: {
       }
     })
 
-  const availabilityRules = parsedRules
+  const recurringAvailabilityRules = parsedRules
     .filter(({ parsed, rule }) => parsed.repeat !== 'once' && rule.kind !== 'unavailability')
+    .map(({ rule }) => rule)
+  const oneOffAvailabilityRules = parsedRules
+    .filter(({ parsed, rule }) => parsed.repeat === 'once' && rule.kind !== 'unavailability')
     .map(({ rule }) => rule)
   const unavailabilityRules = parsedRules
     .filter(({ rule }) => rule.kind === 'unavailability')
     .map(({ rule }) => rule)
 
-  const availabilityWindows = expandRules(availabilityRules, params.range)
+  const recurringAvailabilityWindows = expandRules(recurringAvailabilityRules, params.range)
     .filter((window) => !overrideDays.has(toDayKey(window.start)))
+  const oneOffAvailabilityWindows = expandRules(oneOffAvailabilityRules, params.range)
+    .filter((window) => overrideDays.get(toDayKey(window.start)) === 'availability')
+  const availabilityWindows = [...recurringAvailabilityWindows, ...oneOffAvailabilityWindows]
   const unavailabilityWindows = expandRules(unavailabilityRules, params.range)
 
   const merged = unavailabilityWindows.length === 0
     ? availabilityWindows
     : availabilityWindows.flatMap((window) => subtractWindow(window, unavailabilityWindows))
 
-  const overrideWindows: AvailabilityWindow[] = []
-  overrideDays.forEach((kind, dayKey) => {
-    if (kind !== 'availability') return
-    const start = new Date(`${dayKey}T00:00:00Z`)
-    if (Number.isNaN(start.getTime())) return
-    const end = new Date(start.getTime() + DAY_MS)
-    if (end <= params.range.start || start >= params.range.end) return
-    overrideWindows.push({ start, end })
-  })
-
-  return [...merged, ...overrideWindows].sort((a, b) => a.start.getTime() - b.start.getTime())
+  return merged.sort((a, b) => a.start.getTime() - b.start.getTime())
 }

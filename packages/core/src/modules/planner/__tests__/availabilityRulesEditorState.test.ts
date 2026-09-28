@@ -1,10 +1,35 @@
 import {
+  normalizeAvailabilityRuleRecord,
   requiresResetConfirmation,
   resolveRuleSetSelectValue,
   selectCustomRuleIdsToDelete,
 } from '../components/availabilityRulesEditorState'
 
 describe('availabilityRulesEditorState', () => {
+  it('normalizes snake_case availability timing fields from list responses', () => {
+    expect(normalizeAvailabilityRuleRecord({
+      time_overflow_minutes: 60,
+      last_customer_acceptance_minutes: 1320,
+      updated_at: '2026-09-25T07:47:05.231Z',
+    })).toMatchObject({
+      timeOverflowMinutes: 60,
+      lastCustomerAcceptanceMinutes: 1320,
+      updatedAt: '2026-09-25T07:47:05.231Z',
+    })
+  })
+
+  it('keeps camelCase timing fields when the API already provides them', () => {
+    expect(normalizeAvailabilityRuleRecord({
+      timeOverflowMinutes: 90,
+      lastCustomerAcceptanceMinutes: 1260,
+      time_overflow_minutes: 60,
+      last_customer_acceptance_minutes: 1320,
+    })).toMatchObject({
+      timeOverflowMinutes: 90,
+      lastCustomerAcceptanceMinutes: 1260,
+    })
+  })
+
   it('returns undefined when the selected ruleset is not loaded', () => {
     expect(resolveRuleSetSelectValue([{ id: 'schedule-1' }], 'schedule-2')).toBeUndefined()
   })
