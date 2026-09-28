@@ -2,6 +2,7 @@ import { findOneWithDecryption, findWithDecryption } from '@open-mercato/shared/
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { User } from '@open-mercato/core/modules/auth/data/entities'
 import { StaffTeamMember, StaffTeamRole } from '../data/entities'
+import { readUuid } from '../lib/uuidValue'
 
 export const metadata = {
   event: 'auth.user.organization_memberships_changed',
@@ -23,14 +24,6 @@ type StaffRoleAssignment = {
 
 type SubscriberContext = {
   resolve: <T = unknown>(name: string) => T
-}
-
-function readUuid(value: unknown): string | null {
-  if (typeof value !== 'string') return null
-  const normalized = value.trim()
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(normalized)
-    ? normalized
-    : null
 }
 
 function readOrganizationIds(value: unknown): string[] {

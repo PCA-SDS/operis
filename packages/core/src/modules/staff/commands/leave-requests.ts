@@ -43,6 +43,7 @@ import { buildFeatureNotificationFromType, buildNotificationFromType } from '../
 import { notificationTypes } from '../notifications'
 import { staffLeaveRequestCrudEvents } from '../lib/crud'
 import { plannerAvailabilityRuleCrudEvents } from '../../planner/lib/crud'
+import { buildAvailabilityRrule } from '@open-mercato/core/modules/planner/lib/availabilitySchedule'
 
 const leaveRequestCrudIndexer: CrudIndexerConfig<StaffLeaveRequest> = {
   entityType: E.staff.staff_leave_request,
@@ -114,22 +115,6 @@ function listDateKeysInRange(start: Date, end: Date): string[] {
     current.setUTCDate(current.getUTCDate() + 1)
   }
   return dates
-}
-
-function formatDuration(minutes: number): string {
-  const clamped = Math.max(1, minutes)
-  const hours = Math.floor(clamped / 60)
-  const mins = clamped % 60
-  if (hours > 0 && mins > 0) return `PT${hours}H${mins}M`
-  if (hours > 0) return `PT${hours}H`
-  return `PT${mins}M`
-}
-
-function buildAvailabilityRrule(start: Date, end: Date): string {
-  const dtStart = start.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z'
-  const durationMinutes = Math.max(1, Math.round((end.getTime() - start.getTime()) / 60000))
-  const duration = formatDuration(durationMinutes)
-  return `DTSTART:${dtStart}\nDURATION:${duration}\nRRULE:FREQ=DAILY;COUNT=1`
 }
 
 function buildFullDayRrule(date: string): string | null {

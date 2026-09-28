@@ -3,6 +3,7 @@
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import * as React from 'react'
 import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
+import { nonEmptyStringOrNull } from '@open-mercato/shared/lib/string'
 
 export type ActiveTimesheetTimer = {
   staffMemberId: string | null
@@ -42,10 +43,6 @@ const EMPTY_ACTIVE_TIMER: ActiveTimesheetTimer = {
 
 export const activeTimesheetTimerQueryKey = () => BASE_ACTIVE_TIMER_KEY
 
-function getString(value: unknown): string | null {
-  return typeof value === 'string' && value.length > 0 ? value : null
-}
-
 function getErrorMessage(result: unknown, fallback: string): string {
   if (result && typeof result === 'object') {
     const error = (result as Record<string, unknown>).error
@@ -72,8 +69,8 @@ async function loadProjectDisplay(projectId: string): Promise<Pick<ActiveTimeshe
   }
   const project = projectRes.result?.items?.[0]
   return {
-    projectName: getString(project?.name),
-    projectColor: getString(project?.color),
+    projectName: nonEmptyStringOrNull(project?.name),
+    projectColor: nonEmptyStringOrNull(project?.color),
   }
 }
 
@@ -104,20 +101,20 @@ async function fetchActiveTimesheetTimer(staffMemberId?: string | null): Promise
     return { ...EMPTY_ACTIVE_TIMER, staffMemberId: memberId }
   }
 
-  const projectId = getString(active.time_project_id ?? active.timeProjectId)
+  const projectId = nonEmptyStringOrNull(active.time_project_id ?? active.timeProjectId)
   const projectDisplay = projectId
     ? await loadProjectDisplay(projectId)
     : { projectName: null, projectColor: null }
 
   return {
     staffMemberId: memberId,
-    entryId: getString(active.id),
+    entryId: nonEmptyStringOrNull(active.id),
     running: true,
-    startedAt: getString(active.started_at ?? active.startedAt),
+    startedAt: nonEmptyStringOrNull(active.started_at ?? active.startedAt),
     projectId,
     projectName: projectDisplay.projectName,
     projectColor: projectDisplay.projectColor,
-    notes: getString(active.notes),
+    notes: nonEmptyStringOrNull(active.notes),
   }
 }
 
