@@ -12,6 +12,7 @@ import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { fetchOrganizationOptions } from './organizationOptions'
 import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
+import { dedupeRoleOptionsByLabel, normalizeRoleName } from './staffRoleAssignments'
 
 export type StaffRoleAssignment = {
   organizationId: string
@@ -54,7 +55,7 @@ function readRoleOptions(value: unknown, organizationId: string): RoleOption[] {
     if (!entry || typeof entry !== 'object') return []
     const record = entry as Record<string, unknown>
     const id = normalizeOptionalString(record.id)
-    const name = normalizeOptionalString(record.name)
+    const name = typeof record.name === 'string' ? normalizeRoleName(record.name) : null
     if (!id || !name) return []
     return [{ value: id, label: name, organizationId }]
   })
@@ -179,11 +180,7 @@ export function StaffRoleAssignmentsField({
   }, [currentAssignments, organizationIds])
 
   const allRoleOptions = React.useMemo(() => {
-    const byId = new Map<string, RoleOption>()
-    Object.values(roleOptions).flat().forEach((option) => {
-      if (!byId.has(option.value)) byId.set(option.value, option)
-    })
-    return Array.from(byId.values())
+    return dedupeRoleOptionsByLabel(Object.values(roleOptions).flat())
   }, [roleOptions])
 
   const updateAssignment = React.useCallback((organizationId: string, roleIds: string[]) => {
@@ -197,10 +194,10 @@ export function StaffRoleAssignmentsField({
     const selectedNames = new Set(
       allRoleOptions
         .filter((option) => bulkRoleIds.includes(option.value))
-        .map((option) => option.label),
+        .map((option) => normalizeRoleName(option.label)),
     )
     const missingOrganizations = assignments.filter((assignment) => {
-      const availableNames = new Set((roleOptions[assignment.organizationId] ?? []).map((option) => option.label))
+      const availableNames = new Set((roleOptions[assignment.organizationId] ?? []).map((option) => normalizeRoleName(option.label)))
       return !Array.from(selectedNames).every((name) => availableNames.has(name))
     }).map((assignment) => organizationNames[assignment.organizationId] ?? assignment.organizationId)
     setBulkSummary({
@@ -211,7 +208,7 @@ export function StaffRoleAssignmentsField({
     setValue(assignments.map((assignment) => ({
       ...assignment,
       roleIds: (roleOptions[assignment.organizationId] ?? [])
-        .filter((option) => selectedNames.has(option.label))
+        .filter((option) => selectedNames.has(normalizeRoleName(option.label)))
         .map((option) => option.value),
     })))
   }, [allRoleOptions, assignments, bulkRoleIds, organizationNames, roleOptions, setValue])
