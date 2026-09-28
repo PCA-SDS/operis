@@ -113,11 +113,10 @@ Granting the feature to a customer role is sufficient for the entry to appear �
 
 All API route files MUST export an `openApi` object for automatic API documentation generation.
 
-For custom write routes that do not use `makeCrudRoute` (`POST`/`PUT`/`PATCH`/`DELETE`), MUST wire the mutation guard registry:
-- map the route to the closest registry operation (`create`, `update`, or `delete`; state-changing action endpoints usually use `update`)
-- collect registered guards with `getAllMutationGuardInstances()` and append `bridgeLegacyGuard(container)` when present
-- call `runMutationGuards(...)` from `@open-mercato/shared/lib/crud/mutation-guard-registry` before mutation logic, passing the caller's granted features as `{ userFeatures }`
-- return `guardResult.errorBody` / `guardResult.errorStatus` when blocked, merge `guardResult.modifiedPayload` back into validated input when present, and run each returned `afterSuccessCallbacks` item after a successful mutation, catching/logging callback failures so committed writes still return successfully
+For custom write routes that do not use `makeCrudRoute` (`POST`/`PUT`/`PATCH`/`DELETE`), MUST call `runRouteMutationGuards(...)` from `@open-mercato/shared/lib/crud/route-mutation-guard` before mutation logic; it runs every registered guard plus the bridged legacy service:
+- pass the closest operation (`create`, `update`, `delete`; action endpoints use `update` or `custom`) and a literal `resourceKind` (the generator reads it)
+- when blocked return its `response`; merge `modifiedPayload` back into validated input when present
+- after a successful write call `runAfterSuccess({ resourceId })` with the written record's id; it logs callback failures so a committed write still returns
 
 ### CRUD Routes
 
@@ -248,7 +247,7 @@ When one module needs another, pick the sanctioned mechanism by use-case:
 - **Widget injection + response enrichers** for read/UI — render another module's data without importing it. See § Widget Injection, § Response Enrichers.
 - **FK-id + snapshot** for data — reference by UUID and denormalize a snapshot so reads survive the source module being absent or changed. See § Database Entities, § Extensions.
 
-Optional integration (e.g. CRM deals optionally adjusting WMS stock): the **optional consumer** owns the glue (subscriber / enricher / widget) and resolves the peer's service inside a `try/catch` — a per-module local `tryResolve` helper that wraps `container.resolve()` and returns `undefined` when the peer is absent (see `inbox_ops/subscribers/extractionWorker.ts`, `shipping_carriers/api/webhook/[provider]/route.ts`) — then no-ops or degrades gracefully. Never declare a hard `requires` on an optional peer and never call an unconditional `container.resolve(...)` for it. The upstream/depended-on module MUST NOT import, resolve, or hard-require the consumer — inverting that direction breaks the upstream module's isomorphism.
+Optional integration (e.g. CRM deals optionally adjusting WMS stock): the **optional consumer** owns the glue (subscriber / enricher / widget) and resolves the peer's service inside a `try/catch` — `tryResolve(container, name)` from `@open-mercato/shared/lib/di/tryResolve` (`null` when the peer is absent), or a module's ctx-based variant returning `undefined` (see `inbox_ops/subscribers/extractionWorker.ts`) — then no-ops or degrades gracefully. Never declare a hard `requires` on an optional peer and never call an unconditional `container.resolve(...)` for it. The upstream/depended-on module MUST NOT import, resolve, or hard-require the consumer — inverting that direction breaks the upstream module's isomorphism.
 
 The cross-module ORM-relation and direct-business-logic-import bans already live at line 24 and root `AGENTS.md` § Architecture — do not restate them. Verify absent-module behavior with `packages/core/src/__tests__/module-decoupling.test.ts` (§ Testing with Disabled Modules).
 

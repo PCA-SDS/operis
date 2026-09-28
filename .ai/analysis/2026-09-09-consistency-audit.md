@@ -184,6 +184,7 @@ Exact edits:
    Note the module-level `const fields`/`const groups` arrays would need to move inside the component 
 
 ## [HIGH] security — WMS warehouse-assignment DELETE still uses the @deprecated guard pair that bypasses the mutation-guard registry, while PUT/PATCH/POST in the same file use the canonical registry path
+**Status (2026-09-28):** fixed — the DELETE handler calls `runRouteMutationGuards`, and the deprecated pair no longer exists (removed in `.ai/specs/2026-09-28-codebase-dedup-and-canonical-adoption.md`).
 **Lane:** open-loops  **Fix is safe:** True
 **Divergent sites:**
 - packages/core/src/modules/wms/api/sales-orders/[salesOrderId]/warehouse-assignment/route.ts:187
@@ -474,6 +475,7 @@ CONFIRMED — canonical site. packages/ui/src/primitives/select.tsx:13 reads exa
 Both target 
 
 ## [MEDIUM] duplication — Five divergent formatFileSize implementations render the same byte count differently
+**Status (2026-09-28):** fixed — every copy renders through `formatFileSize` in `@open-mercato/shared/lib/units/fileSize` (the last one, ui `formatAttachmentFileSize`, was removed in `.ai/specs/2026-09-28-codebase-dedup-and-canonical-adoption.md`). `packages/ui/src/utils/format.ts`, named below as the home, no longer exists: display dates and money live in `@open-mercato/shared/lib/time` and `@open-mercato/shared/lib/units/money`.
 **Lane:** dup-logic  **Fix is safe:** False
 **Divergent sites:**
 - packages/core/src/modules/wms/components/backend/ImportInventoryDialog.tsx:146
@@ -1072,6 +1074,7 @@ Do NOT touch any .tsx — the code fallbacks at people-v2/[id]/page.tsx:159/:174
 ---
 
 # Refuted (not defects)
+- **Status (2026-09-28):** the five `api/guards.ts` copies were deleted and their callers moved to `runRouteMutationGuards` (`.ai/specs/2026-09-28-codebase-dedup-and-canonical-adoption.md`).
 - **dup-surface** — Five copies of `api/guards.ts` run only the legacy DI guard, silently skipping every registry mutation guard (including the universal optimistic-lock floor): The duplication half of the finding checks out, but the consequence that justifies severity=high is factually wrong, and the wrongness inverts the conclusion.
 
 WHAT I CONFIRMED (the true half):

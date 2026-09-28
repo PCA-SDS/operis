@@ -1,6 +1,6 @@
 # Lessons
 
-This catalog indexes 135 focused lessons. Route the task first, then read only records whose modules, areas, or topics match the work.
+This catalog indexes 137 focused lessons. Route the task first, then read only records whose modules, areas, or topics match the work.
 
 ## How to use this catalog
 
@@ -44,6 +44,7 @@ rg -l '"<area>"|"<module>"|"<topic>"' .ai/lessons/*.md
 - [Never guard sensitive routes with `requireRoles` on mutable role names](lessons/never-guard-sensitive-routes-with-requireroles-on.md) — area:architecture; module:auth; topic:access-control,data-scoping
 - [Package build scripts must rewrite side-effect ESM imports and declared watch entrypoints must exist](lessons/package-build-scripts-must-rewrite-side-effect-esm.md) — area:architecture,integration; module:checkout; topic:build-output,module-boundaries,package-runtime
 - [Prefer relative intra-package imports inside package CLI/runtime entrypoints](lessons/prefer-relative-intra-package-imports-inside-package.md) — area:architecture; module:cli; topic:package-runtime,runtime-startup,testing
+- [Route helpers must keep literal metadata, openApi and guard resourceKind in each route file](lessons/route-helpers-must-keep-literal-metadata-openapi-and.md) — area:architecture,integration; module:cli,shared; topic:generated-files,auto-discovery,route-coverage,refactoring
 - [Standalone module discovery must treat published `src/modules` as canonical over `dist/modules`](lessons/standalone-module-discovery-must-treat-published-src.md) — area:architecture,framework-context,umes; module:create_app,events,cli; topic:build-output,events,generated-files
 - [Standalone scaffolding and generators must not assume monorepo-only paths](lessons/standalone-scaffolding-and-generators-must-not-assume.md) — area:architecture; module:cli,create_app; topic:generated-files,package-runtime,testing
 - [Standalone scaffolds must pin the same Yarn version as the monorepo](lessons/standalone-scaffolds-must-pin-the-same-yarn-version-as.md) — area:architecture; module:create_app; topic:package-runtime,template-sync,testing
@@ -122,6 +123,7 @@ rg -l '"<area>"|"<module>"|"<topic>"' .ai/lessons/*.md
 - [Optional chrome fetches must suppress auth redirects](lessons/optional-chrome-fetches-must-suppress-auth-redirects.md) — area:backend-ui,umes; module:auth,notifications,ui; topic:access-control,testing,ui-components
 - [Out-of-band bumps in browser optimistic-lock tests must not change the row's visible name](lessons/out-of-band-bumps-in-browser-optimistic-lock-tests-must.md) — area:backend-ui,integration,testing; module:ui,webhooks,cli; topic:concurrency,data-scoping,optimistic-locking
 - [Portaled confirmations must stay inside their parent dialog's React tree](lessons/portaled-confirmations-must-stay-inside-their-parent.md) — area:backend-ui,module-data; module:ui; topic:events,ui-components
+- [Prove a screen consolidation against HEAD in a render harness, and keep effect order](lessons/prove-a-screen-consolidation-against-head-in-a-render.md) — area:backend-ui,testing; module:appointments,wms; topic:ui-components,testing,refactoring,effect-order
 - [Route-aware backend chrome should use route manifests, not the full module registry](lessons/route-aware-backend-chrome-should-use-route-manifests.md) — area:backend-ui,architecture; module:ui,events; topic:events,generated-files,regeneration
 - [Shared candidate sets must stay identical across display and validation consumers](lessons/shared-candidate-sets-must-stay-identical-across-display.md) — area:backend-ui,testing; module:customers; topic:filters,testing,ui-components
 - [Sidebar hydration must preserve the exact RBAC inclusion semantics of the server layout](lessons/sidebar-hydration-must-preserve-the-exact-rbac.md) — area:backend-ui,debugging; module:ui; topic:access-control,data-scoping,generated-files

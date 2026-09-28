@@ -3170,7 +3170,7 @@ The `body` prop accepts any React node. Use it for metadata grids, inline / nest
 | Field | Type | Notes |
 |---|---|---|
 | `id` | `string` | Required; used as the Radix Accordion item value and forwarded as `data-log-entry-id`. |
-| `time` | `ReactNode` | Pre-formatted timestamp — `new Date(...).toLocaleString()` or `formatDateTime(...)`. |
+| `time` | `ReactNode` | Pre-formatted timestamp — `formatDateTime(value, { locale })` from `@open-mercato/shared/lib/time`. |
 | `level` | `LogListLevel` | Any string; recognized values drive the badge palette. |
 | `levelLabel` | `ReactNode` | Optional translated label override; falls back to `level` verbatim. |
 | `message` | `ReactNode` | One-liner shown in the trigger row (truncates). |
@@ -3181,7 +3181,7 @@ The `body` prop accepts any React node. Use it for metadata grids, inline / nest
 ### MUST rules
 
 - Pass `id` that is stable across re-renders — Radix uses it as the accordion item value, so a changing id will collapse the open row.
-- Pre-format `time` in the consumer (the primitive ships no `formatDateTime`); pair with the same locale used elsewhere on the page for consistency.
+- Pre-format `time` in the consumer with `formatDateTime` from `@open-mercato/shared/lib/time` (the primitive formats nothing), using the same locale as the rest of the page.
 - Build `body` content with the same translation keys as the legacy table headers (`<dt>` labels remain the existing `t(...)` keys, so PL / EN translations stay in sync).
 - Keep `body` heavyweight (large `JsonDisplay`, fetch-on-expand) — it mounts lazily, so the closed state stays cheap regardless of payload size.
 

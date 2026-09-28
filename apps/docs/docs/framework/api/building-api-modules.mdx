@@ -623,23 +623,17 @@ export const { GET, POST, PUT, DELETE } = crud;
 
 ```ts title="packages/<pkg>/src/modules/tasks/api/openapi.ts"
 import { z } from "zod";
-import type { ZodTypeAny } from "zod";
 import type { OpenApiRouteDoc } from "@open-mercato/shared/lib/openapi";
 import {
   createCrudOpenApiFactory,
-  createPagedListResponseSchema as createSharedPagedListResponseSchema,
+  createOptionalMetaPagedListResponseSchema,
   defaultCreateResponseSchema as sharedDefaultCreateResponseSchema,
   defaultOkResponseSchema as sharedDefaultOkResponseSchema,
 } from "@open-mercato/shared/lib/openapi/crud";
 
 export const defaultCreateResponseSchema = sharedDefaultCreateResponseSchema;
 export const defaultOkResponseSchema = sharedDefaultOkResponseSchema;
-
-export function createPagedListResponseSchema(itemSchema: ZodTypeAny) {
-  return createSharedPagedListResponseSchema(itemSchema, {
-    paginationMetaOptional: true,
-  });
-}
+export const createPagedListResponseSchema = createOptionalMetaPagedListResponseSchema;
 
 const buildTasksCrudOpenApi = createCrudOpenApiFactory({
   defaultTag: "Tasks",

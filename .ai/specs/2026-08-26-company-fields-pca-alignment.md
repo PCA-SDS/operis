@@ -186,7 +186,7 @@ the existing `makeCrudRoute` scoping, and no new endpoint or ACL feature is adde
 
 ## UI consistency
 
-- Dates render through the shared `formatDate` from `@open-mercato/ui/utils/format`
+- Dates render through the shared `formatDate` from `@open-mercato/shared/lib/time`
   on **both** the list and the detail page. The list page's local `toLocaleDateString`
   helper was deleted — its only remaining caller was the Next interaction column that
   this change removes — so there is now one date format across the two surfaces.
@@ -258,6 +258,8 @@ undo snapshot stores the string form because the action log is JSON.
 
 ## Changelog
 
+- **2026-09-28** — `formatDate` moved from `@open-mercato/ui/utils/format` (removed) to
+  `@open-mercato/shared/lib/time`; see `.ai/specs/2026-09-28-codebase-dedup-and-canonical-adoption.md`.
 - **2026-08-26** — Fixed `type: 'date'` properties declared as `string | null`, which
   500'd every company create at runtime; added `lib/dateOnly.ts` and routed all write,
   read, snapshot and restore paths through it. Caught by TC-CRM-088, which now passes
