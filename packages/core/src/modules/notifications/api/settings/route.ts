@@ -17,20 +17,16 @@ import {
   NOTIFICATION_SETTINGS_RESOURCE_KIND,
   runGuardedNotificationWrite,
 } from '../../lib/routeHelpers'
+import { unauthorizedResponse } from '@open-mercato/shared/lib/http/responses'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['notifications.manage'] },
   POST: { requireAuth: true, requireFeatures: ['notifications.manage'] },
 }
 
-const unauthorized = async () => {
-  const { t } = await resolveTranslations()
-  return NextResponse.json({ error: t('api.errors.unauthorized', 'Unauthorized') }, { status: 401 })
-}
-
 export async function GET(req: Request) {
   const auth = await getAuthFromRequest(req)
-  if (!auth?.sub) return await unauthorized()
+  if (!auth?.sub) return await unauthorizedResponse()
 
   const container = await createRequestContainer()
   try {
@@ -49,7 +45,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const { t } = await resolveTranslations()
   const auth = await getAuthFromRequest(req)
-  if (!auth?.sub) return await unauthorized()
+  if (!auth?.sub) return await unauthorizedResponse()
 
   let body: unknown
   try {

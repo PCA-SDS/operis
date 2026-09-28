@@ -20,6 +20,7 @@ jest.mock('@open-mercato/shared/lib/i18n/server', () => ({
 
 jest.mock('@open-mercato/shared/lib/commands/helpers', () => ({
   emitCrudSideEffects: jest.fn(async () => undefined),
+  forkEm: jest.requireActual('@open-mercato/shared/lib/commands/helpers').forkEm,
 }))
 
 jest.mock('../../events', () => ({

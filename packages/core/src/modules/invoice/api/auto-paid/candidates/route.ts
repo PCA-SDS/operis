@@ -9,8 +9,8 @@ import {
   invoiceAutoPaidRouteErrors,
   invoiceAutoPaidRouteMetadata,
   invoiceAutoPaidTag,
-  resolveInvoiceAutoPaidRouteContext,
 } from '../shared'
+import { resolveInvoiceRouteContext } from '../../routeContext'
 
 export const metadata = {
   GET: invoiceAutoPaidRouteMetadata,
@@ -18,7 +18,7 @@ export const metadata = {
 
 export async function GET(req: Request) {
   try {
-    const context = await resolveInvoiceAutoPaidRouteContext(req)
+    const context = await resolveInvoiceRouteContext(req)
     const service = context.container.resolve<InvoiceAutoPaidService>('invoiceAutoPaidService')
     const candidates = await service.listCandidates(context.scope)
 

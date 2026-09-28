@@ -13,6 +13,8 @@ import { markRedoConsumed, markUndoSuccess } from '@open-mercato/ui/backend/oper
 import { useAuditPermissions, canUndoEntry, canRedoEntry } from '@open-mercato/ui/backend/version-history'
 import { Alert, AlertDescription } from '@open-mercato/ui/primitives/alert'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { formatResource } from '../lib/display-helpers'
+import { formatDateTime } from '@open-mercato/shared/lib/time'
 
 const logger = createLogger('audit_logs').child({ component: 'AuditLogsActions' })
 
@@ -182,7 +184,7 @@ export function AuditLogsActions({
     {
       accessorKey: 'createdAt',
       header: t('audit_logs.actions.columns.when'),
-      cell: (info) => formatDate(info.getValue() as string),
+      cell: (info) => formatDateTime(info.getValue() as string, { fallback: info.getValue() as string }),
     },
     {
       accessorKey: 'executionState',
@@ -276,23 +278,9 @@ export function AuditLogsActions({
   )
 }
 
-function formatResource(item: { resourceKind?: string | null; resourceId?: string | null }, fallback: string) {
-  if (!item.resourceKind && !item.resourceId) return fallback
-  return [item.resourceKind, item.resourceId].filter(Boolean).join(' · ')
-}
-
 function buildResourceKey(item: { resourceKind?: string | null; resourceId?: string | null }) {
   const kind = typeof item.resourceKind === 'string' ? item.resourceKind.trim() : ''
   const id = typeof item.resourceId === 'string' ? item.resourceId.trim() : ''
   if (!kind && !id) return null
   return `${kind}::${id}`
-}
-
-function formatDate(value: string) {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(date)
 }

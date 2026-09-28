@@ -12,12 +12,12 @@ import { z } from 'zod'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
-import { validateCrudMutationGuard, runCrudMutationGuardAfterSuccess } from '@open-mercato/shared/lib/crud/mutation-guard'
 import { WorkflowDefinition, WorkflowInstance } from '../../../../data/entities'
 import { serializeCodeWorkflowDefinition } from '../../serialize'
 import { getCodeWorkflow } from '../../../../lib/code-registry'
 import { invalidateTriggerCache } from '../../../../lib/event-trigger-service'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const logger = createLogger('workflows')
 
@@ -111,18 +111,14 @@ export async function POST(
       )
     }
 
-    const guardResult = await validateCrudMutationGuard(container, {
-      tenantId: tenantId ?? '',
-      organizationId: organizationId ?? null,
-      userId: auth.sub ?? '',
-      resourceKind: 'workflows.definition',
-      resourceId: String(definition.id),
-      operation: 'custom',
-      requestMethod: 'POST',
-      requestHeaders: request.headers,
+    const guardResult = await runRouteMutationGuards({
+      container,
+      req: request,
+      auth: { userId: auth.sub ?? '', tenantId: tenantId ?? '', organizationId: organizationId ?? null },
+      input: { resourceKind: 'workflows.definition', resourceId: String(definition.id), operation: 'custom' },
     })
-    if (guardResult && !guardResult.ok) {
-      return NextResponse.json(guardResult.body, { status: guardResult.status })
+    if (!guardResult.ok) {
+      return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
     }
 
     // Look up the original code definition before deleting
@@ -147,19 +143,7 @@ export async function POST(
       invalidateTriggerCache(removedSnapshot.tenantId, removedSnapshot.organizationId ?? undefined)
     }
 
-    if (guardResult?.shouldRunAfterSuccess) {
-      await runCrudMutationGuardAfterSuccess(container, {
-        tenantId: tenantId ?? '',
-        organizationId: organizationId ?? null,
-        userId: auth.sub ?? '',
-        resourceKind: 'workflows.definition',
-        resourceId: removedSnapshot.id,
-        operation: 'custom',
-        requestMethod: 'POST',
-        requestHeaders: request.headers,
-        metadata: guardResult.metadata,
-      })
-    }
+    await guardResult.runAfterSuccess({ resourceId: removedSnapshot.id })
 
     try {
       const eventBus = container.resolve('eventBus') as

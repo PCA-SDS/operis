@@ -5,12 +5,13 @@ import { invoiceIdSchema, invoiceInstallmentPlanUpdateSchema } from '../../../..
 import { createInvoiceOperationId } from '../../../openapi'
 import type { InvoiceScope } from '../../../../data/scope'
 import type { InvoiceInstallmentPlanCommandResult } from '../../../../commands/invoices'
-import { buildInvoiceCommandContext, handleInvoiceInvoiceRouteError, INVOICE_INVOICE_RESOURCE_KIND, invoiceInvoiceRouteErrors, invoiceInvoiceManageRouteMetadata, invoiceManualMutationResponseSchema, invoiceInvoicesTag, readRequestRecord, resolveInvoiceInvoiceRouteContext } from '../../shared'
+import { buildInvoiceCommandContext, handleInvoiceInvoiceRouteError, INVOICE_INVOICE_RESOURCE_KIND, invoiceInvoiceRouteErrors, invoiceInvoiceManageRouteMetadata, invoiceManualMutationResponseSchema, invoiceInvoicesTag, readRequestRecord } from '../../shared'
+import { resolveInvoiceRouteContext } from '../../../routeContext'
 export const metadata = { PUT: invoiceInvoiceManageRouteMetadata, DELETE: invoiceInvoiceManageRouteMetadata }
 type RouteContext = { params?: Promise<{ id?: string }> | { id?: string } }
 async function contextFor(req: Request, routeContext: RouteContext) {
   const rawParams = routeContext.params ? await routeContext.params : {}
-  const context = await resolveInvoiceInvoiceRouteContext(req)
+  const context = await resolveInvoiceRouteContext(req)
   return { context, id: invoiceIdSchema.parse(rawParams.id) }
 }
 export async function PUT(req: Request, routeContext: RouteContext = {}) {

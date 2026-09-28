@@ -25,6 +25,8 @@ import { Button } from '@open-mercato/ui/primitives/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@open-mercato/ui/primitives/card'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
+import { formatCurrency } from '@open-mercato/shared/lib/units/money'
+import { formatDateTime } from '@open-mercato/shared/lib/time'
 
 type DetailPayload = {
   transaction: {
@@ -73,29 +75,6 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
       <div className="min-w-0 text-sm">{value}</div>
     </div>
   )
-}
-
-function formatAmount(amount: number | null | undefined, currencyCode: string): string {
-  const resolved = typeof amount === 'number' ? amount : 0
-  try {
-    return new Intl.NumberFormat(undefined, { style: 'currency', currency: currencyCode }).format(resolved)
-  } catch {
-    return `${resolved.toFixed(2)} ${currencyCode}`
-  }
-}
-
-function formatDateTime(value: string | null | undefined): string {
-  if (!value) return '—'
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return value
-  return new Intl.DateTimeFormat(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  }).format(parsed)
 }
 
 function stringifyPlainValue(value: unknown): string {
@@ -209,8 +188,8 @@ export default function CheckoutTransactionDetailPage({ params }: { params: Prom
     const paymentRows: SectionRow[] = [
       {
         label: t('checkout.admin.transactionDetail.fields.amount'),
-        plainValue: formatAmount(payload.transaction.amount, payload.transaction.currencyCode),
-        value: <span className="font-semibold">{formatAmount(payload.transaction.amount, payload.transaction.currencyCode)}</span>,
+        plainValue: formatCurrency(payload.transaction.amount, payload.transaction.currencyCode, { fallback: '—' }),
+        value: <span className="font-semibold">{formatCurrency(payload.transaction.amount, payload.transaction.currencyCode, { fallback: '—' })}</span>,
       },
       {
         label: t('checkout.admin.transactionDetail.fields.status'),
@@ -229,13 +208,13 @@ export default function CheckoutTransactionDetailPage({ params }: { params: Prom
       },
       {
         label: t('checkout.admin.transactionDetail.fields.created'),
-        plainValue: formatDateTime(payload.transaction.createdAt),
-        value: formatDateTime(payload.transaction.createdAt),
+        plainValue: formatDateTime(payload.transaction.createdAt, { fallback: '—' }),
+        value: formatDateTime(payload.transaction.createdAt, { fallback: '—' }),
       },
       {
         label: t('checkout.admin.transactionDetail.fields.updated'),
-        plainValue: formatDateTime(payload.transaction.updatedAt),
-        value: formatDateTime(payload.transaction.updatedAt),
+        plainValue: formatDateTime(payload.transaction.updatedAt, { fallback: '—' }),
+        value: formatDateTime(payload.transaction.updatedAt, { fallback: '—' }),
       },
     ]
 

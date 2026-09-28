@@ -5,6 +5,7 @@ import {
   InvoiceLineItem,
   type InvoiceDirection,
 } from './entities'
+import { toIsoOrNull } from '@open-mercato/shared/lib/date/normalize'
 
 export type InvoiceListDto = {
   id: string
@@ -112,12 +113,6 @@ function readCompanyId(value: unknown): string | null {
   return null
 }
 
-function toIso(value: Date | string | null | undefined): string | null {
-  if (!value) return null
-  const date = value instanceof Date ? value : new Date(value)
-  return Number.isNaN(date.getTime()) ? null : date.toISOString()
-}
-
 function partnerNameFor(direction: InvoiceDirection, sellerName: string | null, buyerName: string | null): string | null {
   return direction === 'AP' ? sellerName : buyerName
 }
@@ -153,8 +148,8 @@ export function mapInvoiceQueryRowToListDto(row: InvoiceQueryRow): InvoiceListDt
     invoiceSymbol: readString(row, 'invoice_symbol', 'invoiceSymbol'),
     invoiceNumber: readString(row, 'invoice_number', 'invoiceNumber'),
     invoiceCode: readString(row, 'invoice_code', 'invoiceCode'),
-    invoiceDate: toIso(readDate(row, 'invoice_date', 'invoiceDate')),
-    dueDate: toIso(readDate(row, 'due_date', 'dueDate')),
+    invoiceDate: toIsoOrNull(readDate(row, 'invoice_date', 'invoiceDate')),
+    dueDate: toIsoOrNull(readDate(row, 'due_date', 'dueDate')),
     dueDateSource: readString(row, 'due_date_source', 'dueDateSource'),
     currencyCode: readString(row, 'currency_code', 'currencyCode'),
     invoiceStatus: readString(row, 'invoice_status', 'invoiceStatus'),
@@ -167,17 +162,17 @@ export function mapInvoiceQueryRowToListDto(row: InvoiceQueryRow): InvoiceListDt
     settled: settlementStatus === 'SETTLED',
     paidAmount: readString(row, 'paid_amount', 'paidAmount'),
     outstandingAmount: readString(row, 'outstanding_amount', 'outstandingAmount'),
-    nextDueDate: toIso(readDate(row, 'next_due_date', 'nextDueDate')),
+    nextDueDate: toIsoOrNull(readDate(row, 'next_due_date', 'nextDueDate')),
     hasInstallmentPlan: readBoolean(row, 'has_installment_plan', 'hasInstallmentPlan'),
     nonRecoverable: readBoolean(row, 'non_recoverable', 'nonRecoverable'),
     nonRecoverableNote: readString(row, 'non_recoverable_note', 'nonRecoverableNote'),
-    nonRecoverableAt: toIso(readDate(row, 'non_recoverable_at', 'nonRecoverableAt')),
-    lastSentAt: toIso(readDate(row, 'last_sent_at', 'lastSentAt')),
-    openedAt: toIso(readDate(row, 'opened_at', 'openedAt')),
+    nonRecoverableAt: toIsoOrNull(readDate(row, 'non_recoverable_at', 'nonRecoverableAt')),
+    lastSentAt: toIsoOrNull(readDate(row, 'last_sent_at', 'lastSentAt')),
+    openedAt: toIsoOrNull(readDate(row, 'opened_at', 'openedAt')),
     autoSettled: readBoolean(row, 'auto_settled', 'autoSettled'),
     autoPayExcluded: readBoolean(row, 'auto_pay_excluded', 'autoPayExcluded'),
-    createdAt: toIso(readDate(row, 'created_at', 'createdAt')),
-    updatedAt: toIso(readDate(row, 'updated_at', 'updatedAt')),
+    createdAt: toIsoOrNull(readDate(row, 'created_at', 'createdAt')),
+    updatedAt: toIsoOrNull(readDate(row, 'updated_at', 'updatedAt')),
   }
 }
 
@@ -248,8 +243,8 @@ export function mapInvoiceLineItemToDto(lineItem: InvoiceLineItem): InvoiceLineI
     vatRate: lineItem.vatRate ?? null,
     vatAmount: lineItem.vatAmount ?? null,
     lineTotal: lineItem.lineTotal,
-    createdAt: toIso(lineItem.createdAt),
-    updatedAt: toIso(lineItem.updatedAt),
+    createdAt: toIsoOrNull(lineItem.createdAt),
+    updatedAt: toIsoOrNull(lineItem.updatedAt),
   }
 }
 
@@ -261,12 +256,12 @@ export function mapInvoiceInstallmentToDto(installment: InvoiceInstallment): Inv
     interestRate: installment.interestRate,
     interestAmount: installment.interestAmount,
     totalAmount: installment.totalAmount,
-    dueDate: toIso(installment.dueDate),
+    dueDate: toIsoOrNull(installment.dueDate),
     status: installment.status,
-    paidAt: toIso(installment.paidAt),
+    paidAt: toIsoOrNull(installment.paidAt),
     note: installment.note ?? null,
-    createdAt: toIso(installment.createdAt),
-    updatedAt: toIso(installment.updatedAt),
+    createdAt: toIsoOrNull(installment.createdAt),
+    updatedAt: toIsoOrNull(installment.updatedAt),
   }
 }
 

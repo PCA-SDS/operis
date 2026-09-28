@@ -153,6 +153,7 @@ import {
 import { SendObjectMessageDialog } from "@open-mercato/ui/backend/messages/SendObjectMessageDialog.tsx";
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@open-mercato/ui/primitives/table'
+import { isRecord } from '@open-mercato/shared/lib/guards'
 
 const logger = createLogger('catalog')
 
@@ -3282,10 +3283,6 @@ function getString(value: unknown): string | null {
 function ensureString(value: unknown): string | undefined {
   const normalized = getString(value);
   return normalized ?? undefined;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
 function extractUomFields(record: Record<string, unknown>) {

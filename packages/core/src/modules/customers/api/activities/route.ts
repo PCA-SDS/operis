@@ -10,10 +10,6 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import type { CommandBus } from '@open-mercato/shared/lib/commands'
 import { CrudHttpError, isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
-import {
-  runCrudMutationGuardAfterSuccess,
-  validateCrudMutationGuard,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { CustomerActivity, CustomerDeal, CustomerInteraction } from '../../data/entities'
@@ -24,19 +20,20 @@ import {
   mapInteractionRecordToActivitySummary,
   CUSTOMER_INTERACTION_ACTIVITY_ADAPTER_SOURCE,
 } from '../../lib/interactionCompatibility'
-import { withOperationMetadata } from '../../lib/operationMetadata'
+import { attachOperationMetadataHeader } from '@open-mercato/shared/lib/commands/operationMetadata'
 import { resolveCustomerInteractionFeatureFlags } from '../../lib/interactionFeatureFlags'
 import { resolveCustomersRequestContext } from '../../lib/interactionRequestContext'
 import { hydrateCanonicalInteractions } from '../../lib/interactionReadModel'
 import { resolveCanonicalActivityTargetId } from '../../lib/legacyActivityBridge'
 import { buildEmailVisibilityMikroFilter } from '../../lib/visibilityFilter'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const logger = createLogger('customers')
 
 const listSchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(50),
+  ...paginationQuerySchema().shape,
   entityId: z.string().uuid().optional(),
   dealId: z.string().uuid().optional(),
   activityType: z.string().optional(),
@@ -508,19 +505,19 @@ export async function POST(request: Request): Promise<Response> {
     const body = await readJsonSafe<Record<string, unknown>>(request, {})
     const parsed = activityCreateBodySchema.parse(body)
     const guardUserId = resolveGuardUserId(auth)
-    const guardResult = await validateCrudMutationGuard(container, {
-      tenantId: auth.tenantId,
-      organizationId: selectedOrganizationId,
-      userId: guardUserId,
-      resourceKind: 'customers.activity',
-      resourceId: parsed.entityId,
-      operation: 'create',
-      requestMethod: request.method,
-      requestHeaders: request.headers,
-      mutationPayload: parsed,
+    const guardResult = await runRouteMutationGuards({
+      container,
+      req: request,
+      auth: { userId: guardUserId, tenantId: auth.tenantId, organizationId: selectedOrganizationId },
+      input: {
+        resourceKind: 'customers.activity',
+        resourceId: parsed.entityId,
+        operation: 'create',
+        mutationPayload: parsed,
+      },
     })
-    if (guardResult && !guardResult.ok) {
-      return withAdapterHeaders(NextResponse.json(guardResult.body, { status: guardResult.status }))
+    if (!guardResult.ok) {
+      return withAdapterHeaders(NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus }))
     }
     const commandBus = container.resolve('commandBus') as CommandBus
     const { result, logEntry } = await commandBus.execute('customers.interactions.create', {
@@ -543,19 +540,7 @@ export async function POST(request: Request): Promise<Response> {
       },
       ctx: commandContext,
     })
-    if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-      await runCrudMutationGuardAfterSuccess(container, {
-        tenantId: auth.tenantId,
-        organizationId: selectedOrganizationId,
-        userId: guardUserId,
-        resourceKind: 'customers.activity',
-        resourceId: parsed.entityId,
-        operation: 'create',
-        requestMethod: request.method,
-        requestHeaders: request.headers,
-        metadata: guardResult.metadata ?? null,
-      })
-    }
+    await guardResult.runAfterSuccess()
 
     const createdId =
       result && typeof result === 'object' && 'interactionId' in result && typeof result.interactionId === 'string'
@@ -565,7 +550,7 @@ export async function POST(request: Request): Promise<Response> {
           : null
 
     return withAdapterHeaders(
-      withOperationMetadata(
+      attachOperationMetadataHeader(
         NextResponse.json({ id: createdId }, { status: 201 }),
         logEntry,
         { resourceKind: 'customers.activity', resourceId: createdId },
@@ -597,19 +582,19 @@ export async function PUT(request: Request): Promise<Response> {
     const body = await readJsonSafe<Record<string, unknown>>(request, {})
     const parsed = activityUpdateBodySchema.parse(body)
     const guardUserId = resolveGuardUserId(auth)
-    const guardResult = await validateCrudMutationGuard(container, {
-      tenantId: auth.tenantId,
-      organizationId: selectedOrganizationId,
-      userId: guardUserId,
-      resourceKind: 'customers.activity',
-      resourceId: parsed.id,
-      operation: 'update',
-      requestMethod: request.method,
-      requestHeaders: request.headers,
-      mutationPayload: parsed,
+    const guardResult = await runRouteMutationGuards({
+      container,
+      req: request,
+      auth: { userId: guardUserId, tenantId: auth.tenantId, organizationId: selectedOrganizationId },
+      input: {
+        resourceKind: 'customers.activity',
+        resourceId: parsed.id,
+        operation: 'update',
+        mutationPayload: parsed,
+      },
     })
-    if (guardResult && !guardResult.ok) {
-      return withAdapterHeaders(NextResponse.json(guardResult.body, { status: guardResult.status }))
+    if (!guardResult.ok) {
+      return withAdapterHeaders(NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus }))
     }
     const commandBus = container.resolve('commandBus') as CommandBus
     const interactionId = flags.unified
@@ -633,22 +618,10 @@ export async function PUT(request: Request): Promise<Response> {
       },
       ctx: commandContext,
     })
-    if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-      await runCrudMutationGuardAfterSuccess(container, {
-        tenantId: auth.tenantId,
-        organizationId: selectedOrganizationId,
-        userId: guardUserId,
-        resourceKind: 'customers.activity',
-        resourceId: parsed.id,
-        operation: 'update',
-        requestMethod: request.method,
-        requestHeaders: request.headers,
-        metadata: guardResult.metadata ?? null,
-      })
-    }
+    await guardResult.runAfterSuccess()
 
     return withAdapterHeaders(
-      withOperationMetadata(
+      attachOperationMetadataHeader(
         NextResponse.json({ ok: true }),
         logEntry,
         { resourceKind: 'customers.activity', resourceId: parsed.id },
@@ -680,19 +653,19 @@ export async function DELETE(request: Request): Promise<Response> {
     const body = await readJsonSafe<Record<string, unknown>>(request, {})
     const parsed = activityDeleteBodySchema.parse(body)
     const guardUserId = resolveGuardUserId(auth)
-    const guardResult = await validateCrudMutationGuard(container, {
-      tenantId: auth.tenantId,
-      organizationId: selectedOrganizationId,
-      userId: guardUserId,
-      resourceKind: 'customers.activity',
-      resourceId: parsed.id,
-      operation: 'delete',
-      requestMethod: request.method,
-      requestHeaders: request.headers,
-      mutationPayload: parsed,
+    const guardResult = await runRouteMutationGuards({
+      container,
+      req: request,
+      auth: { userId: guardUserId, tenantId: auth.tenantId, organizationId: selectedOrganizationId },
+      input: {
+        resourceKind: 'customers.activity',
+        resourceId: parsed.id,
+        operation: 'delete',
+        mutationPayload: parsed,
+      },
     })
-    if (guardResult && !guardResult.ok) {
-      return withAdapterHeaders(NextResponse.json(guardResult.body, { status: guardResult.status }))
+    if (!guardResult.ok) {
+      return withAdapterHeaders(NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus }))
     }
     const commandBus = container.resolve('commandBus') as CommandBus
     const interactionId = flags.unified
@@ -702,21 +675,9 @@ export async function DELETE(request: Request): Promise<Response> {
       input: { id: interactionId },
       ctx: commandContext,
     })
-    if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-      await runCrudMutationGuardAfterSuccess(container, {
-        tenantId: auth.tenantId,
-        organizationId: selectedOrganizationId,
-        userId: guardUserId,
-        resourceKind: 'customers.activity',
-        resourceId: parsed.id,
-        operation: 'delete',
-        requestMethod: request.method,
-        requestHeaders: request.headers,
-        metadata: guardResult.metadata ?? null,
-      })
-    }
+    await guardResult.runAfterSuccess()
     return withAdapterHeaders(
-      withOperationMetadata(
+      attachOperationMetadataHeader(
         NextResponse.json({ ok: true }),
         logEntry,
         { resourceKind: 'customers.activity', resourceId: parsed.id },

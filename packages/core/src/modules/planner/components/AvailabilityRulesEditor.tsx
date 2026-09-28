@@ -45,6 +45,8 @@ import {
   selectCustomRuleIdsToDelete,
 } from './availabilityRulesEditorState'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { parseTimeInput, toDateForWeekday, formatDuration } from '../lib/availabilitySchedule'
+import { toLocalDateKey } from '@open-mercato/shared/lib/date/format'
 
 const logger = createLogger('planner').child({ component: 'AvailabilityRulesEditor' })
 
@@ -303,37 +305,12 @@ function formatTimeInput(value: Date): string {
   return `${hours}:${minutes}`
 }
 
-function formatDateInput(value: Date): string {
-  const year = value.getFullYear()
-  const month = String(value.getMonth() + 1).padStart(2, '0')
-  const day = String(value.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
 function parseDateInput(value: string): Date | null {
   const [year, month, day] = value.split('-').map((part) => Number(part))
   if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return null
   const date = new Date(year, month - 1, day)
   if (Number.isNaN(date.getTime())) return null
   return date
-}
-
-function parseTimeInput(value: string): { hours: number; minutes: number } | null {
-  const [hours, minutes] = value.split(':').map((part) => Number(part))
-  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null
-  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null
-  return { hours, minutes }
-}
-
-function toDateForWeekday(weekday: number, time: string): Date | null {
-  const parsed = parseTimeInput(time)
-  if (!parsed) return null
-  const now = new Date()
-  const base = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const diff = (weekday - base.getDay() + 7) % 7
-  const target = new Date(base.getTime() + diff * 24 * 60 * 60 * 1000)
-  target.setHours(parsed.hours, parsed.minutes, 0, 0)
-  return target
 }
 
 function toDateForDay(value: string, time: string): Date | null {
@@ -362,15 +339,6 @@ function getWindowError(window: TimeWindow, labels: { windowErrorRequired: strin
   return null
 }
 
-function formatDuration(minutes: number): string {
-  const clamped = Math.max(1, minutes)
-  const hours = Math.floor(clamped / 60)
-  const mins = clamped % 60
-  if (hours > 0 && mins > 0) return `PT${hours}H${mins}M`
-  if (hours > 0) return `PT${hours}H`
-  return `PT${mins}M`
-}
-
 function buildAvailabilityRrule(start: Date, end: Date, repeat: AvailabilityRepeat): string {
   const dtStart = start.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z'
   const durationMinutes = Math.max(1, Math.round((end.getTime() - start.getTime()) / 60000))
@@ -391,7 +359,7 @@ function groupRulesByDate(rules: AvailabilityRule[]): Map<string, AvailabilityRu
   const map = new Map<string, AvailabilityRule[]>()
   rules.forEach((rule) => {
     const window = parseAvailabilityRuleWindow(rule)
-    const key = formatDateInput(window.startAt)
+    const key = toLocalDateKey(window.startAt)
     const list = map.get(key) ?? []
     list.push(rule)
     map.set(key, list)
@@ -599,14 +567,14 @@ export function AvailabilityRulesEditor({
       if (rule.kind !== 'unavailability') return
       const window = parseAvailabilityRuleWindow(rule)
       if (window.repeat !== 'once') return
-      dateBlockers.add(formatDateInput(window.startAt))
+      dateBlockers.add(toLocalDateKey(window.startAt))
     })
     if (!dateBlockers.size) return activeRules
     return activeRules.filter((rule) => {
       const window = parseAvailabilityRuleWindow(rule)
       if (window.repeat !== 'once') return true
       if (rule.kind === 'unavailability') return true
-      return !dateBlockers.has(formatDateInput(window.startAt))
+      return !dateBlockers.has(toLocalDateKey(window.startAt))
     })
   }, [activeRules])
   const scheduleItems = React.useMemo(
@@ -1438,7 +1406,7 @@ export function AvailabilityRulesEditor({
     if (scope === 'date') {
       const date = options?.date ?? new Date()
       const windows = buildWindowsFromRules(rules)
-      setEditorDates([formatDateInput(date)])
+      setEditorDates([toLocalDateKey(date)])
       setEditorWeekday(date.getDay())
       setEditorWindows(windows.length ? windows : [createDefaultWindow()])
     } else {
@@ -1477,7 +1445,7 @@ export function AvailabilityRulesEditor({
       const base = lastValue ? parseDateInput(lastValue) : null
       const nextBase = base ?? new Date()
       const nextDate = new Date(nextBase.getFullYear(), nextBase.getMonth(), nextBase.getDate() + 1)
-      return [...prev, formatDateInput(nextDate)]
+      return [...prev, toLocalDateKey(nextDate)]
     })
   }, [])
 
@@ -1616,10 +1584,10 @@ export function AvailabilityRulesEditor({
       })
       openEditor('weekday', { weekday, rules })
     } else {
-      const dateKey = formatDateInput(window.startAt)
+      const dateKey = toLocalDateKey(window.startAt)
       const rules = activeRules.filter((candidate) => {
         const candidateWindow = parseAvailabilityRuleWindow(candidate)
-        return candidateWindow.repeat === 'once' && formatDateInput(candidateWindow.startAt) === dateKey
+        return candidateWindow.repeat === 'once' && toLocalDateKey(candidateWindow.startAt) === dateKey
       })
       openEditor('date', { date: window.startAt, rules })
     }

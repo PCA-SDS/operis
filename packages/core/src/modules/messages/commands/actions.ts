@@ -18,6 +18,7 @@ import {
 import { getMessageType } from '../lib/message-types-registry'
 import { assertOrganizationAccess, type MessageScopeInput } from './shared'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { toIsoOrEcho } from '@open-mercato/shared/lib/date/normalize'
 
 const logger = createLogger('messages').child({ component: 'actions' })
 
@@ -59,10 +60,6 @@ type ActionStateSnapshot = {
   actionTakenByUserId: string | null
   actionTakenAt: string | null
   actionResult: Record<string, unknown> | null
-}
-
-function toIso(value: Date | null | undefined): string | null {
-  return value ? value.toISOString() : null
 }
 
 function toDate(value: string | null | undefined): Date | null {
@@ -121,7 +118,7 @@ function snapshotActionState(message: Message): ActionStateSnapshot {
   return {
     actionTaken: message.actionTaken ?? null,
     actionTakenByUserId: message.actionTakenByUserId ?? null,
-    actionTakenAt: toIso(message.actionTakenAt),
+    actionTakenAt: toIsoOrEcho(message.actionTakenAt),
     actionResult: message.actionResult ?? null,
   }
 }

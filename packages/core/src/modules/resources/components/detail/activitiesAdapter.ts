@@ -3,8 +3,7 @@
 import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { createCrud, updateCrud, deleteCrud } from '@open-mercato/ui/backend/utils/crud'
 import type { ActivitiesDataAdapter, ActivitySummary } from '@open-mercato/ui/backend/detail'
-
-type Translator = (key: string, fallback?: string, params?: Record<string, string | number>) => string
+import type { TranslateWithFallbackFn } from '@open-mercato/shared/lib/i18n/translate'
 
 export type ResourceActivitiesGuardedMutation = <T>(
   runner: () => Promise<T>,
@@ -16,7 +15,7 @@ export type CreateResourceActivitiesAdapterOptions = {
 }
 
 export function createResourceActivitiesAdapter(
-  translator: Translator,
+  translator: TranslateWithFallbackFn,
   options: CreateResourceActivitiesAdapterOptions = {},
 ): ActivitiesDataAdapter {
   const runWrite = async <T,>(

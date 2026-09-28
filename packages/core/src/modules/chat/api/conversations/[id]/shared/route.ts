@@ -8,9 +8,9 @@ import {
   readContext,
   resolveChatRequest,
   toChatErrorResponse,
-  searchParamsToObject,
 } from '../../../shared'
 import { CHAT_TAG, COMMON_ERRORS, sharedResourcesSchema } from '../../../openapi'
+import { searchParamsToObject } from '@open-mercato/shared/lib/http/query'
 
 const paramsSchema = z.object({ id: z.string().uuid() })
 

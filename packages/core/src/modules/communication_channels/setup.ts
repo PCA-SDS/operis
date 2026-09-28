@@ -1,7 +1,7 @@
-import { createHash } from 'node:crypto'
 import type { ModuleSetupConfig } from '@open-mercato/shared/modules/setup'
 import { COMMUNICATION_CHANNELS_QUEUES } from './lib/queue'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { stableUuidFromKey } from '@open-mercato/shared/lib/ids'
 
 const logger = createLogger('communication_channels')
 
@@ -34,19 +34,8 @@ const POLL_TICK_INTERVAL_SECONDS = Math.max(
   Number.parseInt(process.env.OM_HUB_POLL_SCHEDULER_TICK_SECONDS ?? '60', 10) || 60,
 )
 
-/**
- * `scheduled_jobs.id` is a uuid column, so a module-owned schedule's stable
- * registration key must be hashed into a uuid rather than used verbatim — this
- * keeps `schedulerService.register()` an idempotent upsert across re-runs of
- * seedDefaults instead of trying to insert a raw string into the uuid PK.
- */
-function stableScheduleUuid(stableKey: string): string {
-  const hex = createHash('sha256').update(stableKey).digest('hex')
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`
-}
-
 function stablePollTickScheduleId(organizationId: string): string {
-  return stableScheduleUuid(`communication_channels:poll-tick:${organizationId}`)
+  return stableUuidFromKey(`communication_channels:poll-tick:${organizationId}`)
 }
 
 export const setup: ModuleSetupConfig = {
@@ -134,7 +123,7 @@ export const setup: ModuleSetupConfig = {
       // Spec C § Phase C4 — Gmail watch renewal cron, per-org so multi-tenant
       // deploys schedule independently.
       await schedulerService.register({
-        id: stableScheduleUuid(`communication_channels:gmail-renew-watch:${organizationId}`),
+        id: stableUuidFromKey(`communication_channels:gmail-renew-watch:${organizationId}`),
         name: 'Gmail watch renewal',
         description:
           'Daily 04:00 UTC. Re-issues gmail.users.watch for channels within OM_PUSH_RENEWAL_GMAIL_LEAD_HOURS of expiry.',

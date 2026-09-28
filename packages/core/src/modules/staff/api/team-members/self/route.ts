@@ -1,10 +1,7 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
-import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
-import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
-import { serializeOperationMetadata } from '@open-mercato/shared/lib/commands/operationMetadata'
-import type { CommandRuntimeContext, CommandBus } from '@open-mercato/shared/lib/commands'
+import { attachOperationMetadataHeader } from '@open-mercato/shared/lib/commands/operationMetadata'
+import type { CommandBus } from '@open-mercato/shared/lib/commands'
 import { CrudHttpError, isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { parseScopedCommandInput } from '@open-mercato/shared/lib/api/scoped'
@@ -16,37 +13,16 @@ import {
   type StaffTeamMemberSelfCreateInput,
   type StaffTeamMemberCreateInput,
 } from '../../../data/validators'
-import {
-  runStaffMutationGuardAfterSuccess,
-  runStaffMutationGuards,
-} from '../../guards'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
+import { buildStaffRouteContext } from '../../routeContext'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const logger = createLogger('staff')
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['staff.leave_requests.send'] },
   POST: { requireAuth: true, requireFeatures: ['staff.leave_requests.send'] },
-}
-
-async function buildContext(
-  req: Request
-): Promise<{ ctx: CommandRuntimeContext; translate: (key: string, fallback?: string) => string }> {
-  const container = await createRequestContainer()
-  const auth = await getAuthFromRequest(req)
-  const { translate } = await resolveTranslations()
-  if (!auth) throw new CrudHttpError(401, { error: translate('staff.errors.unauthorized', 'Unauthorized') })
-  const scope = await resolveOrganizationScopeForRequest({ container, auth, request: req })
-  const ctx: CommandRuntimeContext = {
-    container,
-    auth,
-    organizationScope: scope,
-    selectedOrganizationId: scope?.selectedId ?? auth.orgId ?? null,
-    organizationIds: scope?.filterIds ?? (auth.orgId ? [auth.orgId] : null),
-    request: req,
-  }
-  return { ctx, translate }
 }
 
 const selfMemberResponseSchema = z.object({
@@ -63,7 +39,7 @@ const selfMemberResponseSchema = z.object({
 
 export async function GET(req: Request) {
   try {
-    const { ctx } = await buildContext(req)
+    const { ctx } = await buildStaffRouteContext(req)
     const auth = ctx.auth
     if (!auth?.sub) return NextResponse.json({ member: null })
     const em = (ctx.container.resolve('em') as any)
@@ -93,7 +69,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const { ctx, translate } = await buildContext(req)
+    const { ctx, translate } = await buildStaffRouteContext(req)
     const auth = ctx.auth
     if (!auth?.sub) throw new CrudHttpError(401, { error: translate('staff.errors.unauthorized', 'Unauthorized') })
     const body = await readJsonSafe(req, {})
@@ -112,24 +88,21 @@ export async function POST(req: Request) {
 
     const tenantId = auth.tenantId ?? ''
     const organizationId = ctx.selectedOrganizationId ?? null
-    const guardResult = await runStaffMutationGuards(
-      ctx.container,
-      {
-        tenantId,
-        organizationId,
-        userId: auth.sub,
+    const guardResult = await runRouteMutationGuards({
+      container: ctx.container,
+      req,
+      auth: { userId: auth.sub, tenantId, organizationId },
+      input: {
         resourceKind: 'staff.team_member',
         resourceId: auth.sub,
         operation: 'create',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
         mutationPayload: parsed,
       },
-    )
+    })
     if (!guardResult.ok) {
       return NextResponse.json(
-        guardResult.errorBody ?? { error: 'Operation blocked by guard' },
-        { status: guardResult.errorStatus ?? 422 },
+        guardResult.errorBody,
+        { status: guardResult.errorStatus },
       )
     }
 
@@ -151,34 +124,13 @@ export async function POST(req: Request) {
       },
     )
 
-    if (guardResult.afterSuccessCallbacks.length) {
-      await runStaffMutationGuardAfterSuccess(guardResult.afterSuccessCallbacks, {
-        tenantId,
-        organizationId,
-        userId: auth.sub,
-        resourceKind: 'staff.team_member',
-        resourceId: result?.memberId ?? auth.sub,
-        operation: 'create',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
-      })
-    }
+    await guardResult.runAfterSuccess({ resourceId: result?.memberId ?? auth.sub })
 
     const response = NextResponse.json({ id: result?.memberId ?? null }, { status: 201 })
-    if (logEntry?.undoToken && logEntry?.id && logEntry?.commandId) {
-      response.headers.set(
-        'x-om-operation',
-        serializeOperationMetadata({
-          id: logEntry.id,
-          undoToken: logEntry.undoToken,
-          commandId: logEntry.commandId,
-          actionLabel: logEntry.actionLabel ?? null,
-          resourceKind: logEntry.resourceKind ?? 'staff.team_member',
-          resourceId: logEntry.resourceId ?? result?.memberId ?? null,
-          executedAt: logEntry.createdAt instanceof Date ? logEntry.createdAt.toISOString() : undefined,
-        }),
-      )
-    }
+    attachOperationMetadataHeader(response, logEntry, {
+      resourceKind: 'staff.team_member',
+      resourceId: result?.memberId,
+    })
     return response
   } catch (err) {
     if (isCrudHttpError(err)) {

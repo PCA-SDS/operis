@@ -3,6 +3,7 @@
 import * as React from 'react'
 import dynamic from 'next/dynamic'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
+import { defaultValueFormatter } from './ChartUtils'
 
 export type PieChartDataItem = {
   name: string
@@ -21,16 +22,6 @@ export type PieChartProps = {
   showTooltip?: boolean
   className?: string
   emptyMessage?: string
-}
-
-function defaultValueFormatter(value: number): string {
-  if (Math.abs(value) >= 1_000_000) {
-    return `${(value / 1_000_000).toFixed(1)}M`
-  }
-  if (Math.abs(value) >= 1_000) {
-    return `${(value / 1_000).toFixed(1)}K`
-  }
-  return value.toLocaleString(undefined, { maximumFractionDigits: 2 })
 }
 
 const PieChartImpl = dynamic(() => import('./PieChartImpl'), {

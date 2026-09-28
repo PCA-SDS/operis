@@ -8,6 +8,7 @@ import { parseScopedCommandInput } from '@open-mercato/shared/lib/api/scoped'
 import { ResourcesResourceTag } from '../data/entities'
 import { resourcesResourceTagCreateSchema, resourcesResourceTagUpdateSchema } from '../data/validators'
 import { createResourcesCrudOpenApi, createPagedListResponseSchema, defaultOkResponseSchema } from './openapi'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 const rawBodySchema = z.object({}).passthrough()
 const createInputSchema = resourcesResourceTagCreateSchema.extend({
@@ -16,8 +17,7 @@ const createInputSchema = resourcesResourceTagCreateSchema.extend({
 
 const listSchema = z
   .object({
-    page: z.coerce.number().int().min(1).default(1),
-    pageSize: z.coerce.number().int().min(1).max(100).default(100),
+    ...paginationQuerySchema({ defaultPageSize: 100 }).shape,
     search: z.string().optional(),
     sortField: z.string().optional(),
     sortDir: z.enum(['asc', 'desc']).optional(),

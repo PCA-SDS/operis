@@ -7,10 +7,7 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { SyncMapping } from '@open-mercato/core/modules/data_sync/data/entities'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
-import {
-  runCrudMutationGuardAfterSuccess,
-  validateCrudMutationGuard,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const idParamsSchema = z.object({ id: z.string().uuid() })
 
@@ -122,37 +119,25 @@ export async function PUT(req: Request, ctx: { params?: Promise<{ id?: string }>
     return NextResponse.json({ error: 'Mapping not found' }, { status: 404 })
   }
 
-  const guardResult = await validateCrudMutationGuard(container, {
-    tenantId: scope.tenantId,
-    organizationId: scope.organizationId,
-    userId: auth.sub,
-    resourceKind: 'data_sync.mapping',
-    resourceId: mapping.id,
-    operation: 'update',
-    requestMethod: req.method,
-    requestHeaders: req.headers,
-    mutationPayload: parsedBody.data,
+  const guardResult = await runRouteMutationGuards({
+    container,
+    req,
+    auth: { userId: auth.sub, tenantId: scope.tenantId, organizationId: scope.organizationId },
+    input: {
+      resourceKind: 'data_sync.mapping',
+      resourceId: mapping.id,
+      operation: 'update',
+      mutationPayload: parsedBody.data,
+    },
   })
-  if (guardResult && !guardResult.ok) {
-    return NextResponse.json(guardResult.body, { status: guardResult.status })
+  if (!guardResult.ok) {
+    return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
   }
 
   mapping.mapping = parsedBody.data.mapping
   await em.flush()
 
-  if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-    await runCrudMutationGuardAfterSuccess(container, {
-      tenantId: scope.tenantId,
-      organizationId: scope.organizationId,
-      userId: auth.sub,
-      resourceKind: 'data_sync.mapping',
-      resourceId: mapping.id,
-      operation: 'update',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      metadata: guardResult.metadata ?? null,
-    })
-  }
+  await guardResult.runAfterSuccess()
 
   return NextResponse.json({
     id: mapping.id,
@@ -198,38 +183,26 @@ export async function DELETE(req: Request, ctx: { params?: Promise<{ id?: string
     return NextResponse.json({ error: 'Mapping not found' }, { status: 404 })
   }
 
-  const guardResult = await validateCrudMutationGuard(container, {
-    tenantId: scope.tenantId,
-    organizationId: scope.organizationId,
-    userId: auth.sub,
-    resourceKind: 'data_sync.mapping',
-    resourceId: mapping.id,
-    operation: 'delete',
-    requestMethod: req.method,
-    requestHeaders: req.headers,
-    mutationPayload: null,
+  const guardResult = await runRouteMutationGuards({
+    container,
+    req,
+    auth: { userId: auth.sub, tenantId: scope.tenantId, organizationId: scope.organizationId },
+    input: {
+      resourceKind: 'data_sync.mapping',
+      resourceId: mapping.id,
+      operation: 'delete',
+      mutationPayload: null,
+    },
   })
-  if (guardResult && !guardResult.ok) {
-    return NextResponse.json(guardResult.body, { status: guardResult.status })
+  if (!guardResult.ok) {
+    return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
   }
 
   const mappingId = mapping.id
   em.remove(mapping)
   await em.flush()
 
-  if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-    await runCrudMutationGuardAfterSuccess(container, {
-      tenantId: scope.tenantId,
-      organizationId: scope.organizationId,
-      userId: auth.sub,
-      resourceKind: 'data_sync.mapping',
-      resourceId: mappingId,
-      operation: 'delete',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      metadata: guardResult.metadata ?? null,
-    })
-  }
+  await guardResult.runAfterSuccess({ resourceId: mappingId })
 
   return NextResponse.json({ deleted: true })
 }

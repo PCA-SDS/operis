@@ -3,12 +3,12 @@ import {
   jsonOk,
   resolveService,
   resolveTasksRequest,
-  searchParamsToObject,
   toErrorResponse,
 } from '../../shared'
 import { taskCalendarQuerySchema } from '../../../data/validators'
 import type { MyTasksService } from '../../../services/myTasksService'
 import { COMMON_ERRORS, TASKS_TAG, calendarResponseSchema } from '../../openapi'
+import { searchParamsToObject } from '@open-mercato/shared/lib/http/query'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['tasks.view'] },

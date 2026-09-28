@@ -19,6 +19,7 @@ import type {
   ChatTaskSourceListDto,
 } from '../data/types'
 import type { ChatTaskCreateRequest, ChatTaskLinkRequest } from '../data/validators'
+import { jsonRequestInit } from '@open-mercato/shared/lib/http/query'
 
 const BASE = '/api/chat_tasks'
 const TASKS_BASE = '/api/tasks'
@@ -31,14 +32,6 @@ function query(params: Record<string, string | number | boolean | null | undefin
   }
   const serialized = search.toString()
   return serialized ? `?${serialized}` : ''
-}
-
-function jsonInit(method: string, body?: unknown): RequestInit {
-  return {
-    method,
-    headers: { 'content-type': 'application/json' },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  }
 }
 
 /**
@@ -84,7 +77,7 @@ export const chatTasksApi = {
     (
       await apiCallOrThrow<ChatTaskCreateResultDto>(
         `${BASE}/conversations/${conversationId}/tasks`,
-        jsonInit('POST', body),
+        jsonRequestInit('POST', body),
       )
     ).result!,
 
@@ -92,7 +85,7 @@ export const chatTasksApi = {
     (
       await apiCallOrThrow<ChatTaskLinkResultDto>(
         `${BASE}/conversations/${conversationId}/links`,
-        jsonInit('POST', body),
+        jsonRequestInit('POST', body),
       )
     ).result!,
 
@@ -100,7 +93,7 @@ export const chatTasksApi = {
     (
       await apiCallOrThrow<{ cardMessageId: string }>(
         `${BASE}/links/${linkId}/card`,
-        jsonInit('POST'),
+        jsonRequestInit('POST'),
       )
     ).result!,
 
@@ -108,7 +101,7 @@ export const chatTasksApi = {
     (
       await apiCallOrThrow<{ ok: boolean; cardRemoved: boolean }>(
         `${BASE}/links/${linkId}${query({ removeCard: options.removeCard })}`,
-        jsonInit('DELETE'),
+        jsonRequestInit('DELETE'),
       )
     ).result!,
 
@@ -128,7 +121,7 @@ export const chatTasksApi = {
     (
       await apiCallOrThrow<{ taskId: string; replayed: boolean }>(
         `${BASE}/workspace/tasks`,
-        jsonInit('POST', body),
+        jsonRequestInit('POST', body),
       )
     ).result!,
 
@@ -147,7 +140,7 @@ export const chatTasksApi = {
       (
         await apiCallOrThrow<TaskDetailDto>(
           `${TASKS_BASE}/tasks/${taskId}/complete`,
-          jsonInit('PATCH', { tz }),
+          jsonRequestInit('PATCH', { tz }),
         )
       ).result!,
     ),
@@ -157,7 +150,7 @@ export const chatTasksApi = {
       (
         await apiCallOrThrow<TaskDetailDto>(
           `${TASKS_BASE}/tasks/${taskId}/reopen`,
-          jsonInit('PATCH'),
+          jsonRequestInit('PATCH'),
         )
       ).result!,
     ),

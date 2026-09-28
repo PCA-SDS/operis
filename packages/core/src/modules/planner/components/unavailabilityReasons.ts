@@ -1,11 +1,12 @@
 "use client"
 
-import { apiCall, apiCallOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
+import { apiCallOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { fetchAllDictionaryEntries } from '@open-mercato/core/modules/dictionaries/lib/fetchAllEntries'
 import {
   resolveUnavailabilityReasonDictionary,
   type UnavailabilityReasonSubjectType,
 } from '@open-mercato/core/modules/planner/lib/unavailabilityReasons'
+import { ensureDictionary } from '@open-mercato/core/modules/dictionaries/components/ensureDictionary'
 
 export type UnavailabilityReasonEntry = {
   id: string
@@ -13,31 +14,6 @@ export type UnavailabilityReasonEntry = {
   label: string
   color: string | null
   icon: string | null
-}
-
-type DictionarySummary = {
-  id: string
-  key: string
-  name: string
-}
-
-async function ensureDictionary(key: string, name: string): Promise<DictionarySummary | null> {
-  const listCall = await apiCall<{ items?: DictionarySummary[] }>('/api/dictionaries')
-  const items = Array.isArray(listCall.result?.items) ? listCall.result?.items ?? [] : []
-  const existing = items.find((item) => item && item.key === key)
-  if (existing) return existing
-  if (!listCall.ok) return null
-  const created = await apiCallOrThrow<DictionarySummary>(
-    '/api/dictionaries',
-    {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ key, name }),
-    },
-  )
-  const result = created.result as DictionarySummary | undefined
-  if (result && result.id && result.key) return result
-  return null
 }
 
 export async function loadUnavailabilityReasonEntries(

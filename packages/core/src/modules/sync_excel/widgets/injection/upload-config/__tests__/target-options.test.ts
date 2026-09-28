@@ -1,9 +1,9 @@
 import {
   buildPeopleSuggestedMapping,
   buildPeopleTargetOptions,
-  normalizeMatchToken,
   type SuggestedMapping,
 } from '../target-options'
+import { normalizeLabel } from '../../../../lib/column-detector'
 
 describe('sync_excel target options helpers', () => {
   const baseSuggestedMapping: SuggestedMapping = {
@@ -248,8 +248,8 @@ describe('sync_excel target options helpers', () => {
   })
 
   it('normalizes headers consistently for custom matching', () => {
-    expect(normalizeMatchToken('Favorite_Color')).toBe('favorite color')
-    expect(normalizeMatchToken('favorite-color')).toBe('favorite color')
-    expect(normalizeMatchToken('favoriteColor')).toBe('favorite color')
+    expect(normalizeLabel('Favorite_Color')).toBe('favorite color')
+    expect(normalizeLabel('favorite-color')).toBe('favorite color')
+    expect(normalizeLabel('favoriteColor')).toBe('favorite color')
   })
 })

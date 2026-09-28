@@ -49,9 +49,8 @@ jest.mock('@open-mercato/shared/lib/encryption/find', () => ({
   findOneWithDecryption: jest.fn(async () => null),
 }))
 
-jest.mock('@open-mercato/shared/lib/crud/mutation-guard', () => ({
-  validateCrudMutationGuard: jest.fn(async () => ({ ok: true, shouldRunAfterSuccess: false, metadata: null })),
-  runCrudMutationGuardAfterSuccess: jest.fn(async () => undefined),
+jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
+  runRouteMutationGuards: jest.fn(async () => ({ ok: true, runAfterSuccess: async () => undefined })),
 }))
 
 jest.mock('@open-mercato/core/modules/dashboards/lib/widgets', () => ({

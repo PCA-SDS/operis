@@ -22,7 +22,7 @@ import type {
 } from '../data/types'
 import type { ChatTaskLinkListQuery } from '../data/validators'
 import { callerHasFeatures, scopedWhere, type ChatTasksScope } from '../lib/scope'
-import { decodeLinkCursor, encodeLinkCursor } from '../lib/cursor'
+import { decodeKeysetCursor, encodeKeysetCursor } from '@open-mercato/shared/lib/pagination/keysetCursor'
 import { taskHref } from '../lib/routes'
 
 /**
@@ -157,7 +157,7 @@ export class DefaultChatTaskService implements ChatTaskService {
     // Keyset over the link rows rather than an offset: links are added while
     // someone is reading, and an offset page would repeat or skip a row when one
     // arrives above it.
-    const cursor = decodeLinkCursor(query.cursor)
+    const cursor = decodeKeysetCursor(query.cursor)
     const afterCursor = cursor
       ? matches.filter(
           (row) =>
@@ -176,7 +176,7 @@ export class DefaultChatTaskService implements ChatTaskService {
 
     return {
       items: page.map((row) => toCardDto(row.link, hydrated.get(row.link.taskId) ?? null)),
-      nextCursor: hasMore && last ? encodeLinkCursor({ createdAt: last.link.createdAt, id: last.link.id }) : null,
+      nextCursor: hasMore && last ? encodeKeysetCursor({ createdAt: last.link.createdAt, id: last.link.id }) : null,
       hasMore,
       counts,
     }

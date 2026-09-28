@@ -161,6 +161,52 @@ describe('runRouteMutationGuards', () => {
     )
   })
 
+  it('hands afterSuccess the written record id when the route supplies one', async () => {
+    const afterSuccess = jest.fn().mockResolvedValue(undefined)
+    const guard = makeGuard({
+      id: 'create-guard',
+      validate: jest.fn().mockResolvedValue({ ok: true, shouldRunAfterSuccess: true }),
+      afterSuccess,
+    })
+    registerStoreGuards([guard])
+
+    const result = await runRouteMutationGuards({
+      container: makeContainer(),
+      req: makeRequest(),
+      auth: baseAuth,
+      input: { ...baseInput, resourceId: null, operation: 'create' },
+    })
+
+    if (!result.ok) throw new Error('expected passed result')
+    await result.runAfterSuccess({ resourceId: 'created-1' })
+    await result.runAfterSuccess({ resourceId: null })
+
+    expect(afterSuccess).toHaveBeenNthCalledWith(1, expect.objectContaining({ resourceId: 'created-1', operation: 'create' }))
+    expect(afterSuccess).toHaveBeenNthCalledWith(2, expect.objectContaining({ resourceId: '' }))
+  })
+
+  it('skips afterSuccess for a guard that does not request it', async () => {
+    const afterSuccess = jest.fn().mockResolvedValue(undefined)
+    const guard = makeGuard({
+      id: 'quiet-guard',
+      validate: jest.fn().mockResolvedValue({ ok: true, shouldRunAfterSuccess: false }),
+      afterSuccess,
+    })
+    registerStoreGuards([guard])
+
+    const result = await runRouteMutationGuards({
+      container: makeContainer(),
+      req: makeRequest(),
+      auth: baseAuth,
+      input: baseInput,
+    })
+
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected passed result')
+    await result.runAfterSuccess()
+    expect(afterSuccess).not.toHaveBeenCalled()
+  })
+
   it('swallows afterSuccess callback errors so a committed write still succeeds', async () => {
     loggerError.mockClear()
     const guard = makeGuard({
@@ -272,6 +318,59 @@ describe('runRouteMutationGuards', () => {
     if (result.ok) throw new Error('expected blocked result')
     expect(result.errorStatus).toBe(409)
     expect(result.errorBody).toEqual({ error: 'locked' })
+  })
+
+  it('hands a custom operation to the legacy DI guard as update and runs its after-success hook on request', async () => {
+    const legacyService = {
+      validateMutation: jest.fn().mockResolvedValue({ ok: true, shouldRunAfterSuccess: true, metadata: { token: 'lock' } }),
+      afterMutationSuccess: jest.fn().mockResolvedValue(undefined),
+    }
+
+    const result = await runRouteMutationGuards({
+      container: makeContainer({ crudMutationGuardService: legacyService }),
+      req: makeRequest('POST'),
+      auth: baseAuth,
+      input: { ...baseInput, operation: 'custom' },
+    })
+
+    expect(legacyService.validateMutation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: 'tenant-1',
+        organizationId: 'org-1',
+        userId: 'user-1',
+        resourceKind: 'things.thing',
+        resourceId: 'thing-1',
+        operation: 'update',
+        requestMethod: 'POST',
+        mutationPayload: { title: 'Updated' },
+      }),
+    )
+    expect(result.ok).toBe(true)
+    if (!result.ok) throw new Error('expected passed result')
+    expect(legacyService.afterMutationSuccess).not.toHaveBeenCalled()
+
+    await result.runAfterSuccess()
+
+    expect(legacyService.afterMutationSuccess).toHaveBeenCalledWith(
+      expect.objectContaining({ resourceKind: 'things.thing', operation: 'update', metadata: { token: 'lock' } }),
+    )
+  })
+
+  it('leaves the legacy DI guard out of create operations', async () => {
+    const legacyService = {
+      validateMutation: jest.fn().mockResolvedValue({ ok: false, status: 409, body: { error: 'locked' } }),
+      afterMutationSuccess: jest.fn().mockResolvedValue(undefined),
+    }
+
+    const result = await runRouteMutationGuards({
+      container: makeContainer({ crudMutationGuardService: legacyService }),
+      req: makeRequest('POST'),
+      auth: baseAuth,
+      input: { ...baseInput, operation: 'create' },
+    })
+
+    expect(result.ok).toBe(true)
+    expect(legacyService.validateMutation).not.toHaveBeenCalled()
   })
 
   it('warns only once when the registered legacy guard cannot be resolved', () => {

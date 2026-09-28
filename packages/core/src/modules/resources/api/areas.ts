@@ -15,14 +15,14 @@ import { ResourcesResourceArea } from '../data/entities'
 import { resourcesResourceAreaCreateSchema, resourcesResourceAreaUpdateSchema } from '../data/validators'
 import { createResourcesCrudOpenApi, createPagedListResponseSchema, defaultOkResponseSchema } from './openapi'
 import { computeHierarchyForAreas } from '../lib/areaHierarchy'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 const rawBodySchema = z.object({}).passthrough()
 const createInputSchema = resourcesResourceAreaCreateSchema
 
 const listSchema = z
   .object({
-    page: z.coerce.number().int().min(1).default(1),
-    pageSize: z.coerce.number().int().min(1).max(100).default(100),
+    ...paginationQuerySchema({ defaultPageSize: 100 }).shape,
     search: z.string().optional(),
     sortField: z.string().optional(),
     sortDir: z.enum(['asc', 'desc']).optional(),
@@ -112,8 +112,7 @@ const crud = makeCrudRoute({
 const viewSchema = z
   .object({
     view: z.enum(['manage', 'tree']).default('manage'),
-    page: z.coerce.number().int().min(1).default(1),
-    pageSize: z.coerce.number().int().min(1).max(100).default(100),
+    ...paginationQuerySchema({ defaultPageSize: 100 }).shape,
     search: z.string().optional(),
     status: z.enum(['all', 'active', 'inactive']).optional(),
     areaTypeId: z.string().optional(),

@@ -21,6 +21,7 @@ import { LoadingMessage } from './LoadingMessage'
 import { mapCrudServerErrorToFormErrors } from '../utils/serverErrors'
 import { MarkdownPreview } from '../markdown'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { loadMarkdownPlugins } from '../markdown/useMarkdownRemarkPlugins'
 
 const logger = createLogger('ui')
 
@@ -449,18 +450,6 @@ export type InlineMultilineEditorProps = {
 const isTestEnv =
   typeof process !== 'undefined' &&
   (process.env.NODE_ENV === 'test' || typeof process.env.JEST_WORKER_ID !== 'undefined')
-
-let markdownPluginsPromise: Promise<PluggableList> | null = null
-
-async function loadMarkdownPlugins(): Promise<PluggableList> {
-  if (isTestEnv) return []
-  if (!markdownPluginsPromise) {
-    markdownPluginsPromise = import('remark-gfm')
-      .then((mod) => [mod.default ?? mod] as PluggableList)
-      .catch(() => [])
-  }
-  return markdownPluginsPromise
-}
 
 export function InlineMultilineEditor({
   label,

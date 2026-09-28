@@ -11,6 +11,7 @@ import { CrudHttpError, isCrudHttpError, notFound } from '@open-mercato/shared/l
 import { findOneWithDecryption, findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { SalesReturn, SalesReturnLine } from '../../../data/entities'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { amountToNumber } from '../../amounts'
 
 const logger = createLogger('sales')
 
@@ -19,15 +20,6 @@ export const metadata = {
 }
 
 const paramsSchema = z.object({ id: z.string().uuid() })
-
-const toNumber = (value: unknown): number => {
-  if (typeof value === 'number') return value
-  if (typeof value === 'string') {
-    const parsed = Number(value)
-    if (!Number.isNaN(parsed)) return parsed
-  }
-  return 0
-}
 
 export async function GET(req: Request, ctx: { params: { id: string } }) {
   try {
@@ -70,8 +62,8 @@ export async function GET(req: Request, ctx: { params: { id: string } }) {
 
     const totals = lines.reduce(
       (acc, line) => {
-        acc.net += toNumber(line.totalNetAmount)
-        acc.gross += toNumber(line.totalGrossAmount)
+        acc.net += amountToNumber(line.totalNetAmount)
+        acc.gross += amountToNumber(line.totalGrossAmount)
         return acc
       },
       { net: 0, gross: 0 },

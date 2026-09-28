@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
-import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import {
   buildAttachmentContentDisposition,
@@ -10,21 +9,11 @@ import {
   sanitizeUploadedFileName,
 } from '@open-mercato/core/modules/attachments/lib/security'
 import { isS3KeyAddressableByScope } from '../../../../lib/key-scope'
-import { S3StorageDriver } from '../../../../lib/s3-driver'
+import { resolveDriver } from '../../../../lib/resolveDriver'
 
 export const metadata = {
   path: '/storage-providers/s3/download',
   GET: { requireAuth: true, requireFeatures: ['storage_providers.manage'] },
-}
-
-async function resolveDriver(tenantId: string, orgId: string): Promise<S3StorageDriver | null> {
-  const { resolve } = await createRequestContainer()
-  const credentialsService = resolve('integrationCredentialsService') as {
-    resolve(integrationId: string, scope: { tenantId: string; organizationId: string }): Promise<Record<string, unknown> | null>
-  }
-  const creds = await credentialsService.resolve('storage_s3', { tenantId, organizationId: orgId })
-  if (!creds) return null
-  return new S3StorageDriver({ ...creds, organizationId: orgId, tenantId })
 }
 
 export async function GET(req: Request) {

@@ -9,8 +9,7 @@ import { Button } from '@open-mercato/ui/primitives/button'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Trash2 } from 'lucide-react'
-import { CrudForm, type CrudFormGroup, type CrudField, type CrudCustomFieldRenderProps } from '@open-mercato/ui/backend/CrudForm'
-import { JsonBuilder } from '@open-mercato/ui/backend/JsonBuilder'
+import { CrudForm, type CrudFormGroup, type CrudField } from '@open-mercato/ui/backend/CrudForm'
 import { FormFieldArrayEditor } from './fields/FormFieldArrayEditor'
 import { ActivityArrayEditor } from './fields/ActivityArrayEditor'
 import { MappingArrayEditor } from './fields/MappingArrayEditor'
@@ -18,19 +17,7 @@ import { WorkflowSelectorField } from './fields/WorkflowSelectorField'
 import { StartPreConditionsEditor } from './fields/StartPreConditionsEditor'
 import { nodeToFormValues, formValuesToNodeUpdates, isJsonSchemaFormat, type NodeFormValues } from '../lib/nodeFormTransforms'
 import { sanitizeId } from '../lib/graph-utils'
-
-/**
- * JsonConfigEditor - Custom field wrapper for JsonBuilder
- */
-function JsonConfigEditor({ value, setValue, disabled }: CrudCustomFieldRenderProps) {
-  return (
-    <JsonBuilder
-      value={value || {}}
-      onChange={setValue}
-      disabled={disabled}
-    />
-  )
-}
+import { JsonBuilderCrudField } from '@open-mercato/ui/backend/JsonBuilderCrudField'
 
 export interface NodeEditDialogCrudFormProps {
   node: Node | null
@@ -426,7 +413,7 @@ export const NodeEditDialogCrudForm = memo(function NodeEditDialogCrudForm({ nod
       label: 'Advanced Configuration (JSON)',
       type: 'custom',
       description: 'Additional JSON configuration merged with the step data',
-      component: (props) => <JsonConfigEditor {...props} />,
+      component: (props) => <JsonBuilderCrudField {...props} />,
     },
 
     // Start node pre-conditions

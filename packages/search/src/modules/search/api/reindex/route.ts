@@ -22,6 +22,7 @@ import {
   failReindexProgress,
 } from '../../lib/reindex-progress'
 import { reindexOpenApi } from '../openapi'
+import { unauthorizedResponse } from '@open-mercato/shared/lib/http/responses'
 
 /** Strategy with optional stats support */
 type StrategyWithStats = SearchStrategy & {
@@ -59,16 +60,11 @@ type ReindexAction = 'clear' | 'recreate' | 'reindex'
 
 const toJson = (payload: Record<string, unknown>, init?: ResponseInit) => NextResponse.json(payload, init)
 
-const unauthorized = async () => {
-  const { t } = await resolveTranslations()
-  return NextResponse.json({ error: t('api.errors.unauthorized', 'Unauthorized') }, { status: 401 })
-}
-
 export async function POST(req: Request) {
   const { t } = await resolveTranslations()
   const auth = await getAuthFromRequest(req)
   if (!auth?.tenantId) {
-    return await unauthorized()
+    return await unauthorizedResponse()
   }
 
   // Capture tenantId as non-null for TypeScript (we checked above)

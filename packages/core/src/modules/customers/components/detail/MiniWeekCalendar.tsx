@@ -9,6 +9,7 @@ import { Button } from '@open-mercato/ui/primitives/button'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import type { InteractionSummary } from './types'
 import { loadLegacyActivitiesInRange } from './legacyActivities'
+import { isSameLocalDay } from '../../lib/calendar/time'
 
 interface MiniWeekCalendarProps {
   entityId: string
@@ -28,10 +29,6 @@ function getWeekDays(baseDate: Date): Date[] {
     days.push(d)
   }
   return days
-}
-
-function isSameDay(a: Date, b: Date): boolean {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
 }
 
 function getDayLabels(t: ReturnType<typeof useT>): string[] {
@@ -231,8 +228,8 @@ export function MiniWeekCalendar({ entityId, useCanonicalInteractions = true, re
       {/* Day cells — bordered grid like Figma */}
       <div className="grid grid-cols-7 border rounded-lg overflow-hidden">
         {weekDays.map((day) => {
-          const isToday = isSameDay(day, today)
-          const isSelected = selectedDay ? isSameDay(day, selectedDay) : isToday
+          const isToday = isSameLocalDay(day, today)
+          const isSelected = selectedDay ? isSameLocalDay(day, selectedDay) : isToday
           const dayEvents = eventsByDay.get(day.toDateString()) ?? []
           const hasEvents = dayEvents.length > 0
           return (
@@ -241,7 +238,7 @@ export function MiniWeekCalendar({ entityId, useCanonicalInteractions = true, re
               variant="ghost"
               size="sm"
               key={day.toISOString()}
-              onClick={() => setSelectedDay(isSameDay(day, selectedDay ?? today) ? null : day)}
+              onClick={() => setSelectedDay(isSameLocalDay(day, selectedDay ?? today) ? null : day)}
               className={cn(
                 'h-auto flex flex-col items-center border-r last:border-r-0 py-3 text-sm transition-colors cursor-pointer rounded-none',
                 isSelected ? 'bg-primary text-primary-foreground font-bold' : 'hover:bg-accent/50',

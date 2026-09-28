@@ -26,10 +26,6 @@ export const metadata = {
   POST: { requireAuth: false },
 }
 
-export function OPTIONS(req: Request) {
-  return new Response(null, { status: 204, headers: publicCorsHeaders(req) })
-}
-
 /**
  * Anonymous callers can create a customer record and an appointment here, so the
  * endpoint is throttled per client IP like every other `requireAuth: false`

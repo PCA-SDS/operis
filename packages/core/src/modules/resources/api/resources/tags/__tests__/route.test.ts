@@ -17,8 +17,8 @@ const container = {
   }),
 }
 
-const validateCrudMutationGuardMock = jest.fn()
-const runCrudMutationGuardAfterSuccessMock = jest.fn()
+const runRouteMutationGuardsMock = jest.fn()
+const runAfterSuccessMock = jest.fn()
 
 jest.mock('@open-mercato/shared/lib/di/container', () => ({
   createRequestContainer: jest.fn(async () => container),
@@ -40,9 +40,8 @@ jest.mock('@open-mercato/core/modules/directory/utils/organizationScope', () => 
   })),
 }))
 
-jest.mock('@open-mercato/shared/lib/crud/mutation-guard', () => ({
-  validateCrudMutationGuard: (...args: unknown[]) => validateCrudMutationGuardMock(...args),
-  runCrudMutationGuardAfterSuccess: (...args: unknown[]) => runCrudMutationGuardAfterSuccessMock(...args),
+jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
+  runRouteMutationGuards: (...args: unknown[]) => runRouteMutationGuardsMock(...args),
 }))
 
 jest.mock('@open-mercato/shared/lib/i18n/server', () => ({
@@ -68,12 +67,8 @@ function buildTagRequest(path: string) {
 describe('resources resource tag assignment routes', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    validateCrudMutationGuardMock.mockResolvedValue({
-      ok: true,
-      shouldRunAfterSuccess: true,
-      metadata: { lockToken: 'guard-token' },
-    })
-    runCrudMutationGuardAfterSuccessMock.mockResolvedValue(undefined)
+    runRouteMutationGuardsMock.mockResolvedValue({ ok: true, runAfterSuccess: runAfterSuccessMock })
+    runAfterSuccessMock.mockResolvedValue(undefined)
     commandBusExecuteMock.mockResolvedValue({
       result: { assignmentId },
       logEntry: null,
@@ -81,36 +76,31 @@ describe('resources resource tag assignment routes', () => {
   })
 
   it('blocks resource tag assignment before executing the command when the mutation guard rejects it', async () => {
-    validateCrudMutationGuardMock.mockResolvedValueOnce({
-      ok: false,
-      status: 409,
-      body: { error: 'Resource is locked' },
-    })
+    runRouteMutationGuardsMock.mockResolvedValueOnce({ ok: false, errorStatus: 409, errorBody: { error: 'Resource is locked' } })
 
     const response = await assignResourceTag(buildTagRequest('/api/resources/resources/tags/assign'))
 
     expect(response.status).toBe(409)
     await expect(response.json()).resolves.toEqual({ error: 'Resource is locked' })
-    expect(validateCrudMutationGuardMock).toHaveBeenCalledWith(
-      container,
+    expect(runRouteMutationGuardsMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        tenantId,
-        organizationId,
-        userId,
-        resourceKind: 'resources.resourceTagAssignment',
-        resourceId,
-        operation: 'custom',
-        requestMethod: 'POST',
-        mutationPayload: expect.objectContaining({
-          tenantId,
-          organizationId,
-          tagId,
+        container,
+        auth: expect.objectContaining({ tenantId, organizationId, userId }),
+        input: expect.objectContaining({
+          resourceKind: 'resources.resourceTagAssignment',
           resourceId,
+          operation: 'custom',
+          mutationPayload: expect.objectContaining({
+            tenantId,
+            organizationId,
+            tagId,
+            resourceId,
+          }),
         }),
       }),
     )
     expect(commandBusExecuteMock).not.toHaveBeenCalled()
-    expect(runCrudMutationGuardAfterSuccessMock).not.toHaveBeenCalled()
+    expect(runAfterSuccessMock).not.toHaveBeenCalled()
   })
 
   it('runs the mutation guard after-success hook after resource tag unassignment succeeds', async () => {
@@ -128,18 +118,6 @@ describe('resources resource tag assignment routes', () => {
         }),
       }),
     )
-    expect(runCrudMutationGuardAfterSuccessMock).toHaveBeenCalledWith(
-      container,
-      expect.objectContaining({
-        tenantId,
-        organizationId,
-        userId,
-        resourceKind: 'resources.resourceTagAssignment',
-        resourceId,
-        operation: 'custom',
-        requestMethod: 'POST',
-        metadata: { lockToken: 'guard-token' },
-      }),
-    )
+    expect(runAfterSuccessMock).toHaveBeenCalled()
   })
 })

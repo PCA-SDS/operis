@@ -1,7 +1,5 @@
 import {
-  calendarTimeZone,
   calendarStatusOfTask,
-  formatCalendarDate,
   formatWallClockTime,
   mapTaskToCalendarItem,
   parseCalendarDate,
@@ -18,6 +16,8 @@ import {
 } from '../layout'
 import { makeCalendarTaskItem } from './fixtures'
 import type { CalendarTaskPayload } from '../../../components/calendar/types'
+import { resolveCalendarTimeZone } from '../time'
+import { toLocalDateKey } from '@open-mercato/shared/lib/date/format'
 
 function taskDto(overrides: Partial<CalendarTaskPayload> = {}): CalendarTaskPayload {
   return makeCalendarTaskItem(
@@ -159,7 +159,7 @@ describe('taskScheduleChangeFor', () => {
   it('formats dates and times in local wall clock, not UTC', () => {
     // A late-evening drop must not roll onto the next day via a UTC conversion.
     const late = new Date(2026, 8, 7, 23, 45)
-    expect(formatCalendarDate(late)).toBe('2026-09-07')
+    expect(toLocalDateKey(late)).toBe('2026-09-07')
     expect(formatWallClockTime(late)).toBe('23:45')
   })
 
@@ -176,13 +176,13 @@ describe('calendarTimeZone', () => {
     // resolves `completedAt` and a recurring task's next due date against it,
     // so a calendar write that omits it records the wrong day for anyone
     // completing a task near midnight outside UTC.
-    const zone = calendarTimeZone()
+    const zone = resolveCalendarTimeZone()
     expect(typeof zone).toBe('string')
     expect(zone.length).toBeGreaterThan(0)
   })
 
   it('reports the runtime zone rather than a hardcoded one', () => {
-    expect(calendarTimeZone()).toBe(Intl.DateTimeFormat().resolvedOptions().timeZone)
+    expect(resolveCalendarTimeZone()).toBe(Intl.DateTimeFormat().resolvedOptions().timeZone)
   })
 })
 

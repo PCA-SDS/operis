@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { emailSchema } from '@open-mercato/shared/lib/validation'
 
 const addressSchema = z.object({
   countryCode: z.string().min(2).max(3),
@@ -18,7 +19,7 @@ const packageSchema = z.object({
 /** Permissive phone regex: allows +, digits, spaces, dashes, dots, and parentheses. Min 7 chars. */
 export const PHONE_REGEX = /^[+\d][\d\s\-().]{6,}$/
 
-const emailField = z.string().trim().email('Invalid email address.').max(320).optional()
+const emailField = emailSchema({ message: 'Invalid email address.' }).optional()
 const phoneField = z.string().trim().regex(PHONE_REGEX, 'Invalid phone number.').max(50).optional()
 
 export const calculateRatesSchema = z.object({

@@ -4,6 +4,7 @@ import { Message, MessageConfirmation, MessageRecipient } from '@open-mercato/co
 const resolveMessageContextMock = jest.fn()
 
 jest.mock('@open-mercato/core/modules/messages/lib/routeHelpers', () => ({
+  hasOrganizationAccess: jest.requireActual('@open-mercato/core/modules/messages/lib/routeHelpers').hasOrganizationAccess,
   resolveMessageContext: (...args: unknown[]) => resolveMessageContextMock(...args),
 }))
 

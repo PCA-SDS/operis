@@ -12,11 +12,11 @@ import {
   createRuleSetSchema,
   updateRuleSetSchema,
 } from '../../data/validators'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 const querySchema = z.looseObject({
   id: z.string().uuid().optional(),
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(50),
+  ...paginationQuerySchema().shape,
   search: z.string().optional(),
   setId: z.string().optional(),
   enabled: z.coerce.boolean().optional(),

@@ -2,7 +2,8 @@ import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { enqueueWebhookDelivery } from '../../../../lib/queue'
 import { isWebhookIntegrationEnabled } from '../../../../lib/integration-state'
-import { findScopedDelivery, json, resolveWebhookRequestScope, serializeDeliveryDetail } from '../../../helpers'
+import { findScopedDelivery, resolveWebhookRequestScope, serializeDeliveryDetail } from '../../../helpers'
+import { jsonResponse } from '@open-mercato/shared/lib/http/responses'
 
 export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['webhooks.manage'] },
@@ -49,7 +50,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
   const delivery = await findScopedDelivery(em, scope, params.id)
 
   if (!delivery) {
-    return json({ error: 'Delivery not found' }, { status: 404 })
+    return jsonResponse({ error: 'Delivery not found' }, { status: 404 })
   }
 
   const integrationEnabled = await isWebhookIntegrationEnabled(em, {
@@ -57,7 +58,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
     organizationId: delivery.organizationId,
   })
   if (!integrationEnabled) {
-    return json({ error: 'Custom Webhooks integration is disabled' }, { status: 409 })
+    return jsonResponse({ error: 'Custom Webhooks integration is disabled' }, { status: 409 })
   }
 
   delivery.status = 'pending'
@@ -71,7 +72,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
     organizationId: delivery.organizationId,
   })
 
-  return json({
+  return jsonResponse({
     success: true,
     delivery: serializeDeliveryDetail(delivery),
   })

@@ -18,11 +18,13 @@ import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimi
 import { raiseCrudError } from '@open-mercato/ui/backend/utils/serverErrors'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
-import { buildOrganizationTreeOptions, formatOrganizationTreeLabel, type OrganizationTreeNode, type OrganizationTreeOption } from '@open-mercato/core/modules/directory/lib/tree'
+import { buildOrganizationTreeOptions, type OrganizationTreeNode, type OrganizationTreeOption } from '@open-mercato/core/modules/directory/lib/tree'
 import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import { ListEmptyState } from '@open-mercato/ui/backend/filters/ListEmptyState'
+import { arraysEqual } from '@open-mercato/shared/lib/array'
+import { formatTreeLabel } from '@open-mercato/shared/lib/tree'
 
 type Row = {
   id: string
@@ -55,7 +57,7 @@ async function fetchOrganizationFilterOptions(): Promise<FilterOption[]> {
       .map((opt) => {
         const baseLabel = opt.name && opt.name.length > 0 ? opt.name : opt.value
         const depth = typeof opt.depth === 'number' ? opt.depth : 0
-        const label = `${formatOrganizationTreeLabel(baseLabel, depth)}${opt.isActive === false ? ' (inactive)' : ''}`
+        const label = `${formatTreeLabel(baseLabel, depth)}${opt.isActive === false ? ' (inactive)' : ''}`
         return { value: opt.value, label }
       })
   } catch {
@@ -120,14 +122,6 @@ function mergeOptions(existing: FilterOption[], next: FilterOption[]): FilterOpt
   for (const opt of existing) map.set(opt.value, opt)
   for (const opt of next) map.set(opt.value, opt)
   return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label))
-}
-
-function arraysEqual(a: string[], b: string[]): boolean {
-  if (a.length !== b.length) return false
-  for (let i = 0; i < a.length; i += 1) {
-    if (a[i] !== b[i]) return false
-  }
-  return true
 }
 
 export default function UsersListPage() {

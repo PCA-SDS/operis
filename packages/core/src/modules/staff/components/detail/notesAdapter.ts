@@ -3,10 +3,9 @@
 import { apiCallOrThrow, readApiResultOrThrow, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { mapCommentSummary, type NotesDataAdapter } from '@open-mercato/ui/backend/detail/NotesSection'
+import type { TranslateWithFallbackFn } from '@open-mercato/shared/lib/i18n/translate'
 
-type Translator = (key: string, fallback?: string, params?: Record<string, string | number>) => string
-
-export function createStaffNotesAdapter(translator: Translator): NotesDataAdapter {
+export function createStaffNotesAdapter(translator: TranslateWithFallbackFn): NotesDataAdapter {
   return {
     list: async ({ entityId }) => {
       const params = new URLSearchParams()

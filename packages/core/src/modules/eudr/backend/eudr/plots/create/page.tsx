@@ -23,6 +23,7 @@ import {
   parsePlotGeometryForSubmit,
 } from '../../../../components/plotForm'
 import { GeometryInput } from '../../../../components/GeometryInput'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
 
 type PlotFormValues = {
   supplierEntityId: string
@@ -36,12 +37,6 @@ type PlotFormValues = {
   producerName: string
   isActive: boolean
 } & Record<string, unknown>
-
-function optionalText(value: unknown): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  return trimmed.length ? trimmed : null
-}
 
 function isCompanySnapshot(value: unknown): value is CompanySnapshot {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -229,17 +224,17 @@ export default function CreateEudrPlotPage() {
             isActive: true,
           }}
           onSubmit={async (values) => {
-            const supplierEntityId = optionalText(values.supplierEntityId)
+            const supplierEntityId = normalizeOptionalString(values.supplierEntityId)
             if (!supplierEntityId) {
               const message = translate('eudr.plots.form.supplierRequired')
               throw createCrudFormError(message, { supplierEntityId: message })
             }
-            const name = optionalText(values.name)
+            const name = normalizeOptionalString(values.name)
             if (!name) {
               const message = translate('eudr.plots.form.nameRequired')
               throw createCrudFormError(message, { name: message })
             }
-            const originCountry = optionalText(values.originCountry)
+            const originCountry = normalizeOptionalString(values.originCountry)
             if (!originCountry) {
               const message = translate('eudr.plots.form.originCountryRequired')
               throw createCrudFormError(message, { originCountry: message })
@@ -251,12 +246,12 @@ export default function CreateEudrPlotPage() {
               supplierEntityId,
               supplierSnapshot: isCompanySnapshot(values.supplierSnapshot) ? values.supplierSnapshot : null,
               name,
-              externalId: optionalText(values.externalId),
-              description: optionalText(values.description),
+              externalId: normalizeOptionalString(values.externalId),
+              description: normalizeOptionalString(values.description),
               originCountry: originCountry.toUpperCase(),
               geometry,
               areaHa,
-              producerName: optionalText(values.producerName),
+              producerName: normalizeOptionalString(values.producerName),
               isActive: values.isActive !== false,
             }, {
               errorMessage: translate('eudr.plots.form.createError'),

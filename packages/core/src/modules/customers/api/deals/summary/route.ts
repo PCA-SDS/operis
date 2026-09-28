@@ -19,6 +19,7 @@ import {
   type Delta,
 } from '../../../lib/dealsMetrics'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { toFiniteNumber } from '@open-mercato/shared/lib/number'
 
 const logger = createLogger('customers')
 
@@ -106,11 +107,6 @@ export const openApi: OpenApiRouteDoc = {
   },
 }
 
-function toNumber(value: string | number | null | undefined): number {
-  const parsed = Number(value ?? 0)
-  return Number.isFinite(parsed) ? parsed : 0
-}
-
 function winRate(won: number, lost: number): number {
   const denom = won + lost
   if (denom <= 0) return 0
@@ -176,8 +172,8 @@ export async function GET(req: Request) {
   const openSums: Array<{ currency: string | null; total: number }> = []
   for (const row of openRows) {
     const stageKey = row.stage ?? '__null__'
-    const total = toNumber(row.total)
-    const count = toNumber(row.count)
+    const total = toFiniteNumber(row.total)
+    const count = toFiniteNumber(row.count)
     const currency = (row.currency ?? '').toString().trim().toUpperCase()
     if (!stageMap.has(stageKey)) {
       stageMap.set(stageKey, { stage: row.stage ?? null, count: 0, byCurrency: [] })
@@ -267,15 +263,15 @@ export async function GET(req: Request) {
   }))
 
   // Pipeline inflow delta (open value created this vs previous quarter).
-  const inflowCurrent = convert(inflowRows.map((row) => ({ currency: row.currency, total: toNumber(row.current_total) })))
-  const inflowPrevious = convert(inflowRows.map((row) => ({ currency: row.currency, total: toNumber(row.previous_total) })))
+  const inflowCurrent = convert(inflowRows.map((row) => ({ currency: row.currency, total: toFiniteNumber(row.current_total) })))
+  const inflowPrevious = convert(inflowRows.map((row) => ({ currency: row.currency, total: toFiniteNumber(row.previous_total) })))
   const pipelineDelta: Delta = computeDelta(inflowCurrent, inflowPrevious)
 
   // Active deals: count of open deals, owners, need-attention, top owners.
-  const activeDealsCount = openRows.reduce((sum, row) => sum + toNumber(row.count), 0)
+  const activeDealsCount = openRows.reduce((sum, row) => sum + toFiniteNumber(row.count), 0)
   const ownersCount = openOwnerCounts.size
-  const inflowCurrentCount = inflowRows.reduce((sum, row) => sum + toNumber(row.current_count), 0)
-  const inflowPreviousCount = inflowRows.reduce((sum, row) => sum + toNumber(row.previous_count), 0)
+  const inflowCurrentCount = inflowRows.reduce((sum, row) => sum + toFiniteNumber(row.current_count), 0)
+  const inflowPreviousCount = inflowRows.reduce((sum, row) => sum + toFiniteNumber(row.previous_count), 0)
   const activeDelta: Delta = computeDelta(inflowCurrentCount, inflowPreviousCount)
   const sortedOwners = Array.from(openOwnerCounts.entries())
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
@@ -283,18 +279,18 @@ export async function GET(req: Request) {
   const ownersOverflow = Math.max(0, ownersCount - owners.length)
 
   // Won this quarter.
-  const wonCurrent = convert(wonRows.map((row) => ({ currency: row.currency, total: toNumber(row.current_total) })))
-  const wonPrevious = convert(wonRows.map((row) => ({ currency: row.currency, total: toNumber(row.previous_total) })))
-  const dealsClosed = wonRows.reduce((sum, row) => sum + toNumber(row.current_count), 0)
+  const wonCurrent = convert(wonRows.map((row) => ({ currency: row.currency, total: toFiniteNumber(row.current_total) })))
+  const wonPrevious = convert(wonRows.map((row) => ({ currency: row.currency, total: toFiniteNumber(row.previous_total) })))
+  const dealsClosed = wonRows.reduce((sum, row) => sum + toFiniteNumber(row.current_count), 0)
   const wonDelta: Delta = computeDelta(wonCurrent, wonPrevious)
   const avgDeal = dealsClosed > 0 ? Math.round(wonCurrent / dealsClosed) : 0
 
   // Win rate (current + previous quarter) and pp delta.
   const winLoss = winLossRows[0]
-  const currentWon = toNumber(winLoss?.current_won)
-  const currentLost = toNumber(winLoss?.current_lost)
-  const previousWon = toNumber(winLoss?.previous_won)
-  const previousLost = toNumber(winLoss?.previous_lost)
+  const currentWon = toFiniteNumber(winLoss?.current_won)
+  const currentLost = toFiniteNumber(winLoss?.current_lost)
+  const previousWon = toFiniteNumber(winLoss?.previous_won)
+  const previousLost = toFiniteNumber(winLoss?.previous_lost)
   const winRateValue = winRate(currentWon, currentLost)
   const winRatePrevious = winRate(previousWon, previousLost)
   const deltaPp = winRateValue - winRatePrevious
@@ -303,7 +299,7 @@ export async function GET(req: Request) {
   // Win-rate series over trailing months (fill missing months with 0).
   const seriesByPeriod = new Map<string, { won: number; lost: number }>()
   for (const row of seriesRows) {
-    seriesByPeriod.set(row.period, { won: toNumber(row.won), lost: toNumber(row.lost) })
+    seriesByPeriod.set(row.period, { won: toFiniteNumber(row.won), lost: toFiniteNumber(row.lost) })
   }
   const series = trailingMonths.map((month) => {
     const point = seriesByPeriod.get(month.label)

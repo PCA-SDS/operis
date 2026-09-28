@@ -5,12 +5,12 @@ import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { isS3KeyAddressableByScope, isS3KeyScopedToTenant } from '../../../../lib/key-scope'
-import { S3StorageDriver } from '../../../../lib/s3-driver'
 import { createHash, randomBytes } from 'node:crypto'
 import { resolveAttachmentMaxBytes } from '@open-mercato/core/modules/attachments/lib/upload-limits'
 import type { AttachmentQuotaService } from '@open-mercato/core/modules/attachments/lib/quota-service'
 import { reconcileTenantS3Objects } from '../../../../lib/quota-accounting'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
+import { resolveDriver } from '../../../../lib/resolveDriver'
 
 export const metadata = {
   path: '/storage-providers/s3/signed-url',
@@ -30,16 +30,6 @@ const responseSchema = z.object({
   expiresAt: z.string(),
   reservationId: z.string().optional(),
 })
-
-async function resolveDriver(tenantId: string, orgId: string): Promise<S3StorageDriver | null> {
-  const { resolve } = await createRequestContainer()
-  const credentialsService = resolve('integrationCredentialsService') as {
-    resolve(integrationId: string, scope: { tenantId: string; organizationId: string }): Promise<Record<string, unknown> | null>
-  }
-  const creds = await credentialsService.resolve('storage_s3', { tenantId, organizationId: orgId })
-  if (!creds) return null
-  return new S3StorageDriver({ ...creds, organizationId: orgId, tenantId })
-}
 
 export async function POST(req: Request) {
   const { t } = await resolveTranslations()

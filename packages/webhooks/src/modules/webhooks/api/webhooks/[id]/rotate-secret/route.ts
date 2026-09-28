@@ -2,7 +2,8 @@ import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { generateWebhookSecret } from '@open-mercato/shared/lib/webhooks'
 import { emitWebhooksEvent } from '../../../../events'
-import { findScopedWebhook, json, resolveWebhookRequestScope } from '../../../helpers'
+import { findScopedWebhook, resolveWebhookRequestScope } from '../../../helpers'
+import { jsonResponse } from '@open-mercato/shared/lib/http/responses'
 
 export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['webhooks.secrets'] },
@@ -29,7 +30,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
   const webhook = await findScopedWebhook(em, scope, params.id)
 
   if (!webhook) {
-    return json({ error: 'Webhook not found' }, { status: 404 })
+    return jsonResponse({ error: 'Webhook not found' }, { status: 404 })
   }
 
   webhook.previousSecret = webhook.secret
@@ -43,7 +44,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
     tenantId: webhook.tenantId,
   })
 
-  return json({
+  return jsonResponse({
     success: true,
     secret: webhook.secret,
     previousSecretSetAt: webhook.previousSecretSetAt?.toISOString() ?? null,

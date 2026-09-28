@@ -34,13 +34,14 @@ import {
   resolveOrganizationScopeForRequest,
 } from '@open-mercato/core/modules/directory/utils/organizationScope'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { readId } from '../aclRouteHelpers'
+import { emailSchema, paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 const logger = createLogger('auth').child({ component: 'users' })
 
 const querySchema = z.object({
   id: z.string().uuid().optional(),
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(50),
+  ...paginationQuerySchema().shape,
   search: z.string().optional(),
   name: z.string().optional(),
   organizationId: z.string().uuid().optional(),
@@ -58,7 +59,7 @@ const displayNameSchema = z.preprocess(
 )
 
 const userCreateSchema = z.object({
-  email: z.string().email(),
+  email: emailSchema(),
   name: displayNameSchema,
   password: passwordSchema.optional(),
   sendInviteEmail: z.boolean().optional(),
@@ -76,7 +77,7 @@ const userCreateSchema = z.object({
 
 const userUpdateSchema = z.object({
   id: z.string().uuid(),
-  email: z.string().email().optional(),
+  email: emailSchema().optional(),
   name: displayNameSchema,
   password: passwordSchema.optional(),
   organizationId: z.string().uuid().optional(),
@@ -91,7 +92,7 @@ const userUpdateSchema = z.object({
 
 const userListItemSchema = z.object({
   id: z.string().uuid(),
-  email: z.string().email(),
+  email: emailSchema(),
   name: z.string().nullable(),
   organizationId: z.string().uuid().nullable(),
   organizationIds: z.array(z.string().uuid()),
@@ -683,11 +684,6 @@ function resolveDeleteTargetId(parsed: unknown, raw: unknown): string | null {
   if (fromParsed) return fromParsed
   const rawRecord = raw as { body?: Record<string, unknown>; query?: Record<string, unknown> } | null | undefined
   return readId(rawRecord?.query) ?? readId(rawRecord?.body)
-}
-
-function readId(record: Record<string, unknown> | null | undefined): string | null {
-  const value = record?.id
-  return typeof value === 'string' && value.length > 0 ? value : null
 }
 
 async function assertCanAssignRoles(req: Request, roles: unknown, payload: Record<string, unknown>) {

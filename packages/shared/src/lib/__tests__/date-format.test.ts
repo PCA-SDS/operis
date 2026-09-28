@@ -1,4 +1,4 @@
-import { toDateInputValue } from '../date/format'
+import { addDaysToIsoDate, startOfUtcDay, toDateInputValue, toLocalDateKey } from '../date/format'
 
 describe('toDateInputValue', () => {
   describe('null/undefined/empty handling', () => {
@@ -64,5 +64,20 @@ describe('toDateInputValue', () => {
     it('returns null for partial date strings', () => {
       expect(toDateInputValue('2026-13')).toBeNull()
     })
+  })
+})
+
+describe('calendar day helpers', () => {
+  it('keys a date by its local calendar day', () => {
+    expect(toLocalDateKey(new Date(2026, 0, 5, 23, 30))).toBe('2026-01-05')
+  })
+
+  it('shifts ISO dates by whole UTC days across month ends', () => {
+    expect(addDaysToIsoDate('2026-01-31', 1)).toBe('2026-02-01')
+    expect(addDaysToIsoDate('2026-03-01', -1)).toBe('2026-02-28')
+  })
+
+  it('truncates to UTC midnight', () => {
+    expect(startOfUtcDay(new Date('2026-05-06T21:15:00.000Z')).toISOString()).toBe('2026-05-06T00:00:00.000Z')
   })
 })

@@ -1,30 +1,14 @@
 import type {
   SearchModuleConfig,
-  SearchBuildContext,
-  SearchResultPresenter,
-  SearchIndexSource,
 } from '@open-mercato/shared/modules/search'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
-import { formatSubtitle, pickString, snippet } from '@open-mercato/shared/modules/search/descriptorHelpers'
+import { formatSubtitle, pickString, snippet, toIndexSource } from '@open-mercato/shared/modules/search/descriptorHelpers'
 
 function appendLine(lines: string[], label: string, value: unknown) {
   if (value === null || value === undefined) return
   const text = typeof value === 'object' ? JSON.stringify(value) : String(value)
   if (!text.trim()) return
   lines.push(`${label}: ${text}`)
-}
-
-function buildIndexSource(
-  ctx: SearchBuildContext,
-  presenter: SearchResultPresenter,
-  lines: string[],
-): SearchIndexSource | null {
-  if (!lines.length) return null
-  return {
-    text: lines,
-    presenter,
-    checksumSource: { record: ctx.record, customFields: ctx.customFields },
-  }
 }
 
 export const searchConfig: SearchModuleConfig = {
@@ -40,7 +24,7 @@ export const searchConfig: SearchModuleConfig = {
         const lines: string[] = []
         appendLine(lines, 'Name', record.display_name ?? record.displayName)
         appendLine(lines, 'Email', record.email)
-        return buildIndexSource(
+        return toIndexSource(
           ctx,
           {
             title: pickString(record.display_name, record.displayName) ?? String(record.id),
@@ -78,7 +62,7 @@ export const searchConfig: SearchModuleConfig = {
         const lines: string[] = []
         appendLine(lines, 'Name', record.name)
         appendLine(lines, 'Description', record.description)
-        return buildIndexSource(
+        return toIndexSource(
           ctx,
           {
             title: pickString(record.name) ?? String(record.id),

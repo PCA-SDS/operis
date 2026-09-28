@@ -8,6 +8,7 @@ import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import type { RbacService } from '@open-mercato/core/modules/auth/services/rbacService'
 import { AiModerationFlagRepository } from '../../data/repositories/AiModerationFlagRepository'
 import { hasRequiredFeatures } from '../../lib/auth'
+import { jsonError } from '../jsonError'
 
 const logger = createLogger('ai_assistant')
 
@@ -56,10 +57,6 @@ export const openApi: OpenApiRouteDoc = {
 export const metadata = {
   path: '/ai_assistant/moderation-flags',
   GET: { requireAuth: true, requireFeatures: [REQUIRED_FEATURE] },
-}
-
-function jsonError(status: number, message: string, code: string, extra?: Record<string, unknown>): NextResponse {
-  return NextResponse.json({ error: message, code, ...(extra ?? {}) }, { status })
 }
 
 export async function GET(req: NextRequest): Promise<Response> {

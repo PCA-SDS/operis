@@ -15,11 +15,12 @@ import { ResourceAssignmentService } from '@open-mercato/core/modules/resources/
 import { Appointment, AppointmentLine, AppointmentLineOptionGroup } from '../../data/entities'
 import { deriveScheduleConfirmationStatus } from '../../lib/scheduleTracking'
 import { normalizeLineOptions } from '../../lib/lineOptionSnapshot'
-import { loadResourceAvailabilityWindows, resolveResourceOrganizationIds } from '../../lib/resourceAvailability'
+import { loadResourceAvailabilityWindows } from '../../lib/resourceAvailability'
 import {
   loadOrganizationAvailabilityPolicy,
   resolveOrganizationAvailabilityWindows,
 } from '@open-mercato/core/modules/planner/lib/organizationAvailability'
+import { resolveOrganizationAndAncestorIds } from '@open-mercato/core/modules/directory/lib/hierarchy'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['appointments.view'] },
@@ -57,7 +58,7 @@ export async function GET(req: Request) {
     const organizationId = scope.selectedId ?? auth.orgId ?? null
     if (!organizationId) return NextResponse.json({ error: 'Organization scope is required', code: 'ORGANIZATION_SCOPE_REQUIRED' }, { status: 400 })
     const { start, end } = toDayBounds(date)
-    const resourceOrganizationIds = await resolveResourceOrganizationIds(em, auth.tenantId, organizationId)
+    const resourceOrganizationIds = await resolveOrganizationAndAncestorIds(em, auth.tenantId, organizationId)
 
     const resourceAssignmentService = new ResourceAssignmentService(em)
     const [organization, resourceWorkspace, appointments, allAppointments] = await Promise.all([

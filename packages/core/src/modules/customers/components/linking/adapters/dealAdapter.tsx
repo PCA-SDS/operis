@@ -11,6 +11,8 @@ import type {
   LinkEntityRowContext,
   LinkEntitySearchPage,
 } from '../LinkEntityDialog'
+import { toRecordOrNull } from '@open-mercato/shared/lib/guards'
+import { formatRelative } from './formatRelative'
 
 type DealDetails = {
   id: string
@@ -56,12 +58,6 @@ function parseStatusFilter(filterId?: string): string | null {
   return filterId
 }
 
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null
-}
-
 function readTrimmedString(record: Record<string, unknown> | null, ...keys: string[]): string | null {
   if (!record) return null
   for (const key of keys) {
@@ -88,7 +84,7 @@ function readDecimalValue(record: Record<string, unknown> | null, ...keys: strin
 }
 
 function normalizeAssociationRecord(entry: unknown): DealAssociationRecord | null {
-  const record = asRecord(entry)
+  const record = toRecordOrNull(entry)
   const id = readTrimmedString(record, 'id')
   if (!id) return null
   return {
@@ -181,8 +177,8 @@ async function fetchDealDetails(id: string, contextEntityId?: string): Promise<D
     const payload = await readApiResultOrThrow<Record<string, unknown>>(
       `/api/customers/deals/${encodeURIComponent(id)}`,
     )
-    const rootRecord = asRecord(payload)
-    const dealRecord = asRecord(rootRecord?.deal) ?? rootRecord
+    const rootRecord = toRecordOrNull(payload)
+    const dealRecord = toRecordOrNull(rootRecord?.deal) ?? rootRecord
     const title =
       readTrimmedString(dealRecord, 'title', 'name') ?? id
     const code = readTrimmedString(dealRecord, 'code', 'reference')
@@ -248,23 +244,6 @@ function formatValue(amount: string | null, currency: string | null): string | n
   if (!Number.isFinite(parsed)) return amount
   const formatted = parsed.toLocaleString(undefined, { maximumFractionDigits: 2 })
   return currency ? `${formatted} ${currency}` : formatted
-}
-
-function formatRelative(dateString: string | null): string {
-  if (!dateString) return ''
-  try {
-    const date = new Date(dateString)
-    const now = Date.now()
-    const diffMs = now - date.getTime()
-    const diffDays = Math.floor(diffMs / 86_400_000)
-    if (diffDays <= 0) return 'today'
-    if (diffDays === 1) return 'yesterday'
-    if (diffDays < 30) return `${diffDays} days ago`
-    if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`
-    return `${Math.floor(diffDays / 365)} years ago`
-  } catch {
-    return ''
-  }
 }
 
 export function createDealLinkAdapter(options: DealAdapterOptions): LinkEntityAdapter<DealDetails> {

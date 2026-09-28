@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
 
 export type AddressFormatStrategy = 'line_first' | 'street_first'
 
@@ -27,16 +28,10 @@ export type AddressJsonShape = {
   country: string | null
 }
 
-function normalize(value: string | null | undefined): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  return trimmed.length ? trimmed : null
-}
-
 function mergeStreetLine(address: AddressValue): string | null {
-  const street = normalize(address.addressLine1)
-  const building = normalize(address.buildingNumber)
-  const flat = normalize(address.flatNumber)
+  const street = normalizeOptionalString(address.addressLine1)
+  const building = normalizeOptionalString(address.buildingNumber)
+  const flat = normalizeOptionalString(address.flatNumber)
   if (!street && !building && !flat) return null
   let line = street ?? ''
   if (building) line = line ? `${line} ${building}` : building
@@ -47,15 +42,15 @@ function mergeStreetLine(address: AddressValue): string | null {
 export function formatAddressJson(address: AddressValue, format: AddressFormatStrategy): AddressJsonShape {
   return {
     format,
-    companyName: normalize(address.companyName),
-    addressLine1: normalize(address.addressLine1),
-    addressLine2: normalize(address.addressLine2),
-    buildingNumber: normalize(address.buildingNumber),
-    flatNumber: normalize(address.flatNumber),
-    postalCode: normalize(address.postalCode),
-    city: normalize(address.city),
-    region: normalize(address.region),
-    country: normalize(address.country),
+    companyName: normalizeOptionalString(address.companyName),
+    addressLine1: normalizeOptionalString(address.addressLine1),
+    addressLine2: normalizeOptionalString(address.addressLine2),
+    buildingNumber: normalizeOptionalString(address.buildingNumber),
+    flatNumber: normalizeOptionalString(address.flatNumber),
+    postalCode: normalizeOptionalString(address.postalCode),
+    city: normalizeOptionalString(address.city),
+    region: normalizeOptionalString(address.region),
+    country: normalizeOptionalString(address.country),
   }
 }
 
@@ -68,7 +63,7 @@ export function formatAddressLines(address: AddressValue, format: AddressFormatS
   if (format === 'street_first') {
     const streetLine = mergeStreetLine(address)
     if (streetLine) lines.push(streetLine)
-    const supplemental = normalize(address.addressLine2)
+    const supplemental = normalizeOptionalString(address.addressLine2)
     if (supplemental) lines.push(supplemental)
     const postalCity = [json.postalCode, json.city].filter(Boolean).join(' ')
     if (postalCity.length) lines.push(postalCity)

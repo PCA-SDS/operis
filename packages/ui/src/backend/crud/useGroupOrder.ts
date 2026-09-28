@@ -4,6 +4,7 @@ import {
   readJsonFromLocalStorage,
   writeJsonToLocalStorage,
 } from '@open-mercato/shared/lib/browser/safeLocalStorage'
+import { arraysEqual } from '@open-mercato/shared/lib/array'
 
 const STORAGE_PREFIX = 'om:group-order:'
 
@@ -18,14 +19,6 @@ function mergeOrder(saved: string[], defaults: string[]): string[] {
     if (!result.includes(id)) result.push(id)
   }
   return result
-}
-
-function arraysEqual(a: string[], b: string[]): boolean {
-  if (a.length !== b.length) return false
-  for (let i = 0; i < a.length; i += 1) {
-    if (a[i] !== b[i]) return false
-  }
-  return true
 }
 
 /**

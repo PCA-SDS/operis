@@ -11,15 +11,7 @@ import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { RefreshCw, Trash2, Upload } from 'lucide-react'
-
-function humanSize(n: number): string {
-  if (!Number.isFinite(n)) return String(n)
-  const units = ['B','KB','MB','GB']
-  let i = 0
-  let x = n
-  while (x >= 1024 && i < units.length - 1) { x /= 1024; i++ }
-  return `${x.toFixed(i === 0 ? 0 : 1)} ${units[i]}`
-}
+import { formatFileSize } from '@open-mercato/shared/lib/units/fileSize'
 
 type AttachmentAssignmentItem = {
   type: string
@@ -338,7 +330,7 @@ export const AttachmentInput = ({
             <div className="min-w-0 flex-1">
               <a className="block truncate underline" href={item.url} target="_blank" rel="noreferrer">{item.fileName}</a>
               <span className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                <span>{humanSize(item.fileSize)}</span>
+                <span>{formatFileSize(item.fileSize)}</span>
                 {renderItemMeta?.(item)}
               </span>
             </div>

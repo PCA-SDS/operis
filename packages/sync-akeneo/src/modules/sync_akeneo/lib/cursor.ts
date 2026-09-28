@@ -1,4 +1,5 @@
 import { normalizeAkeneoDateTime, sanitizeAkeneoProductNextUrl } from './client'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
 
 type AkeneoCursorState = {
   kind: 'products' | 'list'
@@ -7,16 +8,12 @@ type AkeneoCursorState = {
   maxUpdatedAt?: string | null
 }
 
-function normalizeCursorString(value: unknown): string | null {
-  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
-}
-
 function normalizeProductCursorDateTime(value: unknown): string | null {
-  return normalizeAkeneoDateTime(normalizeCursorString(value))
+  return normalizeAkeneoDateTime(normalizeOptionalString(value))
 }
 
 function normalizeProductCursorNextUrl(value: unknown): string | null {
-  const normalized = normalizeCursorString(value)
+  const normalized = normalizeOptionalString(value)
   return normalized ? sanitizeAkeneoProductNextUrl(normalized) : null
 }
 
@@ -32,7 +29,7 @@ export function parseCursor(raw: string | undefined | null): AkeneoCursorState |
     return {
       kind: parsed.kind === 'list' ? 'list' : 'products',
       nextUrl: parsed.kind === 'list'
-        ? normalizeCursorString(parsed.nextUrl)
+        ? normalizeOptionalString(parsed.nextUrl)
         : normalizeProductCursorNextUrl(parsed.nextUrl),
       updatedAfter: normalizeProductCursorDateTime(parsed.updatedAfter),
       maxUpdatedAt: normalizeProductCursorDateTime(parsed.maxUpdatedAt),
@@ -54,6 +51,6 @@ export function buildProductResumeCursor(current: { updatedAfter?: string | null
 export function buildListResumeCursor(nextUrl?: string | null): string {
   return serializeCursor({
     kind: 'list',
-    nextUrl: normalizeCursorString(nextUrl),
+    nextUrl: normalizeOptionalString(nextUrl),
   })
 }

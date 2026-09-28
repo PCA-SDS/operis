@@ -31,6 +31,7 @@ import {
 import { resolveIsSuperAdmin, enforceTenantSelection } from '@open-mercato/core/modules/auth/lib/tenantAccess'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { findWithDecryption, findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 type CrudInput = Record<string, unknown>
 const rawBodySchema = z.object({}).passthrough()
@@ -51,8 +52,7 @@ type TreeNode = {
 }
 
 const viewSchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(50),
+  ...paginationQuerySchema().shape,
   search: z.string().optional(),
   view: z.enum(['options', 'manage', 'tree']).default('options'),
   ids: z.string().optional(),

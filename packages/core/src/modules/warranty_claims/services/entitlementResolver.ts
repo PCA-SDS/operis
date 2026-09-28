@@ -3,6 +3,7 @@ import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { WarrantyClaimRegistration } from '../data/entities'
 import { addWarrantyMonths, computeWarrantyEntitlementPreview } from '../lib/warrantyPreview'
 import { resolveEffectiveWarrantyClaimSettings } from '../lib/settings'
+import { toValidDateOrNull, toIsoOrEcho } from '@open-mercato/shared/lib/date/normalize'
 
 export interface WarrantyEntitlementInput {
   serialNumber?: string | null
@@ -35,16 +36,6 @@ const UNKNOWN_ENTITLEMENT: WarrantyEntitlementResult = {
   source: null,
 }
 
-function parseDate(value: string | null | undefined): Date | null {
-  if (!value) return null
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? null : date
-}
-
-function toIso(value: Date | null | undefined): string | null {
-  return value ? value.toISOString() : null
-}
-
 function resolveStatusFromExpiry(expiresAt: Date | null | undefined, now = new Date()): WarrantyEntitlementResult['warrantyStatus'] {
   if (!expiresAt || Number.isNaN(expiresAt.getTime())) return 'unknown'
   return expiresAt.getTime() >= now.getTime() ? 'in_warranty' : 'out_of_warranty'
@@ -75,13 +66,13 @@ export function createWarrantyEntitlementResolver(): WarrantyEntitlementResolver
             warrantyStatus: registrationStatus,
             coverageType: registration.coverageType ?? null,
             // Never pair an indeterminate status with a concrete source/expiry (LINE-04).
-            expiresAt: registrationStatus === 'unknown' ? null : toIso(registration.warrantyExpiresAt),
+            expiresAt: registrationStatus === 'unknown' ? null : toIsoOrEcho(registration.warrantyExpiresAt),
             source: registrationStatus === 'unknown' ? null : 'registration',
           }
         }
       }
 
-      const purchaseDate = parseDate(input.purchaseDate)
+      const purchaseDate = toValidDateOrNull(input.purchaseDate)
       if (!purchaseDate) return UNKNOWN_ENTITLEMENT
 
       const settings = await resolveEffectiveWarrantyClaimSettings(em, scope)
@@ -94,7 +85,7 @@ export function createWarrantyEntitlementResolver(): WarrantyEntitlementResolver
         warrantyStatus,
         coverageType: null,
         // Never pair an indeterminate status with a concrete source/expiry (LINE-04).
-        expiresAt: warrantyStatus === 'unknown' ? null : toIso(expiresAt),
+        expiresAt: warrantyStatus === 'unknown' ? null : toIsoOrEcho(expiresAt),
         source: warrantyStatus === 'unknown' ? null : (input.orderId ? 'order' : 'resolver'),
       }
     },

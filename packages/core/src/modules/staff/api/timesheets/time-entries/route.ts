@@ -7,6 +7,7 @@ import { staffTimeEntryCreateSchema, staffTimeEntryUpdateSchema } from '../../..
 import { buildTimeEntryListFilters, isParseableDateFilter } from '../../../lib/timesheets/timeEntryListFilters'
 import { staffTimeEntryCommandIds } from '../../../lib/crud'
 import { createStaffCrudOpenApi, createPagedListResponseSchema, defaultOkResponseSchema } from '../../openapi'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 const F = {
   id: 'id',
@@ -46,8 +47,7 @@ const dateFilterSchema = z
 
 const listSchema = z
   .object({
-    page: z.coerce.number().int().min(1).default(1),
-    pageSize: z.coerce.number().int().min(1).max(100).default(50),
+    ...paginationQuerySchema().shape,
     staffMemberId: z.string().uuid().optional(),
     from: dateFilterSchema,
     to: dateFilterSchema,

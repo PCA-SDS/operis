@@ -1,6 +1,5 @@
 import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
-import { searchParamsToObject } from '../../shared'
 import {
   chatTaskService,
   chatTaskWriteRateLimit,
@@ -13,6 +12,7 @@ import {
 } from '../../shared'
 import type { UnlinkChatTaskInput, UnlinkChatTaskResult } from '../../../commands/links'
 import { CHAT_TASKS_TAG, COMMON_ERRORS, WRITE_ERRORS, cardSchema, okSchema } from '../../openapi'
+import { searchParamsToObject } from '@open-mercato/shared/lib/http/query'
 
 /**
  * Reading one card, and unlinking.

@@ -3,8 +3,8 @@ import type { AuthContext } from '@open-mercato/shared/lib/auth/server'
 import { findOneWithDecryption, findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { Role, RoleAcl, Session, User, UserAcl, UserRole } from '@open-mercato/core/modules/auth/data/entities'
 import { Organization, Tenant } from '@open-mercato/core/modules/directory/data/entities'
+import { RFC4122_UUID_PATTERN } from '@open-mercato/shared/lib/validation'
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const INVALID_SCOPE = Symbol('invalid-scope')
 
 type NormalizedScopeId = string | null | typeof INVALID_SCOPE
@@ -14,7 +14,7 @@ function normalizeScopeId(value: unknown): NormalizedScopeId {
   if (typeof value !== 'string') return INVALID_SCOPE
   const trimmed = value.trim()
   if (!trimmed) return null
-  return UUID_RE.test(trimmed) ? trimmed : INVALID_SCOPE
+  return RFC4122_UUID_PATTERN.test(trimmed) ? trimmed : INVALID_SCOPE
 }
 
 function resolveActorTenantId(auth: NonNullable<AuthContext>): NormalizedScopeId {

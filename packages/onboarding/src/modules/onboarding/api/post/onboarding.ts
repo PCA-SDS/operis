@@ -20,6 +20,7 @@ import { formatPasswordRequirements, getPasswordPolicy } from '@open-mercato/sha
 import { parseBooleanToken } from '@open-mercato/shared/lib/boolean'
 import { readEndpointRateLimitConfig } from '@open-mercato/shared/lib/ratelimit/config'
 import { rateLimitErrorSchema } from '@open-mercato/shared/lib/ratelimit/helpers'
+import { emailSchema } from '@open-mercato/shared/lib/validation'
 
 const logger = createLogger('onboarding').child({ component: 'start' })
 
@@ -236,7 +237,7 @@ const onboardingTag = 'Onboarding'
 
 const onboardingSuccessSchema = z.object({
   ok: z.literal(true),
-  email: z.string().email(),
+  email: emailSchema(),
 })
 
 const onboardingErrorSchema = z.object({

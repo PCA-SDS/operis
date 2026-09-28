@@ -11,6 +11,7 @@ import {
   createConversationStorage,
 } from '../../../../../../lib/conversation-storage'
 import { emitAiAssistantEvent } from '../../../../../../events'
+import { jsonError } from '../../../../../jsonError'
 
 const REQUIRED_FEATURE = 'ai_assistant.view'
 const MANAGE_CONVERSATIONS_FEATURE = 'ai_assistant.conversations.manage'
@@ -58,15 +59,6 @@ export const metadata = {
 
 interface RouteContext {
   params: Promise<{ conversationId: string; userId: string }>
-}
-
-function jsonError(
-  status: number,
-  message: string,
-  code: string,
-  extra?: Record<string, unknown>,
-): NextResponse {
-  return NextResponse.json({ error: message, code, ...(extra ?? {}) }, { status })
 }
 
 export async function DELETE(req: NextRequest, context: RouteContext): Promise<Response> {

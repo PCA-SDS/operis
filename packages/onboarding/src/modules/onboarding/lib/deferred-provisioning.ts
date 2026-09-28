@@ -29,7 +29,7 @@ export function resolveProvisioningIds(request: OnboardingRequest) {
   }
 }
 
-function createTimeoutPromise(label: string, timeoutMs: number): Promise<never> {
+export function createTimeoutPromise(label: string, timeoutMs: number): Promise<never> {
   return new Promise((_, reject) => {
     setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs)
   })

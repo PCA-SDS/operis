@@ -1,11 +1,7 @@
 import { NextResponse } from 'next/server'
 import { Dictionary } from '@open-mercato/core/modules/dictionaries/data/entities'
-import { resolveDictionariesRouteContext, resolveDictionaryActorId } from '@open-mercato/core/modules/dictionaries/api/context'
+import { resolveDictionariesRouteContext } from '@open-mercato/core/modules/dictionaries/api/context'
 import { CrudHttpError, isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
-import {
-  runCrudMutationGuardAfterSuccess,
-  validateCrudMutationGuard,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
 import type { OpenApiMethodDoc, OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import {
   DEFAULT_DICTIONARY_ENTRY_SORT_MODE,
@@ -22,6 +18,8 @@ import {
 import { parseBooleanToken } from '@open-mercato/shared/lib/boolean'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
+import { resolveAuthActorId } from '@open-mercato/shared/lib/auth/actor'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const logger = createLogger('dictionaries').child({ component: 'api' })
 
@@ -109,38 +107,26 @@ export async function POST(req: Request) {
       updatedAt: new Date(),
     })
 
-    const guardUserId = resolveDictionaryActorId(context.auth)
-    const guardResult = await validateCrudMutationGuard(context.container, {
-      tenantId: context.tenantId,
-      organizationId: context.organizationId,
-      userId: guardUserId,
-      resourceKind: 'dictionaries.dictionary',
-      resourceId: dictionary.id,
-      operation: 'create',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      mutationPayload: payload,
+    const guardUserId = resolveAuthActorId(context.auth)
+    const guardResult = await runRouteMutationGuards({
+      container: context.container,
+      req,
+      auth: { userId: guardUserId, tenantId: context.tenantId, organizationId: context.organizationId },
+      input: {
+        resourceKind: 'dictionaries.dictionary',
+        resourceId: dictionary.id,
+        operation: 'create',
+        mutationPayload: payload,
+      },
     })
-    if (guardResult && !guardResult.ok) {
-      return NextResponse.json(guardResult.body, { status: guardResult.status })
+    if (!guardResult.ok) {
+      return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
     }
 
     context.em.persist(dictionary)
     await context.em.flush()
 
-    if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-      await runCrudMutationGuardAfterSuccess(context.container, {
-        tenantId: context.tenantId,
-        organizationId: context.organizationId,
-        userId: guardUserId,
-        resourceKind: 'dictionaries.dictionary',
-        resourceId: dictionary.id,
-        operation: 'create',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
-        metadata: guardResult.metadata ?? null,
-      })
-    }
+    await guardResult.runAfterSuccess()
 
     return NextResponse.json({
       id: dictionary.id,

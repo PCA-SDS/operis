@@ -27,6 +27,7 @@ import {
   compileAndImportGenerated,
   ensureApiRouteManifestsRegistered,
 } from './generated-registry-loader'
+import { isToolDefinition } from './tool-guards'
 
 const logger = createLogger('ai_assistant')
 
@@ -55,17 +56,6 @@ export interface ToolTestReport {
 interface RawAiToolsModule {
   aiToolConfigEntriesRaw?: { moduleId: string; tools: unknown[] }[]
   aiToolConfigEntries?: { moduleId: string; tools: unknown[] }[]
-}
-
-function isToolDefinition(value: unknown): value is AiToolDefinition {
-  if (!value || typeof value !== 'object') return false
-  const candidate = value as Record<string, unknown>
-  return (
-    typeof candidate.name === 'string' &&
-    typeof candidate.description === 'string' &&
-    candidate.inputSchema !== undefined &&
-    typeof candidate.handler === 'function'
-  )
 }
 
 async function loadGeneratedTools(): Promise<{ moduleId: string; tools: AiToolDefinition[] }[]> {

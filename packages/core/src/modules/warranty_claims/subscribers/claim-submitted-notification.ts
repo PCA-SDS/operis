@@ -2,6 +2,7 @@ import { resolveNotificationService } from '../../notifications/lib/notification
 import { buildFeatureNotificationFromType } from '../../notifications/lib/notificationBuilder'
 import { notificationTypes } from '../notifications'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { readTrimmedString } from '@open-mercato/shared/lib/string'
 
 const logger = createLogger('warranty_claims')
 
@@ -18,15 +19,10 @@ type ResolverContext = {
   organizationId?: string | null
 }
 
-function readString(record: Record<string, unknown>, key: string): string | null {
-  const value = record[key]
-  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
-}
-
 export default async function handle(payload: unknown, ctx: ResolverContext): Promise<void> {
   const record = payload && typeof payload === 'object' ? payload as Record<string, unknown> : {}
-  const claimId = readString(record, 'claimId') ?? readString(record, 'id')
-  const claimNumber = readString(record, 'claimNumber') ?? ''
+  const claimId = readTrimmedString(record, 'claimId') ?? readTrimmedString(record, 'id')
+  const claimNumber = readTrimmedString(record, 'claimNumber') ?? ''
   const tenantId = ctx.tenantId ?? null
   const organizationId = ctx.organizationId ?? null
   if (!claimId || !tenantId || !organizationId) return

@@ -3,8 +3,7 @@
 import { apiCallOrThrow, readApiResultOrThrow, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { mapCommentSummary, type NotesDataAdapter } from '@open-mercato/ui/backend/detail/NotesSection'
-
-type Translator = (key: string, fallback?: string, params?: Record<string, string | number>) => string
+import type { TranslateWithFallbackFn } from '@open-mercato/shared/lib/i18n/translate'
 
 export type ResourceNotesGuardedMutation = <T>(
   runner: () => Promise<T>,
@@ -16,7 +15,7 @@ export type CreateResourceNotesAdapterOptions = {
 }
 
 export function createResourceNotesAdapter(
-  translator: Translator,
+  translator: TranslateWithFallbackFn,
   options: CreateResourceNotesAdapterOptions = {},
 ): NotesDataAdapter {
   const runWrite = async <T,>(

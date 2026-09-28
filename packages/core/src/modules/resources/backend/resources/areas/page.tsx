@@ -26,6 +26,7 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { formatDateTime } from '@open-mercato/shared/lib/time'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { ChevronDown, ChevronRight, GripVertical, Loader2 } from 'lucide-react'
+import { moveArrayItem } from '../moveArrayItem'
 
 const logger = createLogger('resources').child({ component: 'resource-areas-page' })
 
@@ -93,14 +94,6 @@ type AreaPointerDrag = {
   overId: string | null
   lastValidOverId: string | null
   invalidOverId: string | null
-}
-
-function moveArrayItem<T>(items: T[], from: number, to: number): T[] {
-  const next = [...items]
-  const [item] = next.splice(from, 1)
-  if (!item) return items
-  next.splice(to, 0, item)
-  return next
 }
 
 function previewAreaListMove(rows: ResourceAreaRow[], activeId: string, overId: string): ResourceAreaRow[] {

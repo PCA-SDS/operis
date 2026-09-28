@@ -1,10 +1,9 @@
-import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
+import { resolveRequestEm } from '@open-mercato/shared/lib/di/container'
 import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import type { ObjectPreviewData } from '@open-mercato/shared/modules/messages/types'
-import type { EntityManager } from '@mikro-orm/postgresql'
 import { CustomerCompanyProfile, CustomerDeal, CustomerEntity, CustomerPersonProfile } from '../data/entities'
-import { formatAmount } from '@open-mercato/core/modules/customers/lib/amountFormat'
+import { formatCurrency } from '@open-mercato/shared/lib/units/money'
 
 type PreviewContext = {
   tenantId: string
@@ -20,11 +19,6 @@ function statusColor(status: string | null | undefined): string | undefined {
   return 'blue'
 }
 
-async function resolveEm() {
-  const { resolve } = await createRequestContainer()
-  return resolve('em') as EntityManager
-}
-
 export async function loadCustomerPersonPreview(entityId: string, ctx: PreviewContext): Promise<ObjectPreviewData> {
   const { t } = await resolveTranslations()
   const defaultTitle = t('customers.messageObjects.person.title')
@@ -33,7 +27,7 @@ export async function loadCustomerPersonPreview(entityId: string, ctx: PreviewCo
     return { title: defaultTitle, subtitle: entityId }
   }
 
-  const em = await resolveEm()
+  const em = await resolveRequestEm()
   const entity = await findOneWithDecryption(
     em,
     CustomerEntity,
@@ -89,7 +83,7 @@ export async function loadCustomerCompanyPreview(entityId: string, ctx: PreviewC
     return { title: defaultTitle, subtitle: entityId }
   }
 
-  const em = await resolveEm()
+  const em = await resolveRequestEm()
   const entity = await findOneWithDecryption(
     em,
     CustomerEntity,
@@ -145,7 +139,7 @@ export async function loadCustomerDealPreview(entityId: string, ctx: PreviewCont
     return { title: defaultTitle, subtitle: entityId }
   }
 
-  const em = await resolveEm()
+  const em = await resolveRequestEm()
   const deal = await findOneWithDecryption(
     em,
     CustomerDeal,
@@ -163,7 +157,7 @@ export async function loadCustomerDealPreview(entityId: string, ctx: PreviewCont
     return { title: defaultTitle, subtitle: entityId, status: t('customers.messageObjects.notFound'), statusColor: 'gray' }
   }
 
-  const amount = formatAmount(deal.valueAmount, deal.valueCurrency)
+  const amount = formatCurrency(deal.valueAmount, deal.valueCurrency)
   const probability = typeof deal.probability === 'number' ? `${deal.probability}%` : null
   const subtitle = [amount, probability].filter((part): part is string => Boolean(part && part.length > 0)).join(' • ')
   const metadata: Record<string, string> = {}

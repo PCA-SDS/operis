@@ -10,6 +10,7 @@ import { loadAgentRegistry } from '../../../lib/agent-registry'
 import { checkAgentPolicy, type AgentPolicyDenyCode } from '../../../lib/agent-policy'
 import { runAiAgentObject } from '../../../lib/agent-runtime'
 import { AgentPolicyError } from '../../../lib/agent-tools'
+import { jsonError } from '../../jsonError'
 
 const logger = createLogger('ai_assistant')
 
@@ -88,15 +89,6 @@ export const openApi: OpenApiRouteDoc = {
 
 export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['ai_assistant.view'] },
-}
-
-function jsonError(
-  status: number,
-  message: string,
-  code: string,
-  extra?: Record<string, unknown>,
-): NextResponse {
-  return NextResponse.json({ error: message, code, ...(extra ?? {}) }, { status })
 }
 
 function statusForDenyCode(code: AgentPolicyDenyCode): number {

@@ -2,10 +2,10 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import type { CacheStrategy } from '@open-mercato/cache'
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import {
-  buildOptimisticLockConflictBody,
   enforceCommandOptimisticLock,
   enforceRecordGoneIsConflict,
 } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
+import { buildOptimisticLockConflictBody } from '@open-mercato/shared/lib/crud/optimistic-lock'
 import { Perspective, RolePerspective } from '../data/entities'
 import type {
   PerspectiveSettings,
@@ -13,6 +13,7 @@ import type {
   RolePerspectiveSaveInput,
 } from '../data/validators'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import type { PerspectiveDto } from '@open-mercato/shared/modules/perspectives/types'
 
 const logger = createLogger('perspectives').child({ component: 'perspective-service' })
 
@@ -20,16 +21,6 @@ export type PerspectiveScope = {
   userId: string
   tenantId?: string | null
   organizationId?: string | null
-}
-
-export type ResolvedPerspective = {
-  id: string
-  name: string
-  tableId: string
-  settings: PerspectiveSettings
-  isDefault: boolean
-  createdAt: string
-  updatedAt?: string | null
 }
 
 export type ResolvedRolePerspective = {
@@ -47,7 +38,7 @@ export type ResolvedRolePerspective = {
 
 export type PerspectivesState = {
   tableId: string
-  personal: ResolvedPerspective[]
+  personal: PerspectiveDto[]
   personalDefaultId: string | null
   rolePerspectives: ResolvedRolePerspective[]
 }
@@ -117,9 +108,9 @@ const roleTag = (roleId: string, tableId?: string, tenantId?: string | null) => 
   return tableId ? `perspectives:role:${roleId}:${tenant}:${tableId}` : `perspectives:role:${roleId}:${tenant}`
 }
 
-function isResolvedPerspective(value: unknown): value is ResolvedPerspective {
+function isResolvedPerspective(value: unknown): value is PerspectiveDto {
   if (typeof value !== 'object' || value === null) return false
-  const record = value as Partial<ResolvedPerspective>
+  const record = value as Partial<PerspectiveDto>
   return typeof record.id === 'string'
     && typeof record.name === 'string'
     && typeof record.tableId === 'string'
@@ -172,7 +163,7 @@ export function maybeMigrateLegacyFilterValues(settings: PerspectiveSettings): P
   return { ...settings, filters: undefined }
 }
 
-function toResolvedPerspective(entity: Perspective): ResolvedPerspective {
+function toResolvedPerspective(entity: Perspective): PerspectiveDto {
   const settings = maybeMigrateLegacyFilterValues((entity.settingsJson ?? {}) as PerspectiveSettings)
   return {
     id: entity.id,
@@ -273,7 +264,7 @@ export async function saveUserPerspective(
     input: PerspectiveSaveInput
     request?: Request | Headers | null
   },
-): Promise<ResolvedPerspective> {
+): Promise<PerspectiveDto> {
   const { scope, tableId, input } = options
   const tenantId = scope.tenantId ?? null
   const organizationId = scope.organizationId ?? null

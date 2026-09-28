@@ -41,6 +41,7 @@ import {
 import { normalizeCompanyProfilePayload } from './payload'
 import { toDateOnlyString } from '../../lib/dateOnly'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 const logger = createLogger('customers')
 
@@ -48,8 +49,7 @@ const rawBodySchema = z.object({}).passthrough()
 
 const listSchema = z
   .object({
-    page: z.coerce.number().int().min(1).default(1),
-    pageSize: z.coerce.number().int().min(1).max(100).default(50),
+    ...paginationQuerySchema().shape,
     search: z.string().optional(),
     email: z.string().optional(),
     emailStartsWith: z.string().optional(),

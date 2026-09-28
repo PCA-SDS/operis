@@ -4,6 +4,7 @@ import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { ShieldCheck, ShieldAlert, ShieldX } from 'lucide-react'
 import type { ConsentItem } from '@open-mercato/core/modules/auth/lib/consentTypes'
+import { formatDateTime } from '@open-mercato/shared/lib/time'
 
 type ConsentsResponse = {
   ok?: boolean
@@ -12,15 +13,6 @@ type ConsentsResponse = {
 
 const CONSENT_TYPE_LABELS: Record<string, string> = {
   marketing_email: 'Marketing Email',
-}
-
-function formatDate(iso: string | null): string {
-  if (!iso) return '-'
-  try {
-    return new Date(iso).toLocaleString()
-  } catch {
-    return iso
-  }
 }
 
 type UserConsentsPanelProps = {
@@ -105,11 +97,11 @@ export function UserConsentsPanel({ userId }: UserConsentsPanelProps) {
           </div>
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs text-muted-foreground">
             <dt>{t('auth.users.consents.field.grantedAt', 'Granted at')}</dt>
-            <dd>{formatDate(consent.grantedAt)}</dd>
+            <dd>{formatDateTime(consent.grantedAt, { fallback: '-' })}</dd>
             {consent.withdrawnAt && (
               <>
                 <dt>{t('auth.users.consents.field.withdrawnAt', 'Withdrawn at')}</dt>
-                <dd>{formatDate(consent.withdrawnAt)}</dd>
+                <dd>{formatDateTime(consent.withdrawnAt, { fallback: '-' })}</dd>
               </>
             )}
             <dt>{t('auth.users.consents.field.source', 'Source')}</dt>
@@ -131,7 +123,7 @@ export function UserConsentsPanel({ userId }: UserConsentsPanelProps) {
               )}
             </dd>
             <dt>{t('auth.users.consents.field.createdAt', 'Created')}</dt>
-            <dd>{formatDate(consent.createdAt)}</dd>
+            <dd>{formatDateTime(consent.createdAt, { fallback: '-' })}</dd>
           </dl>
         </div>
       ))}

@@ -11,6 +11,7 @@ import { resolveTenantEncryptionService } from '@open-mercato/shared/lib/encrypt
 import { parseDecryptedFieldValue } from '@open-mercato/shared/lib/encryption/tenantDataEncryptionService'
 import { E } from '#generated/entities.ids.generated'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { isZodRuntimeMissing } from '../lib/zodRuntime'
 
 const logger = createLogger('audit_logs').child({ component: 'access-log-service' })
 
@@ -74,8 +75,6 @@ export async function flushAccessLog(): Promise<void> {
     await Promise.allSettled(snapshot)
   }
 }
-
-const isZodRuntimeMissing = (err: unknown) => err instanceof TypeError && typeof err.message === 'string' && err.message.includes('_zod')
 
 type RawEncryptedFields = {
   resourceKind?: unknown

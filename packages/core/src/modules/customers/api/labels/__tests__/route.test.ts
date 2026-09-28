@@ -25,8 +25,8 @@ const container = {
   }),
 }
 
-const validateCrudMutationGuardMock = jest.fn()
-const runCrudMutationGuardAfterSuccessMock = jest.fn()
+const runRouteMutationGuardsMock = jest.fn()
+const runAfterSuccessMock = jest.fn()
 
 jest.mock('@open-mercato/shared/lib/di/container', () => ({
   createRequestContainer: jest.fn(async () => container),
@@ -47,9 +47,8 @@ jest.mock('@open-mercato/core/modules/directory/utils/organizationScope', () => 
   })),
 }))
 
-jest.mock('@open-mercato/shared/lib/crud/mutation-guard', () => ({
-  validateCrudMutationGuard: (...args: unknown[]) => validateCrudMutationGuardMock(...args),
-  runCrudMutationGuardAfterSuccess: (...args: unknown[]) => runCrudMutationGuardAfterSuccessMock(...args),
+jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
+  runRouteMutationGuards: (...args: unknown[]) => runRouteMutationGuardsMock(...args),
 }))
 
 jest.mock('@open-mercato/shared/lib/encryption/find', () => ({
@@ -88,8 +87,8 @@ describe('customer labels route', () => {
       ...payload,
     }))
     em.flush.mockResolvedValue(undefined)
-    validateCrudMutationGuardMock.mockResolvedValue({ ok: true, shouldRunAfterSuccess: true, metadata: { token: 'guard' } })
-    runCrudMutationGuardAfterSuccessMock.mockResolvedValue(undefined)
+    runRouteMutationGuardsMock.mockResolvedValue({ ok: true, runAfterSuccess: runAfterSuccessMock })
+    runAfterSuccessMock.mockResolvedValue(undefined)
     commandBusExecuteMock.mockResolvedValue({
       result: {
         labelId: '44444444-4444-4444-8444-444444444444',
@@ -126,28 +125,18 @@ describe('customer labels route', () => {
         }),
       }),
     )
-    expect(validateCrudMutationGuardMock).toHaveBeenCalledWith(
-      container,
+    expect(runRouteMutationGuardsMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        tenantId,
-        organizationId,
-        userId,
-        resourceKind: 'customers.label',
-        resourceId: organizationId,
-        operation: 'custom',
+        container,
+        auth: expect.objectContaining({ tenantId, organizationId, userId }),
+        input: expect.objectContaining({
+          resourceKind: 'customers.label',
+          resourceId: organizationId,
+          operation: 'custom',
+        }),
       }),
     )
-    expect(runCrudMutationGuardAfterSuccessMock).toHaveBeenCalledWith(
-      container,
-      expect.objectContaining({
-        tenantId,
-        organizationId,
-        userId,
-        resourceKind: 'customers.label',
-        resourceId: organizationId,
-        operation: 'custom',
-      }),
-    )
+    expect(runAfterSuccessMock).toHaveBeenCalled()
   })
 
   it('reads labels for the requested organization when an explicit organization override is provided', async () => {

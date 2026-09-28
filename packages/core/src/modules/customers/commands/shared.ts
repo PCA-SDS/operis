@@ -1,11 +1,12 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { CustomerDeal, CustomerEntity, CustomerTag, CustomerTagAssignment, CustomerDictionaryEntry, type CustomerEntityKind } from '../data/entities'
 import { CrudHttpError, notFound } from '@open-mercato/shared/lib/crud/errors'
-import type { CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
+import { type CommandRuntimeContext, type CommandLogMetadata, type CommandHandler, commandRegistry } from '@open-mercato/shared/lib/commands'
 import { ensureOrganizationScope, ensureSameScope } from '@open-mercato/shared/lib/commands/scope'
 import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import type { EventBus } from '@open-mercato/events'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { E } from '#generated/entities.ids.generated'
 
 const logger = createLogger('customers')
 export { ensureOrganizationScope, ensureSameScope, ensureTenantScope } from '@open-mercato/shared/lib/commands/scope'
@@ -336,4 +337,68 @@ export async function emitQueryIndexUpsertEvents(
   entries: readonly QueryIndexEventEntry[],
 ): Promise<void> {
   await emitQueryIndexEvents(ctx, entries, 'upsert')
+}
+
+export type InteractionSnapshot = {
+  interaction: {
+    id: string
+    organizationId: string
+    tenantId: string
+    entityId: string
+    entityKind: string | null
+    dealId: string | null
+    interactionType: string
+    title: string | null
+    body: string | null
+    status: string
+    scheduledAt: Date | null
+    occurredAt: Date | null
+    priority: number | null
+    authorUserId: string | null
+    ownerUserId: string | null
+    appearanceIcon: string | null
+    appearanceColor: string | null
+    source: string | null
+  }
+  custom?: Record<string, unknown>
+}
+
+export type InteractionUndoPayload = {
+  before?: InteractionSnapshot | null
+  after?: InteractionSnapshot | null
+}
+
+export function normalizeUndoCreateLogEntry(
+  logEntry: unknown,
+  payload: InteractionUndoPayload | null | undefined,
+): CommandLogMetadata | Record<string, unknown> {
+  const base = logEntry && typeof logEntry === 'object' ? { ...(logEntry as Record<string, unknown>) } : {}
+  const resourceId =
+    typeof base.resourceId === 'string' && base.resourceId.trim().length > 0
+      ? base.resourceId
+      : payload?.after?.interaction.id ?? null
+  return resourceId ? { ...base, resourceId } : base
+}
+
+export function getRequiredHandler<TInput, TResult>(id: string): CommandHandler<TInput, TResult> {
+  const handler = commandRegistry.get(id) as CommandHandler<TInput, TResult> | null
+  if (!handler) {
+    throw new Error(`Missing command handler: ${id}`)
+  }
+  return handler
+}
+
+export function normalizeHexColor(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim().toLowerCase()
+  return /^#([0-9a-f]{6})$/.test(trimmed) ? trimmed : null
+}
+
+export function customerEntityIndexEntry(entity: CustomerEntity): QueryIndexEventEntry {
+  return {
+    entityType: E.customers.customer_entity,
+    recordId: entity.id,
+    tenantId: entity.tenantId,
+    organizationId: entity.organizationId,
+  }
 }

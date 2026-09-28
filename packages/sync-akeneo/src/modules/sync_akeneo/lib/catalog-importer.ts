@@ -55,6 +55,7 @@ import {
 import type { AkeneoClient } from './client'
 import { inferAkeneoProductMapping } from './inference'
 import { normalizeMarkdownText } from './markdown'
+import { normalizeFieldKey } from './fieldKeys'
 
 type ImportScope = {
   organizationId: string
@@ -335,15 +336,6 @@ function mergeValueLayers(...layers: Array<AkeneoValues | undefined | null>): Ak
     }
   }
   return merged
-}
-
-function normalizeFieldKey(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .slice(0, 100)
 }
 
 function readAkeneoOptionSchemaMetadata(value: unknown): AkeneoOptionSchemaMetadata | null {

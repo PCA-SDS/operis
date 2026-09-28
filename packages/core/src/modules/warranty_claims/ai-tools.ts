@@ -23,6 +23,7 @@ import type { AiChatRequestContext } from '@open-mercato/ai-assistant/modules/ai
 import type { AuthContext } from '@open-mercato/shared/lib/auth/server'
 import type { AttachmentTargetAccessService } from '@open-mercato/core/modules/attachments/lib/target-access-service'
 import { buildWarrantyClaimTriageSuggestion } from './lib/triage'
+import { UUID_SHAPE_PATTERN } from '@open-mercato/shared/lib/validation'
 
 export interface WarrantyClaimsToolContext {
   tenantId: string | null
@@ -234,12 +235,10 @@ function serializeTimelineEvent(event: WarrantyClaimEvent): Record<string, unkno
   }
 }
 
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
 async function resolveClaimId(em: EntityManager, scope: Scope, ref: string): Promise<string | null> {
   const trimmed = ref.trim()
   if (!trimmed) return null
-  if (UUID_PATTERN.test(trimmed)) return trimmed
+  if (UUID_SHAPE_PATTERN.test(trimmed)) return trimmed
   const claim = await findOneWithDecryption(
     em,
     WarrantyClaim,

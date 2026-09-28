@@ -12,7 +12,8 @@ import { ObjectHistoryButton } from './ObjectHistoryButton'
 import { useCustomerDictionary } from './hooks/useCustomerDictionary'
 import { formatFallbackLabel } from './utils'
 import { isTerminalPipelineOutcomeLabel } from './pipelineStageUtils'
-import { formatAmount } from '@open-mercato/core/modules/customers/lib/amountFormat'
+import { formatDate } from '@open-mercato/shared/lib/time'
+import { formatCurrency } from '@open-mercato/shared/lib/units/money'
 
 type DealAssociation = {
   id: string
@@ -46,13 +47,6 @@ type DealDetailHeaderProps = {
   onDelete: () => Promise<void> | void
   isDirty: boolean
   isSaving: boolean
-}
-
-function formatDate(value: string | null): string | null {
-  if (!value) return null
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return null
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 type HeaderChipVariant = 'info' | 'warning' | 'success' | 'error' | 'neutral'
@@ -188,7 +182,7 @@ export function DealDetailHeader({
 }: DealDetailHeaderProps) {
   const t = useT()
   const amountLabel = React.useMemo(
-    () => formatAmount(deal.valueAmount, deal.valueCurrency),
+    () => formatCurrency(deal.valueAmount, deal.valueCurrency),
     [deal.valueAmount, deal.valueCurrency],
   )
   const createdAtLabel = React.useMemo(() => formatDate(deal.createdAt), [deal.createdAt])

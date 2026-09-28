@@ -7,10 +7,6 @@ import type { CommandBus, CommandRuntimeContext } from '@open-mercato/shared/lib
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { CrudHttpError, isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
-import {
-  runCrudMutationGuardAfterSuccess,
-  validateCrudMutationGuard,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
 import { customerSettingsUpsertSchema, type CustomerSettingsUpsertInput } from '../../../data/validators'
 import { loadCustomerSettings } from '../../../commands/settings'
 import type { CustomerAddressFormat } from '../../../data/entities'
@@ -18,6 +14,7 @@ import { withScopedPayload } from '../../utils'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const logger = createLogger('customers')
 
@@ -93,19 +90,19 @@ export async function PUT(req: Request) {
     const scoped = withScopedPayload(payload, ctx, translate)
     const input = customerSettingsUpsertSchema.parse(scoped)
 
-    const guardResult = await validateCrudMutationGuard(ctx.container, {
-      tenantId,
-      organizationId,
-      userId: ctx.auth!.sub,
-      resourceKind: SETTINGS_RESOURCE_KIND,
-      resourceId: organizationId,
-      operation: 'update',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      mutationPayload: input,
+    const guardResult = await runRouteMutationGuards({
+      container: ctx.container,
+      req,
+      auth: { userId: ctx.auth!.sub, tenantId, organizationId },
+      input: {
+        resourceKind: SETTINGS_RESOURCE_KIND,
+        resourceId: organizationId,
+        operation: 'update',
+        mutationPayload: input,
+      },
     })
-    if (guardResult && !guardResult.ok) {
-      return NextResponse.json(guardResult.body, { status: guardResult.status })
+    if (!guardResult.ok) {
+      return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
     }
 
     const commandBus = (ctx.container.resolve('commandBus') as CommandBus)
@@ -114,19 +111,7 @@ export async function PUT(req: Request) {
       { input, ctx },
     )
 
-    if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-      await runCrudMutationGuardAfterSuccess(ctx.container, {
-        tenantId,
-        organizationId,
-        userId: ctx.auth!.sub,
-        resourceKind: SETTINGS_RESOURCE_KIND,
-        resourceId: organizationId,
-        operation: 'update',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
-        metadata: guardResult.metadata ?? null,
-      })
-    }
+    await guardResult.runAfterSuccess()
 
     return NextResponse.json({
       addressFormat: result?.addressFormat ?? input.addressFormat,

@@ -15,6 +15,7 @@ import { processPaymentGatewayWebhookJob } from '../../../lib/webhook-processor'
 import { paymentGatewaysTag } from '../../openapi'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { readBoundedRequestBody, WebhookBodyTooLargeError } from '@open-mercato/shared/lib/webhooks'
+import { tryResolve } from '@open-mercato/shared/lib/di/tryResolve'
 
 const logger = createLogger('payment_gateways').child({ component: 'webhook' })
 
@@ -155,14 +156,6 @@ async function checkProviderWebhookRateLimit(
     `${providerKey}:${getClientIp(req, rateLimiterService.trustProxyDepth) ?? 'unknown'}`,
     RATE_LIMIT_ERROR_FALLBACK,
   )
-}
-
-function tryResolve<T>(container: { resolve: (name: string) => unknown }, name: string): T | null {
-  try {
-    return container.resolve(name) as T
-  } catch {
-    return null
-  }
 }
 
 export const openApi = {

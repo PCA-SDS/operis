@@ -1,18 +1,10 @@
 import type { ScheduleItem } from '@open-mercato/ui/backend/schedule'
-import { parseAvailabilityRuleWindow } from '@open-mercato/core/modules/planner/lib/availabilitySchedule'
+import { parseAvailabilityRuleWindow, toFullDayWindow } from '@open-mercato/core/modules/planner/lib/availabilitySchedule'
 
 const DEFAULT_TITLE_MAP = {
   weekly: 'Weekly availability',
   daily: 'Daily availability',
   once: 'Availability',
-}
-
-const DAY_MS = 24 * 60 * 60 * 1000
-
-function toFullDayWindow(value: Date): { start: Date; end: Date } {
-  const start = new Date(value.getFullYear(), value.getMonth(), value.getDate())
-  const end = new Date(start.getTime() + DAY_MS)
-  return { start, end }
 }
 
 export function buildMemberScheduleItems(params: {

@@ -4,8 +4,9 @@ import {
   buildPricingContext,
   scoreProductSearchRelevance,
 } from '../products/route'
-import { parseBooleanFlag, sanitizeSearchTerm } from '../helpers'
 import { buildCustomFieldFiltersFromQuery } from '@open-mercato/shared/lib/crud/custom-fields'
+import { sanitizeSearchTerm } from '@open-mercato/shared/lib/query/sanitizeSearchTerm'
+import { parseBooleanFlag } from '@open-mercato/shared/lib/boolean'
 
 jest.mock('@open-mercato/shared/lib/crud/custom-fields', () => ({
   buildCustomFieldFiltersFromQuery: jest.fn(),

@@ -6,7 +6,7 @@ import type {
 } from '@open-mercato/shared/modules/search'
 import type { TranslateFn } from '@open-mercato/shared/lib/i18n/context'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
-import { appendLine, formatSubtitle, pickString, snippet } from '@open-mercato/shared/modules/search/descriptorHelpers'
+import { appendLine, formatSubtitle, pickString, snippet, toIndexSource } from '@open-mercato/shared/modules/search/descriptorHelpers'
 
 function appendCustomFieldLines(lines: string[], customFields: Record<string, unknown>) {
   for (const [key, value] of Object.entries(customFields)) {
@@ -97,12 +97,7 @@ function buildIndexSource(
   lines: string[],
 ): SearchIndexSource | null {
   appendCustomFieldLines(lines, ctx.customFields)
-  if (!lines.length) return null
-  return {
-    text: lines,
-    presenter,
-    checksumSource: { record: ctx.record, customFields: ctx.customFields },
-  }
+  return toIndexSource(ctx, presenter, lines)
 }
 
 export const searchConfig: SearchModuleConfig = {

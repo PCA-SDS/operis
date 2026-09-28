@@ -6,6 +6,7 @@ import type { PaymentGatewayService } from '@open-mercato/core/modules/payment_g
 import { claimWebhookProcessing, releaseWebhookClaim } from '@open-mercato/core/modules/payment_gateways/lib/webhook-utils'
 import { mapWebhookEventToStatus, mapStripeStatus } from '../lib/status-map'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { readSessionIdFromEvent } from '@open-mercato/core/modules/payment_gateways/lib/webhook-processor'
 
 const logger = createLogger('gateway_stripe').child({ component: 'webhook-processor' })
 
@@ -27,14 +28,6 @@ export const metadata: WorkerMeta = {
   queue: 'stripe-webhook',
   id: 'gateway-stripe:webhook-processor',
   concurrency: 5,
-}
-
-function readSessionIdFromEvent(event: WebhookEvent): string | null {
-  const id = event.data.id
-  if (typeof id === 'string' && id.trim().length > 0) return id.trim()
-  const paymentIntent = event.data.payment_intent
-  if (typeof paymentIntent === 'string' && paymentIntent.trim().length > 0) return paymentIntent.trim()
-  return null
 }
 
 export default async function handle(job: QueuedJob<WebhookJobPayload>, ctx: HandlerContext): Promise<void> {

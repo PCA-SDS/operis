@@ -1,4 +1,6 @@
 import type { WarrantyClaimStatus } from '../data/validators'
+import { trimToUndefined } from '@open-mercato/shared/lib/string'
+import { toRecordOrNull } from '@open-mercato/shared/lib/guards'
 
 export type EscalationTier = {
   atPct: number
@@ -20,10 +22,6 @@ const SLA_TERMINAL_STATUSES = new Set<WarrantyClaimStatus>([
   'rejected',
 ])
 
-function toRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null
-}
-
 function parseAction(value: unknown): EscalationTier['action'] | null {
   return value === 'notify' || value === 'reassign' ? value : null
 }
@@ -33,24 +31,18 @@ function parseAtPct(value: unknown): number | null {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null
 }
 
-function parseUserId(value: unknown): string | undefined {
-  if (typeof value !== 'string') return undefined
-  const trimmed = value.trim()
-  return trimmed.length > 0 ? trimmed : undefined
-}
-
 export function parseEscalationTiers(raw: unknown): EscalationTier[] {
   if (!Array.isArray(raw)) return []
   const tiers: EscalationTier[] = []
 
   for (const item of raw) {
-    const record = toRecord(item)
+    const record = toRecordOrNull(item)
     if (!record) continue
     const atPct = parseAtPct(record.atPct)
     const action = parseAction(record.action)
     if (atPct === null || action === null) continue
 
-    const toUserId = parseUserId(record.toUserId)
+    const toUserId = trimToUndefined(record.toUserId)
     if (action === 'reassign' && !toUserId) continue
     tiers.push(toUserId ? { atPct, action, toUserId } : { atPct, action })
   }

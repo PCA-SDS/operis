@@ -61,6 +61,8 @@ import {
 } from '@open-mercato/shared/lib/crud/cache'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { toDateOnlyString } from '../../../lib/dateOnly'
+import { extractTodoTitle, readCustomField } from '../../../lib/todoCompatibility'
+import { parseDateValue, parseIncludeParams, parseNumber, forbidden, notFound } from '../../detailRouteHelpers'
 
 const logger = createLogger('customers')
 
@@ -132,29 +134,6 @@ function buildCompanyDetailCacheKey(parts: {
   ].join('|')
 }
 
-function parseIncludeParams(request: Request): Set<string> {
-  const url = new URL(request.url)
-  const raw = url.searchParams.getAll('include')
-  const tokens = new Set<string>()
-  raw.forEach((entry) => {
-    if (!entry) return
-    entry
-      .split(',')
-      .map((part) => part.trim().toLowerCase())
-      .filter((part) => part.length > 0)
-      .forEach((part) => tokens.add(part))
-  })
-  return tokens
-}
-
-function forbidden(message: string) {
-  return NextResponse.json({ error: message }, { status: 403 })
-}
-
-function notFound(message: string) {
-  return NextResponse.json({ error: message }, { status: 404 })
-}
-
 function serializeTags(assignments: CustomerTagAssignment[]): Array<{ id: string; label: string; color: string | null }> {
   return assignments
     .map((assignment) => {
@@ -178,51 +157,6 @@ type TodoDetail = {
   dueAt: string | null
   organizationId: string | null
   customValues: Record<string, unknown> | null
-}
-
-function extractTodoTitle(record: Record<string, unknown>): string | null {
-  const candidates = ['title', 'subject', 'name', 'summary', 'text', 'description']
-  for (const key of candidates) {
-    const value = record[key]
-    if (typeof value === 'string' && value.trim().length > 0) {
-      return value.trim()
-    }
-  }
-  return null
-}
-
-function parseNumber(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string') {
-    const trimmed = value.trim()
-    if (!trimmed) return null
-    const parsed = Number(trimmed)
-    if (!Number.isNaN(parsed)) return parsed
-  }
-  return null
-}
-
-function parseDateValue(value: unknown): string | null {
-  if (value instanceof Date) {
-    const ts = value.getTime()
-    return Number.isNaN(ts) ? null : value.toISOString()
-  }
-  if (typeof value === 'string') {
-    const trimmed = value.trim()
-    if (!trimmed) return null
-    const candidate = new Date(trimmed)
-    if (!Number.isNaN(candidate.getTime())) return candidate.toISOString()
-  }
-  return null
-}
-
-function readCustomField(record: Record<string, unknown>, key: string): unknown {
-  const custom = record.custom ?? record.customFields ?? record.cf
-  if (custom && typeof custom === 'object') {
-    const bucket = custom as Record<string, unknown>
-    if (key in bucket) return bucket[key]
-  }
-  return undefined
 }
 
 type CompanyDetailKpiSummary = {

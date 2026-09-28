@@ -21,14 +21,14 @@ import {
   createPagedListResponseSchema,
   defaultOkResponseSchema,
 } from '../openapi'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 type TranslateFn = (key: string, fallback?: string) => string
 
 const rawBodySchema = z.object({}).passthrough()
 
 const listSchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(50),
+  ...paginationQuerySchema().shape,
   search: z.string().optional(),
   commodity: z.enum(EUDR_COMMODITIES).optional(),
   productId: z.string().optional(),

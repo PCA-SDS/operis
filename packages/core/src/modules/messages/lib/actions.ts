@@ -1,8 +1,10 @@
 import { parseDecryptedFieldValue } from '@open-mercato/shared/lib/encryption/tenantDataEncryptionService'
 import { sanitizeRichTextHref } from '@open-mercato/shared/lib/html/sanitizeRichText'
-import type { Message, MessageAction, MessageActionData, MessageObject } from '../data/entities'
+import type { Message, MessageActionData, MessageObject } from '../data/entities'
 import { getAllMessageObjectTypes, getMessageObjectType } from './message-objects-registry'
 import { getAllMessageTypes, getMessageType } from './message-types-registry'
+import { isRecord } from '@open-mercato/shared/lib/guards'
+import type { MessageAction } from '@open-mercato/shared/modules/messages/types'
 
 type MessageActionSource = 'message' | 'type_default' | 'object'
 
@@ -24,19 +26,15 @@ export type MessageActionResolutionContext = {
   userId: string
 }
 
-function isRecordValue(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === 'object' && !Array.isArray(value)
-}
-
 export function resolveMessageActionData(message: Pick<Message, 'actionData'>): MessageActionData | null {
   const rawActionData = message.actionData as unknown
   const parsedActionData = typeof rawActionData === 'string'
     ? parseDecryptedFieldValue(rawActionData)
     : rawActionData
-  if (!isRecordValue(parsedActionData)) return null
+  if (!isRecord(parsedActionData)) return null
 
   const actions = Array.isArray(parsedActionData.actions)
-    ? parsedActionData.actions.filter(isRecordValue) as MessageAction[]
+    ? parsedActionData.actions.filter(isRecord) as MessageAction[]
     : []
   const primaryActionId = typeof parsedActionData.primaryActionId === 'string'
     ? parsedActionData.primaryActionId

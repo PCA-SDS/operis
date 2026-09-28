@@ -23,6 +23,8 @@ import {
   type EudrStatementStatus,
   type EudrSubmissionStatus,
 } from '../data/validators'
+import { isRecord } from '@open-mercato/shared/lib/guards'
+import { readString } from './recordFields'
 
 export type Translator = (
   key: string,
@@ -119,20 +121,6 @@ export function statusBadgeVariant(
   if (status === 'rejected') return 'error'
   if (status === 'withdrawn') return 'warning'
   return 'neutral'
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
-
-function readString(record: Record<string, unknown>, keys: string[]): string | null {
-  for (const key of keys) {
-    const value = record[key]
-    if (typeof value !== 'string') continue
-    const trimmed = value.trim()
-    if (trimmed.length > 0) return trimmed
-  }
-  return null
 }
 
 function normalizeProductOption(raw: unknown): PickerOption<ProductSnapshot> | null {

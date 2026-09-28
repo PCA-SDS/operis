@@ -7,14 +7,11 @@ import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
-import {
-  runCrudMutationGuardAfterSuccess,
-  validateCrudMutationGuard,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { AppointmentSeatPlannerService } from '../../../../../lib/seatPlannerService'
 import { emitAppointmentEvent } from '../../../../../events'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const MAX_ASSIGNED_MEMBERS = 50
 
@@ -81,19 +78,19 @@ export async function PUT(req: Request, ctx: RouteContext) {
       )
     }
 
-    const guardResult = await validateCrudMutationGuard(container, {
-      tenantId: auth.tenantId,
-      organizationId,
-      userId: auth.sub,
-      resourceKind: 'appointments.seatPlannerDraft',
-      resourceId: lineId,
-      operation: 'custom',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      mutationPayload: { appointmentId, lineId, ...body },
+    const guardResult = await runRouteMutationGuards({
+      container,
+      req,
+      auth: { userId: auth.sub, tenantId: auth.tenantId, organizationId },
+      input: {
+        resourceKind: 'appointments.seatPlannerDraft',
+        resourceId: lineId,
+        operation: 'custom',
+        mutationPayload: { appointmentId, lineId, ...body },
+      },
     })
-    if (guardResult && !guardResult.ok) {
-      return NextResponse.json(guardResult.body, { status: guardResult.status })
+    if (!guardResult.ok) {
+      return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
     }
 
     const service = new AppointmentSeatPlannerService(em)
@@ -114,19 +111,7 @@ export async function PUT(req: Request, ctx: RouteContext) {
         ?? req.headers.get('x-om-ext-optimistic-lock-expected-updated-at')
         ?? undefined,
     })
-    if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-      await runCrudMutationGuardAfterSuccess(container, {
-        tenantId: auth.tenantId,
-        organizationId,
-        userId: auth.sub,
-        resourceKind: 'appointments.seatPlannerDraft',
-        resourceId: lineId,
-        operation: 'custom',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
-        metadata: guardResult.metadata ?? null,
-      })
-    }
+    await guardResult.runAfterSuccess()
 
     await emitAppointmentEvent('appointments.appointment.draft_updated', {
       id: appointmentId,
@@ -251,19 +236,19 @@ export async function DELETE(req: Request, ctx: RouteContext) {
       )
     }
 
-    const guardResult = await validateCrudMutationGuard(container, {
-      tenantId: auth.tenantId,
-      organizationId,
-      userId: auth.sub,
-      resourceKind: 'appointments.seatPlannerDraft',
-      resourceId: lineId,
-      operation: 'custom',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      mutationPayload: { appointmentId, lineId },
+    const guardResult = await runRouteMutationGuards({
+      container,
+      req,
+      auth: { userId: auth.sub, tenantId: auth.tenantId, organizationId },
+      input: {
+        resourceKind: 'appointments.seatPlannerDraft',
+        resourceId: lineId,
+        operation: 'custom',
+        mutationPayload: { appointmentId, lineId },
+      },
     })
-    if (guardResult && !guardResult.ok) {
-      return NextResponse.json(guardResult.body, { status: guardResult.status })
+    if (!guardResult.ok) {
+      return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
     }
 
     const service = new AppointmentSeatPlannerService(em)
@@ -277,19 +262,7 @@ export async function DELETE(req: Request, ctx: RouteContext) {
       organizationId,
       expectedUpdatedAt,
     })
-    if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-      await runCrudMutationGuardAfterSuccess(container, {
-        tenantId: auth.tenantId,
-        organizationId,
-        userId: auth.sub,
-        resourceKind: 'appointments.seatPlannerDraft',
-        resourceId: lineId,
-        operation: 'custom',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
-        metadata: guardResult.metadata ?? null,
-      })
-    }
+    await guardResult.runAfterSuccess()
 
     await emitAppointmentEvent('appointments.appointment.draft_updated', {
       id: appointmentId,

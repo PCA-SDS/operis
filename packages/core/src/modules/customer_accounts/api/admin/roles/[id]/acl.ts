@@ -9,10 +9,7 @@ import { CustomerRbacService } from '@open-mercato/core/modules/customer_account
 import { updateRoleAclSchema } from '@open-mercato/core/modules/customer_accounts/data/validators'
 import { enforceCommandOptimisticLock } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
-import {
-  runCrudMutationGuardAfterSuccess,
-  validateCrudMutationGuard,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 export const metadata = {}
 
@@ -73,19 +70,19 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     throw err
   }
 
-  const guardResult = await validateCrudMutationGuard(container, {
-    tenantId,
-    organizationId: auth.orgId,
-    userId: auth.sub,
-    resourceKind: ROLE_RESOURCE_KIND,
-    resourceId: role.id,
-    operation: 'update',
-    requestMethod: req.method,
-    requestHeaders: req.headers,
-    mutationPayload: parsed.data,
+  const guardResult = await runRouteMutationGuards({
+    container,
+    req,
+    auth: { userId: auth.sub, tenantId, organizationId: auth.orgId },
+    input: {
+      resourceKind: ROLE_RESOURCE_KIND,
+      resourceId: role.id,
+      operation: 'update',
+      mutationPayload: parsed.data,
+    },
   })
-  if (guardResult && !guardResult.ok) {
-    return NextResponse.json(guardResult.body, { status: guardResult.status })
+  if (!guardResult.ok) {
+    return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
   }
 
   const acl = await em.findOne(CustomerRoleAcl, {
@@ -119,19 +116,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   const customerRbacService = container.resolve('customerRbacService') as CustomerRbacService
   await customerRbacService.invalidateRoleCache(role.id)
 
-  if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-    await runCrudMutationGuardAfterSuccess(container, {
-      tenantId,
-      organizationId: auth.orgId,
-      userId: auth.sub,
-      resourceKind: ROLE_RESOURCE_KIND,
-      resourceId: role.id,
-      operation: 'update',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      metadata: guardResult.metadata ?? null,
-    })
-  }
+  await guardResult.runAfterSuccess()
 
   return NextResponse.json({ ok: true, updatedAt: nextUpdatedAt.toISOString() })
 }

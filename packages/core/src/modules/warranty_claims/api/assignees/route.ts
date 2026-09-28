@@ -9,12 +9,11 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
 import { resolveAssigneeDisplayNames } from '../../lib/assigneeNames'
+import { RFC_UUID_PATTERN } from '@open-mercato/shared/lib/validation'
 
 const logger = createLogger('warranty_claims')
 
 export const MAX_ASSIGNEE_LOOKUP_IDS = 100
-
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 const querySchema = z.object({
   ids: z.string().min(1),
@@ -34,7 +33,7 @@ export const metadata = {
 export function parseRequestedIds(raw: string): string[] {
   const deduped = new Set<string>()
   for (const value of parseCommaSeparatedList(raw)) {
-    if (UUID_REGEX.test(value)) deduped.add(value)
+    if (RFC_UUID_PATTERN.test(value)) deduped.add(value)
   }
   return [...deduped].slice(0, MAX_ASSIGNEE_LOOKUP_IDS)
 }

@@ -8,7 +8,6 @@ import {
   jsonOk,
   readContext,
   resolveChatRequest,
-  searchParamsToObject,
   toChatErrorResponse,
 } from '../../../shared'
 import {
@@ -17,6 +16,7 @@ import {
   RATE_LIMITED_ERRORS,
   searchResultSchema,
 } from '../../../openapi'
+import { searchParamsToObject } from '@open-mercato/shared/lib/http/query'
 
 const paramsSchema = z.object({ id: z.string().uuid() })
 

@@ -23,6 +23,7 @@ import { useLocale, useT } from '@open-mercato/shared/lib/i18n/context'
 import type { EudrCommodity } from '../../../data/validators'
 import { commodityOptions, type ProductSnapshot } from '../../../components/formConfig'
 import { MappingSuggestionsDialog } from '../../../components/MappingSuggestionsDialog'
+import { formatDateTime } from '@open-mercato/shared/lib/time'
 
 type ProductMappingRow = {
   id: string
@@ -40,13 +41,6 @@ type ProductMappingsResponse = {
   items: ProductMappingRow[]
   total: number
   totalPages: number
-}
-
-function formatDateTime(value: string | null | undefined, emptyLabel: string, locale: string): string {
-  if (!value) return emptyLabel
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return emptyLabel
-  return date.toLocaleString(locale || undefined)
 }
 
 function formatProduct(row: ProductMappingRow, unavailableLabel: string): string {
@@ -216,7 +210,7 @@ export default function EudrProductMappingsPage() {
     {
       accessorKey: 'updatedAt',
       header: translate('eudr.productMappings.list.columns.updatedAt'),
-      cell: ({ row }) => formatDateTime(row.original.updatedAt, translate('eudr.common.empty'), locale),
+      cell: ({ row }) => formatDateTime(row.original.updatedAt, { fallback: translate('eudr.common.empty'), locale }),
     },
   ], [locale, translate])
 

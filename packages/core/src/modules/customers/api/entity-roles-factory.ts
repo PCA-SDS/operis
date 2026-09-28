@@ -3,7 +3,6 @@ import { z } from 'zod'
 import type { CommandBus } from '@open-mercato/shared/lib/commands'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
-import { validateCrudMutationGuard, runCrudMutationGuardAfterSuccess } from '@open-mercato/shared/lib/crud/mutation-guard'
 import { CrudHttpError, isCrudHttpError, notFound } from '@open-mercato/shared/lib/crud/errors'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { findOneWithDecryption, findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
@@ -13,10 +12,12 @@ import type { RbacService } from '@open-mercato/core/modules/auth/services/rbacS
 import { CustomerEntity, CustomerEntityRole } from '../data/entities'
 import { entityRoleCreateSchema, entityRoleUpdateSchema, entityRoleDeleteSchema, type EntityRoleCreateInput, type EntityRoleUpdateInput, type EntityRoleDeleteInput } from '../data/validators'
 import { withScopedPayload } from './utils'
-import { resolveCustomersRequestContext, resolveAuthActorId } from '../lib/interactionRequestContext'
+import { resolveCustomersRequestContext } from '../lib/interactionRequestContext'
+import { resolveAuthActorId } from '@open-mercato/shared/lib/auth/actor'
 import { deriveDisplayNameFromEmail } from '../lib/displayName'
-import { withOperationMetadata } from '../lib/operationMetadata'
+import { attachOperationMetadataHeader } from '@open-mercato/shared/lib/commands/operationMetadata'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const logger = createLogger('customers')
 
@@ -341,12 +342,17 @@ export function createEntityRolesHandlers(entityType: EntityType) {
       const parsed = entityRoleCreateSchema.parse(scoped)
 
       const guardUserId = resolveAuthActorId(auth)
-      const guardResult = await validateCrudMutationGuard(container, {
-        tenantId: targetScope.tenantId, organizationId: targetScope.organizationId, userId: guardUserId,
-        resourceKind, resourceId: entityId, operation: 'custom',
-        requestMethod: request.method, requestHeaders: request.headers, mutationPayload: rawBody,
+      const guardResult = await runRouteMutationGuards({
+        container,
+        req: request,
+        auth: {
+          userId: guardUserId,
+          tenantId: targetScope.tenantId,
+          organizationId: targetScope.organizationId,
+        },
+        input: { resourceKind, resourceId: entityId, operation: 'custom', mutationPayload: rawBody },
       })
-      if (guardResult && !guardResult.ok) return NextResponse.json(guardResult.body, { status: guardResult.status })
+      if (!guardResult.ok) return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
 
       const commandBus = container.resolve('commandBus') as CommandBus
       const { result, logEntry } = await commandBus.execute<EntityRoleCreateInput, { roleId: string }>(
@@ -354,15 +360,9 @@ export function createEntityRolesHandlers(entityType: EntityType) {
         { input: parsed, ctx: commandCtx },
       )
 
-      if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-        await runCrudMutationGuardAfterSuccess(container, {
-          tenantId: targetScope.tenantId, organizationId: targetScope.organizationId, userId: guardUserId,
-          resourceKind, resourceId: entityId, operation: 'custom',
-          requestMethod: request.method, requestHeaders: request.headers, metadata: guardResult.metadata ?? null,
-        })
-      }
+      await guardResult.runAfterSuccess()
 
-      return withOperationMetadata(
+      return attachOperationMetadataHeader(
         NextResponse.json({ id: result?.roleId ?? null }, { status: 201 }),
         logEntry,
         { resourceKind, resourceId: entityId },
@@ -399,12 +399,22 @@ export function createEntityRolesHandlers(entityType: EntityType) {
       const parsed = entityRoleUpdateSchema.parse(scoped)
 
       const guardUserId = resolveAuthActorId(auth)
-      const guardResult = await validateCrudMutationGuard(container, {
-        tenantId: targetScope.tenantId, organizationId: targetScope.organizationId, userId: guardUserId,
-        resourceKind, resourceId: entityId, operation: 'custom',
-        requestMethod: request.method, requestHeaders: request.headers, mutationPayload: { roleId, ...rawBody },
+      const guardResult = await runRouteMutationGuards({
+        container,
+        req: request,
+        auth: {
+          userId: guardUserId,
+          tenantId: targetScope.tenantId,
+          organizationId: targetScope.organizationId,
+        },
+        input: {
+          resourceKind,
+          resourceId: entityId,
+          operation: 'custom',
+          mutationPayload: { roleId, ...rawBody },
+        },
       })
-      if (guardResult && !guardResult.ok) return NextResponse.json(guardResult.body, { status: guardResult.status })
+      if (!guardResult.ok) return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
 
       const commandBus = container.resolve('commandBus') as CommandBus
       const { logEntry } = await commandBus.execute<EntityRoleUpdateInput, { roleId: string }>(
@@ -412,15 +422,9 @@ export function createEntityRolesHandlers(entityType: EntityType) {
         { input: parsed, ctx: commandCtx },
       )
 
-      if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-        await runCrudMutationGuardAfterSuccess(container, {
-          tenantId: targetScope.tenantId, organizationId: targetScope.organizationId, userId: guardUserId,
-          resourceKind, resourceId: entityId, operation: 'custom',
-          requestMethod: request.method, requestHeaders: request.headers, metadata: guardResult.metadata ?? null,
-        })
-      }
+      await guardResult.runAfterSuccess()
 
-      return withOperationMetadata(
+      return attachOperationMetadataHeader(
         NextResponse.json({ ok: true }),
         logEntry,
         { resourceKind, resourceId: entityId },
@@ -455,12 +459,17 @@ export function createEntityRolesHandlers(entityType: EntityType) {
         ),
       )
       const guardUserId = resolveAuthActorId(auth)
-      const guardResult = await validateCrudMutationGuard(container, {
-        tenantId: targetScope.tenantId, organizationId: targetScope.organizationId, userId: guardUserId,
-        resourceKind, resourceId: entityId, operation: 'custom',
-        requestMethod: request.method, requestHeaders: request.headers, mutationPayload: { roleId },
+      const guardResult = await runRouteMutationGuards({
+        container,
+        req: request,
+        auth: {
+          userId: guardUserId,
+          tenantId: targetScope.tenantId,
+          organizationId: targetScope.organizationId,
+        },
+        input: { resourceKind, resourceId: entityId, operation: 'custom', mutationPayload: { roleId } },
       })
-      if (guardResult && !guardResult.ok) return NextResponse.json(guardResult.body, { status: guardResult.status })
+      if (!guardResult.ok) return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
 
       const commandBus = container.resolve('commandBus') as CommandBus
       const { logEntry } = await commandBus.execute<EntityRoleDeleteInput, { roleId: string }>(
@@ -468,15 +477,9 @@ export function createEntityRolesHandlers(entityType: EntityType) {
         { input: parsed, ctx: commandCtx },
       )
 
-      if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-        await runCrudMutationGuardAfterSuccess(container, {
-          tenantId: targetScope.tenantId, organizationId: targetScope.organizationId, userId: guardUserId,
-          resourceKind, resourceId: entityId, operation: 'custom',
-          requestMethod: request.method, requestHeaders: request.headers, metadata: guardResult.metadata ?? null,
-        })
-      }
+      await guardResult.runAfterSuccess()
 
-      return withOperationMetadata(
+      return attachOperationMetadataHeader(
         NextResponse.json({ ok: true }),
         logEntry,
         { resourceKind, resourceId: entityId },

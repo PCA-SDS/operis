@@ -26,12 +26,6 @@ const TOTAL_INBOUND_ATTACHMENTS_MAX_BYTES = EMAIL_MAX_ATTACHMENT_BYTES * 2
 
 // ── Outbound MIME helpers ─────────────────────────────────────
 
-export function stringOrUndefined(value: unknown): string | undefined {
-  if (typeof value !== 'string') return undefined
-  const trimmed = value.trim()
-  return trimmed.length > 0 ? trimmed : undefined
-}
-
 export function toAddressList(value: unknown): string[] {
   if (Array.isArray(value)) return value.map((v) => String(v).trim()).filter((v) => v.length > 0)
   if (typeof value === 'string') {

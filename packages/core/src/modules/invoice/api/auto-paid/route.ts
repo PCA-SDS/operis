@@ -17,9 +17,9 @@ import {
   invoiceAutoPaidRouteMetadata,
   invoiceAutoPaidTag,
   readRequestRecord,
-  resolveInvoiceAutoPaidRouteContext,
   toInvoiceAutoPaidRuleDto,
 } from './shared'
+import { resolveInvoiceRouteContext } from '../routeContext'
 
 export const metadata = {
   GET: invoiceAutoPaidRouteMetadata,
@@ -28,7 +28,7 @@ export const metadata = {
 
 export async function GET(req: Request) {
   try {
-    const context = await resolveInvoiceAutoPaidRouteContext(req)
+    const context = await resolveInvoiceRouteContext(req)
     const service = context.container.resolve<InvoiceAutoPaidService>('invoiceAutoPaidService')
     const items = await service.listRules(context.scope)
 
@@ -41,7 +41,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const parsed = invoiceAutoPaidRuleUpsertSchema.parse(await readRequestRecord(req))
-    const context = await resolveInvoiceAutoPaidRouteContext(req)
+    const context = await resolveInvoiceRouteContext(req)
     const guarded = await runRouteMutationGuards({
       container: context.container,
       req,

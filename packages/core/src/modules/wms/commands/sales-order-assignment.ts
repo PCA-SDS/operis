@@ -11,6 +11,7 @@ import type { SalesOrderWarehouseAssignInput, SalesOrderWarehouseUnassignInput }
 import { z } from 'zod'
 import { reserveInventoryForConfirmedOrder } from '../lib/salesOrderInventoryAutomation'
 import { ensureOrganizationScope, ensureTenantScope } from './shared'
+import { forkEm } from '@open-mercato/shared/lib/commands/helpers'
 
 type AssignmentSnapshot = {
   id: string
@@ -38,10 +39,6 @@ function resolveScope(
     tenantId: fallback?.tenantId ?? ctx.auth?.tenantId ?? null,
     organizationId: fallback?.organizationId ?? ctx.selectedOrganizationId ?? ctx.auth?.orgId ?? null,
   }
-}
-
-function resolveEm(ctx: CommandRuntimeContext): EntityManager {
-  return (ctx.container.resolve('em') as EntityManager).fork()
 }
 
 async function loadAssignment(
@@ -88,7 +85,7 @@ const assignWarehouseHandler: CommandHandler<
 
   prepare: async (input, ctx) => {
     const scope = resolveScope(ctx, input)
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     const existing = await loadAssignment(em, input.salesOrderId, scope)
     return { before: snapshotAssignment(existing) }
   },
@@ -98,7 +95,7 @@ const assignWarehouseHandler: CommandHandler<
     if (!scope.tenantId || !scope.organizationId) {
       throw new CrudHttpError(401, { error: 'Unauthorized' })
     }
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
 
     const warehouse = await findOneWithDecryption(
       em,
@@ -143,7 +140,7 @@ const assignWarehouseHandler: CommandHandler<
 
   captureAfter: async (input, _result, ctx) => {
     const scope = resolveScope(ctx, input)
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     const updated = await loadAssignment(em, input.salesOrderId, scope)
     return { after: snapshotAssignment(updated) }
   },
@@ -168,7 +165,7 @@ const assignWarehouseHandler: CommandHandler<
   undo: async ({ logEntry, ctx }) => {
     const payload = extractUndoPayload<AssignWarehouseUndoPayload>(logEntry)
     if (!payload) return
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
 
     const after = payload.after
     const before = payload.before
@@ -223,7 +220,7 @@ const unassignWarehouseHandler: CommandHandler<
 
   prepare: async (input, ctx) => {
     const scope = resolveScope(ctx, input)
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     const existing = await loadAssignment(em, input.salesOrderId, scope)
     return { before: snapshotAssignment(existing) }
   },
@@ -233,7 +230,7 @@ const unassignWarehouseHandler: CommandHandler<
     if (!scope.tenantId || !scope.organizationId) {
       throw new CrudHttpError(401, { error: 'Unauthorized' })
     }
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     const existing = await loadAssignment(em, input.salesOrderId, scope)
 
     if (existing) {
@@ -265,7 +262,7 @@ const unassignWarehouseHandler: CommandHandler<
     if (!before?.salesOrderId || !before.warehouseId) return
 
     const scope = { tenantId: before.tenantId, organizationId: before.organizationId }
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
 
     const existingDeleted = await findOneWithDecryption(
       em,

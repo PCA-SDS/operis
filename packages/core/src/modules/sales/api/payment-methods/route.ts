@@ -4,7 +4,7 @@ import { splitCustomFieldPayload } from '@open-mercato/shared/lib/crud/custom-fi
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { SalesPaymentMethod } from '../../data/entities'
 import { paymentMethodCreateSchema, paymentMethodUpdateSchema } from '../../data/validators'
-import { buildAggregateSearchFilter, parseScopedCommandInput, resolveCrudRecordId } from '../utils'
+import { parseScopedCommandInput, resolveCrudRecordId } from '../utils'
 import { E } from '#generated/entities.ids.generated'
 import * as F from '#generated/entities/sales_payment_method'
 import {
@@ -12,21 +12,9 @@ import {
   createSalesCrudOpenApi,
   defaultDeleteRequestSchema,
 } from '../openapi'
-import { parseBooleanToken } from '@open-mercato/shared/lib/boolean'
+import { buildFilters, listSchema } from '../listFilters'
 
 const rawBodySchema = z.object({}).passthrough()
-
-const listSchema = z
-  .object({
-    page: z.coerce.number().int().min(1).default(1),
-    pageSize: z.coerce.number().int().min(1).max(100).default(50),
-    search: z.string().optional(),
-    isActive: z.string().optional(),
-    sortField: z.string().optional(),
-    sortDir: z.enum(['asc', 'desc']).optional(),
-    withDeleted: z.coerce.boolean().optional(),
-  })
-  .passthrough()
 
 const routeMetadata = {
   GET: { requireAuth: true, requireFeatures: ['sales.settings.manage'] },
@@ -55,15 +43,6 @@ const paymentMethodItemSchema = z.object({
 })
 
 const paymentMethodListResponseSchema = createPagedListResponseSchema(paymentMethodItemSchema)
-
-function buildFilters(query: z.infer<typeof listSchema>): Record<string, unknown> {
-  const filters: Record<string, unknown> = {}
-  const searchFilter = buildAggregateSearchFilter(query.search)
-  if (searchFilter) Object.assign(filters, searchFilter)
-  const isActive = parseBooleanToken(query.isActive)
-  if (isActive !== null) filters.is_active = isActive
-  return filters
-}
 
 const crud = makeCrudRoute({
   metadata: routeMetadata,

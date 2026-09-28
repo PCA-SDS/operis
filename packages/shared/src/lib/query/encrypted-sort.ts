@@ -1,5 +1,6 @@
 import type { EntityId } from '@open-mercato/shared/modules/entities'
 import { SortDir, type Sort } from './types'
+import { toSnakeCase } from '../string/case'
 
 export type QueryEncryptionService = {
   getEncryptedFieldNames?: (
@@ -9,9 +10,6 @@ export type QueryEncryptionService = {
   ) => Promise<readonly string[]>
   isEnabled?: () => boolean
 }
-
-const toSnakeCase = (value: string): string =>
-  value.replace(/([A-Z])/g, '_$1').replace(/__/g, '_').toLowerCase()
 
 const toCamelCase = (value: string): string =>
   value.replace(/_([a-z])/g, (_, c) => c.toUpperCase())

@@ -11,6 +11,7 @@ import type { RbacService } from '@open-mercato/core/modules/auth/services/rbacS
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { isOrganizationReadAccessAllowed } from '@open-mercato/core/modules/directory/utils/organizationScopeGuard'
+import { forbidden, notFound } from '../../../detailRouteHelpers'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['customers.deals.view'] },
@@ -19,14 +20,6 @@ export const metadata = {
 const paramsSchema = z.object({
   id: z.string().uuid(),
 })
-
-function notFound(message: string) {
-  return NextResponse.json({ error: message }, { status: 404 })
-}
-
-function forbidden(message: string) {
-  return NextResponse.json({ error: message }, { status: 403 })
-}
 
 function badRequest(message: string, code?: string) {
   return NextResponse.json(

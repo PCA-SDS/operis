@@ -9,6 +9,7 @@ import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/d
 import { User } from '@open-mercato/core/modules/auth/data/entities'
 import { StaffTeamMember, StaffTeamRole } from '../../data/entities'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { UUID_SHAPE_PATTERN } from '@open-mercato/shared/lib/validation'
 
 const logger = createLogger('staff').child({ component: 'user-assignments' })
 
@@ -22,14 +23,12 @@ const querySchema = z.object({
   organizationIds: z.string().min(1),
 })
 
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
 function parseOrganizationIds(raw: string): string[] {
   return Array.from(new Set(
     raw
       .split(',')
       .map((value) => value.trim())
-      .filter((value) => UUID_PATTERN.test(value)),
+      .filter((value) => UUID_SHAPE_PATTERN.test(value)),
   ))
 }
 

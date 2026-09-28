@@ -2,11 +2,11 @@ import type { CredentialsService } from '@open-mercato/core/modules/integrations
 import type { IntegrationLogService } from '@open-mercato/core/modules/integrations/lib/log-service'
 import {
   mapOrganizationsToScopes,
-  parseCliArgs,
   resolveCliMode,
   runConfigureFromEnv,
   runConfigureFromEnvForScopes,
 } from '../lib/configure-from-env'
+import { parseCliArgs } from '@open-mercato/shared/lib/cli/args'
 
 function buildLogService() {
   const info = jest.fn()

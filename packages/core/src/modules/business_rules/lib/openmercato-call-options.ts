@@ -16,6 +16,7 @@ import {
   type OpenMercatoCallMethod,
   type OpenMercatoEndpointOption,
 } from './openmercato-call-options-types'
+import { RFC_UUID_PATTERN } from '@open-mercato/shared/lib/validation'
 
 export type OpenMercatoCallScope = {
   tenantId: string
@@ -25,7 +26,6 @@ export type OpenMercatoCallScope = {
 const METHOD_ORDER = new Map<string, number>(
   OPENMERCATO_CALL_METHODS.map((method, index) => [method, index]),
 )
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 function isOpenMercatoCallMethod(value: string): value is OpenMercatoCallMethod {
   return OPENMERCATO_CALL_METHODS.includes(value as OpenMercatoCallMethod)
@@ -244,7 +244,7 @@ export async function resolveOpenMercatoApiKeyProfile(
   scope: OpenMercatoCallScope,
 ): Promise<ApiKey | null> {
   if (!apiKeyId || typeof apiKeyId !== 'string') return null
-  if (!UUID_RE.test(apiKeyId)) return null
+  if (!RFC_UUID_PATTERN.test(apiKeyId)) return null
   const filters: Record<string, any> = {
     id: apiKeyId,
     tenantId: scope.tenantId,

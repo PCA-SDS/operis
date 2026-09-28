@@ -37,23 +37,18 @@ import { StatusBadge, type StatusBadgeVariant } from '@open-mercato/ui/primitive
 import { Checkbox } from '@open-mercato/ui/primitives/checkbox'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { E } from '#generated/entities.ids.generated'
-import {
-  inventoryMovementReasonLabel,
-  type InventoryDisplayTranslator,
-} from '../../lib/inventoryDisplayUi'
 import { AdjustInventoryDialog } from './AdjustInventoryDialog'
 import { CycleCountWizardDialog } from './CycleCountWizardDialog'
 import { LocationEditDialog } from './LocationEditDialog'
 import { useWmsInventoryMutationAccess } from './useWmsInventoryMutationAccess'
+import { useBalancePageSelection } from './useBalancePageSelection'
 import { downloadCsvExport } from '../../lib/downloadCsvExport'
+import { toFiniteNumber } from '@open-mercato/shared/lib/number'
+import { isNearExpiry, isExpired, formatWarehouseLabel, formatLotLabel, type InventoryLotRow } from './inventoryDetailFormat'
+import type { PagedResponse, InventoryBalanceRow, InventoryMovementRow } from './inventoryTypes'
+import { movementTypeLabel, movementStatusMap, formatMovementTitle, formatMovementSubtitle } from './inventoryMovementDisplay'
 
 const locationIdSchema = z.string().uuid()
-
-type PagedResponse<T> = {
-  items: T[]
-  total: number
-  totalPages: number
-}
 
 type LocationRow = {
   id: string
@@ -74,52 +69,6 @@ type InventoryProfileRow = {
   reorder_point?: string | number | null
 }
 
-type InventoryBalanceRow = {
-  id: string
-  warehouse_id?: string | null
-  warehouse_name?: string | null
-  warehouse_code?: string | null
-  location_id?: string | null
-  location_code?: string | null
-  catalog_variant_id?: string | null
-  variant_name?: string | null
-  variant_sku?: string | null
-  lot_id?: string | null
-  quantity_on_hand?: string | number | null
-  quantity_reserved?: string | number | null
-  quantity_allocated?: string | number | null
-  quantity_available?: number | null
-}
-
-type InventoryLotRow = {
-  id: string
-  lot_number?: string | null
-  expires_at?: string | null
-  status?: string | null
-}
-
-type InventoryMovementRow = {
-  id: string
-  warehouse_id?: string | null
-  warehouse_name?: string | null
-  warehouse_code?: string | null
-  location_from_id?: string | null
-  location_from_code?: string | null
-  location_to_id?: string | null
-  location_to_code?: string | null
-  catalog_variant_id?: string | null
-  variant_sku?: string | null
-  variant_name?: string | null
-  quantity?: string | number | null
-  type?: string | null
-  reference_type?: string | null
-  reference_id?: string | null
-  reason?: string | null
-  reason_code?: string | null
-  performed_at?: string | null
-  received_at?: string | null
-}
-
 type InventoryMutationPreset = {
   warehouseId?: string
   locationId?: string
@@ -128,24 +77,6 @@ type InventoryMutationPreset = {
 }
 
 type ItemFilter = 'all' | 'sellable' | 'picking' | 'nearExpiry'
-
-const NEAR_EXPIRY_MS = 30 * 24 * 60 * 60 * 1000
-
-function toNumber(value: string | number | null | undefined): number {
-  const parsed = Number(value ?? 0)
-  return Number.isFinite(parsed) ? parsed : 0
-}
-
-function formatWarehouseLabel(row: {
-  warehouse_name?: string | null
-  warehouse_code?: string | null
-  warehouse_id?: string | null
-}): string {
-  const code = (row.warehouse_code ?? '').trim()
-  const name = (row.warehouse_name ?? '').trim()
-  if (code && name) return `${code} · ${name}`
-  return name || code || row.warehouse_id || '—'
-}
 
 function formatSkuLabel(row: InventoryBalanceRow): string {
   const sku = (row.variant_sku ?? '').trim()
@@ -157,32 +88,6 @@ function formatSkuLabel(row: InventoryBalanceRow): string {
 
 function formatVariantName(row: InventoryBalanceRow): string {
   return (row.variant_name ?? '').trim() || '—'
-}
-
-function formatLotLabel(
-  lot: InventoryLotRow | undefined,
-  locale: string,
-): string {
-  if (!lot) return '—'
-  const number = (lot.lot_number ?? '').trim() || lot.id
-  if (!lot.expires_at) return number
-  const expires = new Date(lot.expires_at)
-  if (Number.isNaN(expires.getTime())) return number
-  const expLabel = new Intl.DateTimeFormat(locale, { month: '2-digit', year: '2-digit' }).format(expires)
-  return `${number} · exp ${expLabel}`
-}
-
-function isNearExpiry(expiresAt: string | null | undefined, nowMs: number): boolean {
-  if (!expiresAt) return false
-  const expires = new Date(expiresAt).getTime()
-  if (Number.isNaN(expires)) return false
-  return expires > nowMs && expires - nowMs <= NEAR_EXPIRY_MS
-}
-
-function isExpired(expiresAt: string | null | undefined, nowMs: number): boolean {
-  if (!expiresAt) return false
-  const expires = new Date(expiresAt).getTime()
-  return !Number.isNaN(expires) && expires <= nowMs
 }
 
 function resolveItemStatus(
@@ -213,8 +118,8 @@ function resolveItemStatus(
       labelFallback: 'Low stock',
     }
   }
-  const reserved = toNumber(row.quantity_reserved)
-  const allocated = toNumber(row.quantity_allocated)
+  const reserved = toFiniteNumber(row.quantity_reserved)
+  const allocated = toFiniteNumber(row.quantity_allocated)
   if (reserved > 0 || allocated > 0) {
     return {
       variant: 'info',
@@ -241,100 +146,12 @@ function matchesItemFilter(
     case 'sellable':
       return (row.quantity_available ?? 0) > 0 && !isExpired(lot?.expires_at, nowMs) && lot?.status !== 'expired'
     case 'picking':
-      return toNumber(row.quantity_reserved) > 0 || toNumber(row.quantity_allocated) > 0
+      return toFiniteNumber(row.quantity_reserved) > 0 || toFiniteNumber(row.quantity_allocated) > 0
     case 'nearExpiry':
       return isNearExpiry(lot?.expires_at, nowMs) || lot?.status === 'expired'
     default:
       return true
   }
-}
-
-function movementTypeLabel(type: string, t: ReturnType<typeof useT>): string {
-  const key = `wms.backend.location.activity.types.${type}`
-  const fallbacks: Record<string, string> = {
-    receipt: 'Receive',
-    return_receive: 'Receive',
-    adjust: 'Adjust',
-    transfer: 'Move',
-    pick: 'Allocate',
-    pack: 'Allocate',
-    cycle_count: 'Reconcile',
-    putaway: 'Putaway',
-    ship: 'Ship',
-  }
-  return t(key, fallbacks[type] ?? type)
-}
-
-const movementStatusMap: Record<string, StatusBadgeVariant> = {
-  receipt: 'success',
-  return_receive: 'success',
-  adjust: 'warning',
-  transfer: 'info',
-  pick: 'info',
-  pack: 'info',
-  cycle_count: 'neutral',
-  putaway: 'info',
-  ship: 'success',
-}
-
-function formatMovementTitle(
-  row: InventoryMovementRow,
-  skuLabel: string,
-  t: ReturnType<typeof useT>,
-): string {
-  const quantity = Math.abs(toNumber(row.quantity))
-  const signedQuantity = toNumber(row.quantity)
-  switch (row.type) {
-    case 'receipt':
-    case 'return_receive':
-      return t('wms.backend.dashboard.activity.titles.received', 'Received {quantity}× {sku}', {
-        quantity,
-        sku: skuLabel,
-      })
-    case 'adjust':
-      return t('wms.backend.dashboard.activity.titles.adjusted', 'Adjusted {quantity}× {sku}', {
-        quantity: `${signedQuantity >= 0 ? '+' : ''}${signedQuantity}`,
-        sku: skuLabel,
-      })
-    case 'transfer':
-      return t('wms.backend.dashboard.activity.titles.moved', 'Moved {quantity}× {sku}', {
-        quantity,
-        sku: skuLabel,
-      })
-    case 'pick':
-    case 'pack':
-      return t('wms.backend.dashboard.activity.titles.allocated', 'Allocated {quantity}× {sku}', {
-        quantity,
-        sku: skuLabel,
-      })
-    case 'cycle_count':
-      return t('wms.backend.dashboard.activity.titles.reconciled', 'Inventory reconciled — {sku}', {
-        sku: skuLabel,
-      })
-    default:
-      return t('wms.backend.dashboard.activity.titles.generic', '{type} {quantity}× {sku}', {
-        type: row.type ?? 'movement',
-        quantity,
-        sku: skuLabel,
-      })
-  }
-}
-
-function formatMovementSubtitle(
-  row: InventoryMovementRow,
-  t: InventoryDisplayTranslator,
-): string | null {
-  const reasonLabel = inventoryMovementReasonLabel(
-    {
-      reasonCode: row.reason_code,
-      reason: row.reason,
-      movementType: row.type,
-    },
-    t,
-  )
-  if (reasonLabel) return reasonLabel
-  if (row.reference_type && row.reference_id) return `${row.reference_type} · ${row.reference_id}`
-  return null
 }
 
 function formatMovementLocation(
@@ -575,7 +392,7 @@ export default function WmsLocationDetailPage({ locationId }: WmsLocationDetailP
     for (const profile of profilesQuery.data ?? []) {
       const variantId = profile.catalog_variant_id?.trim()
       if (!variantId) continue
-      map.set(variantId, toNumber(profile.reorder_point))
+      map.set(variantId, toFiniteNumber(profile.reorder_point))
     }
     return map
   }, [profilesQuery.data])
@@ -599,13 +416,13 @@ export default function WmsLocationDetailPage({ locationId }: WmsLocationDetailP
     const skuIds = new Set<string>()
     const lotIds = new Set<string>()
     for (const row of items) {
-      onHand += toNumber(row.quantity_on_hand)
-      reserved += toNumber(row.quantity_reserved)
-      allocated += toNumber(row.quantity_allocated)
+      onHand += toFiniteNumber(row.quantity_on_hand)
+      reserved += toFiniteNumber(row.quantity_reserved)
+      allocated += toFiniteNumber(row.quantity_allocated)
       const variantId = row.catalog_variant_id?.trim()
-      if (variantId && toNumber(row.quantity_on_hand) > 0) skuIds.add(variantId)
+      if (variantId && toFiniteNumber(row.quantity_on_hand) > 0) skuIds.add(variantId)
       const lotId = row.lot_id?.trim()
-      if (lotId && toNumber(row.quantity_on_hand) > 0) lotIds.add(lotId)
+      if (lotId && toFiniteNumber(row.quantity_on_hand) > 0) lotIds.add(lotId)
     }
     return {
       onHand,
@@ -618,7 +435,7 @@ export default function WmsLocationDetailPage({ locationId }: WmsLocationDetailP
   }, [balancesQuery.data?.items])
 
   const capacityUsedPercent = React.useMemo(() => {
-    const capacity = toNumber(locationQuery.data?.capacity_units)
+    const capacity = toFiniteNumber(locationQuery.data?.capacity_units)
     if (capacity <= 0) return null
     return Math.min(100, Math.round((totals.onHand / capacity) * 100))
   }, [locationQuery.data?.capacity_units, totals.onHand])
@@ -699,36 +516,11 @@ export default function WmsLocationDetailPage({ locationId }: WmsLocationDetailP
     }
   }, [scopedLocationId, selectedBalances, warehouseId])
 
-  const toggleBalanceSelection = React.useCallback((balanceId: string, selected: boolean) => {
-    setSelectedBalanceIds((current) => {
-      const next = new Set(current)
-      if (selected) next.add(balanceId)
-      else next.delete(balanceId)
-      return next
-    })
-  }, [])
-
-  const togglePageSelection = React.useCallback((selected: boolean) => {
-    setSelectedBalanceIds((current) => {
-      const next = new Set(current)
-      for (const row of pagedBalances) {
-        if (selected) next.add(row.id)
-        else next.delete(row.id)
-      }
-      return next
-    })
-  }, [pagedBalances])
-
-  const pageSelectionState = React.useMemo(() => {
-    if (pagedBalances.length === 0) {
-      return { checked: false, indeterminate: false }
-    }
-    const selectedOnPage = pagedBalances.filter((row) => selectedBalanceIds.has(row.id)).length
-    return {
-      checked: selectedOnPage === pagedBalances.length,
-      indeterminate: selectedOnPage > 0 && selectedOnPage < pagedBalances.length,
-    }
-  }, [pagedBalances, selectedBalanceIds])
+  const { toggleBalanceSelection, togglePageSelection, pageSelectionState } = useBalancePageSelection(
+    pagedBalances,
+    selectedBalanceIds,
+    setSelectedBalanceIds,
+  )
 
   const handleExportItemsCsv = React.useCallback(() => {
     const columns = [
@@ -749,8 +541,8 @@ export default function WmsLocationDetailPage({ locationId }: WmsLocationDetailP
         lot: formatLotLabel(lot, locale),
         // Raw numbers, not strings: the serializer exempts `number` from formula
         // neutralization, so a stringified negative would export as `'-7`.
-        onHand: toNumber(row.quantity_on_hand),
-        reserved: toNumber(row.quantity_reserved),
+        onHand: toFiniteNumber(row.quantity_on_hand),
+        reserved: toFiniteNumber(row.quantity_reserved),
         status: t(status.labelKey, status.labelFallback),
       }
     })
@@ -836,12 +628,12 @@ export default function WmsLocationDetailPage({ locationId }: WmsLocationDetailP
       {
         accessorKey: 'quantity_on_hand',
         header: t('wms.backend.location.items.columns.onHand', 'On hand'),
-        cell: ({ row }) => String(toNumber(row.original.quantity_on_hand)),
+        cell: ({ row }) => String(toFiniteNumber(row.original.quantity_on_hand)),
       },
       {
         accessorKey: 'quantity_reserved',
         header: t('wms.backend.location.items.columns.reserved', 'Reserved'),
-        cell: ({ row }) => String(toNumber(row.original.quantity_reserved)),
+        cell: ({ row }) => String(toFiniteNumber(row.original.quantity_reserved)),
       },
       {
         id: 'status',
@@ -881,7 +673,7 @@ export default function WmsLocationDetailPage({ locationId }: WmsLocationDetailP
           const type = row.original.type ?? 'movement'
           return (
             <StatusBadge variant={movementStatusMap[type] ?? 'neutral'}>
-              {movementTypeLabel(type, t)}
+              {movementTypeLabel(type, t, 'location')}
             </StatusBadge>
           )
         },

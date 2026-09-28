@@ -7,16 +7,13 @@ import type { EntityManager, FilterQuery } from '@mikro-orm/postgresql'
 import { findAndCountWithDecryption, findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { SyncMapping } from '@open-mercato/core/modules/data_sync/data/entities'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
-import {
-  runCrudMutationGuardAfterSuccess,
-  validateCrudMutationGuard,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const listMappingsQuerySchema = z.object({
   integrationId: z.string().min(1).optional(),
   entityType: z.string().min(1).optional(),
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  ...paginationQuerySchema({ defaultPageSize: 20 }).shape,
 })
 
 const createMappingSchema = z.object({
@@ -129,38 +126,26 @@ export async function POST(req: Request) {
     scope,
   )
 
-  const guardResult = await validateCrudMutationGuard(container, {
-    tenantId: scope.tenantId,
-    organizationId: scope.organizationId,
-    userId: auth.sub,
-    resourceKind: 'data_sync.mapping',
-    resourceId: existing?.id ?? scope.organizationId,
-    operation: existing ? 'update' : 'create',
-    requestMethod: req.method,
-    requestHeaders: req.headers,
-    mutationPayload: parsed.data,
+  const guardResult = await runRouteMutationGuards({
+    container,
+    req,
+    auth: { userId: auth.sub, tenantId: scope.tenantId, organizationId: scope.organizationId },
+    input: {
+      resourceKind: 'data_sync.mapping',
+      resourceId: existing?.id ?? scope.organizationId,
+      operation: existing ? 'update' : 'create',
+      mutationPayload: parsed.data,
+    },
   })
-  if (guardResult && !guardResult.ok) {
-    return NextResponse.json(guardResult.body, { status: guardResult.status })
+  if (!guardResult.ok) {
+    return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
   }
 
   if (existing) {
     existing.mapping = parsed.data.mapping
     await em.flush()
 
-    if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-      await runCrudMutationGuardAfterSuccess(container, {
-        tenantId: scope.tenantId,
-        organizationId: scope.organizationId,
-        userId: auth.sub,
-        resourceKind: 'data_sync.mapping',
-        resourceId: existing.id,
-        operation: 'update',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
-        metadata: guardResult.metadata ?? null,
-      })
-    }
+    await guardResult.runAfterSuccess()
 
     return NextResponse.json({
       id: existing.id,
@@ -179,19 +164,7 @@ export async function POST(req: Request) {
   })
   await em.persist(created).flush()
 
-  if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-    await runCrudMutationGuardAfterSuccess(container, {
-      tenantId: scope.tenantId,
-      organizationId: scope.organizationId,
-      userId: auth.sub,
-      resourceKind: 'data_sync.mapping',
-      resourceId: created.id,
-      operation: 'create',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      metadata: guardResult.metadata ?? null,
-    })
-  }
+  await guardResult.runAfterSuccess({ resourceId: created.id })
 
   return NextResponse.json({
     id: created.id,

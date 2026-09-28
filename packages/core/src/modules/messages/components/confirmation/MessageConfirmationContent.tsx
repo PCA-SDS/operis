@@ -5,7 +5,8 @@ import type { MessageContentProps } from '@open-mercato/shared/modules/messages/
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { MarkdownContent } from '@open-mercato/ui/backend/markdown/MarkdownContent'
-import { formatDateTime, toErrorMessage } from '../message-detail/utils'
+import { toErrorMessage } from '../message-detail/utils'
+import { formatDateTime } from '@open-mercato/shared/lib/time'
 
 type MessageConfirmationResult = {
   messageId: string
@@ -50,7 +51,7 @@ export function MessageConfirmationContent({ message }: MessageContentProps) {
             : t('messages.confirmation.notConfirmed', 'Not confirmed')}
         </p>
         <p className="text-xs text-muted-foreground">
-          {t('messages.confirmation.confirmedAt', 'Confirmed at')}: {formatDateTime(confirmation?.confirmedAt ?? null)}
+          {t('messages.confirmation.confirmedAt', 'Confirmed at')}: {formatDateTime(confirmation?.confirmedAt ?? null, { fallback: '—' })}
         </p>
       </div>
     </div>

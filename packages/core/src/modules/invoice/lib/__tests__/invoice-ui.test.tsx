@@ -33,7 +33,7 @@ describe('invoice UI regressions', () => {
           for (const match of source.matchAll(/\bt\('(invoice\.[^']+)'/g)) {
             if (!(match[1] in english)) missing.add(match[1])
           }
-          if (/\bt\([^\n]*?,\s*\{\s*fallback:/.test(source)) invalidFallbacks.push(filename)
+          if (/\bt\('[^']*',\s*\{\s*fallback:/.test(source)) invalidFallbacks.push(filename)
         }
       }
     }

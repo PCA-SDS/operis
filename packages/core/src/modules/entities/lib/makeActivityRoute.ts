@@ -1,17 +1,16 @@
 import { z, type ZodTypeAny } from 'zod'
-import type { EntityManager } from '@mikro-orm/postgresql'
 import { makeCrudRoute } from '@open-mercato/shared/lib/crud/factory'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { resolveCrudRecordId, parseScopedCommandInput } from '@open-mercato/shared/lib/api/scoped'
-import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
-import { User } from '@open-mercato/core/modules/auth/data/entities'
+import { attachAuthorMetadata } from './authorMetadata'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import type { CrudOpenApiOptions } from '@open-mercato/shared/lib/openapi/crud'
 import {
-  createPagedListResponseSchema as createSharedPagedListResponseSchema,
+  createOptionalMetaPagedListResponseSchema,
   defaultOkResponseSchema as sharedDefaultOkResponseSchema,
 } from '@open-mercato/shared/lib/openapi/crud'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 const logger = createLogger('entities').child({ component: 'activity-route' })
 
@@ -37,18 +36,13 @@ interface ActivityRouteConfig {
   }
 }
 
-function createPagedListResponseSchema(itemSchema: ZodTypeAny) {
-  return createSharedPagedListResponseSchema(itemSchema, { paginationMetaOptional: true })
-}
-
 const defaultOkResponseSchema = sharedDefaultOkResponseSchema
 
 const rawBodySchema = z.object({}).passthrough()
 
 const listSchema = z
   .object({
-    page: z.coerce.number().int().min(1).default(1),
-    pageSize: z.coerce.number().int().min(1).max(100).default(50),
+    ...paginationQuerySchema().shape,
     entityId: z.string().uuid().optional(),
     sortField: z.string().optional(),
     sortDir: z.enum(['asc', 'desc']).optional(),
@@ -227,52 +221,8 @@ export function makeActivityRoute(config: ActivityRouteConfig) {
       afterList: async (payload, ctx) => {
         const items = Array.isArray(payload.items) ? payload.items : []
         if (!items.length) return
-        const userIds = new Set<string>()
-        items.forEach((item: unknown) => {
-          if (!item || typeof item !== 'object') return
-          const record = item as Record<string, unknown>
-          const userId =
-            typeof record.author_user_id === 'string'
-              ? record.author_user_id
-              : typeof record.authorUserId === 'string'
-                ? record.authorUserId
-                : null
-          if (userId) userIds.add(userId)
-        })
-        if (!userIds.size) return
         try {
-          const em = (ctx.container.resolve('em') as EntityManager).fork()
-          const users = await findWithDecryption(
-            em,
-            User,
-            { id: { $in: Array.from(userIds) } },
-            undefined,
-            { tenantId: ctx.auth?.tenantId ?? null, organizationId: ctx.selectedOrganizationId ?? null },
-          )
-          const map = new Map<string, { name: string | null; email: string | null }>()
-          users.forEach((user) => {
-            const name = typeof user.name === 'string' && user.name.trim().length
-              ? user.name.trim()
-              : null
-            map.set(user.id, { name, email: user.email ?? null })
-          })
-          items.forEach((item: unknown) => {
-            if (!item || typeof item !== 'object') return
-            const record = item as Record<string, unknown>
-            const userId =
-              typeof record.author_user_id === 'string'
-                ? record.author_user_id
-                : typeof record.authorUserId === 'string'
-                  ? record.authorUserId
-                  : null
-            if (!userId) return
-            const meta = map.get(userId)
-            if (!meta) return
-            record.authorName = meta.name
-            record.authorEmail = meta.email
-            if (!('author_name' in record)) record.author_name = meta.name
-            if (!('author_email' in record)) record.author_email = meta.email
-          })
+          await attachAuthorMetadata(items, ctx)
         } catch (err) {
           logger.warn('Failed to enrich author metadata', { logPrefix, err })
         }
@@ -301,7 +251,7 @@ export function makeActivityRoute(config: ActivityRouteConfig) {
   const openApi = openApiFactory({
     resourceName: openApiConfig.resourceName,
     querySchema: listSchema,
-    listResponseSchema: createPagedListResponseSchema(activityListItemSchema),
+    listResponseSchema: createOptionalMetaPagedListResponseSchema(activityListItemSchema),
     create: {
       schema: createSchema,
       responseSchema: activityCreateResponseSchema,

@@ -24,6 +24,7 @@ import {
 } from '../../../../vector/lib/ollama-url-safety'
 import { searchDebug, searchDebugWarn, searchError } from '../../../../lib/debug'
 import { embeddingsOpenApi } from '../openapi'
+import { unauthorizedResponse } from '@open-mercato/shared/lib/http/responses'
 
 const embeddingConfigSchema = z.object({
   providerId: z.enum(['openai', 'google', 'mistral', 'cohere', 'bedrock', 'ollama']),
@@ -62,11 +63,6 @@ type SettingsResponse = {
 const openAiConfigured = () => Boolean(process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.trim().length > 0)
 
 const toJson = (payload: SettingsResponse, init?: ResponseInit) => NextResponse.json(payload, init)
-
-const unauthorized = async () => {
-  const { t } = await resolveTranslations()
-  return NextResponse.json({ error: t('api.errors.unauthorized', 'Unauthorized') }, { status: 401 })
-}
 
 const configUnavailable = async () => {
   const { t } = await resolveTranslations()
@@ -125,7 +121,7 @@ async function getVectorDocumentCount(
 
 export async function GET(req: Request) {
   const auth = await getAuthFromRequest(req)
-  if (!auth?.sub) return await unauthorized()
+  if (!auth?.sub) return await unauthorizedResponse()
 
   const container = await createRequestContainer()
   try {
@@ -187,7 +183,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const { t } = await resolveTranslations()
   const auth = await getAuthFromRequest(req)
-  if (!auth?.sub) return await unauthorized()
+  if (!auth?.sub) return await unauthorizedResponse()
 
   let body: unknown
   try {

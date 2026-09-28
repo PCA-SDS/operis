@@ -1,5 +1,5 @@
 import type { ActionLog } from '@open-mercato/core/modules/audit_logs/data/entities'
-import { isRecord } from '@open-mercato/shared/lib/utils'
+import { isRecord } from '@open-mercato/shared/lib/guards'
 import type { SalesNote } from '../data/entities'
 
 export type HistoryEntry = {

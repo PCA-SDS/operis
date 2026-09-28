@@ -5,7 +5,7 @@ import { Package, Tag as TagIcon } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { KeyValueList, RecordCardShell, TagRow, statusToTagVariant } from './RecordCardShell'
 import type { ProductRecordPayload } from './types'
-import { formatCurrency } from '../../utils/format'
+import { formatCurrency } from '@open-mercato/shared/lib/units/money'
 
 export interface ProductCardProps extends ProductRecordPayload {}
 

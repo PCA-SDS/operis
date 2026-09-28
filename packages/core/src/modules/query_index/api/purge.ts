@@ -5,10 +5,7 @@ import type { OpenApiMethodDoc, OpenApiRouteDoc } from '@open-mercato/shared/lib
 import { queryIndexTag, queryIndexErrorSchema, queryIndexOkSchema, queryIndexPurgeRequestSchema } from './openapi'
 import { recordIndexerLog } from '@open-mercato/shared/lib/indexers/status-log'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
-import {
-  runCrudMutationGuardAfterSuccess,
-  validateCrudMutationGuard,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['query_index.purge'] },
@@ -29,19 +26,19 @@ export async function POST(req: Request) {
   const bus = container.resolve('eventBus') as any
 
   const guardUserId = typeof auth.sub === 'string' ? auth.sub : ''
-  const guardResult = await validateCrudMutationGuard(container, {
-    tenantId: auth.tenantId,
-    organizationId: auth.orgId,
-    userId: guardUserId,
-    resourceKind: 'query_index',
-    resourceId: entityType,
-    operation: 'custom',
-    requestMethod: req.method,
-    requestHeaders: req.headers,
-    mutationPayload: { entityType },
+  const guardResult = await runRouteMutationGuards({
+    container,
+    req,
+    auth: { userId: guardUserId, tenantId: auth.tenantId, organizationId: auth.orgId },
+    input: {
+      resourceKind: 'query_index',
+      resourceId: entityType,
+      operation: 'custom',
+      mutationPayload: { entityType },
+    },
   })
-  if (guardResult && !guardResult.ok) {
-    return NextResponse.json(guardResult.body, { status: guardResult.status })
+  if (!guardResult.ok) {
+    return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
   }
 
   await recordIndexerLog(
@@ -72,19 +69,7 @@ export async function POST(req: Request) {
         organizationId: auth.orgId ?? null,
       },
     ).catch(() => undefined)
-    if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-      await runCrudMutationGuardAfterSuccess(container, {
-        tenantId: auth.tenantId,
-        organizationId: auth.orgId,
-        userId: guardUserId,
-        resourceKind: 'query_index',
-        resourceId: entityType,
-        operation: 'custom',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
-        metadata: guardResult.metadata ?? null,
-      })
-    }
+    await guardResult.runAfterSuccess()
   } catch (error) {
     await recordIndexerLog(
       { em: em ?? undefined },

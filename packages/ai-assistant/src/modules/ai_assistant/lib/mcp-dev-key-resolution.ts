@@ -10,7 +10,7 @@ const MCP_CONFIG_FILENAME = '.mcp.json'
 // project root — never from an unbounded walk up to the filesystem root.
 const PROJECT_ROOT_MARKERS = ['.git', 'yarn.lock', 'pnpm-lock.yaml', 'package-lock.json'] as const
 
-const log = (message: string, ...args: unknown[]) => {
+export const log = (message: string, ...args: unknown[]) => {
   logger.info(message, args.length > 0 ? { details: args.map((arg) => String(arg)).join(' ') } : undefined)
 }
 

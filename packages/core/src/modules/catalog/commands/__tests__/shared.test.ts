@@ -6,7 +6,6 @@ import {
   assertFound,
   extractUndoPayload,
   cloneJson,
-  toNumericString,
   requireProduct,
   requireVariant,
   requireOffer,
@@ -19,6 +18,7 @@ import type { CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
 import type { OrganizationScope } from '@open-mercato/core/modules/directory/utils/organizationScope'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import type { AwilixContainer } from 'awilix'
+import { toNumericString } from '@open-mercato/shared/lib/number'
 
 describe('catalog command shared helpers', () => {
   type AuthOverride = Partial<NonNullable<CommandRuntimeContext['auth']>> | null

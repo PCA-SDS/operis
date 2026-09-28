@@ -17,6 +17,7 @@ import {
   assertActorCanModifySuperAdminRoleTarget,
   normalizeGrantFeatureList,
 } from '@open-mercato/core/modules/auth/lib/grantChecks'
+import { normalizeOrganizations } from '../../aclRouteHelpers'
 
 type TaggableCache = { deleteByTags?: (tags: string[]) => Promise<void> | void }
 
@@ -260,11 +261,6 @@ export async function PUT(req: Request) {
     ok: true,
     sanitized: false,
   })
-}
-
-function normalizeOrganizations(organizations: unknown): string[] | null {
-  if (!Array.isArray(organizations)) return null
-  return normalizeGrantFeatureList(organizations)
 }
 
 export const openApi: OpenApiRouteDoc = {

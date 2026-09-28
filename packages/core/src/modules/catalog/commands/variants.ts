@@ -36,12 +36,12 @@ import {
   emitCatalogQueryIndexEvent,
   extractUndoPayload,
   requireProduct,
-  toNumericString,
   getErrorConstraint,
   getErrorMessage,
 } from './shared'
 import { SalesTaxRate } from '@open-mercato/core/modules/sales/data/entities'
 import type { CrudEventsConfig } from '@open-mercato/shared/lib/crud/types'
+import { toNumericString } from '@open-mercato/shared/lib/number'
 
 const variantCrudEvents: CrudEventsConfig = {
   module: 'catalog',

@@ -1,4 +1,4 @@
-import { z, type ZodTypeAny } from 'zod'
+import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import {
   createCrudOpenApiFactory,
@@ -11,9 +11,7 @@ export const defaultCreateResponseSchema = sharedDefaultCreateResponseSchema
 export const defaultOkResponseSchema = z.object({ ok: z.boolean() })
 export const defaultDeleteRequestSchema = z.object({ id: z.string().uuid() })
 
-export function createPagedListResponseSchema(itemSchema: ZodTypeAny) {
-  return createSharedPagedListResponseSchema(itemSchema)
-}
+export const createPagedListResponseSchema = createSharedPagedListResponseSchema
 
 const buildSalesCrudOpenApi = createCrudOpenApiFactory({
   defaultTag: 'Sales',

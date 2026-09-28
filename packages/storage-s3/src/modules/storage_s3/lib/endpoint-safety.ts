@@ -12,6 +12,7 @@ import {
   type ResolvedHostAddress,
   type UrlSafetyReason,
 } from '@open-mercato/shared/lib/url-safety'
+import { normalizeHostname } from '@open-mercato/shared/lib/network'
 
 const SUBJECT = 'S3 endpoint'
 
@@ -81,10 +82,10 @@ export function createSafeS3EndpointLookup(
     errorFactory: s3EndpointErrorFactory,
     subject: SUBJECT,
   })
-  const endpointHostname = normalizeLookupHostname(hostname)
+  const endpointHostname = normalizeHostname(hostname)
 
   return (host, options, callback) => {
-    const lookupHostname = normalizeLookupHostname(host)
+    const lookupHostname = normalizeHostname(host)
     if (!isAllowedS3LookupHost(lookupHostname, endpointHostname)) {
       callback(new UnsafeS3EndpointError(
         'blocked_hostname',
@@ -113,17 +114,6 @@ export function createSafeS3EndpointLookup(
       callback(error instanceof Error ? error : new UnsafeS3EndpointError('dns_resolution_failed'), '', 0)
     })
   }
-}
-
-function normalizeLookupHostname(hostname: string): string {
-  let normalized = hostname.trim().toLowerCase()
-  if (normalized.startsWith('[') && normalized.endsWith(']')) {
-    normalized = normalized.slice(1, -1)
-  }
-  while (normalized.endsWith('.')) {
-    normalized = normalized.slice(0, -1)
-  }
-  return normalized
 }
 
 function isAllowedS3LookupHost(lookupHostname: string, endpointHostname: string): boolean {

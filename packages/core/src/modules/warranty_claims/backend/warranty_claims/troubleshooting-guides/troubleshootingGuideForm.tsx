@@ -13,6 +13,8 @@ import {
   type TroubleshootingNode,
 } from '../../../lib/troubleshooting'
 import { TroubleshootingTreeBuilder } from './TroubleshootingTreeBuilder'
+import { isRecord } from '@open-mercato/shared/lib/guards'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
 
 export type TroubleshootingGuideRecord = {
   id: string
@@ -31,16 +33,8 @@ export type TroubleshootingGuideFormValues = Partial<Omit<TroubleshootingGuideRe
 
 const CLAIM_TYPE_ANY = 'any'
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
-
-function toStringOrNull(value: unknown): string | null {
-  return typeof value === 'string' && value.trim().length ? value.trim() : null
-}
-
 function nullableText(value: unknown): string | null {
-  return toStringOrNull(value)
+  return normalizeOptionalString(value)
 }
 
 function parseStepsJson(value: unknown, t: TranslateFn): TroubleshootingNode | null {
@@ -112,16 +106,16 @@ export function activeLabel(value: boolean, t: TranslateFn): string {
 
 export function normalizeTroubleshootingGuide(value: unknown): TroubleshootingGuideRecord | null {
   if (!isRecord(value)) return null
-  const id = toStringOrNull(value.id)
+  const id = normalizeOptionalString(value.id)
   if (!id) return null
   return {
     id,
-    title: toStringOrNull(value.title),
-    claimType: toStringOrNull(value.claimType),
-    reasonCode: toStringOrNull(value.reasonCode),
+    title: normalizeOptionalString(value.title),
+    claimType: normalizeOptionalString(value.claimType),
+    reasonCode: normalizeOptionalString(value.reasonCode),
     steps: parseGuideSteps(value.steps),
     isActive: value.isActive !== false,
-    updatedAt: toStringOrNull(value.updatedAt),
+    updatedAt: normalizeOptionalString(value.updatedAt),
   }
 }
 
@@ -142,7 +136,7 @@ export function buildTroubleshootingGuidePayload(
 ): Record<string, unknown> {
   const payload: Record<string, unknown> = {}
   if (id) payload.id = id
-  const claimType = toStringOrNull(values.claimType)
+  const claimType = normalizeOptionalString(values.claimType)
   payload.title = nullableText(values.title) ?? ''
   payload.claimType = claimType && claimType !== CLAIM_TYPE_ANY ? claimType : null
   payload.reasonCode = nullableText(values.reasonCode)

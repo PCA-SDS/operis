@@ -38,7 +38,7 @@ export function isPrivateUrl(rawUrl: string): boolean {
   return isPrivateIpAddress(hostname)
 }
 
-function normalizeHostname(hostname: string): string {
+export function normalizeHostname(hostname: string): string {
   let normalized = hostname.trim().toLowerCase()
   if (normalized.startsWith('[') && normalized.endsWith(']')) {
     normalized = normalized.slice(1, -1)

@@ -2,7 +2,7 @@ import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import {
   createCrudOpenApiFactory,
-  createPagedListResponseSchema as createSharedPagedListResponseSchema,
+  createOptionalMetaPagedListResponseSchema,
   defaultCreateResponseSchema,
   defaultOkResponseSchema,
   type CrudOpenApiOptions,
@@ -29,9 +29,7 @@ export const emailCommonErrors = [
   { status: 409, description: 'The record changed since it was loaded', schema: emailConflictErrorSchema },
 ] as const
 
-export function createPagedListResponseSchema(itemSchema: z.ZodTypeAny) {
-  return createSharedPagedListResponseSchema(itemSchema, { paginationMetaOptional: true })
-}
+export const createPagedListResponseSchema = createOptionalMetaPagedListResponseSchema
 
 const buildEmailCrudOpenApi = createCrudOpenApiFactory({
   defaultTag: emailTag,

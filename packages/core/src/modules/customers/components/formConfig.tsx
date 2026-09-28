@@ -68,6 +68,7 @@ import {
 } from '../lib/dictionaries'
 import { normalizeCustomFieldSubmitValue } from './detail/customFieldUtils'
 import { CUSTOMER_PHONE_INVALID_MESSAGE_KEY } from '../data/validators'
+import { emailSchema } from '@open-mercato/shared/lib/validation'
 
 export const metadata = {
   navHidden: true,
@@ -76,12 +77,6 @@ export const metadata = {
 function cn(...values: Array<string | null | undefined | false>) {
   return values.filter(Boolean).join(' ')
 }
-
-export type Translator = (
-  key: string,
-  fallback?: string,
-  params?: Record<string, string | number>,
-) => string
 
 export type PersonFormValues = {
   displayName: string
@@ -155,7 +150,7 @@ export type CustomerFormFieldOptions = {
 
 export { CUSTOMER_DICTIONARIES_MANAGE_HREF, getCustomerDictionaryManageHref }
 
-const emailValidationSchema = z.string().email()
+const emailValidationSchema = emailSchema()
 const EMAIL_CHECK_DEBOUNCE_MS = 350
 
 const createSectionHeadingField = (id: string, title: string): CrudField => ({
@@ -306,7 +301,7 @@ export function DictionarySelectField({
   )
 }
 
-const createPrimaryEmailField = (t: Translator): CrudField => ({
+const createPrimaryEmailField = (t: TranslateWithFallbackFn): CrudField => ({
   id: 'primaryEmail',
   label: t('customers.people.form.primaryEmail'),
   type: 'custom',
@@ -403,7 +398,7 @@ const dictionaryFieldDefinitions: DictionaryFieldDefinition[] = [
   },
 ]
 
-const buildDictionaryLabels = (t: Translator, definition: DictionaryFieldDefinition): DictionarySelectLabels => ({
+const buildDictionaryLabels = (t: TranslateWithFallbackFn, definition: DictionaryFieldDefinition): DictionarySelectLabels => ({
   placeholder: t(definition.placeholderKey),
   addLabel: t(definition.addLabelKey),
   addPrompt: t(definition.promptKey),
@@ -465,7 +460,7 @@ const companyDictionaryFieldDefinitions: DictionaryFieldDefinition[] = [
   },
 ]
 
-const createPrimaryPhoneField = (t: Translator, defaultCountryIso2?: string): CrudField => ({
+const createPrimaryPhoneField = (t: TranslateWithFallbackFn, defaultCountryIso2?: string): CrudField => ({
   id: 'primaryPhone',
   label: t('customers.people.form.primaryPhone'),
   type: 'custom',
@@ -832,10 +827,7 @@ export const createPersonFormSchema = () =>
         .or(z.literal(''))
         .transform((val) => (val === '' ? undefined : val))
         .optional(),
-      primaryEmail: z
-        .string()
-        .trim()
-        .email()
+      primaryEmail: emailSchema()
         .optional()
         .or(z.literal(''))
         .transform((val) => (val === '' ? undefined : val)),
@@ -887,7 +879,7 @@ export const createPersonFormSchema = () =>
     })
     .passthrough()
 
-export const createDisplayNameSection = (t: Translator) =>
+export const createDisplayNameSection = (t: TranslateWithFallbackFn) =>
   function DisplayNameSection({ values, setValue, errors }: CrudFormGroupComponentProps) {
     const [editing, setEditing] = React.useState(false)
     const [manualOverride, setManualOverride] = React.useState(() => {
@@ -983,7 +975,7 @@ export const createDisplayNameSection = (t: Translator) =>
     )
   }
 
-export const createPersonFormFields = (t: Translator, options?: CustomerFormFieldOptions): CrudField[] => {
+export const createPersonFormFields = (t: TranslateWithFallbackFn, options?: CustomerFormFieldOptions): CrudField[] => {
   const defaultCountryIso2 = options?.defaultCountryIso2
   const dictionaryActions = options?.dictionaryActions ?? 'buttons'
   const contactSection = createSectionHeadingField('__contactInformationSection', t('customers.people.form.sections.contactInformation'))
@@ -1212,7 +1204,7 @@ export const createPersonFormFields = (t: Translator, options?: CustomerFormFiel
 const customAttributesGroup = (group: CrudFormGroup): CrudFormGroup[] =>
   CUSTOMER_CUSTOM_ATTRIBUTES_IN_PRODUCT ? [group] : []
 
-export const createPersonFormGroups = (t: Translator): CrudFormGroup[] => [
+export const createPersonFormGroups = (t: TranslateWithFallbackFn): CrudFormGroup[] => [
   {
     id: 'details',
     title: t('customers.people.form.groups.details'),
@@ -1317,10 +1309,7 @@ export const createCompanyFormSchema = () =>
   z
     .object({
       displayName: z.string().trim().min(1),
-      primaryEmail: z
-        .string()
-        .trim()
-        .email()
+      primaryEmail: emailSchema()
         .optional()
         .or(z.literal(''))
         .transform((val) => (val === '' ? undefined : val)),
@@ -1463,7 +1452,7 @@ export const createCompanyFormSchema = () =>
     })
     .passthrough()
 
-export const createCompanyFormFields = (t: Translator, options?: CustomerFormFieldOptions): CrudField[] => {
+export const createCompanyFormFields = (t: TranslateWithFallbackFn, options?: CustomerFormFieldOptions): CrudField[] => {
   const defaultCountryIso2 = options?.defaultCountryIso2
   const dictionaryActions = options?.dictionaryActions ?? 'buttons'
   const dictionaryFields: CrudField[] = companyDictionaryFieldDefinitions.map((definition) => ({
@@ -1692,7 +1681,7 @@ export const createCompanyFormFields = (t: Translator, options?: CustomerFormFie
   ]
 }
 
-export const createCompanyFormGroups = (t: Translator): CrudFormGroup[] => [
+export const createCompanyFormGroups = (t: TranslateWithFallbackFn): CrudFormGroup[] => [
   {
     id: 'details',
     title: t('customers.companies.form.groups.details'),
@@ -1870,10 +1859,7 @@ const clearableUrlField = () =>
     .optional()
 
 const clearableEmailField = () =>
-  z
-    .string()
-    .trim()
-    .email()
+  emailSchema()
     .optional()
     .or(z.literal(''))
     .transform((val) => (val === '' ? null : val))
@@ -1950,7 +1936,7 @@ export const createPersonEditSchema = () =>
 // Edit-mode fields
 // ---------------------------------------------------------------------------
 
-const buildIndustryLabels = (t: Translator): DictionarySelectLabels => ({
+const buildIndustryLabels = (t: TranslateWithFallbackFn): DictionarySelectLabels => ({
   placeholder: t('customers.companies.form.industry.placeholder', 'Select industry…'),
   addLabel: t('customers.companies.form.dictionary.addIndustry', 'Add industry'),
   addPrompt: t('customers.companies.form.dictionary.promptIndustry', 'Enter a new industry.'),
@@ -1969,7 +1955,7 @@ const buildIndustryLabels = (t: Translator): DictionarySelectLabels => ({
   manageTitle: t('customers.people.form.dictionary.manage'),
 })
 
-export const createCompanyEditFields = (t: Translator, options?: CustomerFormFieldOptions): CrudField[] => {
+export const createCompanyEditFields = (t: TranslateWithFallbackFn, options?: CustomerFormFieldOptions): CrudField[] => {
   const baseFields = createCompanyFormFields(t, options)
   const dictionaryActions = options?.dictionaryActions ?? 'buttons'
   const industryLabels = buildIndustryLabels(t)
@@ -1997,7 +1983,7 @@ export const createCompanyEditFields = (t: Translator, options?: CustomerFormFie
   })
 }
 
-export const createPersonEditFields = (t: Translator, options?: CustomerFormFieldOptions): CrudField[] => {
+export const createPersonEditFields = (t: TranslateWithFallbackFn, options?: CustomerFormFieldOptions): CrudField[] => {
   const baseFields = createPersonFormFields(t, options)
   return [
     ...baseFields,
@@ -2028,7 +2014,7 @@ export const createPersonEditFields = (t: Translator, options?: CustomerFormFiel
 // Edit-mode groups
 // ---------------------------------------------------------------------------
 
-export const createCompanyEditGroups = (t: Translator): CrudFormGroup[] => [
+export const createCompanyEditGroups = (t: TranslateWithFallbackFn): CrudFormGroup[] => [
   {
     id: 'details',
     title: t('customers.companies.form.groups.details'),
@@ -2090,7 +2076,7 @@ export const createCompanyEditGroups = (t: Translator): CrudFormGroup[] => [
  * All zone-1 groups stay in a single vertical stack so drag-and-drop ordering
  * applies consistently across every section and persists per page type.
  */
-export const createCompanyDaneFiremyGroups = (t: Translator): CrudFormGroup[] => [
+export const createCompanyDaneFiremyGroups = (t: TranslateWithFallbackFn): CrudFormGroup[] => [
   {
     id: 'identity',
     title: t('customers.companies.form.groups.identity', 'Tożsamość'),
@@ -2129,7 +2115,7 @@ export const createCompanyDaneFiremyGroups = (t: Translator): CrudFormGroup[] =>
   }),
 ]
 
-export const createPersonEditGroups = (t: Translator): CrudFormGroup[] => [
+export const createPersonEditGroups = (t: TranslateWithFallbackFn): CrudFormGroup[] => [
   {
     id: 'details',
     title: t('customers.people.form.groups.details'),
@@ -2188,7 +2174,7 @@ export const createPersonEditGroups = (t: Translator): CrudFormGroup[] => [
  * Groups for the Person v2 "Dane osobowe" Figma layout (SPEC-048 mockup).
  * All groups in column 1 (Zone 1). Notes handled separately in Zone 2 tabs.
  */
-export const createPersonPersonalDataGroups = (t: Translator): CrudFormGroup[] => [
+export const createPersonPersonalDataGroups = (t: TranslateWithFallbackFn): CrudFormGroup[] => [
   {
     id: 'personalData',
     title: t('customers.people.form.groups.personalData', 'Personal data'),
@@ -2281,6 +2267,7 @@ import type {
   TodoLinkSummary,
   InteractionSummary,
 } from './detail/types'
+import type { TranslateWithFallbackFn } from '@open-mercato/shared/lib/i18n/translate'
 
 export type { TagSummary, CommentSummary, ActivitySummary, DealSummary, TodoLinkSummary, InteractionSummary }
 

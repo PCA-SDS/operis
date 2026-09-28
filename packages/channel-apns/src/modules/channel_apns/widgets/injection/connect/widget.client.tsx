@@ -22,6 +22,7 @@ import {
 import { Input } from '@open-mercato/ui/primitives/input'
 import { Label } from '@open-mercato/ui/primitives/label'
 import { Textarea } from '@open-mercato/ui/primitives/textarea'
+import { FormField } from '@open-mercato/ui/primitives/form-field'
 
 type WidgetContext = Record<string, unknown> & {
   reload?: () => void
@@ -155,7 +156,7 @@ export default function ConnectApnsWidget({
                 "This is a shared, tenant-wide channel — every user's devices in this workspace are served by it.",
               )}
             </p>
-            <Field
+            <FormField
               label={t('communication_channels.push.connect.displayName', 'Display name')}
               error={fieldErrors.displayName}
             >
@@ -164,8 +165,8 @@ export default function ConnectApnsWidget({
                 onChange={(event) => update('displayName', event.target.value)}
                 aria-invalid={Boolean(fieldErrors.displayName)}
               />
-            </Field>
-            <Field
+            </FormField>
+            <FormField
               label={t('communication_channels.push.connect.fields.apns.p8Key', 'APNs .p8 key')}
               error={fieldErrors.p8Key}
             >
@@ -176,9 +177,9 @@ export default function ConnectApnsWidget({
                 aria-invalid={Boolean(fieldErrors.p8Key)}
                 className="font-mono text-xs"
               />
-            </Field>
+            </FormField>
             <div className="grid gap-3 md:grid-cols-2">
-              <Field
+              <FormField
                 label={t('communication_channels.push.connect.fields.apns.keyId', 'Key ID')}
                 error={fieldErrors.keyId}
               >
@@ -187,8 +188,8 @@ export default function ConnectApnsWidget({
                   onChange={(event) => update('keyId', event.target.value)}
                   aria-invalid={Boolean(fieldErrors.keyId)}
                 />
-              </Field>
-              <Field
+              </FormField>
+              <FormField
                 label={t('communication_channels.push.connect.fields.apns.teamId', 'Team ID')}
                 error={fieldErrors.teamId}
               >
@@ -197,9 +198,9 @@ export default function ConnectApnsWidget({
                   onChange={(event) => update('teamId', event.target.value)}
                   aria-invalid={Boolean(fieldErrors.teamId)}
                 />
-              </Field>
+              </FormField>
             </div>
-            <Field
+            <FormField
               label={t('communication_channels.push.connect.fields.apns.bundleId', 'Bundle ID')}
               error={fieldErrors.bundleId}
             >
@@ -208,7 +209,7 @@ export default function ConnectApnsWidget({
                 onChange={(event) => update('bundleId', event.target.value)}
                 aria-invalid={Boolean(fieldErrors.bundleId)}
               />
-            </Field>
+            </FormField>
             <label className="flex items-center gap-2">
               <Checkbox
                 checked={form.production}
@@ -235,17 +236,5 @@ export default function ConnectApnsWidget({
         </DialogContent>
       </Dialog>
     </>
-  )
-}
-
-function Field(props: { label: string; error?: string; children: React.ReactNode }) {
-  return (
-    <label className="grid gap-1.5">
-      <Label asChild>
-        <span>{props.label}</span>
-      </Label>
-      {props.children}
-      {props.error ? <span className="text-xs text-destructive">{props.error}</span> : null}
-    </label>
   )
 }

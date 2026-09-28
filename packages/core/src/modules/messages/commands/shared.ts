@@ -2,6 +2,8 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import { withAtomicFlush } from '@open-mercato/shared/lib/commands/flush'
 import { Message, MessageObject, MessageRecipient, type MessageActionData, type RecipientStatus } from '../data/entities'
 import { MESSAGE_ATTACHMENT_ENTITY_ID } from '../lib/constants'
+import { hasOrganizationAccess } from '../lib/routeHelpers'
+import { toIsoOrEcho } from '@open-mercato/shared/lib/date/normalize'
 
 export type MessageCommandExecuteResult = {
   id: string
@@ -74,20 +76,9 @@ export type MessageAggregateSnapshot = {
   attachmentIds: string[]
 }
 
-function toIso(value: Date | null | undefined): string | null {
-  return value ? value.toISOString() : null
-}
-
 function toDate(value: string | null | undefined): Date | null {
   if (!value) return null
   return new Date(value)
-}
-
-function hasOrganizationAccess(scopeOrganizationId: string | null, messageOrganizationId: string | null | undefined): boolean {
-  if (scopeOrganizationId) {
-    return messageOrganizationId === scopeOrganizationId
-  }
-  return messageOrganizationId == null
 }
 
 export function assertOrganizationAccess(scope: MessageScopeInput, message: Message): void {
@@ -148,16 +139,16 @@ export async function loadMessageAggregateSnapshot(
       priority: message.priority,
       status: message.status,
       isDraft: message.isDraft,
-      sentAt: toIso(message.sentAt),
+      sentAt: toIsoOrEcho(message.sentAt),
       actionData: (message.actionData as MessageActionData | null) ?? null,
       actionResult: message.actionResult ?? null,
       actionTaken: message.actionTaken ?? null,
       actionTakenByUserId: message.actionTakenByUserId ?? null,
-      actionTakenAt: toIso(message.actionTakenAt),
+      actionTakenAt: toIsoOrEcho(message.actionTakenAt),
       sendViaEmail: message.sendViaEmail,
       tenantId: message.tenantId,
       organizationId: message.organizationId ?? null,
-      deletedAt: toIso(message.deletedAt),
+      deletedAt: toIsoOrEcho(message.deletedAt),
     },
     recipients: recipients.map((item) => ({
       id: item.id,
@@ -165,9 +156,9 @@ export async function loadMessageAggregateSnapshot(
       recipientUserId: item.recipientUserId,
       recipientType: item.recipientType,
       status: item.status,
-      readAt: toIso(item.readAt),
-      archivedAt: toIso(item.archivedAt),
-      deletedAt: toIso(item.deletedAt),
+      readAt: toIsoOrEcho(item.readAt),
+      archivedAt: toIsoOrEcho(item.archivedAt),
+      deletedAt: toIsoOrEcho(item.deletedAt),
     })),
     objects: objects.map((item) => ({
       id: item.id,

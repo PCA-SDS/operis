@@ -11,6 +11,7 @@ import {
 import type { GlobalSearchSource } from '../../../lib/global-search-config'
 import type { SearchStrategyId } from '@open-mercato/shared/modules/search'
 import { globalSearchSettingsOpenApi } from '../../openapi'
+import { unauthorizedResponse } from '@open-mercato/shared/lib/http/responses'
 
 const updateSchema = z.object({
   enabledStrategies: z.array(z.enum(['fulltext', 'vector', 'tokens'])).min(1),
@@ -28,14 +29,9 @@ type SettingsResponse = {
 
 const toJson = (payload: SettingsResponse, init?: ResponseInit) => NextResponse.json(payload, init)
 
-const unauthorized = async () => {
-  const { t } = await resolveTranslations()
-  return NextResponse.json({ error: t('api.errors.unauthorized', 'Unauthorized') }, { status: 401 })
-}
-
 export async function GET(req: Request) {
   const auth = await getAuthFromRequest(req)
-  if (!auth?.sub) return await unauthorized()
+  if (!auth?.sub) return await unauthorizedResponse()
 
   const container = await createRequestContainer()
   try {
@@ -56,7 +52,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const { t } = await resolveTranslations()
   const auth = await getAuthFromRequest(req)
-  if (!auth?.sub) return await unauthorized()
+  if (!auth?.sub) return await unauthorizedResponse()
 
   let body: unknown
   try {

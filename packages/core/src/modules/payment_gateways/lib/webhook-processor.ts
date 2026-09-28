@@ -20,7 +20,7 @@ type PaymentGatewayWebhookProcessorDeps = {
   integrationLogService: IntegrationLogService
 }
 
-function readSessionIdFromEvent(event: WebhookEvent): string | null {
+export function readSessionIdFromEvent(event: WebhookEvent): string | null {
   const id = event.data.id
   if (typeof id === 'string' && id.trim().length > 0) return id.trim()
   const paymentIntent = event.data.payment_intent

@@ -33,8 +33,8 @@ const em = {
 }
 
 const commandBusExecuteMock = jest.fn()
-const validateCrudMutationGuardMock = jest.fn()
-const runCrudMutationGuardAfterSuccessMock = jest.fn()
+const runRouteMutationGuardsMock = jest.fn()
+const runAfterSuccessMock = jest.fn()
 
 const container = {
   resolve: jest.fn((name: string) => {
@@ -67,9 +67,8 @@ jest.mock('@open-mercato/core/modules/dictionaries/api/context', () => ({
   resolveDictionaryActorId: jest.fn(() => userId),
 }))
 
-jest.mock('@open-mercato/shared/lib/crud/mutation-guard', () => ({
-  validateCrudMutationGuard: (...args: unknown[]) => validateCrudMutationGuardMock(...args),
-  runCrudMutationGuardAfterSuccess: (...args: unknown[]) => runCrudMutationGuardAfterSuccessMock(...args),
+jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
+  runRouteMutationGuards: (...args: unknown[]) => runRouteMutationGuardsMock(...args),
 }))
 
 jest.mock('@open-mercato/shared/lib/encryption/find', () => ({
@@ -86,8 +85,8 @@ describe('dictionary entry write routes mutation guard', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     em.fork.mockReturnValue(em)
-    validateCrudMutationGuardMock.mockResolvedValue({ ok: true, shouldRunAfterSuccess: true, metadata: { token: 'guard' } })
-    runCrudMutationGuardAfterSuccessMock.mockResolvedValue(undefined)
+    runRouteMutationGuardsMock.mockResolvedValue({ ok: true, runAfterSuccess: runAfterSuccessMock })
+    runAfterSuccessMock.mockResolvedValue(undefined)
     commandBusExecuteMock.mockResolvedValue({ result: { entryId }, logEntry: null })
   })
 
@@ -103,18 +102,17 @@ describe('dictionary entry write routes mutation guard', () => {
 
     expect(response.status).toBe(201)
     expect(commandBusExecuteMock).toHaveBeenCalledWith('dictionaries.entries.create', expect.anything())
-    expect(validateCrudMutationGuardMock).toHaveBeenCalledWith(
-      container,
-      expect.objectContaining({ resourceKind: 'dictionaries.entry', operation: 'create' }),
+    expect(runRouteMutationGuardsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        container,
+        input: expect.objectContaining({ resourceKind: 'dictionaries.entry', operation: 'create' }),
+      }),
     )
-    expect(runCrudMutationGuardAfterSuccessMock).toHaveBeenCalledWith(
-      container,
-      expect.objectContaining({ resourceKind: 'dictionaries.entry', resourceId: entryId, operation: 'create' }),
-    )
+    expect(runAfterSuccessMock).toHaveBeenCalledWith({ resourceId: entryId })
   })
 
   it('blocks entry creation when the guard rejects the mutation', async () => {
-    validateCrudMutationGuardMock.mockResolvedValueOnce({ ok: false, status: 423, body: { error: 'locked' } })
+    runRouteMutationGuardsMock.mockResolvedValueOnce({ ok: false, errorStatus: 423, errorBody: { error: 'locked' } })
 
     const response = await createEntry(
       new Request(`http://localhost/api/dictionaries/${dictionaryId}/entries`, {
@@ -143,19 +141,22 @@ describe('dictionary entry write routes mutation guard', () => {
 
     expect(response.status).toBe(200)
     expect(commandBusExecuteMock).toHaveBeenCalledWith('dictionaries.entries.update', expect.anything())
-    expect(validateCrudMutationGuardMock).toHaveBeenCalledWith(
-      container,
-      expect.objectContaining({ resourceKind: 'dictionaries.entry', resourceId: entryId, operation: 'update' }),
+    expect(runRouteMutationGuardsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        container,
+        input: expect.objectContaining({
+          resourceKind: 'dictionaries.entry',
+          resourceId: entryId,
+          operation: 'update',
+        }),
+      }),
     )
-    expect(runCrudMutationGuardAfterSuccessMock).toHaveBeenCalledWith(
-      container,
-      expect.objectContaining({ resourceKind: 'dictionaries.entry', resourceId: entryId, operation: 'update' }),
-    )
+    expect(runAfterSuccessMock).toHaveBeenCalledWith({ resourceId: entryId })
   })
 
   it('blocks entry update when the guard rejects the mutation', async () => {
     em.findOne.mockResolvedValueOnce(dictionaryRecord).mockResolvedValueOnce(entryRecord)
-    validateCrudMutationGuardMock.mockResolvedValueOnce({ ok: false, status: 423, body: { error: 'locked' } })
+    runRouteMutationGuardsMock.mockResolvedValueOnce({ ok: false, errorStatus: 423, errorBody: { error: 'locked' } })
 
     const response = await updateEntry(
       new Request(`http://localhost/api/dictionaries/${dictionaryId}/entries/${entryId}`, {
@@ -180,19 +181,22 @@ describe('dictionary entry write routes mutation guard', () => {
 
     expect(response.status).toBe(200)
     expect(commandBusExecuteMock).toHaveBeenCalledWith('dictionaries.entries.delete', expect.anything())
-    expect(validateCrudMutationGuardMock).toHaveBeenCalledWith(
-      container,
-      expect.objectContaining({ resourceKind: 'dictionaries.entry', resourceId: entryId, operation: 'delete' }),
+    expect(runRouteMutationGuardsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        container,
+        input: expect.objectContaining({
+          resourceKind: 'dictionaries.entry',
+          resourceId: entryId,
+          operation: 'delete',
+        }),
+      }),
     )
-    expect(runCrudMutationGuardAfterSuccessMock).toHaveBeenCalledWith(
-      container,
-      expect.objectContaining({ resourceKind: 'dictionaries.entry', resourceId: entryId, operation: 'delete' }),
-    )
+    expect(runAfterSuccessMock).toHaveBeenCalled()
   })
 
   it('blocks entry deletion when the guard rejects the mutation', async () => {
     em.findOne.mockResolvedValueOnce(dictionaryRecord).mockResolvedValueOnce(entryRecord)
-    validateCrudMutationGuardMock.mockResolvedValueOnce({ ok: false, status: 423, body: { error: 'locked' } })
+    runRouteMutationGuardsMock.mockResolvedValueOnce({ ok: false, errorStatus: 423, errorBody: { error: 'locked' } })
 
     const response = await deleteEntry(
       new Request(`http://localhost/api/dictionaries/${dictionaryId}/entries/${entryId}`, { method: 'DELETE' }),

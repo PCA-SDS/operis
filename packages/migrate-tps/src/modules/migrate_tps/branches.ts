@@ -1,24 +1,11 @@
 import type { ModuleCli } from '@open-mercato/shared/modules/registry'
 import type { EntityManager } from '@mikro-orm/postgresql'
-import * as pg from 'pg'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { createLogger } from '@open-mercato/shared/lib/logger'
-import { parseTpsMigrateFlags, parseTpsCsv, TPS_LOCATION_MAPPING } from './lib'
+import { parseTpsMigrateFlags, parseTpsCsv, TPS_LOCATION_MAPPING, connectTps, type Client } from './lib'
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
 
-type Client = InstanceType<typeof pg.Client>
-
 const logger = createLogger('migrate_tps')
-
-async function connectTps(url: string): Promise<Client> {
-  const isLocalhost = url.includes('localhost') || url.includes('127.0.0.1')
-  const client = new pg.Client({
-    connectionString: url,
-    ssl: isLocalhost ? false : { rejectUnauthorized: false },
-  })
-  await client.connect()
-  return client
-}
 
 function loadLocationsFromCsv(): string[] {
   const locations = new Set<string>()

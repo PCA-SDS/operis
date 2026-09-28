@@ -1,5 +1,6 @@
 import type { InjectionBulkActionWidget } from '@open-mercato/shared/modules/widgets/injection'
 import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
+import { readRowId } from '../rowIds'
 
 /**
  * Todo DataTable bulk action → durable operation → top progress bar.
@@ -20,13 +21,6 @@ type BulkCompleteResponse = {
   ok?: boolean
   progressJobId?: string | null
   message?: string
-}
-
-function readRowId(row: unknown): string | null {
-  if (!row || typeof row !== 'object') return null
-  const value = (row as Record<string, unknown>).id
-  if (typeof value !== 'string' || value.length === 0) return null
-  return value
 }
 
 /**

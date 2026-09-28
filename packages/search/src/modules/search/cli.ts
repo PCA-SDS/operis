@@ -14,20 +14,15 @@ import { FULLTEXT_INDEXING_QUEUE_NAME, type FulltextIndexJobPayload } from '../.
 import type { QueuedJob, JobContext } from '@open-mercato/queue'
 import type { EntityId } from '@open-mercato/shared/modules/entities'
 import { parseBooleanToken } from '@open-mercato/shared/lib/boolean'
+import { isIndexerVerbose } from '@open-mercato/shared/lib/indexers/verbose'
+import { parseCliArgs, stringOption, numberOption, type CliArgs, toPositiveInt, toNonNegativeInt } from '@open-mercato/shared/lib/cli/args'
 
 type CliProgressBar = {
   update(completed: number): void
   complete(): void
 }
 
-type ParsedArgs = Record<string, string | boolean>
-
 type PartitionProgressInfo = { processed: number; total: number }
-
-function isIndexerVerbose(): boolean {
-  const parsed = parseBooleanToken(process.env.OM_INDEXER_VERBOSE ?? '')
-  return parsed === true
-}
 
 function createGroupedProgress(label: string, partitionTargets: number[]) {
   const totals = new Map<number, number>()
@@ -66,48 +61,7 @@ function createGroupedProgress(label: string, partitionTargets: number[]) {
   }
 }
 
-function parseArgs(rest: string[]): ParsedArgs {
-  const args: ParsedArgs = {}
-  for (let i = 0; i < rest.length; i += 1) {
-    const part = rest[i]
-    if (!part?.startsWith('--')) continue
-    const [rawKey, rawValue] = part.slice(2).split('=')
-    if (!rawKey) continue
-    if (rawValue !== undefined) {
-      args[rawKey] = rawValue
-    } else if (i + 1 < rest.length && !rest[i + 1]!.startsWith('--')) {
-      args[rawKey] = rest[i + 1]!
-      i += 1
-    } else {
-      args[rawKey] = true
-    }
-  }
-  return args
-}
-
-function stringOpt(args: ParsedArgs, ...keys: string[]): string | undefined {
-  for (const key of keys) {
-    const raw = args[key]
-    if (typeof raw !== 'string') continue
-    const trimmed = raw.trim()
-    if (trimmed.length > 0) return trimmed
-  }
-  return undefined
-}
-
-function numberOpt(args: ParsedArgs, ...keys: string[]): number | undefined {
-  for (const key of keys) {
-    const raw = args[key]
-    if (typeof raw === 'number') return raw
-    if (typeof raw === 'string') {
-      const parsed = Number(raw)
-      if (Number.isFinite(parsed)) return parsed
-    }
-  }
-  return undefined
-}
-
-function flagOpt(args: ParsedArgs, ...keys: string[]): boolean | undefined {
+function flagOpt(args: CliArgs, ...keys: string[]): boolean | undefined {
   for (const key of keys) {
     const raw = args[key]
     if (raw === undefined) continue
@@ -123,31 +77,17 @@ function flagOpt(args: ParsedArgs, ...keys: string[]): boolean | undefined {
   return undefined
 }
 
-function toPositiveInt(value: number | undefined): number | undefined {
-  if (value === undefined) return undefined
-  const n = Math.floor(value)
-  if (!Number.isFinite(n) || n <= 0) return undefined
-  return n
-}
-
-function toNonNegativeInt(value: number | undefined, fallback = 0): number {
-  if (value === undefined) return fallback
-  const n = Math.floor(value)
-  if (!Number.isFinite(n) || n < 0) return fallback
-  return n
-}
-
 /**
  * Test search functionality with a query
  */
 async function searchCommand(rest: string[]): Promise<void> {
-  const args = parseArgs(rest)
-  const query = stringOpt(args, 'query', 'q')
-  const tenantId = stringOpt(args, 'tenant', 'tenantId')
-  const organizationId = stringOpt(args, 'org', 'organizationId')
-  const entityTypes = stringOpt(args, 'entity', 'entities')
-  const strategies = stringOpt(args, 'strategy', 'strategies')
-  const limit = numberOpt(args, 'limit') ?? 20
+  const args = parseCliArgs(rest, { keepEmptyValues: true })
+  const query = stringOption(args, 'query', 'q')
+  const tenantId = stringOption(args, 'tenant', 'tenantId')
+  const organizationId = stringOption(args, 'org', 'organizationId')
+  const entityTypes = stringOption(args, 'entity', 'entities')
+  const strategies = stringOption(args, 'strategy', 'strategies')
+  const limit = numberOption(args, 'limit') ?? 20
 
   if (!query) {
     console.error('Usage: yarn mercato search query --query "search terms" --tenant <id> [options]')
@@ -273,11 +213,11 @@ async function statusCommand(): Promise<void> {
  * Index a specific record for testing
  */
 async function indexCommand(rest: string[]): Promise<void> {
-  const args = parseArgs(rest)
-  const entityId = stringOpt(args, 'entity', 'entityId')
-  const recordId = stringOpt(args, 'record', 'recordId')
-  const tenantId = stringOpt(args, 'tenant', 'tenantId')
-  const organizationId = stringOpt(args, 'org', 'organizationId')
+  const args = parseCliArgs(rest, { keepEmptyValues: true })
+  const entityId = stringOption(args, 'entity', 'entityId')
+  const recordId = stringOption(args, 'record', 'recordId')
+  const tenantId = stringOption(args, 'tenant', 'tenantId')
+  const organizationId = stringOption(args, 'org', 'organizationId')
 
   if (!entityId || !recordId || !tenantId) {
     console.error('Usage: yarn mercato search index --entity <entityId> --record <recordId> --tenant <tenantId>')
@@ -451,14 +391,14 @@ async function resetVectorCoverageAfterPurge(
 }
 
 async function reindexCommand(rest: string[]): Promise<void> {
-  const args = parseArgs(rest)
-  const tenantId = stringOpt(args, 'tenant', 'tenantId')
-  const organizationId = stringOpt(args, 'org', 'orgId', 'organizationId')
-  const entityId = stringOpt(args, 'entity', 'entityId')
+  const args = parseCliArgs(rest, { keepEmptyValues: true })
+  const tenantId = stringOption(args, 'tenant', 'tenantId')
+  const organizationId = stringOption(args, 'org', 'orgId', 'organizationId')
+  const entityId = stringOption(args, 'entity', 'entityId')
   const force = flagOpt(args, 'force', 'full') === true
-  const batchSize = toPositiveInt(numberOpt(args, 'batch', 'chunk', 'size'))
-  const partitionsOption = toPositiveInt(numberOpt(args, 'partitions', 'partitionCount', 'parallel'))
-  const partitionIndexRaw = numberOpt(args, 'partition', 'partitionIndex')
+  const batchSize = toPositiveInt(numberOption(args, 'batch', 'chunk', 'size'))
+  const partitionsOption = toPositiveInt(numberOption(args, 'partitions', 'partitionCount', 'parallel'))
+  const partitionIndexRaw = numberOption(args, 'partition', 'partitionIndex')
   const partitionIndexOption = partitionIndexRaw === undefined ? undefined : toNonNegativeInt(partitionIndexRaw, 0)
   const resetCoverageFlag = flagOpt(args, 'resetCoverage') === true
   const skipResetCoverageFlag = flagOpt(args, 'skipResetCoverage', 'noResetCoverage') === true
@@ -778,8 +718,8 @@ const reindexHelpCli: ModuleCli = {
  */
 async function workerCommand(rest: string[]): Promise<void> {
   const queueName = rest[0]
-  const args = parseArgs(rest)
-  const concurrency = toPositiveInt(numberOpt(args, 'concurrency')) ?? 1
+  const args = parseCliArgs(rest, { keepEmptyValues: true })
+  const concurrency = toPositiveInt(numberOption(args, 'concurrency')) ?? 1
 
   const validQueues = [VECTOR_INDEXING_QUEUE_NAME, FULLTEXT_INDEXING_QUEUE_NAME]
 

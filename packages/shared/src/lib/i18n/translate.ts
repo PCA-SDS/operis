@@ -2,6 +2,13 @@ import type { Dict, TranslateFn, TranslateParams } from './context'
 
 export type TranslateWithFallbackFn = (key: string, fallback?: string, params?: TranslateParams) => string
 
+/**
+ * A translator whose callers must always supply the fallback copy, so a
+ * missing key can never surface as a raw key in the UI. Assignable to
+ * {@link TranslateWithFallbackFn}'s callers only where every call passes one.
+ */
+export type TranslateWithRequiredFallbackFn = (key: string, fallback: string, params?: TranslateParams) => string
+
 function format(template: string, params?: TranslateParams) {
   if (!params) return template
   return template.replace(/\{\{(\w+)\}\}|\{(\w+)\}/g, (match, doubleKey, singleKey) => {

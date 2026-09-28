@@ -1,24 +1,19 @@
 import { NextResponse } from 'next/server'
-import type { AwilixContainer } from 'awilix'
-import type { EntityManager } from '@mikro-orm/postgresql'
 import { z } from 'zod'
-import { getAuthFromRequest, type AuthContext } from '@open-mercato/shared/lib/auth/server'
-import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
-import { CrudHttpError, isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
-import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
+import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import type { OpenApiResponseDoc } from '@open-mercato/shared/lib/openapi'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 
 import type { InvoiceCompany } from '../../data/entities'
-import { requireInvoiceScope, type InvoiceScope } from '../../data/scope'
 import { invoiceCompanyIdSchema } from '../../data/validators'
 import { toIsoOrNull as toIso } from '@open-mercato/shared/lib/date/normalize'
 import {
   invoiceCommonErrors,
   invoicePartnersTag,
 } from '../openapi'
+import { toRecord } from '@open-mercato/shared/lib/guards'
 
 const logger = createLogger('invoice').child({ component: 'partners-api' })
 
@@ -62,15 +57,6 @@ export const invoicePartnerUpdateResponseSchema = z.object({
 export const invoicePartnerRouteErrors: OpenApiResponseDoc[] = [...invoiceCommonErrors]
 export { invoicePartnersTag }
 
-export type InvoicePartnerRouteContext = {
-  container: AwilixContainer
-  auth: AuthContext
-  userId: string
-  scope: InvoiceScope
-  em: EntityManager
-  translate: (key: string, fallback?: string) => string
-}
-
 export function toInvoicePartnerDto(company: InvoiceCompany): z.infer<typeof invoicePartnerDtoSchema> {
   return {
     id: company.id,
@@ -83,38 +69,8 @@ export function toInvoicePartnerDto(company: InvoiceCompany): z.infer<typeof inv
   }
 }
 
-export function toRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
-}
-
 export async function readRequestRecord(req: Request): Promise<Record<string, unknown>> {
   return toRecord(await readJsonSafe(req, {}))
-}
-
-export async function resolveInvoicePartnerRouteContext(req: Request): Promise<InvoicePartnerRouteContext> {
-  const container = await createRequestContainer()
-  const auth = await getAuthFromRequest(req)
-  const { translate } = await resolveTranslations()
-  if (!auth?.sub || !auth.tenantId) {
-    throw new CrudHttpError(401, { error: translate('invoice.errors.unauthorized', 'Unauthorized') })
-  }
-
-  const organizationScope = await resolveOrganizationScopeForRequest({ container, auth, request: req })
-  const selectedOrganizationId = organizationScope?.selectedId ?? auth.orgId ?? null
-  const scope = requireInvoiceScope({
-    auth: { tenantId: auth.tenantId, orgId: auth.orgId },
-    selectedOrganizationId,
-    organizationScope: organizationScope ? { selectedId: organizationScope.selectedId ?? null } : null,
-  }, (key, fallback) => translate(key, fallback))
-
-  return {
-    container,
-    auth,
-    userId: auth.sub,
-    scope,
-    em: container.resolve('em') as EntityManager,
-    translate,
-  }
 }
 
 export async function handleInvoicePartnerRouteError(err: unknown, label: string): Promise<NextResponse> {

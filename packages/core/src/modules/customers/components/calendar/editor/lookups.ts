@@ -1,5 +1,6 @@
 import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { fetchAssignableStaffMembers } from '../../detail/assignableStaff'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
 
 export type RelatedEntityKind = 'person' | 'company'
 
@@ -22,21 +23,15 @@ export type PersonOption = {
   isCustomer: boolean
 }
 
-function readNonEmptyString(value: unknown): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  return trimmed.length > 0 ? trimmed : null
-}
-
 function extractRelatedEntityOption(item: Record<string, unknown>, kind: RelatedEntityKind): RelatedEntityOption | null {
   const id = typeof item.id === 'string' ? item.id : null
   if (!id) return null
-  const displayName = readNonEmptyString(item.displayName) ?? readNonEmptyString(item.display_name)
+  const displayName = normalizeOptionalString(item.displayName) ?? normalizeOptionalString(item.display_name)
   const detail = kind === 'person'
-    ? readNonEmptyString(item.primaryEmail) ?? readNonEmptyString(item.primary_email)
-    : readNonEmptyString(item.domain)
-      ?? readNonEmptyString(item.websiteUrl)
-      ?? readNonEmptyString(item.website_url)
+    ? normalizeOptionalString(item.primaryEmail) ?? normalizeOptionalString(item.primary_email)
+    : normalizeOptionalString(item.domain)
+      ?? normalizeOptionalString(item.websiteUrl)
+      ?? normalizeOptionalString(item.website_url)
   const label = displayName ?? detail ?? id
   return { id, kind, label, subtitle: detail && detail !== label ? detail : null }
 }
@@ -90,7 +85,7 @@ export async function fetchRelatedEntityById(entityId: string, signal: AbortSign
 function extractDealOption(item: Record<string, unknown>): DealOption | null {
   const id = typeof item.id === 'string' ? item.id : null
   if (!id) return null
-  const label = readNonEmptyString(item.title) ?? id
+  const label = normalizeOptionalString(item.title) ?? id
   return { id, label }
 }
 
@@ -193,7 +188,7 @@ export async function searchResourceOptions(
       if (!item || typeof item !== 'object') return null
       const id = typeof item.id === 'string' ? item.id : null
       if (!id) return null
-      const label = readNonEmptyString(item.name) ?? id
+      const label = normalizeOptionalString(item.name) ?? id
       return { id, label }
     })
     .filter((option): option is ResourceOption => option !== null)
@@ -221,7 +216,7 @@ export async function fetchResourceTypes(signal: AbortSignal): Promise<ResourceT
         if (!item || typeof item !== 'object') return null
         const id = typeof item.id === 'string' ? item.id : null
         if (!id) return null
-        const name = readNonEmptyString(item.name) ?? id
+        const name = normalizeOptionalString(item.name) ?? id
         const rawCount = (item as Record<string, unknown>).resourceCount
         const count = typeof rawCount === 'number' && Number.isFinite(rawCount) ? rawCount : 0
         return { id, name, count }
@@ -251,9 +246,9 @@ export async function fetchPeoplePhones(ids: string[], signal: AbortSignal): Pro
     for (const item of items) {
       if (!item || typeof item !== 'object') continue
       const id = typeof item.id === 'string' ? item.id : null
-      const phone = readNonEmptyString(item.primaryPhone) ?? readNonEmptyString(item.primary_phone)
+      const phone = normalizeOptionalString(item.primaryPhone) ?? normalizeOptionalString(item.primary_phone)
       if (!id || !phone) continue
-      const name = readNonEmptyString(item.displayName) ?? readNonEmptyString(item.display_name) ?? id
+      const name = normalizeOptionalString(item.displayName) ?? normalizeOptionalString(item.display_name) ?? id
       result.push({ id, name, phone })
     }
     return result

@@ -4,6 +4,7 @@ import type { CrudEventsConfig, CrudIndexerConfig } from '@open-mercato/shared/l
 import { E } from '#generated/entities.ids.generated'
 import { UserDevice } from '../data/entities'
 import { isUniqueViolation } from '@open-mercato/shared/lib/db/pg-errors'
+import { toValidDateOrNull } from '@open-mercato/shared/lib/date/normalize'
 
 export type DeviceSnapshot = {
   id: string
@@ -46,12 +47,6 @@ export const deviceEvents: CrudEventsConfig<UserDevice> = {
   }),
 }
 
-function toDate(value: string | null | undefined): Date | null {
-  if (!value) return null
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? null : date
-}
-
 // Persist at most the last 8 chars of the (long) provider token — never the full secret. Mirrors the
 // delivery log's `token_snapshot` (push-fanout.ts) so audit/undo carry a stable, non-sensitive fingerprint.
 function fingerprintPushToken(token: string | null): string | null {
@@ -87,8 +82,8 @@ export function applySnapshot(device: UserDevice, snapshot: DeviceSnapshot): voi
   // live encrypted column is authoritative — undo preserves whatever token the device currently holds.
   // Restoring a stale token, or the redacted/undecryptable placeholder a snapshot could otherwise carry,
   // would unrecoverably brick delivery. Reverting metadata is safe; reverting the secret is not.
-  device.lastSeenAt = toDate(snapshot.lastSeenAt) ?? new Date()
-  device.deletedAt = toDate(snapshot.deletedAt)
+  device.lastSeenAt = toValidDateOrNull(snapshot.lastSeenAt) ?? new Date()
+  device.deletedAt = toValidDateOrNull(snapshot.deletedAt)
 }
 
 export async function loadExistingDevice(

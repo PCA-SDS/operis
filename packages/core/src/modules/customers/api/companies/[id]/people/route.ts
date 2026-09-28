@@ -19,6 +19,7 @@ import {
   withActiveCustomerPersonCompanyLinkFilter,
 } from '../../../../lib/personCompanyLinkTable'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 const logger = createLogger('customers')
 
@@ -27,8 +28,7 @@ const paramsSchema = z.object({
 })
 
 const querySchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  ...paginationQuerySchema({ defaultPageSize: 20 }).shape,
   search: z.string().optional(),
   sort: z.enum(['name-asc', 'name-desc', 'recent']).default('name-asc'),
 })

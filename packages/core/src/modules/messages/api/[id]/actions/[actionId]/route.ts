@@ -1,12 +1,12 @@
 import { z } from 'zod'
 import type { CommandBus } from '@open-mercato/shared/lib/commands/command-bus'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
-import { attachOperationMetadataHeader, type OperationLogEntryLike } from '../../../../lib/operationMetadata'
+import { attachOperationMetadataHeader, type OperationLogEntryLike } from '@open-mercato/shared/lib/commands/operationMetadata'
 import { resolveMessageContext } from '../../../../lib/routeHelpers'
-import { runMessageMutationGuardAfterSuccess, runMessageMutationGuards } from '../../../guards'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi/types'
 import { actionResultResponseSchema } from '../../../openapi'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['messages.actions'] },
@@ -24,24 +24,21 @@ export async function POST(
     ? rawBody
     : {}) as Record<string, unknown>
 
-  const guardResult = await runMessageMutationGuards(
-    ctx.container,
-    {
-      tenantId: scope.tenantId,
-      organizationId: scope.organizationId,
-      userId: scope.userId,
+  const guardResult = await runRouteMutationGuards({
+    container: ctx.container,
+    req,
+    auth: { userId: scope.userId, tenantId: scope.tenantId, organizationId: scope.organizationId },
+    input: {
       resourceKind: 'messages.message',
       resourceId: params.id,
       operation: 'update',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
       mutationPayload: body,
     },
-  )
+  })
   if (!guardResult.ok) {
     return Response.json(
-      guardResult.errorBody ?? { error: 'Operation blocked by guard' },
-      { status: guardResult.errorStatus ?? 422 },
+      guardResult.errorBody,
+      { status: guardResult.errorStatus },
     )
   }
 
@@ -80,16 +77,7 @@ export async function POST(
       resourceKind: 'messages.message',
       resourceId: params.id,
     })
-    await runMessageMutationGuardAfterSuccess(guardResult.afterSuccessCallbacks, {
-      tenantId: scope.tenantId,
-      organizationId: scope.organizationId,
-      userId: scope.userId,
-      resourceKind: 'messages.message',
-      resourceId: params.id,
-      operation: 'update',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-    })
+    await guardResult.runAfterSuccess()
     return response
   } catch (error) {
     if (isCrudHttpError(error)) {

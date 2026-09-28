@@ -10,6 +10,9 @@ import { Badge } from '@open-mercato/ui/primitives/badge'
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { statusBadgeVariant } from '../../../components/formConfig'
 import { EUDR_SUBMISSION_STATUSES } from '../../../data/validators'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
+import { isRecord } from '@open-mercato/shared/lib/guards'
+import { formatDate } from '@open-mercato/shared/lib/time'
 
 const logger = createLogger('eudr')
 
@@ -26,35 +29,19 @@ type SupplierCompliance = {
   }
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
-
-function readId(value: unknown): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  return trimmed.length > 0 ? trimmed : null
-}
-
 function readNestedCompanyId(value: unknown): string | null {
   if (!isRecord(value) || !isRecord(value.company)) return null
-  return readId(value.company.id)
+  return normalizeOptionalString(value.company.id)
 }
 
 function resolveCompanyId(context: unknown, data: unknown): string | null {
   if (!isRecord(context)) return readNestedCompanyId(data)
-  return readId(context.companyId)
-    ?? readId(context.resourceId)
-    ?? readId(context.entityId)
-    ?? readId(context.recordId)
+  return normalizeOptionalString(context.companyId)
+    ?? normalizeOptionalString(context.resourceId)
+    ?? normalizeOptionalString(context.entityId)
+    ?? normalizeOptionalString(context.recordId)
     ?? readNestedCompanyId(context.data)
     ?? readNestedCompanyId(data)
-}
-
-function formatDate(value: string | null, emptyLabel: string, locale: string): string {
-  if (!value) return emptyLabel
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? emptyLabel : date.toLocaleDateString(locale || undefined)
 }
 
 async function loadSupplierCompliance(supplierEntityId: string): Promise<SupplierCompliance | null> {
@@ -126,7 +113,7 @@ export default function SupplierComplianceWidget({
         <div className="space-y-1">
           <dt className="text-xs text-muted-foreground">{t('eudr.supplierPanel.lastSubmission')}</dt>
           <dd className="text-sm font-medium text-foreground">
-            {formatDate(compliance.lastSubmissionAt, emptyLabel, locale)}
+            {formatDate(compliance.lastSubmissionAt, { fallback: emptyLabel, locale })}
           </dd>
         </div>
       </dl>

@@ -11,18 +11,13 @@ import {
 import type { DictionaryMap } from '@open-mercato/core/modules/dictionaries/components/dictionaryAppearance'
 import { ensureDictionaryEntries } from '@open-mercato/core/modules/dictionaries/components/hooks/useDictionaryEntries'
 import { normalizeCustomFieldKey } from '../customFieldUtils'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
 
 export type CustomFieldDisplayResources = {
   definitions: CustomFieldDefDto[]
   dictionaryMapsByKey: Record<string, DictionaryMap>
   isLoading: boolean
   error: unknown
-}
-
-function sanitizeDictionaryId(value: unknown): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  return trimmed.length ? trimmed : null
 }
 
 export function useCustomFieldDisplay(entityIds: string | string[] | null | undefined): CustomFieldDisplayResources {
@@ -37,7 +32,7 @@ export function useCustomFieldDisplay(entityIds: string | string[] | null | unde
   React.useEffect(() => {
     const defs = defsQuery.data ?? []
     const dictionaryIds = defs
-      .map((def) => sanitizeDictionaryId(def.dictionaryId))
+      .map((def) => normalizeOptionalString(def.dictionaryId))
       .filter((value): value is string => !!value)
     if (!dictionaryIds.length) {
       setDictionaryMapsById((prev) => (Object.keys(prev).length ? {} : prev))
@@ -93,7 +88,7 @@ export function useCustomFieldDisplay(entityIds: string | string[] | null | unde
     if (!defs.length) return {}
     const map: Record<string, DictionaryMap> = {}
     defs.forEach((def) => {
-      const dictionaryId = sanitizeDictionaryId(def.dictionaryId)
+      const dictionaryId = normalizeOptionalString(def.dictionaryId)
       if (!dictionaryId) return
       const key = typeof def.key === 'string' ? def.key : ''
       const normalizedKey = normalizeCustomFieldKey(key)

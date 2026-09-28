@@ -1,4 +1,5 @@
 import type { BusinessWeekday } from './businessHours'
+import { isRecord } from '@open-mercato/shared/lib/guards'
 
 export type BusinessHoursIntervalRow = {
   key: string
@@ -43,10 +44,6 @@ const BUSINESS_HOURS_DAY_MINUTES = 24 * 60
 const BUSINESS_HOURS_DEFAULT_START = '09:00'
 const BUSINESS_HOURS_DEFAULT_END = '17:00'
 const BUSINESS_HOURS_HOLIDAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
 
 export function stringifyJsonValue(value: Record<string, unknown> | unknown[] | null): string {
   if (value === null) return ''

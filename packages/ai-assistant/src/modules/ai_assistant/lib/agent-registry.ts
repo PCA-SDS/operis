@@ -10,6 +10,7 @@ import {
 } from './ai-overrides'
 import { TASK_PLAN_TOOL_NAME } from './task-plan-labels'
 import { findGeneratedFile, compileAndImportGenerated } from './generated-registry-loader'
+import { isStringArray } from '@open-mercato/shared/lib/guards'
 
 const logger = createLogger('ai_assistant')
 
@@ -41,10 +42,6 @@ async function importGeneratedAiAgentsModule(): Promise<Record<string, unknown> 
     if (!tsPath) return null
     return compileAndImportGenerated(tsPath)
   }
-}
-
-function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((item) => typeof item === 'string')
 }
 
 function isAiAgentSuggestion(value: unknown): value is AiAgentSuggestion {

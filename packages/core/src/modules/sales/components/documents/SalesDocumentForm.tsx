@@ -60,20 +60,14 @@ import { AddressEditor, type AddressEditorDraft } from '@open-mercato/core/modul
 import { useSalesChannelsEnabled } from '../useSalesChannelsEnabled'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { SalesOrderDraftLines, createSalesOrderLineDraft, type SalesOrderLineDraft } from './SalesOrderDraftLines'
+import type { TranslateWithFallbackFn } from '@open-mercato/shared/lib/i18n/translate'
+import { parseCustomerOptions, type CustomerOption } from './customerOptions'
 
 const logger = createLogger('sales')
 
 type DocumentKind = 'quote' | 'order'
 
 type AddressDraft = AddressEditorDraft
-
-type CustomerOption = {
-  id: string
-  label: string
-  subtitle?: string | null
-  kind: 'person' | 'company'
-  primaryEmail?: string | null
-}
 
 type ChannelOption = { id: string; label: string }
 
@@ -121,8 +115,6 @@ type SalesDocumentFormProps = {
   inboxPreFill?: InboxPreFill
 }
 
-type Translator = (key: string, fallback?: string, params?: Record<string, string | number>) => string
-
 type QuickCreatePayload = {
   id: string
   kind: 'person' | 'company'
@@ -132,7 +124,7 @@ type QuickCreatePayload = {
 }
 
 type CustomerQuickCreateProps = {
-  t: Translator
+  t: TranslateWithFallbackFn
   onCreated: (payload: QuickCreatePayload) => void
 }
 
@@ -413,28 +405,6 @@ function CustomerQuickCreate({ t, onCreated }: CustomerQuickCreateProps) {
   )
 }
 
-function parseCustomerOptions(items: unknown[], kind: 'person' | 'company'): CustomerOption[] {
-  const parsed: CustomerOption[] = []
-  for (const item of items) {
-    if (typeof item !== 'object' || item === null) continue
-    const record = item as Record<string, unknown>
-    const id = typeof record.id === 'string' ? record.id : null
-    if (!id) continue
-    const displayName =
-      typeof record.display_name === 'string'
-        ? record.display_name
-        : typeof record.name === 'string'
-          ? record.name
-          : null
-    const email = typeof record.primary_email === 'string' ? record.primary_email : null
-    const domain = typeof record.primary_domain === 'string' ? record.primary_domain : null
-    const label = displayName ?? (email ?? domain ?? id)
-    const subtitle = kind === 'person' ? email : domain ?? email
-    parsed.push({ id, label: `${label}`, subtitle, kind, primaryEmail: email })
-  }
-  return parsed
-}
-
 function normalizeAddressDraft(draft?: AddressDraft | null): Record<string, unknown> | null {
   if (!draft) return null
   const normalized: Record<string, unknown> = {}
@@ -458,17 +428,17 @@ function normalizeAddressDraft(draft?: AddressDraft | null): Record<string, unkn
   return Object.keys(normalized).length ? normalized : null
 }
 
-type DocumentNumberFieldProps = CrudCustomFieldRenderProps & { t: Translator }
+type DocumentNumberFieldProps = CrudCustomFieldRenderProps & { t: TranslateWithFallbackFn }
 
 type BillingAddressSectionFieldProps = CrudCustomFieldRenderProps & {
-  t: Translator
+  t: TranslateWithFallbackFn
   addressesLoading: boolean
   addressOptions: AddressOption[]
   addressFormat: AddressFormatStrategy
 }
 
 type CustomerGroupComponentProps = CrudFormGroupComponentProps & {
-  t: Translator
+  t: TranslateWithFallbackFn
   customers: CustomerOption[]
   setCustomers: React.Dispatch<React.SetStateAction<CustomerOption[]>>
   customerQuerySetter: React.MutableRefObject<((value: string) => void) | null>

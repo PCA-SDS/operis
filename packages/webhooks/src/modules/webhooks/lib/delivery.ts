@@ -12,6 +12,7 @@ import {
   safeWebhookFetch,
   UnsafeWebhookUrlError,
 } from './url-safety'
+import { isRecord } from '@open-mercato/shared/lib/guards'
 
 export interface WebhookDeliveryJob {
   deliveryId: string
@@ -396,10 +397,6 @@ function normalizeWebhookBody(eventType: string, payload: Record<string, unknown
     timestamp: new Date().toISOString(),
     data: payload,
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 function shouldRetryStatus(status: number): boolean {

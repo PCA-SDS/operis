@@ -191,6 +191,11 @@ optimistic version, presence of a row, current status — register it via
 the DI service path. The optimistic-lock guard in this page does exactly
 that.
 
+Custom write routes that do not use `makeCrudRoute` reach both paths through
+`runRouteMutationGuards` from `@open-mercato/shared/lib/crud/route-mutation-guard`: it runs every
+registered guard plus the DI service, which is bridged for `update`/`delete` (action routes count as
+`update`).
+
 ---
 
 ## Reference implementation (OSS)

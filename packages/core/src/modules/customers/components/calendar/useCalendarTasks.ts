@@ -4,8 +4,10 @@ import * as React from 'react'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { useAppEvent } from '@open-mercato/ui/backend/injection/useAppEvent'
 
-import { calendarTimeZone, formatCalendarDate, mapTaskToCalendarItem } from '../../lib/calendar/taskItem'
+import { mapTaskToCalendarItem } from '../../lib/calendar/taskItem'
 import { calendarTaskPayloadSchema, type CalendarRange, type CalendarTaskItem } from './types'
+import { resolveCalendarTimeZone } from '../../lib/calendar/time'
+import { toLocalDateKey } from '@open-mercato/shared/lib/date/format'
 
 /**
  * The Task Manager's tasks, projected onto the calendar.
@@ -51,11 +53,11 @@ export function useCalendarTasks(range: CalendarRange, enabled: boolean): UseCal
   const [reloadToken, setReloadToken] = React.useState(0)
   const [overrides, setOverrides] = React.useState<Record<string, TaskPlacementOverride>>({})
 
-  const from = formatCalendarDate(range.from)
+  const from = toLocalDateKey(range.from)
   // The calendar's range end is exclusive; the task API's `to` is inclusive, so
   // the boundary is stepped back rather than pulling in an extra day the grid
   // would only filter away again.
-  const to = formatCalendarDate(new Date(range.to.getTime() - 1))
+  const to = toLocalDateKey(new Date(range.to.getTime() - 1))
 
   React.useEffect(() => {
     if (!enabled) {
@@ -68,7 +70,7 @@ export function useCalendarTasks(range: CalendarRange, enabled: boolean): UseCal
     let cancelled = false
     setIsLoading(true)
     setError(null)
-    const params = new URLSearchParams({ mode: 'scheduled', from, to, tz: calendarTimeZone() })
+    const params = new URLSearchParams({ mode: 'scheduled', from, to, tz: resolveCalendarTimeZone() })
     apiCall<{ items?: unknown[]; truncated?: boolean }>(`${TASKS_CALENDAR_PATH}?${params.toString()}`, {
       signal: controller.signal,
     })

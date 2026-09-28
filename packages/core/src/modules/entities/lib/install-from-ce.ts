@@ -5,7 +5,7 @@ import type { CustomFieldDefinition, CustomFieldSet, CustomEntitySpec } from '@o
 import { Tenant } from '@open-mercato/core/modules/directory/data/entities'
 import { getModules } from '@open-mercato/shared/lib/i18n/server'
 import { getEntityIds } from '@open-mercato/shared/lib/encryption/entityIds'
-import { ensureCustomFieldDefinitions } from './field-definitions'
+import { ensureCustomFieldDefinitions, normalizeValue } from './field-definitions'
 import { upsertCustomEntity, type UpsertCustomEntityResult } from './register'
 import { invalidateDefinitionsCache } from '../api/definitions.cache'
 
@@ -57,19 +57,6 @@ const FIELD_DETAIL_KEYS: Array<keyof CustomFieldDefinition> = [
   'maxAttachmentSizeMb',
   'acceptExtensions',
 ]
-
-function normalizeValue(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map((item) => normalizeValue(item))
-  if (value && typeof value === 'object') {
-    return Object.keys(value as Record<string, unknown>)
-      .sort((a, b) => a.localeCompare(b))
-      .reduce<Record<string, unknown>>((acc, key) => {
-        acc[key] = normalizeValue((value as Record<string, unknown>)[key])
-        return acc
-      }, {})
-  }
-  return value
-}
 
 function computeChecksum(payload: unknown): string {
   return crypto.createHash('md5').update(JSON.stringify(normalizeValue(payload))).digest('hex')

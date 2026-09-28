@@ -1,6 +1,7 @@
 "use client"
 import * as React from 'react'
 import type { OperationMetadataPayload } from '@open-mercato/shared/lib/commands/operationMetadata'
+import { now } from '../utils/now'
 
 export type OperationEntry = OperationMetadataPayload & {
   receivedAt: number
@@ -45,12 +46,6 @@ if (typeof window !== 'undefined') {
 }
 
 const emitter = new EventTarget()
-
-function now() {
-  return typeof performance !== 'undefined' && performance.now
-    ? Math.round(performance.timeOrigin + performance.now())
-    : Date.now()
-}
 
 function loadState(): OperationStoreState {
   try {

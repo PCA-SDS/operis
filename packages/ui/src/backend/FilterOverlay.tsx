@@ -19,6 +19,7 @@ import { ComboboxInput } from './inputs/ComboboxInput'
 import { TagsInput, type TagsInputOption } from './inputs/TagsInput'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { SimpleTooltip } from '../primitives/tooltip'
+import { isRecord } from '@open-mercato/shared/lib/guards'
 
 export type FilterOption = { value: string; label: string; description?: string | null }
 
@@ -52,10 +53,6 @@ export type FilterOverlayProps = {
 
 const EMPTY_FILTER_VALUES: FilterValues = {}
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return value != null && typeof value === 'object' && !Array.isArray(value)
-}
-
 function normalizeKeys(source: FilterValues | null | undefined): string[] {
   if (!source) return []
   return Object.keys(source).filter((key) => source[key] !== undefined)
@@ -70,7 +67,7 @@ function areFieldValuesEqual(a: any, b: any): boolean {
     }
     return true
   }
-  if (isPlainObject(a) && isPlainObject(b)) {
+  if (isRecord(a) && isRecord(b)) {
     const keysA = normalizeKeys(a as FilterValues)
     const keysB = normalizeKeys(b as FilterValues)
     if (keysA.length !== keysB.length) return false

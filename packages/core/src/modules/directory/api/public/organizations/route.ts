@@ -13,10 +13,6 @@ export const metadata = {
   GET: { requireAuth: false },
 }
 
-export function OPTIONS(req: Request) {
-  return new Response(null, { status: 204, headers: publicCorsHeaders(req) })
-}
-
 const querySchema = z.object({
   tenantId: z.string().uuid(),
 })

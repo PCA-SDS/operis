@@ -6,6 +6,7 @@ import { checkAuthRateLimit } from '@open-mercato/core/modules/auth/lib/rateLimi
 import { readEndpointRateLimitConfig } from '@open-mercato/shared/lib/ratelimit/config'
 import type { OpenApiMethodDoc, OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { emailSchema } from '@open-mercato/shared/lib/validation'
 
 const logger = createLogger('onboarding').child({ component: 'demo-feedback' })
 
@@ -21,7 +22,7 @@ export const metadata = {
 }
 
 const feedbackSchema = z.object({
-  email: z.string().email(),
+  email: emailSchema(),
   message: z.string().max(5000).optional().default(''),
   termsAccepted: z.literal(true),
   marketingConsent: z.boolean().optional().default(false),

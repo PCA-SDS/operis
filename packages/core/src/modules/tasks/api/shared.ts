@@ -193,11 +193,3 @@ export async function runGuardedCommand<TInput, TResult>(
 export function jsonOk<T>(body: T): Response {
   return NextResponse.json(body)
 }
-
-/** Query params as a plain record, so a zod schema can coerce them. */
-export function searchParamsToObject(url: string): Record<string, string> {
-  const params = new URL(url).searchParams
-  const result: Record<string, string> = {}
-  for (const [key, value] of params.entries()) result[key] = value
-  return result
-}

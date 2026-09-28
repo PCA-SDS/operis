@@ -1,16 +1,10 @@
 import type { LogBindings, Logger } from './index'
 import { parseBooleanToken } from '../boolean'
-import { isLevelEnabled, type LogLevel } from './level'
+import { isLevelEnabled, readProcessEnv, type EnvSource, type LogLevel } from './level'
 import { formatBindings } from './transport.console'
 import { OM_LOG_DESTINATION_ENV, isStderrDestinationToken } from './transport.server'
 
 export const OM_LOG_PRETTY_ENV = 'OM_LOG_PRETTY'
-
-type EnvSource = Record<string, string | undefined>
-
-function readProcessEnv(): EnvSource {
-  return typeof process === 'undefined' ? {} : process.env
-}
 
 /** Resolve pretty mode from `OM_LOG_PRETTY`, defaulting to on outside production. */
 export function resolvePrettyMode(env: EnvSource = readProcessEnv()): boolean {

@@ -7,10 +7,6 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
-import {
-  runCrudMutationGuardAfterSuccess,
-  validateCrudMutationGuard,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
 import { enforceCommandOptimisticLock } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
 import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
@@ -19,6 +15,7 @@ import { organizationUpdateSchema } from '@open-mercato/core/modules/directory/d
 import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
 import '@open-mercato/core/modules/directory/commands/organizations'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const logger = createLogger('directory').child({ component: 'organization-branding' })
 
@@ -205,24 +202,28 @@ export async function PUT(req: Request) {
 
     // Mutation-guard contract for custom write routes: validate before the write,
     // then run the after-success hook once the command persists.
-    const guardResult = await validateCrudMutationGuard(resolved.container, {
-      tenantId: resolved.tenantId,
-      organizationId: resolved.organizationId,
-      userId: resolved.auth.sub,
-      resourceKind: 'directory.organization',
-      resourceId: resolved.organizationId,
-      operation: 'update',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      mutationPayload: {
+    const guardResult = await runRouteMutationGuards({
+      container: resolved.container,
+      req,
+      auth: {
+        userId: resolved.auth.sub,
+        tenantId: resolved.tenantId,
+        organizationId: resolved.organizationId,
+      },
+      input: {
+        resourceKind: 'directory.organization',
+        resourceId: resolved.organizationId,
+        operation: 'update',
+        mutationPayload: {
         logoUrl: parsed.data.logoUrl ?? null,
         ...(parsed.data.logoPreserveAspectRatio !== undefined
           ? { logoPreserveAspectRatio: parsed.data.logoPreserveAspectRatio }
           : {}),
       },
+      },
     })
-    if (guardResult && !guardResult.ok) {
-      return NextResponse.json(guardResult.body, { status: guardResult.status })
+    if (!guardResult.ok) {
+      return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
     }
 
     const commandBus = resolved.container.resolve('commandBus') as CommandBus
@@ -248,19 +249,7 @@ export async function PUT(req: Request) {
       },
     )
 
-    if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-      await runCrudMutationGuardAfterSuccess(resolved.container, {
-        tenantId: resolved.tenantId,
-        organizationId: resolved.organizationId,
-        userId: resolved.auth.sub,
-        resourceKind: 'directory.organization',
-        resourceId: resolved.organizationId,
-        operation: 'update',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
-        metadata: guardResult.metadata ?? null,
-      })
-    }
+    await guardResult.runAfterSuccess()
 
     await invalidateSidebarBrandingCache(resolved.container, resolved.organizationId, resolved.tenantId)
     return NextResponse.json(toResponsePayload(result, resolved.tenantId))

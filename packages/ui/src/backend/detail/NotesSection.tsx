@@ -29,7 +29,9 @@ import { ComponentReplacementHandles } from '@open-mercato/shared/modules/widget
 import { MarkdownPreview } from '../markdown'
 import { useRegisteredComponent } from '../injection/useRegisteredComponent'
 import { useModuleEnabled } from '../BackendChromeProvider'
-type Translator = (key: string, fallback?: string, params?: Record<string, string | number>) => string
+import type { TranslateWithFallbackFn } from '@open-mercato/shared/lib/i18n/translate'
+import { loadMarkdownPlugins } from '../markdown/useMarkdownRemarkPlugins'
+import { generateTempId } from './tempId'
 
 const NOTES_PAGE_SIZE = 20
 
@@ -100,23 +102,6 @@ export type NotesDataAdapter<C = unknown> = {
 
 type RenderIconFn = (icon: string, className?: string) => React.ReactNode
 type RenderColorFn = (color: string, className?: string) => React.ReactNode
-
-let markdownPluginsPromise: Promise<PluggableList> | null = null
-
-async function loadMarkdownPlugins(): Promise<PluggableList> {
-  if (isTestEnv) return []
-  if (!markdownPluginsPromise) {
-    markdownPluginsPromise = import('remark-gfm')
-      .then((mod) => [mod.default ?? mod] as PluggableList)
-      .catch(() => [])
-  }
-  return markdownPluginsPromise
-}
-
-function generateTempId() {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID()
-  return `tmp_${Math.random().toString(36).slice(2)}`
-}
 
 
 
@@ -196,7 +181,7 @@ export type NotesSectionProps<C = unknown> = {
   addActionLabel: string
   emptyState: TabEmptyStateConfig
   onActionChange?: (action: SectionAction | null) => void
-  translator?: Translator
+  translator?: TranslateWithFallbackFn
   labelPrefix?: string
   inlineLabelPrefix?: string
   onLoadingChange?: (isLoading: boolean) => void
@@ -317,7 +302,7 @@ function NotesSectionImpl<C = unknown>({
   disableMarkdown,
 }: NotesSectionProps<C>) {
   const { confirm, ConfirmDialogElement } = useConfirmDialog()
-  const t = React.useMemo<Translator>(() => translator ?? ((key, fallback) => fallback ?? key), [translator])
+  const t = React.useMemo<TranslateWithFallbackFn>(() => translator ?? ((key, fallback) => fallback ?? key), [translator])
   // Notes render on detail pages across several modules; the linked-deal
   // affordance must not appear for a viewer whose tenant does not have CRM.
   const customersEnabled = useModuleEnabled('customers')

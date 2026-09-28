@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto'
 import type { AwilixContainer } from 'awilix'
 import type { ModuleSetupConfig } from '@open-mercato/shared/modules/setup'
 import type { AppContainer } from '@open-mercato/shared/lib/di/container'
@@ -12,6 +11,7 @@ import {
   EXAMPLE_SETUP_ENTITY_IDS,
   buildCalendarReferenceRecords,
 } from './lib/exampleSeeds'
+import { stableUuidFromKey } from '@open-mercato/shared/lib/ids'
 
 /**
  * The three setup hooks are not three flavours of "seed something". They differ in
@@ -40,11 +40,6 @@ type SchedulerServiceLike = {
   register: (registration: Record<string, unknown>) => Promise<void>
 }
 
-function stableScheduleUuid(stableKey: string): string {
-  const hex = createHash('sha256').update(stableKey).digest('hex')
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`
-}
-
 /**
  * Registers the outbox-recovery tick for the Todo bulk-complete operation.
  *
@@ -71,7 +66,7 @@ export async function registerTodoBulkDispatchSchedule(
 
   const schedulerService = container.resolve('schedulerService') as SchedulerServiceLike
   await schedulerService.register({
-    id: stableScheduleUuid(`example:todos-bulk-dispatch:${scope.tenantId}:${scope.organizationId}`),
+    id: stableUuidFromKey(`example:todos-bulk-dispatch:${scope.tenantId}:${scope.organizationId}`),
     name: 'Todo bulk-complete outbox dispatch',
     description: 'Republish unpublished or lease-expired Todo bulk-complete operations.',
     scopeType: 'organization',

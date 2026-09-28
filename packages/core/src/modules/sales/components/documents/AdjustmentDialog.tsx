@@ -27,16 +27,9 @@ import { E } from '#generated/entities.ids.generated'
 import { Settings } from 'lucide-react'
 import { extractCustomFieldValues, normalizeCustomFieldSubmitValue } from '@open-mercato/shared/lib/crud/custom-fields-client'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { mergeTaxRateOptions, type TaxRateOption } from './taxRateOptions'
 
 const logger = createLogger('sales')
-
-type TaxRateOption = {
-  id: string
-  name: string
-  code: string | null
-  rate: number | null
-  isDefault: boolean
-}
 
 type AdjustmentFormState = {
   id?: string
@@ -139,15 +132,6 @@ const mapTaxRateOption = (item: Record<string, unknown>): TaxRateOption | null =
       : null
   const isDefault = Boolean((item as any).isDefault ?? (item as any).is_default)
   return { id, name, code, rate: Number.isFinite(rate) ? rate : null, isDefault }
-}
-
-const mergeTaxRateOptions = (
-  options: TaxRateOption[],
-  selected: TaxRateOption | null,
-): TaxRateOption[] => {
-  if (!selected) return options
-  if (options.some((option) => option.id === selected.id)) return options
-  return [selected, ...options]
 }
 
 const roundAmount = (value: number): number => Math.round((value + Number.EPSILON) * 100) / 100

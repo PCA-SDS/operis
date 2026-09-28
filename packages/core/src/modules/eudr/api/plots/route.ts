@@ -22,14 +22,15 @@ import {
   createPagedListResponseSchema,
   defaultOkResponseSchema,
 } from '../openapi'
+import { stringArray } from '../../lib/values'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 type TranslateFn = (key: string, fallback?: string) => string
 
 const rawBodySchema = z.object({}).passthrough()
 
 const listSchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(50),
+  ...paginationQuerySchema().shape,
   search: z.string().optional(),
   supplierEntityId: z.string().uuid().optional(),
   plotType: z.enum(EUDR_PLOT_TYPES).optional(),
@@ -54,11 +55,6 @@ export const metadata = routeMetadata
 
 function asStringOrNull(value: unknown): string | null {
   return typeof value === 'string' ? value : null
-}
-
-function stringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return []
-  return value.filter((entry): entry is string => typeof entry === 'string')
 }
 
 function resolveDeleteInput(parsed: unknown, ctx: { request?: Request }, translate: TranslateFn) {

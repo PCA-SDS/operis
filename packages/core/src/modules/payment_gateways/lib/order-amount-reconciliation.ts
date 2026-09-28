@@ -1,6 +1,6 @@
 import { conflict } from '@open-mercato/shared/lib/crud/errors'
-import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
-import { createFallbackTranslator, type TranslateWithFallbackFn } from '@open-mercato/shared/lib/i18n/translate'
+import { resolveTranslatorWithFallback } from '@open-mercato/shared/lib/i18n/translatorFallback'
+import { type TranslateWithFallbackFn } from '@open-mercato/shared/lib/i18n/translate'
 import type {
   PaymentGatewayScope,
   PaymentOrderTotal,
@@ -12,21 +12,6 @@ const AMOUNT_TOLERANCE = 0.0001
 
 function normalizeCurrencyCode(currencyCode: string): string {
   return currencyCode.trim().toUpperCase()
-}
-
-/**
- * Conflict copy is served from the module catalog on a request path. Contexts
- * without a registered module dictionary (CLI commands, workers, unit tests)
- * fall back to the English template shipped with each call, so a missing
- * dictionary degrades the wording of a rejection but never its outcome.
- */
-async function resolveConflictTranslator(): Promise<TranslateWithFallbackFn> {
-  try {
-    const { translate } = await resolveTranslations()
-    return translate
-  } catch {
-    return createFallbackTranslator({})
-  }
 }
 
 export function isPaymentOrderTotalResolver(candidate: unknown): candidate is PaymentOrderTotalResolver {
@@ -76,7 +61,7 @@ export async function reconcileSessionAmountWithOrder(input: {
   if (!orderId || !resolver) return
 
   const orderTotal = await resolver.resolveOrderTotal(orderId, input.scope)
-  const translate = await resolveConflictTranslator()
+  const translate = await resolveTranslatorWithFallback()
   if (!orderTotal) {
     throw conflict(translate(
       'payment_gateways.errors.sessionOrderNotFound',

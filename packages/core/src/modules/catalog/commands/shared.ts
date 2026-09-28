@@ -65,11 +65,6 @@ export function resolveOptionSchemaCode(opts: {
   return resolved || `schema-${randomSuffix()}`
 }
 
-export function toNumericString(value: number | null | undefined): string | null {
-  if (value === undefined || value === null) return null
-  return value.toString()
-}
-
 export type RequireScope = {
   tenantId: string | null
   organizationId: string | null
@@ -252,4 +247,13 @@ export async function emitCatalogQueryIndexEvent(
     tenantId: params.tenantId ?? null,
     organizationId: params.organizationId ?? null,
   }).catch(() => undefined)
+}
+
+export function toIso(value: Date | string | null | undefined): string | null {
+  if (!value) return null
+  if (value instanceof Date) {
+    return Number.isFinite(value.getTime()) ? value.toISOString() : null
+  }
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
 }

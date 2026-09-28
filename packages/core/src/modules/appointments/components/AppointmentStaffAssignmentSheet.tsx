@@ -10,6 +10,7 @@ import { Input } from '@open-mercato/ui/primitives/input'
 import { Tag } from '@open-mercato/ui/primitives/tag'
 import { SIDE_PANEL_MOTION, SIDE_PANEL_SCRIM_MOTION, useSidePanelPresence } from '@open-mercato/ui/primitives/side-panel-motion'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { formatTime } from '@open-mercato/shared/lib/time'
 
 export type AppointmentStaffAssignmentTarget = {
   serviceName: string
@@ -32,10 +33,6 @@ export type AppointmentAssignableStaff = {
 const SLOT_MINUTES = 15
 const MIN_DURATION = 15
 const MAX_DURATION = 480
-
-function formatTime(value: string) {
-  return new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(new Date(value))
-}
 
 function durationMinutes(target: AppointmentStaffAssignmentTarget) {
   return Math.max(MIN_DURATION, Math.round((new Date(target.endsAt).getTime() - new Date(target.startsAt).getTime()) / 60000))

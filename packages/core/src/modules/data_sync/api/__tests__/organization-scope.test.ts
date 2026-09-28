@@ -18,16 +18,13 @@ const mockScheduleService = {
   saveSchedule: jest.fn(),
 }
 
-const mockCrudMutationGuardService = {
-  validateMutation: jest.fn(),
-  afterMutationSuccess: jest.fn(),
-}
+const mockGuardValidate = jest.fn()
+const mockGuardAfterSuccess = jest.fn()
 
 const mockCreateRequestContainer = jest.fn(async () => ({
   resolve: (token: string) => {
     if (token === 'dataSyncRunService') return mockSyncRunService
     if (token === 'dataSyncScheduleService') return mockScheduleService
-    if (token === 'crudMutationGuardService') return mockCrudMutationGuardService
     return null
   },
 }))
@@ -48,6 +45,7 @@ jest.mock('../../lib/start-run', () => ({
   startDataSyncRun: jest.fn((params: unknown) => mockStartDataSyncRun(params)),
 }))
 
+import { registerMutationGuards } from '@open-mercato/shared/lib/crud/mutation-guard-store'
 import { GET as listRuns } from '../runs'
 import { GET as listSchedules, POST as createSchedule } from '../schedules/route'
 import { POST as startRun } from '../run'
@@ -126,12 +124,25 @@ beforeEach(() => {
     updatedAt: new Date('2026-06-01T10:00:00.000Z'),
     deletedAt: null,
   })
-  mockCrudMutationGuardService.validateMutation.mockResolvedValue({
-    ok: true,
-    shouldRunAfterSuccess: true,
-    metadata: null,
-  })
-  mockCrudMutationGuardService.afterMutationSuccess.mockResolvedValue(undefined)
+  mockGuardValidate.mockResolvedValue({ ok: true, shouldRunAfterSuccess: true })
+  mockGuardAfterSuccess.mockResolvedValue(undefined)
+})
+
+beforeAll(() => {
+  registerMutationGuards([{
+    moduleId: 'data_sync_test',
+    guards: [{
+      id: 'data_sync_test.scope-guard',
+      targetEntity: '*',
+      operations: ['create', 'update', 'delete'],
+      validate: (input) => mockGuardValidate(input),
+      afterSuccess: (input) => mockGuardAfterSuccess(input),
+    }],
+  }])
+})
+
+afterAll(() => {
+  registerMutationGuards([])
 })
 
 describe('data_sync routes in the all-organizations scope', () => {
@@ -169,7 +180,7 @@ describe('data_sync routes in the all-organizations scope', () => {
       expect.anything(),
     )
     // The mutation guard must see the resolved organization too, not the null selection.
-    expect(mockCrudMutationGuardService.validateMutation).toHaveBeenCalledWith(
+    expect(mockGuardValidate).toHaveBeenCalledWith(
       expect.objectContaining({ organizationId: ACTOR_ORG_ID }),
     )
   })
@@ -216,7 +227,7 @@ describe('data_sync routes in a foreign-tenant all-organizations scope', () => {
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toMatchObject({ code: 'organization_scope_required' })
     expect(mockScheduleService.saveSchedule).not.toHaveBeenCalled()
-    expect(mockCrudMutationGuardService.validateMutation).not.toHaveBeenCalled()
+    expect(mockGuardValidate).not.toHaveBeenCalled()
     expect(mockCreateRequestContainer).not.toHaveBeenCalled()
   })
 
@@ -226,7 +237,7 @@ describe('data_sync routes in a foreign-tenant all-organizations scope', () => {
     expect(response.status).toBe(400)
     await expect(response.json()).resolves.toMatchObject({ code: 'organization_scope_required' })
     expect(mockStartDataSyncRun).not.toHaveBeenCalled()
-    expect(mockCrudMutationGuardService.validateMutation).not.toHaveBeenCalled()
+    expect(mockGuardValidate).not.toHaveBeenCalled()
     expect(mockCreateRequestContainer).not.toHaveBeenCalled()
   })
 })

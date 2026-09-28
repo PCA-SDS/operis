@@ -1,4 +1,5 @@
 import { createLogger } from './logger'
+import { parseCommaSeparatedList } from './string'
 
 const logger = createLogger('shared').child({ component: 'origin-check' })
 
@@ -54,16 +55,9 @@ function normalizeOrigin(raw: string | undefined): string | null {
   return url ? url.origin : null
 }
 
-function readCsv(value: string | undefined): string[] {
-  return (value ?? '')
-    .split(',')
-    .map((item) => item.trim())
-    .filter((item) => item.length > 0)
-}
-
 function readAllowedOrigins(env: EnvLike): Set<string> {
   const origins = new Set<string>()
-  for (const raw of [env.APP_URL, env.NEXT_PUBLIC_APP_URL, ...readCsv(env.APP_ALLOWED_ORIGINS)]) {
+  for (const raw of [env.APP_URL, env.NEXT_PUBLIC_APP_URL, ...parseCommaSeparatedList(env.APP_ALLOWED_ORIGINS)]) {
     const origin = normalizeOrigin(raw)
     if (origin) origins.add(origin)
   }
@@ -160,7 +154,7 @@ function logOriginDebugContext(
   })
 }
 
-function isLoopbackHostname(hostname: string): boolean {
+export function isLoopbackHostname(hostname: string): boolean {
   return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1'
 }
 
@@ -172,7 +166,7 @@ function isLoopbackOrigin(origin: string): boolean {
   }
 }
 
-function normalizeOriginPort(url: URL): string {
+export function normalizeOriginPort(url: URL): string {
   if (url.port) return url.port
   if (url.protocol === 'https:') return '443'
   if (url.protocol === 'http:') return '80'

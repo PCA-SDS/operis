@@ -12,8 +12,7 @@ const container = {
     if (name === 'pushNotificationService') {
       return { sendCustomPush: sendCustomPushMock }
     }
-    // The mutation-guard bridge and org-scope resolver both resolve optional services; return
-    // undefined so the guard registry short-circuits (no legacy guard) and scope falls back to auth.
+    // The org-scope resolver resolves optional services; return undefined so scope falls back to auth.
     return undefined
   }),
 }
@@ -37,9 +36,8 @@ jest.mock('@open-mercato/core/modules/directory/utils/organizationScope', () => 
   resolveOrganizationScopeForRequest: jest.fn(async () => null),
 }))
 
-jest.mock('@open-mercato/shared/lib/crud/mutation-guard-registry', () => ({
-  bridgeLegacyGuard: jest.fn(() => null),
-  runMutationGuards: jest.fn(async () => ({ ok: true, afterSuccessCallbacks: [] })),
+jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
+  runRouteMutationGuards: jest.fn(async () => ({ ok: true, runAfterSuccess: jest.fn(async () => undefined) })),
 }))
 
 jest.mock('@open-mercato/shared/lib/i18n/server', () => ({

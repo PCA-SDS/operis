@@ -15,7 +15,7 @@ import {
  * They throw `ChannelMutationBlockedError` on violations so the caller can
  * map the error to an HTTP 4xx (typically 422) without leaking internals.
  *
- * Why functions, not the generic `validateCrudMutationGuard`:
+ * Why functions, not a registry mutation guard (`runRouteMutationGuards`):
  *   The hub's writes are channel-shaped rather than entity-shaped — "deleting a
  *   channel with unread inbound" is not a per-entity invariant the generic
  *   CRUD guard layer can express. These functions encode hub semantics directly

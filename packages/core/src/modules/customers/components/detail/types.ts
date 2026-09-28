@@ -1,11 +1,5 @@
 "use client"
 
-export type Translator = (
-  key: string,
-  fallback?: string,
-  params?: Record<string, string | number>,
-) => string
-
 export type TagSummary = { id: string; label: string; color?: string | null }
 
 export type AddressSummary = {

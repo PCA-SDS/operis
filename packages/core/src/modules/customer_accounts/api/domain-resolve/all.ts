@@ -10,19 +10,14 @@ import {
   domainResolveAllIpRateLimitConfig,
 } from '@open-mercato/core/modules/customer_accounts/lib/rateLimiter'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { withOriginHeader } from '../originHeader'
 
 const logger = createLogger('customer_accounts').child({ component: 'domain-resolve-all' })
 
-const ORIGIN_HEADER_NAME = process.env.CUSTOMER_DOMAIN_ORIGIN_HEADER ?? 'X-Open-Mercato-Origin'
 const ENDPOINT_PATH = '/api/customer_accounts/domain-resolve/all'
 
 export const metadata = {
   GET: { requireAuth: false },
-}
-
-function withOriginHeader(response: NextResponse): NextResponse {
-  response.headers.set(ORIGIN_HEADER_NAME, '1')
-  return response
 }
 
 function readCallerIp(req: Request): string {

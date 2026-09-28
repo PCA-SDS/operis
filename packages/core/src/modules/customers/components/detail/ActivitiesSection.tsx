@@ -11,6 +11,7 @@ import { ActivityTimelineFilters } from './ActivityTimelineFilters'
 import { ActivityTimeline } from './ActivityTimeline'
 import type { ActivitySummary, InteractionSummary } from './types'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { normalizeLegacyActivity } from './legacyActivity'
 
 const logger = createLogger('customers')
 
@@ -43,34 +44,6 @@ function toDateOnly(value: string | null | undefined): string {
   if (!value) return ''
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? '' : date.toISOString().slice(0, 10)
-}
-
-function normalizeLegacyActivity(activity: ActivitySummary): InteractionSummary {
-  return {
-    id: activity.id,
-    interactionType: activity.activityType,
-    title: activity.subject ?? null,
-    body: activity.body ?? null,
-    status: 'done',
-    scheduledAt: null,
-    occurredAt: activity.occurredAt ?? null,
-    priority: null,
-    authorUserId: activity.authorUserId ?? null,
-    ownerUserId: null,
-    appearanceIcon: activity.appearanceIcon ?? null,
-    appearanceColor: activity.appearanceColor ?? null,
-    source: 'legacy-activity',
-    entityId: activity.entityId ?? null,
-    dealId: activity.dealId ?? null,
-    organizationId: null,
-    tenantId: null,
-    authorName: activity.authorName ?? null,
-    authorEmail: activity.authorEmail ?? null,
-    dealTitle: activity.dealTitle ?? null,
-    customValues: activity.customValues ?? null,
-    createdAt: activity.createdAt,
-    updatedAt: activity.createdAt,
-  }
 }
 
 function sortTimelineActivities(items: InteractionSummary[]): InteractionSummary[] {

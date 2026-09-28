@@ -17,6 +17,7 @@ import { apiCall, apiCallOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { AiChat, createAiUiPartRegistry, LoopDisabledBanner, useAiShortcuts } from '@open-mercato/ui/ai'
 import type { AiChatDebugPromptSection, AiChatDebugTool } from '@open-mercato/ui/ai'
 import { ConversationShareButton } from '../../../../components/ConversationShareButton'
+import { AiConfigLoading } from '../AiConfigLoading'
 
 type PlaygroundAgentTool = {
   name: string
@@ -68,18 +69,6 @@ async function fetchAgents(): Promise<AgentsResponse> {
   )
   if (!result) throw new Error(`Failed to load agents (${status})`)
   return result
-}
-
-function PlaygroundLoading({ message }: { message: string }) {
-  return (
-    <div
-      className="flex items-center gap-2 rounded-lg border border-border bg-surface p-4 text-sm text-muted-foreground"
-      role="status"
-    >
-      <Loader2 className="size-4 animate-spin" aria-hidden />
-      <span>{message}</span>
-    </div>
-  )
 }
 
 function PlaygroundNoAgents() {
@@ -587,7 +576,7 @@ export function AiPlaygroundPageClient() {
     return (
       <div className="flex flex-col gap-6">
         {pageHeader}
-        <PlaygroundLoading
+        <AiConfigLoading
           message={t('ai_assistant.playground.loadingAgents', 'Loading AI agents...')}
         />
       </div>

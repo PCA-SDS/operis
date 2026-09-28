@@ -4,12 +4,7 @@ import { DEFAULT_CHECKOUT_CUSTOMER_FIELDS } from '../lib/defaults'
 import { CHECKOUT_LINK_STATUSES } from '../lib/constants'
 import { currencyCodeSchema as currencyCodeSchema_, moneyAmountSchema } from '@open-mercato/shared/lib/validation'
 import { isValidCheckoutEmail, isValidCheckoutPhone } from '../lib/customerDataValidation'
-
-function normalizeBlankString(value: unknown): unknown {
-  if (typeof value !== 'string') return value
-  const trimmed = value.trim()
-  return trimmed.length > 0 ? trimmed : null
-}
+import { emptyStringToNull } from '@open-mercato/shared/lib/validation/preprocess'
 
 function normalizeOptionalDocument(value: unknown): unknown {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return value
@@ -30,15 +25,15 @@ const hexColorSchema = z.string().regex(/^#([0-9a-fA-F]{6})$/, {
 })
 const currencyCodeSchema = currencyCodeSchema_({ message: 'checkout.validation.common.invalidCurrencyCode' })
 const optionalTrimmedString = z.preprocess(
-  normalizeBlankString,
+  emptyStringToNull,
   z.string().trim().min(1, { message: 'checkout.validation.common.required' }).optional().nullable(),
 )
 const optionalUrlSchema = z.preprocess(
-  normalizeBlankString,
+  emptyStringToNull,
   z.string().url('checkout.validation.common.invalidUrl').optional().nullable(),
 )
 const optionalFieldsetCodeSchema = z.preprocess(
-  normalizeBlankString,
+  emptyStringToNull,
   z.string().regex(fieldsetCodeRegex, {
     message: 'checkout.validation.common.invalidFieldsetCode',
   }).optional().nullable(),

@@ -14,24 +14,13 @@ import type { Queue } from '@open-mercato/queue'
 import type { FulltextIndexJobPayload } from '../queue/fulltext-indexing'
 import type { VectorIndexJobPayload, VectorBatchRecord } from '../queue/vector-indexing'
 import { searchDebug, searchDebugWarn, searchError } from '../lib/debug'
+import type { SearchIndexPayload } from '@open-mercato/shared/modules/search'
 
 /**
  * Maximum number of pages to process during reindex to prevent infinite loops.
  * At 50 records per page, this allows up to 500,000 records per entity.
  */
 const MAX_PAGES = 10000
-
-/**
- * Parameters for indexing a record.
- */
-export type IndexRecordParams = {
-  entityId: EntityId
-  recordId: string
-  tenantId: string
-  organizationId?: string | null
-  record: Record<string, unknown>
-  customFields?: Record<string, unknown>
-}
 
 /**
  * Parameters for deleting a record from the search index.
@@ -181,7 +170,7 @@ export class SearchIndexer {
   /**
    * Index a record in the search service.
    */
-  async indexRecord(params: IndexRecordParams): Promise<void> {
+  async indexRecord(params: SearchIndexPayload): Promise<void> {
     const config = this.entityConfigMap.get(params.entityId)
     if (!config || config.enabled === false) {
       return // Entity not configured for search
@@ -503,7 +492,7 @@ export class SearchIndexer {
   /**
    * Bulk index multiple records.
    */
-  async bulkIndexRecords(params: IndexRecordParams[]): Promise<void> {
+  async bulkIndexRecords(params: SearchIndexPayload[]): Promise<void> {
     const indexableRecords: IndexableRecord[] = []
 
     for (const param of params) {

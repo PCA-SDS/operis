@@ -49,6 +49,9 @@ import {
   type BusinessHoursFormValue,
   type BusinessHoursIntervalRow,
 } from '../../../lib/businessHoursForm'
+import { isRecord } from '@open-mercato/shared/lib/guards'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
+import { CURRENCY_CODE_PATTERN } from '@open-mercato/shared/lib/validation'
 
 type WarrantyDictionaryKind =
   | 'warranty-claim-fault-code'
@@ -282,14 +285,6 @@ const SECTIONS: SectionDefinition[] = [
   },
 ]
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
-
-function toStringOrNull(value: unknown): string | null {
-  return typeof value === 'string' && value.trim().length ? value.trim() : null
-}
-
 type JsonParseResult<T> =
   | { ok: true; value: T | null }
   | { ok: false }
@@ -361,20 +356,20 @@ function validateEscalationTierRows(
 
 function normalizeEntry(item: unknown): DictionaryTableEntry | null {
   if (!isRecord(item)) return null
-  const id = toStringOrNull(item.id)
-  const value = toStringOrNull(item.value)
+  const id = normalizeOptionalString(item.id)
+  const value = normalizeOptionalString(item.value)
   if (!id || !value) return null
   return {
     id,
     value,
-    label: toStringOrNull(item.label) ?? value,
-    color: toStringOrNull(item.color),
-    icon: toStringOrNull(item.icon),
-    organizationId: toStringOrNull(item.organizationId),
-    tenantId: toStringOrNull(item.tenantId),
+    label: normalizeOptionalString(item.label) ?? value,
+    color: normalizeOptionalString(item.color),
+    icon: normalizeOptionalString(item.icon),
+    organizationId: normalizeOptionalString(item.organizationId),
+    tenantId: normalizeOptionalString(item.tenantId),
     isInherited: item.isInherited === true,
-    createdAt: toStringOrNull(item.createdAt),
-    updatedAt: toStringOrNull(item.updatedAt),
+    createdAt: normalizeOptionalString(item.createdAt),
+    updatedAt: normalizeOptionalString(item.updatedAt),
   }
 }
 
@@ -1210,7 +1205,7 @@ export default function WarrantyClaimSettingsPage() {
     if (!response.ok || !response.result) return unknownUserLabel
     const user = (response.result.items ?? [])[0]
     if (!user) return unknownUserLabel
-    return toStringOrNull(user.name) ?? unknownUserLabel
+    return normalizeOptionalString(user.name) ?? unknownUserLabel
   }, [t])
 
   const addEscalationTierRow = React.useCallback(() => {
@@ -1283,10 +1278,10 @@ export default function WarrantyClaimSettingsPage() {
     const defaultWarrantyMonths = warrantyMonthsText.length ? Number(warrantyMonthsText) : null
     const returnWindowDaysText = generalForm.returnWindowDays.trim()
     const returnWindowDays = returnWindowDaysText.length ? Number(returnWindowDaysText) : null
-    const currencyCode = toStringOrNull(generalForm.autoApproveCurrencyCode)?.toUpperCase() ?? null
+    const currencyCode = normalizeOptionalString(generalForm.autoApproveCurrencyCode)?.toUpperCase() ?? null
     const businessHoursResult = validateBusinessHoursValue(generalForm.businessHours, generalTranslations.businessHours)
     const escalationTiersResult = validateEscalationTierRows(generalForm.escalationTiers, generalTranslations.escalationTiers)
-    const returnLabelProvider = toStringOrNull(generalForm.returnLabelProvider)
+    const returnLabelProvider = normalizeOptionalString(generalForm.returnLabelProvider)
     const quarantineGrades = Array.from(new Set(
       generalForm.quarantineGrades
         .map((grade) => grade.trim())
@@ -1319,7 +1314,7 @@ export default function WarrantyClaimSettingsPage() {
       (autoApproveMaxAmount !== null && (!Number.isFinite(autoApproveMaxAmount) || autoApproveMaxAmount < 0)) ||
       (defaultWarrantyMonths !== null && (!Number.isInteger(defaultWarrantyMonths) || defaultWarrantyMonths < 0 || defaultWarrantyMonths > 600)) ||
       (returnWindowDays !== null && (!Number.isInteger(returnWindowDays) || returnWindowDays < 1 || returnWindowDays > 3650)) ||
-      (currencyCode !== null && !/^[A-Z]{3}$/.test(currencyCode))
+      (currencyCode !== null && !CURRENCY_CODE_PATTERN.test(currencyCode))
     ) {
       setGeneralSaveError(generalTranslations.invalidError)
       return

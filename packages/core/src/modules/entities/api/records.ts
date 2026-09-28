@@ -16,6 +16,7 @@ import { enforceCommandOptimisticLockWithGuards } from '@open-mercato/shared/lib
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { assertEntityAclForRequest, getDeclaredCustomEntityRestriction } from '../lib/entityAcl'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { RFC4122_UUID_PATTERN } from '@open-mercato/shared/lib/validation'
 
 const logger = createLogger('entities').child({ component: 'records' })
 
@@ -446,7 +447,7 @@ export async function POST(req: Request) {
       const low = raw.toLowerCase()
       if (low === 'create' || low === 'new' || low === 'null' || low === 'undefined') return undefined
       // Enforce UUID only; any non-uuid is ignored so we generate one in the DE
-      const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+      const uuid = RFC4122_UUID_PATTERN
       return uuid.test(raw) ? raw : undefined
     })()
     const { id } = await de.createCustomEntityRecord({
@@ -515,7 +516,7 @@ export async function PUT(req: Request) {
     } catch { /* ignore if helper missing */ }
 
     // Normalize recordId: if blank/sentinel/non-uuid => create instead of update
-    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    const uuidRe = RFC4122_UUID_PATTERN
     const rid = String(recordId || '').trim()
     const low = rid.toLowerCase()
     const isSentinel = !rid || low === 'create' || low === 'new' || low === 'null' || low === 'undefined'

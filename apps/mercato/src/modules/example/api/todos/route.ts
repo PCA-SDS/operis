@@ -3,6 +3,7 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import { makeCrudRoute, type CrudCtx } from '@open-mercato/shared/lib/crud/factory'
 import { escapeLikePattern } from '@open-mercato/shared/lib/db/escapeLikePattern'
 import { Todo } from '../../data/entities'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 const ENTITY_ID = 'example:todo' as const
 const id = 'id'
@@ -37,8 +38,7 @@ import {
 const querySchema = z
   .object({
     id: z.string().uuid().optional(),
-    page: z.coerce.number().int().min(1).default(1),
-    pageSize: z.coerce.number().int().min(1).max(100).default(50),
+    ...paginationQuerySchema().shape,
     ids: z.string().optional(),
     sortField: z.string().optional().default('id'),
     sortDir: z.enum(['asc', 'desc']).optional().default('asc'),

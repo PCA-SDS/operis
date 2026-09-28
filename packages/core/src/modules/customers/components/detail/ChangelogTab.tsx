@@ -16,6 +16,7 @@ import { ChangelogKpiCards } from './ChangelogKpiCards'
 import { ChangelogEntryRow } from './ChangelogEntryRow'
 import { formatChangelogValue } from './changelogValues'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { formatFieldLabel } from './changelogFormat'
 
 const logger = createLogger('customers')
 
@@ -100,16 +101,6 @@ const HEADER_COLUMNS: Array<{ field: SortField; key: string; fallback: string; a
   { field: 'field', key: 'customers.changelog.col.change', fallback: 'What changed' },
   { field: 'source', key: 'customers.changelog.col.source', fallback: 'Source', align: 'right' },
 ]
-
-function formatFieldLabel(fieldName: string): string {
-  return fieldName
-    .replace(/\./g, ' ')
-    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-    .replace(/[_-]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .replace(/^\w/, (char) => char.toUpperCase())
-}
 
 function mergeFilterOptions(...groups: FilterOption[][]): FilterOption[] {
   const options = new Map<string, FilterOption>()

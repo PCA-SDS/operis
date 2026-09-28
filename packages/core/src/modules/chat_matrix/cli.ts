@@ -6,6 +6,7 @@ import { ChatMatrixSyncState } from './data/entities'
 import { CHAT_MATRIX_QUEUES, DEFAULT_SYNC_STREAM } from './lib/queue'
 import type { DriftScope } from './lib/drift'
 import type { BackfillOptions } from './lib/backfill'
+import { parseCliArgs } from '@open-mercato/shared/lib/cli/args'
 
 /**
  * Matrix is reached through `await import` in each command, never a top-level
@@ -18,28 +19,6 @@ import type { BackfillOptions } from './lib/backfill'
  */
 
 const logger = createLogger('chat_matrix').child({ component: 'cli' })
-
-function parseArgs(rest: string[]): Record<string, string | boolean> {
-  const args: Record<string, string | boolean> = {}
-  for (let index = 0; index < rest.length; index += 1) {
-    const part = rest[index]
-    if (!part?.startsWith('--')) continue
-    const [rawKey, rawValue] = part.slice(2).split('=')
-    if (!rawKey) continue
-    if (rawValue !== undefined) {
-      args[rawKey] = rawValue
-      continue
-    }
-    const next = rest[index + 1]
-    if (next && !next.startsWith('--')) {
-      args[rawKey] = next
-      index += 1
-      continue
-    }
-    args[rawKey] = true
-  }
-  return args
-}
 
 function scopeFrom(args: Record<string, string | boolean>): DriftScope {
   return {
@@ -59,7 +38,7 @@ function scopeFrom(args: Record<string, string | boolean>): DriftScope {
  */
 async function drift(rest: string[]): Promise<void> {
   const { checkDrift, formatDriftReport } = await import('./lib/drift')
-  const args = parseArgs(rest)
+  const args = parseCliArgs(rest)
   const container = await createRequestContainer()
   const em = container.resolve<EntityManager>('em')
 
@@ -95,7 +74,7 @@ async function drift(rest: string[]): Promise<void> {
 async function backfill(rest: string[]): Promise<void> {
   const { MatrixClient, matrixConfigFromEnv } = await import('@open-mercato/matrix')
   const { backfillConversations } = await import('./lib/backfill')
-  const args = parseArgs(rest)
+  const args = parseCliArgs(rest)
   const config = matrixConfigFromEnv()
   if (!config) {
     process.stderr.write(

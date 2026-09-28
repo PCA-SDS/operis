@@ -28,7 +28,7 @@ import { Avatar, AvatarStack } from '@open-mercato/ui/primitives/avatar'
 import { Tag } from '@open-mercato/ui/primitives/tag'
 import { SimpleTooltip } from '@open-mercato/ui/primitives/tooltip'
 import { Briefcase, AlertTriangle, X } from 'lucide-react'
-import { formatRelativeTime } from '@open-mercato/shared/lib/time'
+import { formatRelativeTime, formatDate } from '@open-mercato/shared/lib/time'
 import { ViewTabsRow } from './pipeline/components/ViewTabsRow'
 import { DealsKpiStrip } from '../../../components/DealsKpiStrip'
 import { E } from '#generated/entities.ids.generated'
@@ -64,6 +64,7 @@ import {
   mapAssignableStaffToFilterOptions,
 } from '../../../components/detail/assignableStaff'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { RFC4122_UUID_PATTERN } from '@open-mercato/shared/lib/validation'
 
 const logger = createLogger('customers')
 
@@ -133,11 +134,10 @@ type DictionaryOptionWithTone = AdvancedFilterOption & FilterOption
 type DictionaryKey = Extract<CustomerDictionaryKind, 'deal-statuses' | 'pipeline-stages'>
 
 const PAGE_SIZE = 20
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 function isUuid(value: string | null | undefined): value is string {
   if (!value) return false
-  return UUID_REGEX.test(value.trim())
+  return RFC4122_UUID_PATTERN.test(value.trim())
 }
 
 function normalizeIdCandidates(raw: Array<string>): string[] {
@@ -158,13 +158,6 @@ function extractIdsFromParams(params: URLSearchParams | null | undefined, key: s
   if (!params) return []
   const values = params.getAll(key)
   return normalizeIdCandidates(values)
-}
-
-function formatDateValue(value: string | null | undefined, fallback: string): string {
-  if (!value) return fallback
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return fallback
-  return date.toLocaleDateString()
 }
 
 const STATUS_BADGE_VARIANTS: ReadonlySet<StatusBadgeVariant> = new Set([
@@ -869,7 +862,7 @@ export default function CustomersDealsPage() {
           return (
             <div className="flex flex-col">
               <span className="text-foreground">
-                {formatDateValue(expectedCloseAt, t('customers.deals.list.noValue'))}
+                {formatDate(expectedCloseAt, { fallback: t('customers.deals.list.noValue') })}
               </span>
               {subtitle}
             </div>
@@ -981,7 +974,7 @@ export default function CustomersDealsPage() {
         },
         cell: ({ row }) => (
           <span className="text-sm">
-            {formatDateValue(row.original.updatedAt ?? null, t('customers.deals.list.noValue'))}
+            {formatDate(row.original.updatedAt ?? null, { fallback: t('customers.deals.list.noValue') })}
           </span>
         ),
       },

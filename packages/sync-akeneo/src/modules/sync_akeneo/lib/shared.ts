@@ -1,4 +1,6 @@
 import type { DataMapping, FieldMapping } from '@open-mercato/core/modules/data_sync/lib/adapter'
+import { isRecord } from '@open-mercato/shared/lib/guards'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
 
 export type AkeneoEntityType = 'categories' | 'attributes' | 'products'
 
@@ -397,21 +399,13 @@ export function dedupeStrings(values: Array<string | null | undefined>): string[
   ))
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
-}
-
-function readTrimmedString(value: unknown): string | null {
-  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
-}
-
 function normalizeCustomFieldMappings(value: unknown): AkeneoCustomFieldMapping[] {
   if (!Array.isArray(value)) return []
   const normalized: AkeneoCustomFieldMapping[] = []
   for (const entry of value) {
     if (!isRecord(entry)) continue
-    const attributeCode = readTrimmedString(entry.attributeCode)
-    const fieldKey = readTrimmedString(entry.fieldKey)
+    const attributeCode = normalizeOptionalString(entry.attributeCode)
+    const fieldKey = normalizeOptionalString(entry.fieldKey)
     const target = entry.target === 'variant' ? 'variant' : entry.target === 'product' ? 'product' : null
     const kind = entry.kind === 'text'
       || entry.kind === 'multiline'
@@ -433,10 +427,10 @@ function normalizePriceMappings(value: unknown): AkeneoPriceMapping[] {
   const normalized: AkeneoPriceMapping[] = []
   for (const entry of value) {
     if (!isRecord(entry)) continue
-    const attributeCode = readTrimmedString(entry.attributeCode)
-    const priceKindCode = readTrimmedString(entry.priceKindCode)
-    const localChannelCode = readTrimmedString(entry.localChannelCode)
-    const akeneoChannel = readTrimmedString(entry.akeneoChannel)
+    const attributeCode = normalizeOptionalString(entry.attributeCode)
+    const priceKindCode = normalizeOptionalString(entry.priceKindCode)
+    const localChannelCode = normalizeOptionalString(entry.localChannelCode)
+    const akeneoChannel = normalizeOptionalString(entry.akeneoChannel)
     if (!attributeCode || !priceKindCode || !localChannelCode) continue
     normalized.push({ attributeCode, priceKindCode, localChannelCode, akeneoChannel })
   }
@@ -448,7 +442,7 @@ function normalizeMediaMappings(value: unknown): AkeneoMediaMapping[] {
   return value
     .map((entry) => {
       if (!isRecord(entry)) return null
-      const attributeCode = readTrimmedString(entry.attributeCode)
+      const attributeCode = normalizeOptionalString(entry.attributeCode)
       const target = entry.target === 'variant' ? 'variant' : entry.target === 'product' ? 'product' : null
       const kind = entry.kind === 'file' ? 'file' : entry.kind === 'image' ? 'image' : null
       if (!attributeCode || !target || !kind) return null
@@ -467,11 +461,11 @@ function normalizeFieldsetMappings(value: unknown): AkeneoFieldsetMapping[] {
       : entry.sourceType === 'family'
         ? 'family'
         : null
-    const sourceCode = readTrimmedString(entry.sourceCode)
+    const sourceCode = normalizeOptionalString(entry.sourceCode)
     const target = entry.target === 'variant' ? 'variant' : entry.target === 'product' ? 'product' : null
-    const fieldsetCode = readTrimmedString(entry.fieldsetCode)
-    const fieldsetLabel = readTrimmedString(entry.fieldsetLabel)
-    const description = readTrimmedString(entry.description)
+    const fieldsetCode = normalizeOptionalString(entry.fieldsetCode)
+    const fieldsetLabel = normalizeOptionalString(entry.fieldsetLabel)
+    const description = normalizeOptionalString(entry.description)
     if (!sourceType || !sourceCode || !target || !fieldsetCode || !fieldsetLabel) continue
     normalized.push({
       sourceType,
@@ -527,25 +521,25 @@ function normalizeAkeneoSettings(
     const fallbackProducts = fallback.products ?? buildDefaultAkeneoMapping('products').settings?.products
     if (fallbackProducts) {
       normalized.products = {
-        locale: readTrimmedString(productsRaw.locale) ?? fallbackProducts.locale,
-        channel: readTrimmedString(productsRaw.channel) ?? fallbackProducts.channel,
+        locale: normalizeOptionalString(productsRaw.locale) ?? fallbackProducts.locale,
+        channel: normalizeOptionalString(productsRaw.channel) ?? fallbackProducts.channel,
         channels: Array.isArray(productsRaw.channels)
           ? dedupeStrings(productsRaw.channels as Array<string | null | undefined>)
           : dedupeStrings([
-              readTrimmedString(productsRaw.channel),
+              normalizeOptionalString(productsRaw.channel),
               ...(fallbackProducts.channels ?? []),
             ]),
         importAllChannels: typeof productsRaw.importAllChannels === 'boolean'
           ? productsRaw.importAllChannels
           : fallbackProducts.importAllChannels,
         fieldMap: {
-          title: readTrimmedString(productsRaw.fieldMap && isRecord(productsRaw.fieldMap) ? productsRaw.fieldMap.title : undefined) ?? fallbackProducts.fieldMap.title,
-          subtitle: readTrimmedString(productsRaw.fieldMap && isRecord(productsRaw.fieldMap) ? productsRaw.fieldMap.subtitle : undefined) ?? fallbackProducts.fieldMap.subtitle,
-          description: readTrimmedString(productsRaw.fieldMap && isRecord(productsRaw.fieldMap) ? productsRaw.fieldMap.description : undefined) ?? fallbackProducts.fieldMap.description,
-          sku: readTrimmedString(productsRaw.fieldMap && isRecord(productsRaw.fieldMap) ? productsRaw.fieldMap.sku : undefined) ?? fallbackProducts.fieldMap.sku,
-          barcode: readTrimmedString(productsRaw.fieldMap && isRecord(productsRaw.fieldMap) ? productsRaw.fieldMap.barcode : undefined) ?? fallbackProducts.fieldMap.barcode,
-          weight: readTrimmedString(productsRaw.fieldMap && isRecord(productsRaw.fieldMap) ? productsRaw.fieldMap.weight : undefined) ?? fallbackProducts.fieldMap.weight,
-          variantName: readTrimmedString(productsRaw.fieldMap && isRecord(productsRaw.fieldMap) ? productsRaw.fieldMap.variantName : undefined) ?? fallbackProducts.fieldMap.variantName,
+          title: normalizeOptionalString(productsRaw.fieldMap && isRecord(productsRaw.fieldMap) ? productsRaw.fieldMap.title : undefined) ?? fallbackProducts.fieldMap.title,
+          subtitle: normalizeOptionalString(productsRaw.fieldMap && isRecord(productsRaw.fieldMap) ? productsRaw.fieldMap.subtitle : undefined) ?? fallbackProducts.fieldMap.subtitle,
+          description: normalizeOptionalString(productsRaw.fieldMap && isRecord(productsRaw.fieldMap) ? productsRaw.fieldMap.description : undefined) ?? fallbackProducts.fieldMap.description,
+          sku: normalizeOptionalString(productsRaw.fieldMap && isRecord(productsRaw.fieldMap) ? productsRaw.fieldMap.sku : undefined) ?? fallbackProducts.fieldMap.sku,
+          barcode: normalizeOptionalString(productsRaw.fieldMap && isRecord(productsRaw.fieldMap) ? productsRaw.fieldMap.barcode : undefined) ?? fallbackProducts.fieldMap.barcode,
+          weight: normalizeOptionalString(productsRaw.fieldMap && isRecord(productsRaw.fieldMap) ? productsRaw.fieldMap.weight : undefined) ?? fallbackProducts.fieldMap.weight,
+          variantName: normalizeOptionalString(productsRaw.fieldMap && isRecord(productsRaw.fieldMap) ? productsRaw.fieldMap.variantName : undefined) ?? fallbackProducts.fieldMap.variantName,
         },
         customFieldMappings: normalizeCustomFieldMappings(productsRaw.customFieldMappings ?? fallbackProducts.customFieldMappings),
         priceMappings: normalizePriceMappings(productsRaw.priceMappings ?? fallbackProducts.priceMappings),
@@ -567,7 +561,7 @@ function normalizeAkeneoSettings(
     const fallbackCategories = fallback.categories ?? buildDefaultAkeneoMapping('categories').settings?.categories
     if (fallbackCategories) {
       normalized.categories = {
-        locale: readTrimmedString(categoriesRaw.locale) ?? fallbackCategories.locale,
+        locale: normalizeOptionalString(categoriesRaw.locale) ?? fallbackCategories.locale,
       }
     }
   }

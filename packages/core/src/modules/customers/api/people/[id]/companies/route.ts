@@ -2,18 +2,14 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { CrudHttpError, isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import {
-  runCrudMutationGuardAfterSuccess,
-  validateCrudMutationGuard,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
-import {
   loadPersonCompanyLinks,
   summarizePersonCompanies,
 } from '@open-mercato/core/modules/customers/lib/personCompanies'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import type { CommandBus } from '@open-mercato/shared/lib/commands'
-import { serializeOperationMetadata } from '@open-mercato/shared/lib/commands/operationMetadata'
+import { attachOperationMetadataHeader } from '@open-mercato/shared/lib/commands/operationMetadata'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
-import { resolveAuthActorId } from '@open-mercato/core/modules/customers/lib/interactionRequestContext'
+import { resolveAuthActorId } from '@open-mercato/shared/lib/auth/actor'
 import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import {
   CustomerEntity,
@@ -26,6 +22,7 @@ import {
 import { loadPersonContext } from './context'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import type { EntityManager } from '@mikro-orm/postgresql'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const paramsSchema = z.object({
   id: z.string().uuid(),
@@ -108,19 +105,19 @@ export async function POST(req: Request, ctx: { params?: { id?: string } }) {
       throw new CrudHttpError(400, { error: translate('customers.errors.organization_required', 'Organization context is required') })
     }
     const guardUserId = resolveAuthActorId(auth)
-    const guardResult = await validateCrudMutationGuard(container, {
-      tenantId: auth.tenantId,
-      organizationId: selectedOrganizationId,
-      userId: guardUserId,
-      resourceKind: 'customers.person',
-      resourceId: person.id,
-      operation: 'custom',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      mutationPayload: payload,
+    const guardResult = await runRouteMutationGuards({
+      container,
+      req,
+      auth: { userId: guardUserId, tenantId: auth.tenantId, organizationId: selectedOrganizationId },
+      input: {
+        resourceKind: 'customers.person',
+        resourceId: person.id,
+        operation: 'custom',
+        mutationPayload: payload,
+      },
     })
-    if (guardResult && !guardResult.ok) {
-      return NextResponse.json(guardResult.body, { status: guardResult.status })
+    if (!guardResult.ok) {
+      return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
     }
 
     const commandInput = personCompanyLinkCreateSchema.parse({
@@ -147,19 +144,7 @@ export async function POST(req: Request, ctx: { params?: { id?: string } }) {
       },
     )
 
-    if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-      await runCrudMutationGuardAfterSuccess(container, {
-        tenantId: auth.tenantId,
-        organizationId: selectedOrganizationId,
-        userId: guardUserId,
-        resourceKind: 'customers.person',
-        resourceId: person.id,
-        operation: 'custom',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
-        metadata: guardResult.metadata ?? null,
-      })
-    }
+    await guardResult.runAfterSuccess()
 
     const freshEm = (container.resolve('em') as EntityManager).fork()
     const linkRecord = await findOneWithDecryption(
@@ -191,20 +176,10 @@ export async function POST(req: Request, ctx: { params?: { id?: string } }) {
         isPrimary: linkRecord ? Boolean(linkRecord.isPrimary) : Boolean(payload.isPrimary),
       },
     })
-    if (logEntry?.undoToken && logEntry.id && logEntry.commandId) {
-      response.headers.set(
-        'x-om-operation',
-        serializeOperationMetadata({
-          id: logEntry.id,
-          undoToken: logEntry.undoToken,
-          commandId: logEntry.commandId,
-          actionLabel: logEntry.actionLabel ?? null,
-          resourceKind: logEntry.resourceKind ?? 'customers.personCompanyLink',
-          resourceId: logEntry.resourceId ?? result.linkId,
-          executedAt: logEntry.createdAt instanceof Date ? logEntry.createdAt.toISOString() : new Date().toISOString(),
-        }),
-      )
-    }
+    attachOperationMetadataHeader(response, logEntry, {
+      resourceKind: 'customers.personCompanyLink',
+      resourceId: result.linkId,
+    })
     return response
   } catch (err) {
     if (isCrudHttpError(err)) {

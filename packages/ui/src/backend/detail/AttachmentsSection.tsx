@@ -7,7 +7,8 @@ import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { hasMoreFromPage } from '@open-mercato/shared/lib/pagination/load-more'
 import { cn } from '@open-mercato/shared/lib/utils'
-import { AttachmentVisualPreview, formatAttachmentFileSize } from './AttachmentVisualPreview'
+import { AttachmentVisualPreview } from './AttachmentVisualPreview'
+import { formatFileSize } from '@open-mercato/shared/lib/units/fileSize'
 import { AttachmentDeleteDialog } from './AttachmentDeleteDialog'
 import { AttachmentMetadataDialog, type AttachmentItem, type AttachmentMetadataSavePayload } from './AttachmentMetadataDialog'
 import { ComponentReplacementHandles } from '@open-mercato/shared/modules/widgets/component-registry'
@@ -326,7 +327,7 @@ function AttachmentsSectionImpl({
                       {item.fileName}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {formatAttachmentFileSize(item.fileSize)}
+                      {formatFileSize(item.fileSize)}
                     </div>
                   </div>
                 </Button>

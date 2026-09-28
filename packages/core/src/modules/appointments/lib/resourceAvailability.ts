@@ -1,5 +1,4 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
-import { Organization } from '@open-mercato/core/modules/directory/data/entities'
 import { ResourcesResource } from '@open-mercato/core/modules/resources/data/entities'
 import { PlannerAvailabilityRule } from '@open-mercato/core/modules/planner/data/entities'
 import { getMergedAvailabilityWindows } from '@open-mercato/core/modules/planner/lib/availabilityMerge'
@@ -12,19 +11,6 @@ import {
 export type ResourceAvailabilityWindow = {
   startsAt: string
   endsAt: string
-}
-
-export async function resolveResourceOrganizationIds(
-  em: EntityManager,
-  tenantId: string,
-  organizationId: string,
-): Promise<string[]> {
-  const organization = await em.findOne(Organization, {
-    id: organizationId,
-    tenant: tenantId,
-    deletedAt: null,
-  })
-  return Array.from(new Set([organizationId, ...(organization?.ancestorIds ?? [])]))
 }
 
 export async function loadResourceAvailabilityWindows(

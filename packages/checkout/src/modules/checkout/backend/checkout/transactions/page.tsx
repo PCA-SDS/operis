@@ -10,6 +10,8 @@ import { DataTable } from '@open-mercato/ui/backend/DataTable'
 import { RowActions } from '@open-mercato/ui/backend/RowActions'
 import { apiCall, readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { Badge } from '@open-mercato/ui/primitives/badge'
+import { formatDate } from '@open-mercato/shared/lib/time'
+import { formatCurrency } from '@open-mercato/shared/lib/units/money'
 
 type TransactionRow = {
   id: string
@@ -39,21 +41,6 @@ type LinkLookupResponse = {
 
 type LinkListResponse = {
   items?: Array<Record<string, unknown>>
-}
-
-function formatDate(value: string | null | undefined): string {
-  if (!value) return '—'
-  const parsed = new Date(value)
-  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString()
-}
-
-function formatAmount(amount: number | null | undefined, currencyCode: string): string {
-  const resolved = typeof amount === 'number' ? amount : 0
-  try {
-    return new Intl.NumberFormat(undefined, { style: 'currency', currency: currencyCode }).format(resolved)
-  } catch {
-    return `${resolved.toFixed(2)} ${currencyCode}`
-  }
 }
 
 export default function CheckoutTransactionsPage() {
@@ -201,7 +188,7 @@ export default function CheckoutTransactionsPage() {
       {
         accessorKey: 'amount',
         header: t('checkout.admin.transactions.columns.amount'),
-        cell: ({ row }) => formatAmount(row.original.amount, row.original.currencyCode),
+        cell: ({ row }) => formatCurrency(row.original.amount, row.original.currencyCode, { fallback: '—' }),
       },
       {
         accessorKey: 'status',
@@ -216,7 +203,7 @@ export default function CheckoutTransactionsPage() {
       {
         accessorKey: 'createdAt',
         header: t('checkout.admin.transactions.columns.date'),
-        cell: ({ row }) => formatDate(row.original.createdAt),
+        cell: ({ row }) => formatDate(row.original.createdAt, { fallback: '—' }),
       },
     )
     return baseColumns

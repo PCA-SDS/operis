@@ -7,6 +7,8 @@ import { apiCallOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { surfaceRecordConflict } from '@open-mercato/ui/backend/conflicts'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { ProjectColorDot } from './ProjectColorDot'
+import { toLocalDateKey } from '@open-mercato/shared/lib/date/format'
+import { formatTime } from '@open-mercato/shared/lib/time'
 
 type TimeEntry = {
   id: string
@@ -27,20 +29,13 @@ type ListViewProps = {
   onEntryUpdated?: () => void
 }
 
-function getLocalDateStr(date: Date): string {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
 function formatDayLabel(dateStr: string, translate: TranslateFn): string {
   const today = new Date()
-  const todayStr = getLocalDateStr(today)
+  const todayStr = toLocalDateKey(today)
 
   const yesterday = new Date(today)
   yesterday.setDate(yesterday.getDate() - 1)
-  const yesterdayStr = getLocalDateStr(yesterday)
+  const yesterdayStr = toLocalDateKey(yesterday)
 
   if (dateStr === todayStr) return translate('staff.timesheets.my.list.today', 'Today')
   if (dateStr === yesterdayStr) return translate('staff.timesheets.my.list.yesterday', 'Yesterday')
@@ -64,17 +59,7 @@ function formatDuration(minutes: number): string {
 }
 
 function formatTimeRange(startedAt: string, endedAt: string): string {
-  const start = new Date(startedAt)
-  const end = new Date(endedAt)
-
-  const format = (date: Date) =>
-    date.toLocaleTimeString(undefined, {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    })
-
-  return `${format(start)} - ${format(end)}`
+  return `${formatTime(startedAt, { fallback: '' })} - ${formatTime(endedAt, { fallback: '' })}`
 }
 
 function InlineDescription({

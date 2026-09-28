@@ -10,7 +10,8 @@ import {
   SelectValue,
 } from '@open-mercato/ui/primitives/select'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
-import { formatCategoryTreeLabel, type CategoryTreeNode } from '../../lib/categoryTree'
+import { type CategoryTreeNode } from '../../lib/categoryTree'
+import { formatTreeLabel } from '@open-mercato/shared/lib/tree'
 
 export type CategorySelectProps = {
   value?: string | null
@@ -69,7 +70,7 @@ function buildOptions(nodes: CategoryTreeNode[], inactiveSuffix: string): Intern
       const children = Array.isArray(node.children) ? node.children : []
       const nodeDepth = typeof node.depth === 'number' ? node.depth : depth
       const display = node.pathLabel?.length ? node.pathLabel : node.name
-      const label = `${formatCategoryTreeLabel(display ?? node.id, nodeDepth)}${node.isActive === false ? inactiveSuffix : ''}`
+      const label = `${formatTreeLabel(display ?? node.id, nodeDepth)}${node.isActive === false ? inactiveSuffix : ''}`
       list.push({
         value: node.id,
         label,

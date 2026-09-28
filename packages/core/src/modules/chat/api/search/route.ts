@@ -7,7 +7,6 @@ import {
   jsonOk,
   readContext,
   resolveChatRequest,
-  searchParamsToObject,
   toChatErrorResponse,
 } from '../shared'
 import {
@@ -16,6 +15,7 @@ import {
   RATE_LIMITED_ERRORS,
   searchResultSchema,
 } from '../openapi'
+import { searchParamsToObject } from '@open-mercato/shared/lib/http/query'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['chat.view'] },

@@ -3,9 +3,9 @@ import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { CrudHttpError, isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import type { CommandBus } from '@open-mercato/shared/lib/commands'
 import type { CommandExecuteResult } from '@open-mercato/shared/lib/commands/types'
-import { serializeOperationMetadata } from '@open-mercato/shared/lib/commands/operationMetadata'
+import { attachOperationMetadataHeader } from '@open-mercato/shared/lib/commands/operationMetadata'
 import { CustomerDictionaryEntry } from '../../../data/entities'
-import { mapDictionaryKind, resolveDictionaryActorId, resolveDictionaryRouteContext } from '../context'
+import { mapDictionaryKind, resolveDictionaryRouteContext } from '../context'
 import { createDictionaryCacheKey, createDictionaryCacheTags, invalidateDictionaryCache, DICTIONARY_CACHE_TTL_MS } from '../cache'
 import { loadCustomerSettings } from '../../../commands/settings'
 import {
@@ -15,14 +15,12 @@ import {
 import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { loadRoleTypeUsageMap, resolveRoleTypeUsageKey } from '../../../lib/roleTypeUsage'
-import {
-  runCrudMutationGuardAfterSuccess,
-  validateCrudMutationGuard,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
 import { findWithDecryption, findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { CUSTOMER_DICTIONARY_ORGANIZATION_REQUIRED_CODE } from '../../../lib/dictionaries'
+import { resolveAuthActorId } from '@open-mercato/shared/lib/auth/actor'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const logger = createLogger('customers')
 
@@ -186,20 +184,20 @@ export async function POST(req: Request, ctx: { params?: { kind?: string } }) {
     }
     const { mappedKind } = mapDictionaryKind(ctx.params?.kind)
     const body = postSchema.parse(await readJsonSafe(req, {}))
-    const guardUserId = resolveDictionaryActorId(context.auth)
-    const guardResult = await validateCrudMutationGuard(context.container, {
-      tenantId: context.tenantId,
-      organizationId: context.organizationId,
-      userId: guardUserId,
-      resourceKind: 'customers.dictionary_entry',
-      resourceId: '',
-      operation: 'create',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      mutationPayload: body,
+    const guardUserId = resolveAuthActorId(context.auth)
+    const guardResult = await runRouteMutationGuards({
+      container: context.container,
+      req,
+      auth: { userId: guardUserId, tenantId: context.tenantId, organizationId: context.organizationId },
+      input: {
+        resourceKind: 'customers.dictionary_entry',
+        resourceId: '',
+        operation: 'create',
+        mutationPayload: body,
+      },
     })
-    if (guardResult && !guardResult.ok) {
-      return NextResponse.json(guardResult.body, { status: guardResult.status })
+    if (!guardResult.ok) {
+      return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
     }
     const commandBus = (context.container.resolve('commandBus') as CommandBus)
     const { result, logEntry } =
@@ -226,19 +224,7 @@ export async function POST(req: Request, ctx: { params?: { kind?: string } }) {
       organizationIds: [entry.organizationId],
     })
 
-    if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-      await runCrudMutationGuardAfterSuccess(context.container, {
-        tenantId: context.tenantId,
-        organizationId: context.organizationId,
-        userId: guardUserId,
-        resourceKind: 'customers.dictionary_entry',
-        resourceId: entry.id,
-        operation: 'create',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
-        metadata: guardResult.metadata ?? null,
-      })
-    }
+    await guardResult.runAfterSuccess({ resourceId: entry.id })
 
     const response = NextResponse.json(
       {
@@ -252,20 +238,10 @@ export async function POST(req: Request, ctx: { params?: { kind?: string } }) {
       },
       { status: result.mode === 'created' ? 201 : 200 }
     )
-    if (logEntry?.undoToken && logEntry?.id && logEntry?.commandId) {
-      response.headers.set(
-        'x-om-operation',
-        serializeOperationMetadata({
-          id: logEntry.id,
-          undoToken: logEntry.undoToken,
-          commandId: logEntry.commandId,
-          actionLabel: logEntry.actionLabel ?? null,
-          resourceKind: logEntry.resourceKind ?? 'customers.dictionary_entry',
-          resourceId: entry.id,
-          executedAt: logEntry.createdAt instanceof Date ? logEntry.createdAt.toISOString() : undefined,
-        })
-      )
-    }
+    attachOperationMetadataHeader(response, logEntry, {
+      resourceKind: 'customers.dictionary_entry',
+      resourceId: entry.id,
+    })
     return response
   } catch (err) {
     if (isCrudHttpError(err)) {

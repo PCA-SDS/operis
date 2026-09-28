@@ -10,7 +10,6 @@ import {
   buildInvoiceCommandContext,
   handleInvoiceInvoiceRouteError,
   readRequestRecord,
-  resolveInvoiceInvoiceRouteContext,
 } from '../invoices/shared'
 import {
   INVOICE_PAYMENT_CONFIRMATION_RESOURCE_KIND,
@@ -18,12 +17,13 @@ import {
   invoicePaymentConfirmationRouteErrors,
   invoicePaymentConfirmationRouteMetadata,
 } from './shared'
+import { resolveInvoiceRouteContext } from '../routeContext'
 
 export const metadata = { POST: invoicePaymentConfirmationRouteMetadata }
 
 export async function POST(req: Request) {
   try {
-    const context = await resolveInvoiceInvoiceRouteContext(req)
+    const context = await resolveInvoiceRouteContext(req)
     const input = invoicePaymentConfirmationRequestSchema.parse(await readRequestRecord(req))
     const guarded = await runRouteMutationGuards({
       container: context.container,

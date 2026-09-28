@@ -8,13 +8,10 @@ import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { emitIntegrationsEvent } from '../../../events'
 import { updateStateSchema } from '../../../data/validators'
 import type { IntegrationStateService } from '../../../lib/state-service'
-import {
-  runIntegrationMutationGuardAfterSuccess,
-  runIntegrationMutationGuards,
-} from '../../guards'
 import { organizationScopeRequiredResponse } from '@open-mercato/shared/lib/auth/organizationScope'
 import { resolveIntegrationsOrganizationIdForRequest } from '../../../lib/organization-scope'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const idParamsSchema = z.object({ id: z.string().min(1) })
 
@@ -58,22 +55,19 @@ export async function PUT(req: Request, ctx: { params?: Promise<{ id?: string }>
     return organizationScopeRequiredResponse()
   }
 
-  const guardResult = await runIntegrationMutationGuards(
+  const guardResult = await runRouteMutationGuards({
     container,
-    {
-    tenantId: auth.tenantId,
-    organizationId,
-    userId: auth.sub ?? '',
-    resourceKind: 'integrations.integration',
-    resourceId: integration.id,
-    operation: 'update',
-    requestMethod: req.method,
-    requestHeaders: req.headers,
-    mutationPayload: parsedBody.data as Record<string, unknown>,
+    req,
+    auth: { userId: auth.sub ?? '', tenantId: auth.tenantId, organizationId },
+    input: {
+      resourceKind: 'integrations.integration',
+      resourceId: integration.id,
+      operation: 'update',
+      mutationPayload: parsedBody.data as Record<string, unknown>,
     },
-  )
+  })
   if (!guardResult.ok) {
-    return NextResponse.json(guardResult.errorBody ?? { error: 'Operation blocked by guard' }, { status: guardResult.errorStatus ?? 422 })
+    return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
   }
 
   let payloadData = parsedBody.data
@@ -122,16 +116,7 @@ export async function PUT(req: Request, ctx: { params?: Promise<{ id?: string }>
     userId: auth.sub,
   })
 
-  await runIntegrationMutationGuardAfterSuccess(guardResult.afterSuccessCallbacks, {
-      tenantId: auth.tenantId,
-      organizationId,
-      userId: auth.sub ?? '',
-      resourceKind: 'integrations.integration',
-      resourceId: integration.id,
-      operation: 'update',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-    })
+  await guardResult.runAfterSuccess()
 
   return NextResponse.json({
     isEnabled: state.isEnabled,

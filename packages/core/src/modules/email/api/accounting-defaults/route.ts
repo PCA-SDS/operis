@@ -8,21 +8,13 @@ import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/d
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { assertOptimisticLock } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
-import { createLogger } from '@open-mercato/shared/lib/logger'
-import {
-  bridgeLegacyGuard,
-  runMutationGuards,
-  type MutationGuard,
-  type MutationGuardInput,
-} from '@open-mercato/shared/lib/crud/mutation-guard-registry'
-import { getAllMutationGuardInstances } from '@open-mercato/shared/lib/crud/mutation-guard-store'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 import { resolveGrantedFeatures } from '@open-mercato/shared/lib/auth/grantedFeatures'
 import { EmailAccountingDefaults } from '../../data/entities'
 import { emailAccountingDefaultsSchema } from '../../data/validators'
 import { createEmailOperationId, emailCommonErrors, emailSettingsTag } from '../openapi'
 import { withoutReservedEmailSystemVariables } from '../../lib/accountingDefaults'
 
-const logger = createLogger('email').child({ component: 'api/accounting-defaults' })
 const RESOURCE_KIND = 'email.accounting_defaults'
 
 export const metadata = {
@@ -101,29 +93,23 @@ export async function PUT(req: Request) {
       organizationId: ctx.organizationId,
     })
 
-    const guardInput: MutationGuardInput = {
-      tenantId: ctx.tenantId,
-      organizationId: ctx.organizationId,
-      userId: ctx.auth.sub,
-      resourceKind: RESOURCE_KIND,
-      resourceId: defaults?.id ?? null,
-      operation: defaults ? 'update' : 'create',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      mutationPayload: parsed.data,
-    }
-    // Registry guards were never collected — only the legacy bridge — so anything
-    // registered through registerMutationGuard was skipped on this route.
-    const guards = [...getAllMutationGuardInstances()]
-    const legacyGuard = bridgeLegacyGuard(ctx.container)
-    if (legacyGuard) guards.push(legacyGuard)
-    const userFeatures = await resolveGrantedFeatures(ctx.container, ctx.auth, ctx.organizationId)
-    const guardResult = guards.length
-      ? await runMutationGuards(guards, guardInput, { userFeatures })
-      : { ok: true, afterSuccessCallbacks: [] as Array<{ guard: MutationGuard; metadata: Record<string, unknown> | null }> }
-    if (!guardResult.ok) {
-      return NextResponse.json(guardResult.errorBody ?? { error: 'Operation blocked' }, { status: guardResult.errorStatus ?? 422 })
-    }
+    const guardResult = await runRouteMutationGuards({
+      container: ctx.container,
+      req,
+      auth: {
+        userId: ctx.auth.sub,
+        tenantId: ctx.tenantId,
+        organizationId: ctx.organizationId,
+        userFeatures: await resolveGrantedFeatures(ctx.container, ctx.auth, ctx.organizationId),
+      },
+      input: {
+        resourceKind: RESOURCE_KIND,
+        resourceId: defaults?.id ?? null,
+        operation: defaults ? 'update' : 'create',
+        mutationPayload: parsed.data,
+      },
+    })
+    if (!guardResult.ok) return guardResult.response
     const guardedData = guardResult.modifiedPayload
       ? emailAccountingDefaultsSchema.parse({ ...parsed.data, ...guardResult.modifiedPayload })
       : parsed.data
@@ -153,18 +139,7 @@ export async function PUT(req: Request) {
       em.persist(defaults)
     }
     await em.flush()
-    for (const callback of guardResult.afterSuccessCallbacks) {
-      if (!callback.guard.afterSuccess) continue
-      try {
-        await callback.guard.afterSuccess({
-          ...guardInput,
-          resourceId: defaults.id,
-          metadata: callback.metadata ?? null,
-        })
-      } catch (err) {
-        logger.warn('Mutation guard afterSuccess callback failed', { err })
-      }
-    }
+    await guardResult.runAfterSuccess({ resourceId: defaults.id })
     return NextResponse.json(serialize(defaults))
   } catch (error) {
     if (isCrudHttpError(error)) return NextResponse.json(error.body, { status: error.status })

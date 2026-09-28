@@ -69,9 +69,8 @@ jest.mock('@open-mercato/core/modules/directory/utils/organizationScope', () => 
   resolveOrganizationScopeForRequest: jest.fn(async () => ({ selectedId: ORG_ID })),
 }))
 
-jest.mock('@open-mercato/shared/lib/crud/mutation-guard', () => ({
-  validateCrudMutationGuard: jest.fn(async () => null),
-  runCrudMutationGuardAfterSuccess: jest.fn(async () => undefined),
+jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
+  runRouteMutationGuards: jest.fn(async () => ({ ok: true, runAfterSuccess: async () => undefined })),
 }))
 
 jest.mock('../../../../lib/event-trigger-service', () => ({

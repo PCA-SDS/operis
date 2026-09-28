@@ -28,7 +28,7 @@ export type BulkDeleteOptions = {
   }
 }
 
-function createClientProgressJobId(jobType: string): string {
+export function createClientProgressJobId(jobType: string): string {
   const cryptoRef =
     typeof globalThis !== 'undefined'
       ? (globalThis as { crypto?: { randomUUID?: () => string } }).crypto
@@ -39,12 +39,12 @@ function createClientProgressJobId(jobType: string): string {
   return `client:${jobType}:${Date.now()}:${Math.random().toString(36).slice(2)}`
 }
 
-function calculateProgress(processed: number, total: number): number {
+export function calculateProgress(processed: number, total: number): number {
   if (total <= 0) return 100
   return Math.max(0, Math.min(100, Math.round((processed / total) * 100)))
 }
 
-function calculateEtaSeconds(startedAtMs: number, processed: number, total: number): number | null {
+export function calculateEtaSeconds(startedAtMs: number, processed: number, total: number): number | null {
   if (processed <= 0 || processed >= total) return null
   const elapsedSeconds = Math.max(1, Math.round((Date.now() - startedAtMs) / 1000))
   return Math.ceil((elapsedSeconds / processed) * (total - processed))

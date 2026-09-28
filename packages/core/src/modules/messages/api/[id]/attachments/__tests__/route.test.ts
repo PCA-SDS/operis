@@ -5,6 +5,7 @@ const resolveMessageContextMock = jest.fn()
 const getMessageAttachmentsMock = jest.fn()
 
 jest.mock('@open-mercato/core/modules/messages/lib/routeHelpers', () => ({
+  hasOrganizationAccess: jest.requireActual('@open-mercato/core/modules/messages/lib/routeHelpers').hasOrganizationAccess,
   resolveMessageContext: (...args: unknown[]) => resolveMessageContextMock(...args),
 }))
 

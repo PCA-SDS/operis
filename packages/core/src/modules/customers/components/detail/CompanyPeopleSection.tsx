@@ -12,9 +12,9 @@ import {
   writeVersionedIdSet,
 } from '@open-mercato/shared/lib/browser/versionedPreference'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
-import { createTranslatorWithFallback } from '@open-mercato/shared/lib/i18n/translate'
+import { createTranslatorWithFallback, type TranslateWithFallbackFn } from '@open-mercato/shared/lib/i18n/translate'
 import { useAppEvent } from '@open-mercato/ui/backend/injection/useAppEvent'
-import type { SectionAction, TabEmptyStateConfig, Translator } from './types'
+import type { SectionAction, TabEmptyStateConfig } from './types'
 import { CreatePersonDialog } from './CreatePersonDialog'
 import { PersonCard } from './PersonCard'
 import { coerceDisplayName } from '../../lib/displayName'
@@ -53,7 +53,7 @@ export type CompanyPeopleSectionProps = {
   emptyState: TabEmptyStateConfig
   onPeopleChange?: (next: CompanyPersonSummary[]) => void
   onActionChange?: (action: SectionAction | null) => void
-  translator?: Translator
+  translator?: TranslateWithFallbackFn
   onLoadingChange?: (isLoading: boolean) => void
   onDataRefresh?: () => Promise<void> | void
   runGuardedMutation?: GuardedMutationRunner
@@ -189,11 +189,11 @@ export function CompanyPeopleSection({
   runGuardedMutation,
 }: CompanyPeopleSectionProps) {
   const tHook = useT()
-  const fallbackTranslator = React.useMemo<Translator>(
+  const fallbackTranslator = React.useMemo<TranslateWithFallbackFn>(
     () => createTranslatorWithFallback(tHook),
     [tHook],
   )
-  const translate: Translator = translator ?? fallbackTranslator
+  const translate: TranslateWithFallbackFn = translator ?? fallbackTranslator
   const [people, setPeople] = React.useState<CompanyPersonSummary[]>(initialPeople)
   const [removingId, setRemovingId] = React.useState<string | null>(null)
   const [linkDialogOpen, setLinkDialogOpen] = React.useState(false)

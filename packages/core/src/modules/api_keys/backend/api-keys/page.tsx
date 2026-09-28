@@ -14,6 +14,7 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
+import { formatDateTime } from '@open-mercato/shared/lib/time'
 
 type RoleSummary = { id: string; name: string | null }
 
@@ -36,17 +37,6 @@ type ResponsePayload = {
   total: number
   page: number
   totalPages: number
-}
-
-function formatDate(value: string | null, t: (key: string, params?: Record<string, string | number>) => string) {
-  if (!value) return t('api_keys.list.noDate')
-  try {
-    const date = new Date(value)
-    if (Number.isNaN(date.getTime())) return t('api_keys.list.noDate')
-    return date.toLocaleString()
-  } catch {
-    return t('api_keys.list.noDate')
-  }
 }
 
 export default function ApiKeysListPage() {
@@ -163,12 +153,12 @@ export default function ApiKeysListPage() {
     {
       accessorKey: 'lastUsedAt',
       header: t('api_keys.list.columns.lastUsed'),
-      cell: ({ row }) => formatDate(row.original.lastUsedAt, t),
+      cell: ({ row }) => formatDateTime(row.original.lastUsedAt, { fallback: t('api_keys.list.noDate') }),
     },
     {
       accessorKey: 'expiresAt',
       header: t('api_keys.list.columns.expires'),
-      cell: ({ row }) => formatDate(row.original.expiresAt, t),
+      cell: ({ row }) => formatDateTime(row.original.expiresAt, { fallback: t('api_keys.list.noDate') }),
     },
   ], [t])
 

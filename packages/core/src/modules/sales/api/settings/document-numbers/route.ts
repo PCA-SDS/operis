@@ -14,11 +14,8 @@ import { SalesDocumentNumberGenerator } from '../../../services/salesDocumentNum
 import { DOCUMENT_NUMBER_TOKENS, DEFAULT_ORDER_NUMBER_FORMAT, DEFAULT_QUOTE_NUMBER_FORMAT } from '../../../lib/documentNumberTokens'
 import { withScopedPayload } from '../../utils'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
-import {
-  runCrudMutationGuardAfterSuccess,
-  validateCrudMutationGuard,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const logger = createLogger('sales')
 
@@ -106,19 +103,19 @@ export async function PUT(req: Request) {
     const scoped = withScopedPayload(payload, ctx, translate)
     const input = salesSettingsUpsertSchema.parse(scoped)
 
-    const guardResult = await validateCrudMutationGuard(ctx.container, {
-      tenantId,
-      organizationId,
-      userId: ctx.auth!.sub,
-      resourceKind: 'sales.settings',
-      resourceId: organizationId,
-      operation: 'update',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      mutationPayload: input,
+    const guardResult = await runRouteMutationGuards({
+      container: ctx.container,
+      req,
+      auth: { userId: ctx.auth!.sub, tenantId, organizationId },
+      input: {
+        resourceKind: 'sales.settings',
+        resourceId: organizationId,
+        operation: 'update',
+        mutationPayload: input,
+      },
     })
-    if (guardResult && !guardResult.ok) {
-      return NextResponse.json(guardResult.body, { status: guardResult.status })
+    if (!guardResult.ok) {
+      return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
     }
 
     const commandBus = ctx.container.resolve('commandBus') as CommandBus
@@ -133,19 +130,7 @@ export async function PUT(req: Request) {
       }
     >('sales.settings.save', { input, ctx })
 
-    if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-      await runCrudMutationGuardAfterSuccess(ctx.container, {
-        tenantId,
-        organizationId,
-        userId: ctx.auth!.sub,
-        resourceKind: 'sales.settings',
-        resourceId: organizationId,
-        operation: 'update',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
-        metadata: guardResult.metadata ?? null,
-      })
-    }
+    await guardResult.runAfterSuccess()
 
     const sequences = await generator.peekSequences({ organizationId, tenantId })
 

@@ -3,8 +3,8 @@ const organizationId = '22222222-2222-4222-8222-222222222222'
 const subjectId = '33333333-3333-4333-8333-333333333333'
 const actorId = '44444444-4444-4444-8444-444444444444'
 
-const validateCrudMutationGuardMock = jest.fn()
-const runCrudMutationGuardAfterSuccessMock = jest.fn()
+const runRouteMutationGuardsMock = jest.fn()
+const runAfterSuccessMock = jest.fn()
 const commandBusExecuteMock = jest.fn()
 const assertAvailabilityWriteAccessMock = jest.fn()
 const parseScopedCommandInputMock = jest.fn()
@@ -44,9 +44,8 @@ jest.mock('../access', () => {
   }
 })
 
-jest.mock('@open-mercato/shared/lib/crud/mutation-guard', () => ({
-  validateCrudMutationGuard: (...args: unknown[]) => validateCrudMutationGuardMock(...args),
-  runCrudMutationGuardAfterSuccess: (...args: unknown[]) => runCrudMutationGuardAfterSuccessMock(...args),
+jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
+  runRouteMutationGuards: (...args: unknown[]) => runRouteMutationGuardsMock(...args),
 }))
 
 import { POST as replaceWeekly } from '../availability-weekly'
@@ -73,13 +72,14 @@ const dateSpecificInput = {
   isAvailable: true,
 }
 
-const expectedGuardInput = {
-  tenantId,
-  organizationId,
-  userId: actorId,
-  resourceKind: 'planner.availability',
-  resourceId: subjectId,
-  operation: 'custom',
+const expectedGuardCall = {
+  container,
+  auth: expect.objectContaining({ tenantId, organizationId, userId: actorId }),
+  input: expect.objectContaining({
+    resourceKind: 'planner.availability',
+    resourceId: subjectId,
+    operation: 'custom',
+  }),
 }
 
 function makeRequest(path: string, body: unknown): Request {
@@ -102,8 +102,8 @@ describe('planner availability bulk replace routes — mutation guard lifecycle'
       organizationId,
     })
     commandBusExecuteMock.mockResolvedValue({ logEntry: null })
-    validateCrudMutationGuardMock.mockResolvedValue({ ok: true, shouldRunAfterSuccess: true, metadata: { token: 'guard' } })
-    runCrudMutationGuardAfterSuccessMock.mockResolvedValue(undefined)
+    runRouteMutationGuardsMock.mockResolvedValue({ ok: true, runAfterSuccess: runAfterSuccessMock })
+    runAfterSuccessMock.mockResolvedValue(undefined)
   })
 
   describe('weekly availability replace', () => {
@@ -115,22 +115,17 @@ describe('planner availability bulk replace routes — mutation guard lifecycle'
       const response = await replaceWeekly(makeRequest('availability-weekly', { subjectType: 'member', subjectId, windows: [] }))
 
       expect(response.status).toBe(200)
-      expect(validateCrudMutationGuardMock).toHaveBeenCalledWith(
-        container,
-        expect.objectContaining(expectedGuardInput),
-      )
+      expect(runRouteMutationGuardsMock).toHaveBeenCalledWith(expect.objectContaining(expectedGuardCall))
       expect(commandBusExecuteMock).toHaveBeenCalledWith('planner.availability.weekly.replace', expect.anything())
-      expect(runCrudMutationGuardAfterSuccessMock).toHaveBeenCalledWith(
-        container,
-        expect.objectContaining({ ...expectedGuardInput, metadata: { token: 'guard' } }),
-      )
+      expect(runAfterSuccessMock).toHaveBeenCalledTimes(1)
+      expect(commandBusExecuteMock.mock.invocationCallOrder[0]).toBeLessThan(runAfterSuccessMock.mock.invocationCallOrder[0])
     })
 
     it('blocks the replace when a registered guard rejects it', async () => {
-      validateCrudMutationGuardMock.mockResolvedValueOnce({
+      runRouteMutationGuardsMock.mockResolvedValueOnce({
         ok: false,
-        status: 409,
-        body: { error: { code: 'RECORD_LOCKED' } },
+        errorStatus: 409,
+        errorBody: { error: { code: 'RECORD_LOCKED' } },
       })
 
       const response = await replaceWeekly(makeRequest('availability-weekly', { subjectType: 'member', subjectId, windows: [] }))
@@ -138,7 +133,7 @@ describe('planner availability bulk replace routes — mutation guard lifecycle'
       expect(response.status).toBe(409)
       await expect(response.json()).resolves.toMatchObject({ error: { code: 'RECORD_LOCKED' } })
       expect(commandBusExecuteMock).not.toHaveBeenCalled()
-      expect(runCrudMutationGuardAfterSuccessMock).not.toHaveBeenCalled()
+      expect(runAfterSuccessMock).not.toHaveBeenCalled()
     })
   })
 
@@ -151,22 +146,17 @@ describe('planner availability bulk replace routes — mutation guard lifecycle'
       const response = await replaceDateSpecific(makeRequest('availability-date-specific', { subjectType: 'member', subjectId, date: '2026-04-11', windows: [] }))
 
       expect(response.status).toBe(200)
-      expect(validateCrudMutationGuardMock).toHaveBeenCalledWith(
-        container,
-        expect.objectContaining(expectedGuardInput),
-      )
+      expect(runRouteMutationGuardsMock).toHaveBeenCalledWith(expect.objectContaining(expectedGuardCall))
       expect(commandBusExecuteMock).toHaveBeenCalledWith('planner.availability.date-specific.replace', expect.anything())
-      expect(runCrudMutationGuardAfterSuccessMock).toHaveBeenCalledWith(
-        container,
-        expect.objectContaining({ ...expectedGuardInput, metadata: { token: 'guard' } }),
-      )
+      expect(runAfterSuccessMock).toHaveBeenCalledTimes(1)
+      expect(commandBusExecuteMock.mock.invocationCallOrder[0]).toBeLessThan(runAfterSuccessMock.mock.invocationCallOrder[0])
     })
 
     it('blocks the replace when a registered guard rejects it', async () => {
-      validateCrudMutationGuardMock.mockResolvedValueOnce({
+      runRouteMutationGuardsMock.mockResolvedValueOnce({
         ok: false,
-        status: 409,
-        body: { error: { code: 'RECORD_LOCKED' } },
+        errorStatus: 409,
+        errorBody: { error: { code: 'RECORD_LOCKED' } },
       })
 
       const response = await replaceDateSpecific(makeRequest('availability-date-specific', { subjectType: 'member', subjectId, date: '2026-04-11', windows: [] }))
@@ -174,7 +164,7 @@ describe('planner availability bulk replace routes — mutation guard lifecycle'
       expect(response.status).toBe(409)
       await expect(response.json()).resolves.toMatchObject({ error: { code: 'RECORD_LOCKED' } })
       expect(commandBusExecuteMock).not.toHaveBeenCalled()
-      expect(runCrudMutationGuardAfterSuccessMock).not.toHaveBeenCalled()
+      expect(runAfterSuccessMock).not.toHaveBeenCalled()
     })
   })
 })

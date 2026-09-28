@@ -23,6 +23,8 @@ import { collectCustomFieldValues } from '@open-mercato/ui/backend/utils/customF
 import { useCurrencyDictionary } from './hooks/useCurrencyDictionary'
 import { DictionaryEntrySelect } from '@open-mercato/core/modules/dictionaries/components/DictionaryEntrySelect'
 import { normalizeCustomFieldSubmitValue } from './customFieldUtils'
+import { sanitizeIdList } from '../../lib/idLists'
+import { CURRENCY_CODE_PATTERN } from '@open-mercato/shared/lib/validation'
 
 export type DealFormBaseValues = {
   title: string
@@ -230,7 +232,7 @@ const schema = z.object({
     .string()
     .transform((value) => value.trim().toUpperCase())
     .refine(
-      (value) => !value || /^[A-Z]{3}$/.test(value),
+      (value) => !value || CURRENCY_CODE_PATTERN.test(value),
       'customers.people.detail.deals.currencyInvalid',
     )
     .optional(),
@@ -283,18 +285,6 @@ function toDateInputValue(value: string | null | undefined): string {
 function normalizeCurrency(value: string | null | undefined): string {
   if (!value) return ''
   return value.trim().slice(0, 3).toUpperCase()
-}
-
-function sanitizeIdList(input: unknown): string[] {
-  if (!Array.isArray(input)) return []
-  const set = new Set<string>()
-  input.forEach((candidate) => {
-    if (typeof candidate !== 'string') return
-    const trimmed = candidate.trim()
-    if (!trimmed.length) return
-    set.add(trimmed)
-  })
-  return Array.from(set)
 }
 
 function extractPersonOption(record: Record<string, unknown>): EntityOption | null {

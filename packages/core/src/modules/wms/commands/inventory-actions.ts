@@ -26,7 +26,7 @@ import { LockMode } from '@mikro-orm/core'
 import { randomUUID } from 'crypto'
 import type { CommandHandler, CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
 import { registerCommand } from '@open-mercato/shared/lib/commands'
-import { emitCrudSideEffects } from '@open-mercato/shared/lib/commands/helpers'
+import { emitCrudSideEffects, forkEm } from '@open-mercato/shared/lib/commands/helpers'
 import type { DataEngine } from '@open-mercato/shared/lib/data/engine'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
@@ -89,6 +89,7 @@ import {
   WMS_INVENTORY_RESERVATION_RESOURCE,
 } from './shared'
 import { isUniqueViolation } from '@open-mercato/shared/lib/db/pg-errors'
+import { toFiniteNumber } from '@open-mercato/shared/lib/number'
 
 type Scope = { tenantId: string; organizationId: string }
 type AllocationBucket = {
@@ -200,10 +201,6 @@ function resolveScope(ctx: CommandRuntimeContext, fallback?: { tenantId?: string
   return { tenantId, organizationId }
 }
 
-function resolveEm(ctx: CommandRuntimeContext): EntityManager {
-  return (ctx.container.resolve('em') as EntityManager).fork()
-}
-
 async function runInTransaction<TResult>(
   em: EntityManager,
   operation: (trx: EntityManager) => Promise<TResult>,
@@ -215,15 +212,6 @@ async function runInTransaction<TResult>(
     return transactionalEm.transactional((trx) => operation(trx))
   }
   return operation(em)
-}
-
-function toNumber(value: unknown): number {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string' && value.trim().length > 0) {
-    const parsed = Number(value)
-    if (Number.isFinite(parsed)) return parsed
-  }
-  return 0
 }
 
 // Delegates to the shared walker, which additionally unwraps
@@ -286,7 +274,7 @@ function setNumeric(target: { [key: string]: unknown }, key: string, value: numb
 }
 
 function getAvailableQuantity(balance: InventoryBalance): number {
-  return toNumber(balance.quantityOnHand) - toNumber(balance.quantityReserved) - toNumber(balance.quantityAllocated)
+  return toFiniteNumber(balance.quantityOnHand) - toFiniteNumber(balance.quantityReserved) - toFiniteNumber(balance.quantityAllocated)
 }
 
 function extractReservationMetadata(reservation: InventoryReservation): ReservationMetadata {
@@ -905,7 +893,7 @@ const reserveInventoryCommand: CommandHandler<InventoryReservationCreateInput, R
     const input = inventoryReservationCreateSchema.parse(rawInput ?? {})
     ensureTenantScope(ctx, input.tenantId)
     ensureOrganizationScope(ctx, input.organizationId)
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     const result = await runInTransaction(em, async (trx) => {
       const scope = resolveScope(ctx, input)
       await requireWarehouse(trx, ctx, input.warehouseId, scope)
@@ -974,7 +962,7 @@ const reserveInventoryCommand: CommandHandler<InventoryReservationCreateInput, R
         setNumeric(
           persistedBalance as unknown as Record<string, unknown>,
           'quantityReserved',
-          toNumber(persistedBalance.quantityReserved) + quantity,
+          toFiniteNumber(persistedBalance.quantityReserved) + quantity,
         )
         touchedBalances.push(persistedBalance)
         buckets.push({
@@ -1064,7 +1052,7 @@ const reserveInventoryCommand: CommandHandler<InventoryReservationCreateInput, R
         organizationId: result.organizationId,
       }).catch(() => undefined)
       void emitLowStockEventIfNeeded(
-        resolveEm(ctx),
+        forkEm(ctx),
         ctx,
         { tenantId: result.tenantId, organizationId: result.organizationId },
         result.catalogVariantId,
@@ -1099,7 +1087,7 @@ const releaseInventoryReservationCommand: CommandHandler<InventoryReservationRel
     const input = inventoryReservationReleaseSchema.parse(rawInput ?? {})
     ensureTenantScope(ctx, input.tenantId)
     ensureOrganizationScope(ctx, input.organizationId)
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     const result = await runInTransaction(em, async (trx) => {
       const scope = resolveScope(ctx, input)
       const reservation = await requireReservation(trx, ctx, input.reservationId, scope, true)
@@ -1119,7 +1107,7 @@ const releaseInventoryReservationCommand: CommandHandler<InventoryReservationRel
           enforceNonNegativeBalance(
             balance,
             'quantityAllocated',
-            toNumber(balance.quantityAllocated) - bucket.quantity,
+            toFiniteNumber(balance.quantityAllocated) - bucket.quantity,
             reservation.id,
             scope,
           )
@@ -1127,7 +1115,7 @@ const releaseInventoryReservationCommand: CommandHandler<InventoryReservationRel
           enforceNonNegativeBalance(
             balance,
             'quantityReserved',
-            toNumber(balance.quantityReserved) - bucket.quantity,
+            toFiniteNumber(balance.quantityReserved) - bucket.quantity,
             reservation.id,
             scope,
           )
@@ -1166,7 +1154,7 @@ const releaseInventoryReservationCommand: CommandHandler<InventoryReservationRel
       organizationId: result.organizationId,
     }).catch(() => undefined)
     void emitLowStockEventIfNeeded(
-      resolveEm(ctx),
+      forkEm(ctx),
       ctx,
       { tenantId: result.tenantId, organizationId: result.organizationId },
       result.catalogVariantId,
@@ -1193,7 +1181,7 @@ const allocateInventoryReservationCommand: CommandHandler<InventoryReservationAl
     const input = inventoryReservationAllocateSchema.parse(rawInput ?? {})
     ensureTenantScope(ctx, input.tenantId)
     ensureOrganizationScope(ctx, input.organizationId)
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     const result = await runInTransaction(em, async (trx) => {
       const scope = resolveScope(ctx, input)
       const reservation = await requireReservation(trx, ctx, input.reservationId, scope, true)
@@ -1221,19 +1209,19 @@ const allocateInventoryReservationCommand: CommandHandler<InventoryReservationAl
           bucket,
         )
         if (!balance) throw new CrudHttpError(409, { error: 'invalid_tracking_state' })
-        if (toNumber(balance.quantityReserved) < bucket.quantity - 0.000001) {
+        if (toFiniteNumber(balance.quantityReserved) < bucket.quantity - 0.000001) {
           throw new CrudHttpError(409, { error: 'invalid_tracking_state' })
         }
         // Guard above ensures the subtraction is non-negative within numeric(16,4) precision.
         setNumeric(
           balance as unknown as Record<string, unknown>,
           'quantityReserved',
-          toNumber(balance.quantityReserved) - bucket.quantity,
+          toFiniteNumber(balance.quantityReserved) - bucket.quantity,
         )
         setNumeric(
           balance as unknown as Record<string, unknown>,
           'quantityAllocated',
-          toNumber(balance.quantityAllocated) + bucket.quantity,
+          toFiniteNumber(balance.quantityAllocated) + bucket.quantity,
         )
         touchedBalances.push(balance)
       }
@@ -1290,7 +1278,7 @@ const adjustInventoryCommand: CommandHandler<InventoryAdjustInput, { movementId:
     const input = inventoryAdjustSchema.parse(rawInput ?? {})
     ensureTenantScope(ctx, input.tenantId)
     ensureOrganizationScope(ctx, input.organizationId)
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     const result = await runInTransaction(em, async (trx) => {
       const scope = resolveScope(ctx, input)
       await requireWarehouse(trx, ctx, input.warehouseId, scope)
@@ -1358,7 +1346,7 @@ const adjustInventoryCommand: CommandHandler<InventoryAdjustInput, { movementId:
       setNumeric(
         balance as unknown as Record<string, unknown>,
         'quantityOnHand',
-        toNumber(balance.quantityOnHand) + delta,
+        toFiniteNumber(balance.quantityOnHand) + delta,
       )
       const { movement } = await persistMovementWithIdempotency(trx, scope, movementInput)
       await trx.flush()
@@ -1390,7 +1378,7 @@ const adjustInventoryCommand: CommandHandler<InventoryAdjustInput, { movementId:
         organizationId: result.organizationId,
       }).catch(() => undefined)
       void emitLowStockEventIfNeeded(
-        resolveEm(ctx),
+        forkEm(ctx),
         ctx,
         { tenantId: result.tenantId, organizationId: result.organizationId },
         result.catalogVariantId,
@@ -1422,7 +1410,7 @@ const receiveInventoryCommand: CommandHandler<InventoryReceiveInput, { movementI
     const input = inventoryReceiveSchema.parse(rawInput ?? {})
     ensureTenantScope(ctx, input.tenantId)
     ensureOrganizationScope(ctx, input.organizationId)
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     const result = await runInTransaction(em, async (trx) => {
       const scope = resolveScope(ctx, input)
       await requireWarehouse(trx, ctx, input.warehouseId, scope)
@@ -1493,7 +1481,7 @@ const receiveInventoryCommand: CommandHandler<InventoryReceiveInput, { movementI
       setNumeric(
         balance as unknown as Record<string, unknown>,
         'quantityOnHand',
-        toNumber(balance.quantityOnHand) + input.quantity,
+        toFiniteNumber(balance.quantityOnHand) + input.quantity,
       )
       const { movement } = await persistMovementWithIdempotency(trx, scope, movementInput)
       await trx.flush()
@@ -1527,7 +1515,7 @@ const receiveInventoryCommand: CommandHandler<InventoryReceiveInput, { movementI
         organizationId: result.organizationId,
       }).catch(() => undefined)
       void emitLowStockEventIfNeeded(
-        resolveEm(ctx),
+        forkEm(ctx),
         ctx,
         { tenantId: result.tenantId, organizationId: result.organizationId },
         result.catalogVariantId,
@@ -1559,7 +1547,7 @@ const moveInventoryCommand: CommandHandler<InventoryMoveInput, { movementId: str
     const input = inventoryMoveSchema.parse(rawInput ?? {})
     ensureTenantScope(ctx, input.tenantId)
     ensureOrganizationScope(ctx, input.organizationId)
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     const result = await runInTransaction(em, async (trx) => {
       const scope = resolveScope(ctx, input)
       await requireWarehouse(trx, ctx, input.warehouseId, scope)
@@ -1643,12 +1631,12 @@ const moveInventoryCommand: CommandHandler<InventoryMoveInput, { movementId: str
       setNumeric(
         sourceBalance as unknown as Record<string, unknown>,
         'quantityOnHand',
-        toNumber(sourceBalance.quantityOnHand) - input.quantity,
+        toFiniteNumber(sourceBalance.quantityOnHand) - input.quantity,
       )
       setNumeric(
         targetBalance as unknown as Record<string, unknown>,
         'quantityOnHand',
-        toNumber(targetBalance.quantityOnHand) + input.quantity,
+        toFiniteNumber(targetBalance.quantityOnHand) + input.quantity,
       )
       const { movement } = await persistMovementWithIdempotency(trx, scope, movementInput)
       await trx.flush()
@@ -1682,7 +1670,7 @@ const moveInventoryCommand: CommandHandler<InventoryMoveInput, { movementId: str
         organizationId: result.organizationId,
       }).catch(() => undefined)
       void emitLowStockEventIfNeeded(
-        resolveEm(ctx),
+        forkEm(ctx),
         ctx,
         { tenantId: result.tenantId, organizationId: result.organizationId },
         result.catalogVariantId,
@@ -1714,7 +1702,7 @@ const cycleCountInventoryCommand: CommandHandler<InventoryCycleCountInput, { adj
     const input = inventoryCycleCountSchema.parse(rawInput ?? {})
     ensureTenantScope(ctx, input.tenantId)
     ensureOrganizationScope(ctx, input.organizationId)
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     const result = await runInTransaction(em, async (trx) => {
       const scope = resolveScope(ctx, input)
       await requireWarehouse(trx, ctx, input.warehouseId, scope)
@@ -1730,7 +1718,7 @@ const cycleCountInventoryCommand: CommandHandler<InventoryCycleCountInput, { adj
         lotId: input.lotId,
         serialNumber: input.serialNumber,
       })
-      const currentOnHand = toNumber(balance.quantityOnHand)
+      const currentOnHand = toFiniteNumber(balance.quantityOnHand)
       const delta = input.countedQuantity - currentOnHand
       if (delta === 0) {
         return {
@@ -1829,7 +1817,7 @@ const cycleCountInventoryCommand: CommandHandler<InventoryCycleCountInput, { adj
           organizationId: result.organizationId,
         }).catch(() => undefined)
         void emitLowStockEventIfNeeded(
-          resolveEm(ctx),
+          forkEm(ctx),
           ctx,
           { tenantId: result.tenantId, organizationId: result.organizationId },
           result.catalogVariantId,

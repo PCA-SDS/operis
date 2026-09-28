@@ -1,11 +1,8 @@
 import type { ApiInterceptor } from '@open-mercato/shared/lib/crud/api-interceptor'
 import { ExampleCustomerPriority } from '../data/entities'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
 
 type UnknownRecord = Record<string, unknown>
-
-function readString(value: unknown): string | null {
-  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
-}
 
 export const interceptors: ApiInterceptor[] = [
   {
@@ -32,7 +29,7 @@ export const interceptors: ApiInterceptor[] = [
     priority: 90,
     timeoutMs: 100,
     async before(request) {
-      const probe = readString(request.query?.interceptorProbe)
+      const probe = normalizeOptionalString(request.query?.interceptorProbe)
       if (probe !== 'timeout') return { ok: true }
       await new Promise((resolve) => setTimeout(resolve, 200))
       return { ok: true }
@@ -44,7 +41,7 @@ export const interceptors: ApiInterceptor[] = [
     methods: ['GET'],
     priority: 89,
     async before(request) {
-      const probe = readString(request.query?.interceptorProbe)
+      const probe = normalizeOptionalString(request.query?.interceptorProbe)
       if (probe !== 'crash') return { ok: true }
       throw new Error('Interceptor crash probe')
     },
@@ -55,7 +52,7 @@ export const interceptors: ApiInterceptor[] = [
     methods: ['GET'],
     priority: 88,
     async before(request) {
-      const probe = readString(request.query?.interceptorProbe)
+      const probe = normalizeOptionalString(request.query?.interceptorProbe)
       if (probe !== 'bad-query') return { ok: true }
       return {
         ok: true,
@@ -73,7 +70,7 @@ export const interceptors: ApiInterceptor[] = [
     methods: ['GET'],
     priority: 60,
     async before(request) {
-      const probe = readString(request.query?.interceptorProbe)
+      const probe = normalizeOptionalString(request.query?.interceptorProbe)
       if (probe !== 'wildcard') return { ok: true }
       return {
         ok: true,
@@ -123,7 +120,7 @@ export const interceptors: ApiInterceptor[] = [
     methods: ['GET'],
     priority: 70,
     async before(request, context) {
-      const priority = readString(request.query?.examplePriority)
+      const priority = normalizeOptionalString(request.query?.examplePriority)
       if (!priority) return { ok: true }
       const matches = await context.em.find(ExampleCustomerPriority, {
         priority: priority as ExampleCustomerPriority['priority'],
@@ -132,7 +129,7 @@ export const interceptors: ApiInterceptor[] = [
         deletedAt: null,
       }, { fields: ['customerId'] })
       const matchedCustomerIds = Array.from(new Set(matches.map((entry) => entry.customerId)))
-      const existingIdsRaw = readString(request.query?.ids)
+      const existingIdsRaw = normalizeOptionalString(request.query?.ids)
       const existingIds = existingIdsRaw
         ? existingIdsRaw.split(',').map((value) => value.trim()).filter((value) => value.length > 0)
         : []

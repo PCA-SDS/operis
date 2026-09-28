@@ -112,13 +112,3 @@ export function getEventTypeSuggestions(entityType?: string): string[] {
     'onAssign',
   ]
 }
-
-/**
- * Format date for display
- */
-export function formatDate(date: Date | string | null | undefined): string {
-  if (!date) return '-'
-  const d = typeof date === 'string' ? new Date(date) : date
-  if (isNaN(d.getTime())) return '-'
-  return d.toLocaleDateString()
-}

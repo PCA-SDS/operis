@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 export const exampleItemCreateSchema = z.object({
   title: z.string().min(1).max(200),
@@ -30,8 +31,7 @@ export const customerPriorityUpdateSchema = z.object({
 export const customerPriorityListSchema = z.object({
   id: z.string().uuid().optional(),
   customerId: z.string().uuid().optional(),
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(50),
+  ...paginationQuerySchema().shape,
   sortField: z.enum(['id', 'customer_id', 'priority', 'created_at']).optional().default('created_at'),
   sortDir: z.enum(['asc', 'desc']).optional().default('desc'),
 })

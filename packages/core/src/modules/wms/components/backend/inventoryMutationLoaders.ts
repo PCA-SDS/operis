@@ -5,14 +5,9 @@ import {
   loadCatalogVariantOptions,
   loadWarehouseOptions,
 } from './wmsLookupLoaders'
+import type { PagedResponse } from './inventoryTypes'
 
 export { buildQuery, loadCatalogVariantOptions, loadWarehouseOptions }
-
-type PagedResponse<T> = {
-  items: T[]
-  total: number
-  totalPages: number
-}
 
 type InventoryLotListRow = {
   id?: string | null

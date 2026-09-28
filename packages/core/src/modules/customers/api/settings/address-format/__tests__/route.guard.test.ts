@@ -5,8 +5,8 @@ const organizationId = '22222222-2222-4222-8222-222222222222'
 const userId = '33333333-3333-4333-8333-333333333333'
 const settingsId = '99999999-9999-4999-8999-999999999999'
 
-const validateCrudMutationGuardMock = jest.fn()
-const runCrudMutationGuardAfterSuccessMock = jest.fn()
+const runRouteMutationGuardsMock = jest.fn()
+const runAfterSuccessMock = jest.fn()
 const commandBusExecuteMock = jest.fn()
 const loadCustomerSettingsMock = jest.fn()
 
@@ -40,9 +40,8 @@ jest.mock('@open-mercato/shared/lib/i18n/server', () => ({
   })),
 }))
 
-jest.mock('@open-mercato/shared/lib/crud/mutation-guard', () => ({
-  validateCrudMutationGuard: (...args: unknown[]) => validateCrudMutationGuardMock(...args),
-  runCrudMutationGuardAfterSuccess: (...args: unknown[]) => runCrudMutationGuardAfterSuccessMock(...args),
+jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
+  runRouteMutationGuards: (...args: unknown[]) => runRouteMutationGuardsMock(...args),
 }))
 
 jest.mock('../../../../commands/settings', () => ({
@@ -61,8 +60,8 @@ const putRequest = () =>
 describe('customers settings address-format route mutation guard', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    validateCrudMutationGuardMock.mockResolvedValue({ ok: true, shouldRunAfterSuccess: true, metadata: { token: 'guard' } })
-    runCrudMutationGuardAfterSuccessMock.mockResolvedValue(undefined)
+    runRouteMutationGuardsMock.mockResolvedValue({ ok: true, runAfterSuccess: runAfterSuccessMock })
+    runAfterSuccessMock.mockResolvedValue(undefined)
     commandBusExecuteMock.mockResolvedValue({ result: { settingsId, addressFormat: 'street_first' } })
     loadCustomerSettingsMock.mockResolvedValue(null)
   })
@@ -72,30 +71,30 @@ describe('customers settings address-format route mutation guard', () => {
 
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ addressFormat: 'street_first' })
-    expect(validateCrudMutationGuardMock).toHaveBeenCalledWith(
-      container,
+    expect(runRouteMutationGuardsMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        tenantId,
-        organizationId,
-        userId,
-        resourceKind: 'customers.settings',
-        resourceId: organizationId,
-        operation: 'update',
-        mutationPayload: expect.objectContaining({ addressFormat: 'street_first' }),
+        container,
+        auth: expect.objectContaining({ tenantId, organizationId, userId }),
+        input: expect.objectContaining({
+          resourceKind: 'customers.settings',
+          resourceId: organizationId,
+          operation: 'update',
+          mutationPayload: expect.objectContaining({ addressFormat: 'street_first' }),
+        }),
       }),
     )
     expect(commandBusExecuteMock).toHaveBeenCalledWith('customers.settings.save', expect.anything())
-    expect(runCrudMutationGuardAfterSuccessMock).toHaveBeenCalled()
+    expect(runAfterSuccessMock).toHaveBeenCalled()
   })
 
   it('short-circuits save when the guard blocks the mutation', async () => {
-    validateCrudMutationGuardMock.mockResolvedValueOnce({ ok: false, status: 423, body: { error: 'locked' } })
+    runRouteMutationGuardsMock.mockResolvedValueOnce({ ok: false, errorStatus: 423, errorBody: { error: 'locked' } })
 
     const response = await PUT(putRequest())
 
     expect(response.status).toBe(423)
     expect(await response.json()).toEqual({ error: 'locked' })
     expect(commandBusExecuteMock).not.toHaveBeenCalled()
-    expect(runCrudMutationGuardAfterSuccessMock).not.toHaveBeenCalled()
+    expect(runAfterSuccessMock).not.toHaveBeenCalled()
   })
 })

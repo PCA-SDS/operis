@@ -6,6 +6,7 @@ import { cn } from '@open-mercato/shared/lib/utils'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Badge } from '@open-mercato/ui/primitives/badge'
 import type { TodoLinkSummary } from '../../formConfig'
+import type { TranslateWithFallbackFn } from '@open-mercato/shared/lib/i18n/translate'
 
 function isOverdue(dueAt: string | null | undefined): boolean {
   if (!dueAt) return false
@@ -19,8 +20,6 @@ function priorityLabel(priority: number | null | undefined): { label: string; va
   return { label: 'Low', variant: 'secondary' }
 }
 
-type TranslateFnWithParams = (key: string, fallback?: string, params?: Record<string, string | number>) => string
-
 export function OpenTasksWidget({
   tasks,
   currentUserId,
@@ -29,7 +28,7 @@ export function OpenTasksWidget({
 }: {
   tasks: TodoLinkSummary[]
   currentUserId?: string | null
-  t: TranslateFnWithParams
+  t: TranslateWithFallbackFn
   onViewAll: () => void
 }) {
   const [taskFilter, setTaskFilter] = React.useState<'all' | 'mine' | 'overdue'>('all')

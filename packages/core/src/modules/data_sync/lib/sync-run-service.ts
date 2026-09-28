@@ -3,8 +3,7 @@ import { findAndCountWithDecryption, findOneWithDecryption, findWithDecryption }
 import { withAtomicFlush } from '@open-mercato/shared/lib/commands/flush'
 import { escapeLikePattern } from '@open-mercato/shared/lib/db/escapeLikePattern'
 import { SyncCursor, SyncRun } from '../data/entities'
-
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+import { UUID_SHAPE_PATTERN } from '@open-mercato/shared/lib/validation'
 
 function buildRunSearchFilter(search: string): FilterQuery<SyncRun>[] | null {
   const trimmed = search.trim()
@@ -15,7 +14,7 @@ function buildRunSearchFilter(search: string): FilterQuery<SyncRun>[] | null {
     { entityType: { $ilike: pattern } },
     { status: { $ilike: pattern } },
   ]
-  if (UUID_PATTERN.test(trimmed)) {
+  if (UUID_SHAPE_PATTERN.test(trimmed)) {
     conditions.push({ id: trimmed })
   }
   return conditions

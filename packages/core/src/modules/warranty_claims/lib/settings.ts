@@ -34,7 +34,7 @@ export const WARRANTY_CLAIM_SETTINGS_DEFAULTS: WarrantyClaimEffectiveSettings = 
   returnLabelProvider: null,
 }
 
-function parseNullableNumber(value: string | number | null | undefined): number | null {
+export function parseNullableNumber(value: string | number | null | undefined): number | null {
   if (value === null || value === undefined) return null
   const parsed = typeof value === 'number' ? value : Number(value)
   return Number.isFinite(parsed) ? parsed : null

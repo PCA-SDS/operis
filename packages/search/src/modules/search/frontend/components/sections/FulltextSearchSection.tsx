@@ -18,6 +18,7 @@ import {
 } from '@open-mercato/ui/primitives/dialog'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@open-mercato/ui/primitives/tabs'
 import { isVectorActivityLog, useIndexActivityLogs, type ActivityLog } from '../useIndexActivityLogs'
+import { normalizeErrorMessage } from '../errorMessage'
 
 const isFulltextActivityLog = (log: ActivityLog): boolean => !isVectorActivityLog(log)
 
@@ -83,12 +84,6 @@ export type FulltextSearchSectionProps = {
   loading: boolean
   onStatsUpdate: (stats: FulltextStats | null) => void
   onRefresh: () => Promise<void>
-}
-
-const normalizeErrorMessage = (error: unknown, fallback: string): string => {
-  if (typeof error === 'string' && error.trim().length) return error.trim()
-  if (error instanceof Error && error.message.trim().length) return error.message.trim()
-  return fallback
 }
 
 export function FulltextSearchSection({

@@ -7,8 +7,8 @@ const entityId = '66666666-6666-4666-8666-666666666666'
 const tagId = '77777777-7777-4777-8777-777777777777'
 const assignmentId = '88888888-8888-4888-8888-888888888888'
 
-const validateCrudMutationGuardMock = jest.fn()
-const runCrudMutationGuardAfterSuccessMock = jest.fn()
+const runRouteMutationGuardsMock = jest.fn()
+const runAfterSuccessMock = jest.fn()
 const commandBusExecuteMock = jest.fn()
 
 const commandBus = { execute: commandBusExecuteMock }
@@ -40,9 +40,8 @@ jest.mock('@open-mercato/shared/lib/i18n/server', () => ({
   })),
 }))
 
-jest.mock('@open-mercato/shared/lib/crud/mutation-guard', () => ({
-  validateCrudMutationGuard: (...args: unknown[]) => validateCrudMutationGuardMock(...args),
-  runCrudMutationGuardAfterSuccess: (...args: unknown[]) => runCrudMutationGuardAfterSuccessMock(...args),
+jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
+  runRouteMutationGuards: (...args: unknown[]) => runRouteMutationGuardsMock(...args),
 }))
 
 import { POST } from '../route'
@@ -57,8 +56,8 @@ const unassignRequest = () =>
 describe('customers tags unassign route mutation guard', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    validateCrudMutationGuardMock.mockResolvedValue({ ok: true, shouldRunAfterSuccess: true, metadata: { token: 'guard' } })
-    runCrudMutationGuardAfterSuccessMock.mockResolvedValue(undefined)
+    runRouteMutationGuardsMock.mockResolvedValue({ ok: true, runAfterSuccess: runAfterSuccessMock })
+    runAfterSuccessMock.mockResolvedValue(undefined)
     commandBusExecuteMock.mockResolvedValue({ result: { assignmentId }, logEntry: null })
   })
 
@@ -66,28 +65,28 @@ describe('customers tags unassign route mutation guard', () => {
     const response = await POST(unassignRequest())
 
     expect(response.status).toBe(200)
-    expect(validateCrudMutationGuardMock).toHaveBeenCalledWith(
-      container,
+    expect(runRouteMutationGuardsMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        tenantId,
-        organizationId,
-        userId,
-        resourceKind: 'customers.tagAssignment',
-        resourceId: entityId,
-        operation: 'custom',
+        container,
+        auth: expect.objectContaining({ tenantId, organizationId, userId }),
+        input: expect.objectContaining({
+          resourceKind: 'customers.tagAssignment',
+          resourceId: entityId,
+          operation: 'custom',
+        }),
       }),
     )
     expect(commandBusExecuteMock).toHaveBeenCalledWith('customers.tags.unassign', expect.anything())
-    expect(runCrudMutationGuardAfterSuccessMock).toHaveBeenCalled()
+    expect(runAfterSuccessMock).toHaveBeenCalled()
   })
 
   it('short-circuits unassign when the guard blocks the mutation', async () => {
-    validateCrudMutationGuardMock.mockResolvedValueOnce({ ok: false, status: 423, body: { error: 'locked' } })
+    runRouteMutationGuardsMock.mockResolvedValueOnce({ ok: false, errorStatus: 423, errorBody: { error: 'locked' } })
 
     const response = await POST(unassignRequest())
 
     expect(response.status).toBe(423)
     expect(commandBusExecuteMock).not.toHaveBeenCalled()
-    expect(runCrudMutationGuardAfterSuccessMock).not.toHaveBeenCalled()
+    expect(runAfterSuccessMock).not.toHaveBeenCalled()
   })
 })

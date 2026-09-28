@@ -72,13 +72,7 @@ import {
   type CatalogToolLoadBeforeRecord,
   type CatalogToolLoadBeforeSingleRecord,
 } from './types'
-
-function recordVersionFromUpdatedAt(updatedAt: Date | null | undefined): string | null {
-  if (!updatedAt) return null
-  const value = updatedAt instanceof Date ? updatedAt : new Date(updatedAt)
-  if (Number.isNaN(value.getTime())) return null
-  return value.toISOString()
-}
+import { toIsoOrNull } from '@open-mercato/shared/lib/date/normalize'
 
 async function loadProductForScope(
   em: EntityManager,
@@ -196,7 +190,7 @@ const updateProductTool: CatalogAiToolDefinition = {
     return {
       recordId: row.id,
       entityType: 'catalog.product',
-      recordVersion: recordVersionFromUpdatedAt(row.updatedAt),
+      recordVersion: toIsoOrNull(row.updatedAt),
       before: productSnapshot(row),
     }
   },
@@ -314,7 +308,7 @@ const bulkUpdateProductsTool: CatalogAiToolDefinition = {
         recordId: product.id,
         entityType: 'catalog.product',
         label: productLabel(product),
-        recordVersion: recordVersionFromUpdatedAt(product.updatedAt),
+        recordVersion: toIsoOrNull(product.updatedAt),
         before: productSnapshot(product),
       })
     }
@@ -485,7 +479,7 @@ const applyAttributeExtractionTool: CatalogAiToolDefinition = {
         recordId: product.id,
         entityType: 'catalog.product',
         label: productLabel(product),
-        recordVersion: recordVersionFromUpdatedAt(product.updatedAt),
+        recordVersion: toIsoOrNull(product.updatedAt),
         before: { attributes: {} },
       })
     }
@@ -675,7 +669,7 @@ const updateProductMediaDescriptionsTool: CatalogAiToolDefinition = {
         recordId: media.id,
         entityType: 'catalog.product_media',
         label: mediaLabel(media),
-        recordVersion: recordVersionFromUpdatedAt(media.createdAt ?? null),
+        recordVersion: toIsoOrNull(media.createdAt ?? null),
         before: mediaSnapshot(media),
       })
     }

@@ -6,6 +6,7 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { StatusBadge, type StatusBadgeVariant } from '@open-mercato/ui/primitives/status-badge'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
+import { formatDate } from '@open-mercato/shared/lib/time'
 
 type EntitlementClaim = {
   id?: string | null
@@ -58,16 +59,6 @@ function statusVariant(status: string | null | undefined): StatusBadgeVariant {
   if (status === 'in_warranty') return 'success'
   if (status === 'out_of_warranty') return 'warning'
   return 'neutral'
-}
-
-function formatDateLabel(value: string, fallback: string): string {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return fallback
-  return date.toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  })
 }
 
 export function EntitlementLookupBadge({ claim, lines }: EntitlementLookupBadgeProps) {
@@ -165,7 +156,7 @@ export function EntitlementLookupBadge({ claim, lines }: EntitlementLookupBadgeP
       {result.expiresAt ? (
         <span className="text-xs text-muted-foreground">
           {t('warranty_claims.entitlement.expiresAt', 'Expires {date}', {
-            date: formatDateLabel(result.expiresAt, result.expiresAt),
+            date: formatDate(result.expiresAt, { fallback: result.expiresAt }),
           })}
         </span>
       ) : null}

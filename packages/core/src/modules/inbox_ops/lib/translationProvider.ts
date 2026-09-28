@@ -1,7 +1,8 @@
 import { generateText } from 'ai'
 import { z } from 'zod'
-import { resolveConfiguredStructuredModel, withTimeout } from './llmProvider'
+import { resolveConfiguredStructuredModel } from './llmProvider'
 import { resolveTranslationTimeoutMs } from './config'
+import { withTimeout } from '@open-mercato/shared/lib/async'
 
 const LANGUAGE_NAMES: Record<string, string> = { en: 'English', de: 'German', es: 'Spanish', pl: 'Polish' }
 

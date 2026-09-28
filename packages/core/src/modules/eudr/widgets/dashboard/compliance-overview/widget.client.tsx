@@ -10,6 +10,7 @@ import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Leaf } from 'lucide-react'
 import type { EudrComplianceOverviewSettings } from './widget'
+import { formatDeadlineDate } from '../../../lib/format'
 
 type StatusCounts = Record<string, number>
 
@@ -50,12 +51,6 @@ async function loadOverview(): Promise<ComplianceOverview> {
     throw new Error(message)
   }
   return call.result
-}
-
-function formatDeadlineDate(value: string, locale: string): string {
-  const date = new Date(`${value}T00:00:00.000Z`)
-  if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleDateString(locale || undefined)
 }
 
 function formatCompleteness(value: number | null, t: Translate): string {

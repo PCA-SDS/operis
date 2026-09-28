@@ -9,10 +9,6 @@ import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { CrudHttpError, isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 import {
-  runCrudMutationGuardAfterSuccess,
-  validateCrudMutationGuard,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
-import {
   customerStuckThresholdUpsertSchema,
   type CustomerStuckThresholdUpsertInput,
 } from '../../../data/validators'
@@ -20,6 +16,7 @@ import { loadCustomerSettings } from '../../../commands/settings'
 import { withScopedPayload } from '../../utils'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const logger = createLogger('customers')
 
@@ -105,21 +102,19 @@ export async function PUT(req: Request) {
     // Mutation-guard contract for custom write routes. The resource is the customer
     // settings row scoped to the organization; we use the organizationId as the
     // resourceId because the (tenant, organization) pair uniquely identifies it.
-    const guardResult = await validateCrudMutationGuard(ctx.container, {
-      tenantId,
-      organizationId,
-      // `resolveSettingsContext` throws 401 when auth is missing, so by the time we reach
-      // here `ctx.auth.sub` is guaranteed to be a string per `AuthContext`.
-      userId: ctx.auth!.sub,
-      resourceKind: 'customers.settings',
-      resourceId: organizationId,
-      operation: 'update',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      mutationPayload: input,
+    const guardResult = await runRouteMutationGuards({
+      container: ctx.container,
+      req,
+      auth: { userId: ctx.auth!.sub, tenantId, organizationId },
+      input: {
+        resourceKind: 'customers.settings',
+        resourceId: organizationId,
+        operation: 'update',
+        mutationPayload: input,
+      },
     })
-    if (guardResult && !guardResult.ok) {
-      return NextResponse.json(guardResult.body, { status: guardResult.status })
+    if (!guardResult.ok) {
+      return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
     }
 
     const commandBus = ctx.container.resolve('commandBus') as CommandBus
@@ -128,21 +123,7 @@ export async function PUT(req: Request) {
       { settingsId: string; stuckThresholdDays: number }
     >('customers.settings.save_stuck_threshold', { input, ctx })
 
-    if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-      await runCrudMutationGuardAfterSuccess(ctx.container, {
-        tenantId,
-        organizationId,
-        // `resolveSettingsContext` throws 401 when auth is missing, so by the time we reach
-      // here `ctx.auth.sub` is guaranteed to be a string per `AuthContext`.
-      userId: ctx.auth!.sub,
-        resourceKind: 'customers.settings',
-        resourceId: organizationId,
-        operation: 'update',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
-        metadata: guardResult.metadata ?? null,
-      })
-    }
+    await guardResult.runAfterSuccess()
 
     return NextResponse.json({
       stuckThresholdDays: result?.stuckThresholdDays ?? input.stuckThresholdDays,

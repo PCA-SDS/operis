@@ -6,6 +6,11 @@ import type { CrudField, CrudFieldOption, CrudFormGroup } from '@open-mercato/ui
 import type { TranslateFn } from '@open-mercato/shared/lib/i18n/context'
 import { loadOrderOptions, resolveOrderLabel } from '../../components/orderLookup'
 import { ClaimLineProductPicker, type ClaimProductPick } from '../../components/productLookup'
+import { isRecord } from '@open-mercato/shared/lib/guards'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
+import { toFiniteNumberOrNull } from '@open-mercato/shared/lib/number'
+import { normalizeCustomerOption } from '../../components/customerOptions'
+import { nullableInteger, dateInputValue } from '../../components/formValues'
 
 export type RegistrationRecord = {
   id: string
@@ -30,46 +35,11 @@ export type RegistrationFormValues = Partial<RegistrationRecord> & Record<string
 const COVERAGE_TYPES = ['standard', 'extended', 'none'] as const
 const SOURCES = ['order', 'manual', 'third_party'] as const
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
-
-function toStringOrNull(value: unknown): string | null {
-  return typeof value === 'string' && value.trim().length ? value.trim() : null
-}
-
-function toNumberOrNull(value: unknown): number | null {
-  if (typeof value === 'number') return Number.isFinite(value) ? value : null
-  if (typeof value !== 'string' || !value.trim()) return null
-  const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : null
-}
-
-export function dateInputValue(value: unknown): string {
-  if (typeof value !== 'string') return ''
-  const trimmed = value.trim()
-  return trimmed.length >= 10 ? trimmed.slice(0, 10) : trimmed
-}
-
 function dateToIso(value: unknown): string | null {
   const dateValue = dateInputValue(value)
   if (!dateValue) return null
   const date = new Date(`${dateValue}T00:00:00.000Z`)
   return Number.isNaN(date.getTime()) ? null : date.toISOString()
-}
-
-function normalizeOption(item: unknown, t: TranslateFn): CrudFieldOption | null {
-  if (!isRecord(item)) return null
-  const id = toStringOrNull(item.id)
-  if (!id) return null
-  const label =
-    toStringOrNull(item.label) ??
-    toStringOrNull(item.displayName) ??
-    toStringOrNull(item.display_name) ??
-    toStringOrNull(item.name) ??
-    t('warranty_claims.form.customerUnnamed', 'Unnamed customer')
-  const email = toStringOrNull(item.primaryEmail) ?? toStringOrNull(item.primary_email)
-  return { value: id, label: email ? `${label} (${email})` : label }
 }
 
 async function resolveCustomerLabel(value: string, t: TranslateFn): Promise<string> {
@@ -82,41 +52,35 @@ async function resolveCustomerLabel(value: string, t: TranslateFn): Promise<stri
     ...(Array.isArray(people.result?.items) ? people.result.items : []),
     ...(Array.isArray(companies.result?.items) ? companies.result.items : []),
   ]
-  const option = items.map((item) => normalizeOption(item, t)).find((item): item is CrudFieldOption => item !== null)
+  const option = items.map((item) => normalizeCustomerOption(item, t)).find((item): item is CrudFieldOption => item !== null)
   return option?.label ?? t('warranty_claims.form.customerUnavailable', 'Customer unavailable')
 }
 
 export function normalizeRegistration(value: unknown): RegistrationRecord | null {
   if (!isRecord(value)) return null
-  const id = toStringOrNull(value.id)
+  const id = normalizeOptionalString(value.id)
   if (!id) return null
   return {
     id,
-    serialNumber: toStringOrNull(value.serialNumber),
-    productName: toStringOrNull(value.productName),
-    sku: toStringOrNull(value.sku),
-    productId: toStringOrNull(value.productId),
-    variantId: toStringOrNull(value.variantId),
-    customerId: toStringOrNull(value.customerId),
-    orderId: toStringOrNull(value.orderId),
+    serialNumber: normalizeOptionalString(value.serialNumber),
+    productName: normalizeOptionalString(value.productName),
+    sku: normalizeOptionalString(value.sku),
+    productId: normalizeOptionalString(value.productId),
+    variantId: normalizeOptionalString(value.variantId),
+    customerId: normalizeOptionalString(value.customerId),
+    orderId: normalizeOptionalString(value.orderId),
     purchaseDate: dateInputValue(value.purchaseDate) || null,
-    warrantyMonths: toNumberOrNull(value.warrantyMonths),
-    warrantyExpiresAt: toStringOrNull(value.warrantyExpiresAt),
-    coverageType: toStringOrNull(value.coverageType),
-    source: toStringOrNull(value.source),
-    notes: toStringOrNull(value.notes),
-    updatedAt: toStringOrNull(value.updatedAt),
+    warrantyMonths: toFiniteNumberOrNull(value.warrantyMonths),
+    warrantyExpiresAt: normalizeOptionalString(value.warrantyExpiresAt),
+    coverageType: normalizeOptionalString(value.coverageType),
+    source: normalizeOptionalString(value.source),
+    notes: normalizeOptionalString(value.notes),
+    updatedAt: normalizeOptionalString(value.updatedAt),
   }
 }
 
 function nullableText(value: unknown): string | null {
-  return toStringOrNull(value)
-}
-
-function nullableInteger(value: unknown): number | null {
-  const parsed = toNumberOrNull(value)
-  if (parsed === null) return null
-  return Number.isInteger(parsed) && parsed >= 0 ? parsed : null
+  return normalizeOptionalString(value)
 }
 
 export function buildRegistrationPayload(values: RegistrationFormValues, id?: string): Record<string, unknown> {
@@ -165,7 +129,7 @@ export function useRegistrationFormConfig(
       ...(Array.isArray(people.result?.items) ? people.result.items : []),
       ...(Array.isArray(companies.result?.items) ? companies.result.items : []),
     ]
-    return items.map((item) => normalizeOption(item, t)).filter((option): option is CrudFieldOption => option !== null)
+    return items.map((item) => normalizeCustomerOption(item, t)).filter((option): option is CrudFieldOption => option !== null)
   }, [t])
 
   const coverageOptions = React.useMemo<CrudFieldOption[]>(

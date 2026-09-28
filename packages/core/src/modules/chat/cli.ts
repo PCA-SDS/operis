@@ -4,6 +4,7 @@ import type { ModuleCli } from '@open-mercato/shared/modules/registry'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { buildSearchDocument } from './lib/searchText'
+import { parseCliArgs } from '@open-mercato/shared/lib/cli/args'
 
 const logger = createLogger('chat').child({ component: 'cli' })
 
@@ -18,28 +19,6 @@ type BackfillDatabase = {
     kind: string
     deleted_at: Date | null
   }
-}
-
-function parseArgs(rest: string[]): Record<string, string | boolean> {
-  const args: Record<string, string | boolean> = {}
-  for (let index = 0; index < rest.length; index += 1) {
-    const part = rest[index]
-    if (!part?.startsWith('--')) continue
-    const [rawKey, rawValue] = part.slice(2).split('=')
-    if (!rawKey) continue
-    if (rawValue !== undefined) {
-      args[rawKey] = rawValue
-      continue
-    }
-    const next = rest[index + 1]
-    if (next && !next.startsWith('--')) {
-      args[rawKey] = next
-      index += 1
-      continue
-    }
-    args[rawKey] = true
-  }
-  return args
 }
 
 /**
@@ -61,7 +40,7 @@ function parseArgs(rest: string[]): Record<string, string | boolean> {
  * format, so changing them means the existing values are the previous format.
  */
 async function backfillSearch(rest: string[]): Promise<void> {
-  const args = parseArgs(rest)
+  const args = parseCliArgs(rest)
   const batchSize = Math.max(1, Number(args.batch ?? DEFAULT_BATCH_SIZE) || DEFAULT_BATCH_SIZE)
   const rebuild = args.rebuild === true || args.rebuild === 'true'
   const dryRun = args['dry-run'] === true || args['dry-run'] === 'true'

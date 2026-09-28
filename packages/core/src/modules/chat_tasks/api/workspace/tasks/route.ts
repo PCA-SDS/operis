@@ -15,7 +15,6 @@ import {
   readContext,
   resolveChatTasksRequest,
   runChatTasksCommand,
-  searchParamsToObject,
   toChatTasksErrorResponse,
 } from '../../shared'
 import { chatTaskWorkspaceCreateRequestSchema } from '../../../data/validators'
@@ -27,6 +26,7 @@ import {
   WRITE_ERRORS,
   cardTaskSchema,
 } from '../../openapi'
+import { searchParamsToObject } from '@open-mercato/shared/lib/http/query'
 
 /**
  * The personal workspace, which is not a conversation.

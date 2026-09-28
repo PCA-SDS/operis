@@ -8,46 +8,13 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { toggleCreateSchemaList } from './data/validators'
 import { parseBooleanToken } from '@open-mercato/shared/lib/boolean'
-
-type ParsedArgs = Record<string, string | boolean>
+import { parseCliArgs, stringOption, type CliArgs } from '@open-mercato/shared/lib/cli/args'
 
 // ESM equivalent of __dirname
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const defaultFilePath = path.resolve(__dirname, 'defaults.json')
 
-function parseArgs(rest: string[]): ParsedArgs {
-  const args: ParsedArgs = {}
-  for (let index = 0; index < rest.length; index += 1) {
-    const part = rest[index]
-    if (!part?.startsWith('--')) continue
-    const [rawKey, rawValue] = part.slice(2).split('=')
-    if (!rawKey) continue
-    if (rawValue !== undefined) {
-      args[rawKey] = rawValue
-      continue
-    }
-    const next = rest[index + 1]
-    if (next && !next.startsWith('--')) {
-      args[rawKey] = next
-      index += 1
-      continue
-    }
-    args[rawKey] = true
-  }
-  return args
-}
-
-function stringOption(args: ParsedArgs, ...keys: string[]): string | undefined {
-  for (const key of keys) {
-    const raw = args[key]
-    if (typeof raw !== 'string') continue
-    const trimmed = raw.trim()
-    if (trimmed.length > 0) return trimmed
-  }
-  return undefined
-}
-
-function booleanOption(args: ParsedArgs, ...keys: string[]): boolean | undefined {
+function booleanOption(args: CliArgs, ...keys: string[]): boolean | undefined {
   for (const key of keys) {
     const raw = args[key]
     if (raw === undefined) continue
@@ -107,7 +74,7 @@ function buildCommandContext(container: Awaited<ReturnType<typeof createRequestC
 const createToggle: ModuleCli = {
   command: 'toggle-create',
   async run(rest) {
-    const args = parseArgs(rest)
+    const args = parseCliArgs(rest)
     const identifier = stringOption(args, 'identifier', 'id')
     const name = stringOption(args, 'name')
 
@@ -159,7 +126,7 @@ const createToggle: ModuleCli = {
 const updateToggle: ModuleCli = {
   command: 'toggle-update',
   async run(rest) {
-    const args = parseArgs(rest)
+    const args = parseCliArgs(rest)
     const identifier = stringOption(args, 'identifier')
 
     if (!identifier) {
@@ -220,7 +187,7 @@ const updateToggle: ModuleCli = {
 const deleteToggle: ModuleCli = {
   command: 'toggle-delete',
   async run(rest) {
-    const args = parseArgs(rest)
+    const args = parseCliArgs(rest)
     const identifier = stringOption(args, 'identifier')
     if (!identifier) {
       console.error('Usage: mercato feature_toggles toggle-delete --identifier <id>')
@@ -257,7 +224,7 @@ const deleteToggle: ModuleCli = {
 const setOverrideValue: ModuleCli = {
   command: 'override-set-value',
   async run(rest) {
-    const args = parseArgs(rest)
+    const args = parseCliArgs(rest)
     const identifier = stringOption(args, 'identifier')
     const tenantId = stringOption(args, 'tenantId', 'tenant', 'tenantId')
     const valueRaw = stringOption(args, 'value')
@@ -311,7 +278,7 @@ const setOverrideValue: ModuleCli = {
 const seedDefaults: ModuleCli = {
   command: 'seed-defaults',
   async run(rest) {
-    const args = parseArgs(rest)
+    const args = parseCliArgs(rest)
     const filePathFromArgs = stringOption(args, 'filePath')
     const filePath = filePathFromArgs ?? defaultFilePath
     const raw = fs.readFileSync(filePath, 'utf8')

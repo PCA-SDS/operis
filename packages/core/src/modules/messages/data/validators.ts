@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { parseBooleanFlag } from '@open-mercato/shared/lib/boolean'
 import { sanitizeRichTextHref } from '@open-mercato/shared/lib/html/sanitizeRichText'
+import { emailSchema } from '@open-mercato/shared/lib/validation'
 
 function collectDuplicateRecipientIds(
   recipients: Array<{ userId: string }>,
@@ -104,7 +105,7 @@ export const composeMessageSchema = z.object({
   visibility: z.enum(['public', 'internal']).nullable().optional(),
   sourceEntityType: z.string().min(1).optional(),
   sourceEntityId: z.string().uuid().optional(),
-  externalEmail: z.string().email().optional(),
+  externalEmail: emailSchema().optional(),
   externalName: z.string().min(1).max(255).optional(),
   recipients: z.array(messageRecipientSchema).max(100).optional().default([]),
   subject: z.string().max(500).optional().default(''),
@@ -183,7 +184,7 @@ export const updateDraftSchema = z.object({
   visibility: z.enum(['public', 'internal']).nullable().optional(),
   sourceEntityType: z.string().min(1).optional(),
   sourceEntityId: z.string().uuid().optional(),
-  externalEmail: z.string().email().optional(),
+  externalEmail: emailSchema().optional(),
   externalName: z.string().min(1).max(255).optional(),
   recipients: z.array(messageRecipientSchema).optional(),
   subject: z.string().max(500).optional(),
@@ -217,7 +218,7 @@ export const listMessagesSchema = z.object({
   visibility: z.enum(['public', 'internal']).optional(),
   sourceEntityType: z.string().optional(),
   sourceEntityId: z.string().uuid().optional(),
-  externalEmail: z.string().email().optional(),
+  externalEmail: emailSchema().optional(),
   hasObjects: z.string().transform(parseBooleanFlag).optional(),
   hasAttachments: z.string().transform(parseBooleanFlag).optional(),
   hasActions: z.string().transform(parseBooleanFlag).optional(),

@@ -24,6 +24,7 @@ import {
 import { AiAgentMutationPolicyOverrideRepository } from '../../../../../data/repositories/AiAgentMutationPolicyOverrideRepository'
 import type { AiAgentMutationPolicy } from '../../../../../lib/ai-agent-definition'
 import { isKnownMutationPolicy } from '../../../../../lib/agent-policy'
+import { jsonError } from '../../../../jsonError'
 
 const logger = createLogger('ai_assistant')
 
@@ -90,15 +91,6 @@ export const metadata = {
 
 interface RouteContext {
   params: Promise<{ id: string }>
-}
-
-function jsonError(
-  status: number,
-  message: string,
-  code: string,
-  extra?: Record<string, unknown>,
-): NextResponse {
-  return NextResponse.json({ error: message, code, ...(extra ?? {}) }, { status })
 }
 
 function fromRecheckFailure(result: PendingActionRecheckResult & { ok: false }): NextResponse {

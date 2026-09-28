@@ -11,27 +11,13 @@ import { findOneWithDecryption, findWithDecryption } from '@open-mercato/shared/
 import { isOrganizationReadAccessAllowed } from '@open-mercato/core/modules/directory/utils/organizationScopeGuard'
 import { CustomerCompanyProfile, CustomerDeal, CustomerDealCompanyLink, CustomerEntity } from '../../../../data/entities'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { normalizeSort, querySchema } from '../linkedEntitySort'
 
 const logger = createLogger('customers')
 
 const paramsSchema = z.object({
   id: z.string().uuid(),
 })
-
-const querySchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  search: z.string().optional(),
-  sort: z.enum(['label-asc', 'label-desc', 'name-asc', 'name-desc', 'recent']).default('label-asc'),
-})
-
-type DealLinkedEntitySort = 'label-asc' | 'label-desc' | 'recent'
-
-function normalizeSort(sort: z.infer<typeof querySchema>['sort']): DealLinkedEntitySort {
-  if (sort === 'name-asc') return 'label-asc'
-  if (sort === 'name-desc') return 'label-desc'
-  return sort
-}
 
 type DealCompanyItem = {
   id: string

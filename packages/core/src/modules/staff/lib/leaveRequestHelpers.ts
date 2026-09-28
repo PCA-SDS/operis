@@ -1,3 +1,4 @@
+import { formatDate } from '@open-mercato/shared/lib/time'
 export type LeaveRequestRecord = {
   id: string
   member?: { id?: string; displayName?: string }
@@ -67,16 +68,9 @@ export function resolveStatusVariant(status: 'pending' | 'approved' | 'rejected'
   return 'secondary'
 }
 
-export function formatDateLabel(value?: string | null): string {
-  if (!value) return ''
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleDateString()
-}
-
 export function formatDateRange(start?: string | null, end?: string | null): string {
-  const startLabel = formatDateLabel(start)
-  const endLabel = formatDateLabel(end)
+  const startLabel = formatDate(start, { fallback: '' })
+  const endLabel = formatDate(end, { fallback: '' })
   if (startLabel && endLabel) return `${startLabel} -> ${endLabel}`
   return startLabel || endLabel || '-'
 }

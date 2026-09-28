@@ -13,11 +13,11 @@ import { ErrorMessage, LoadingMessage, TabEmptyState } from '@open-mercato/ui/ba
 import { cn } from '@open-mercato/shared/lib/utils'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { CUSTOMER_TASKS_IN_PRODUCT } from '@open-mercato/shared/lib/product-scope'
-import type { InteractionSummary, SectionAction, TabEmptyStateConfig, TodoLinkSummary, Translator } from './types'
-import { createTranslatorWithFallback } from '@open-mercato/shared/lib/i18n/translate'
-import { formatDate, resolveTodoHref } from './utils'
+import type { InteractionSummary, SectionAction, TabEmptyStateConfig, TodoLinkSummary } from './types'
+import { createTranslatorWithFallback, type TranslateWithFallbackFn } from '@open-mercato/shared/lib/i18n/translate'
+import { resolveTodoHref } from './utils'
 import { useEnabledModules } from '@open-mercato/ui/backend/BackendChromeProvider'
-import { formatDateTime } from '@open-mercato/shared/lib/time'
+import { formatDateTime, formatDate } from '@open-mercato/shared/lib/time'
 import { TimelineItemHeader } from './TimelineItemHeader'
 import { TaskDialog } from './TaskDialog'
 import { usePersonTasks, type TaskFormPayload } from './hooks/usePersonTasks'
@@ -39,7 +39,7 @@ type TasksSectionProps = {
   onActionChange?: (action: SectionAction | null) => void
   onLoadingChange?: (isLoading: boolean) => void
   onDataRefresh?: () => void
-  translator?: Translator
+  translator?: TranslateWithFallbackFn
   entityName?: string | null
   dialogContextKey?: string
   dialogContextFallback?: string
@@ -116,8 +116,8 @@ export function TasksSection({
 }: TasksSectionProps) {
   const tHook = useT()
   const enabledModules = useEnabledModules()
-  const fallbackTranslator = React.useMemo<Translator>(() => createTranslatorWithFallback(tHook), [tHook])
-  const t: Translator = React.useMemo(() => translator ?? fallbackTranslator, [translator, fallbackTranslator])
+  const fallbackTranslator = React.useMemo<TranslateWithFallbackFn>(() => createTranslatorWithFallback(tHook), [tHook])
+  const t: TranslateWithFallbackFn = React.useMemo(() => translator ?? fallbackTranslator, [translator, fallbackTranslator])
   const runWriteMutation = React.useCallback(
     async <T,>(operation: () => Promise<T>, mutationPayload?: Record<string, unknown>): Promise<T> => {
       if (!runGuardedMutation) {

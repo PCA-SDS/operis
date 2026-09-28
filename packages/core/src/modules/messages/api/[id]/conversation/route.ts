@@ -1,12 +1,12 @@
 import type { CommandBus } from '@open-mercato/shared/lib/commands/command-bus'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi/types'
-import { attachOperationMetadataHeader } from '../../../lib/operationMetadata'
+import { attachOperationMetadataHeader } from '@open-mercato/shared/lib/commands/operationMetadata'
 import { resolveMessageContext } from '../../../lib/routeHelpers'
-import { runMessageMutationGuardAfterSuccess, runMessageMutationGuards } from '../../guards'
 import {
   conversationMutationResponseSchema,
   errorResponseSchema,
 } from '../../openapi'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 export const metadata = {
   DELETE: { requireAuth: true, requireFeatures: ['messages.view'] },
@@ -16,24 +16,21 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
   const { ctx, scope } = await resolveMessageContext(req)
   const commandBus = ctx.container.resolve('commandBus') as CommandBus
 
-  const guardResult = await runMessageMutationGuards(
-    ctx.container,
-    {
-      tenantId: scope.tenantId,
-      organizationId: scope.organizationId,
-      userId: scope.userId,
+  const guardResult = await runRouteMutationGuards({
+    container: ctx.container,
+    req,
+    auth: { userId: scope.userId, tenantId: scope.tenantId, organizationId: scope.organizationId },
+    input: {
       resourceKind: 'messages.conversation',
       resourceId: params.id,
       operation: 'delete',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
       mutationPayload: null,
     },
-  )
+  })
   if (!guardResult.ok) {
     return Response.json(
-      guardResult.errorBody ?? { error: 'Operation blocked by guard' },
-      { status: guardResult.errorStatus ?? 422 },
+      guardResult.errorBody,
+      { status: guardResult.errorStatus },
     )
   }
 
@@ -60,16 +57,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
       resourceKind: 'messages.conversation',
       resourceId: params.id,
     })
-    await runMessageMutationGuardAfterSuccess(guardResult.afterSuccessCallbacks, {
-      tenantId: scope.tenantId,
-      organizationId: scope.organizationId,
-      userId: scope.userId,
-      resourceKind: 'messages.conversation',
-      resourceId: params.id,
-      operation: 'delete',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-    })
+    await guardResult.runAfterSuccess()
     return response
   } catch (error) {
     if (error instanceof Error) {

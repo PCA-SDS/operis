@@ -100,7 +100,6 @@ import {
   ensureOrganizationScope,
   ensureTenantScope,
   extractUndoPayload,
-  toNumericString,
   reconcileLinePersistedTotals,
   deriveLineNetFromGross,
   enforceSalesDocumentOptimisticLock,
@@ -145,6 +144,8 @@ import {
 import type { AuthContext } from "@open-mercato/shared/lib/auth/server";
 import type { TranslateWithFallbackFn } from "@open-mercato/shared/lib/i18n/translate";
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { toNumericString } from '@open-mercato/shared/lib/number'
+import { currencyCodeSchema as currencyCodeSchema_ } from '@open-mercato/shared/lib/validation'
 
 const logger = createLogger('sales')
 let warnedDeprecatedOrderPaymentLedgerInput = false
@@ -566,11 +567,7 @@ type CreditMemoUndoPayload = {
   after?: CreditMemoGraphSnapshot | null;
 };
 
-const currencyCodeSchema = z
-  .string()
-  .trim()
-  .toUpperCase()
-  .regex(/^[A-Z]{3}$/, { message: "currency_code_invalid" });
+const currencyCodeSchema = currencyCodeSchema_({ message: "currency_code_invalid" });
 
 const dateOnlySchema = z
   .string()

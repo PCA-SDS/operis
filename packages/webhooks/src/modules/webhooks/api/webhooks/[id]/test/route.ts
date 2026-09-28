@@ -2,8 +2,9 @@ import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { createWebhookDelivery, processWebhookDeliveryJob } from '../../../../lib/delivery'
 import { isWebhookIntegrationEnabled } from '../../../../lib/integration-state'
-import { findScopedWebhook, json, resolveWebhookRequestScope, serializeDeliveryDetail } from '../../../helpers'
+import { findScopedWebhook, resolveWebhookRequestScope, serializeDeliveryDetail } from '../../../helpers'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
+import { jsonResponse } from '@open-mercato/shared/lib/http/responses'
 
 export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['webhooks.test'] },
@@ -55,7 +56,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
   const webhook = await findScopedWebhook(em, scope, params.id)
 
   if (!webhook) {
-    return json({ error: 'Webhook not found' }, { status: 404 })
+    return jsonResponse({ error: 'Webhook not found' }, { status: 404 })
   }
 
   const integrationEnabled = await isWebhookIntegrationEnabled(em, {
@@ -63,12 +64,12 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
     organizationId: webhook.organizationId,
   })
   if (!integrationEnabled) {
-    return json({ error: 'Custom Webhooks integration is disabled' }, { status: 409 })
+    return jsonResponse({ error: 'Custom Webhooks integration is disabled' }, { status: 409 })
   }
 
   const parsed = requestBodySchema.safeParse(await readJsonSafe(request, {}))
   if (!parsed.success) {
-    return json({ error: 'Invalid request payload' }, { status: 400 })
+    return jsonResponse({ error: 'Invalid request payload' }, { status: 400 })
   }
 
   const delivery = await createWebhookDelivery({
@@ -90,7 +91,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
 
   await em.refresh(delivery)
 
-  return json({
+  return jsonResponse({
     success: true,
     delivery: serializeDeliveryDetail(delivery),
   })

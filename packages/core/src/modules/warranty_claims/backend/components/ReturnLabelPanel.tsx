@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from 'react'
-import type { TranslateFn } from '@open-mercato/shared/lib/i18n/context'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
@@ -14,6 +13,9 @@ import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuarde
 import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { surfaceRecordConflict } from '@open-mercato/ui/backend/conflicts'
+import { isRecord } from '@open-mercato/shared/lib/guards'
+import { trimToUndefined } from '@open-mercato/shared/lib/string'
+import { toApiError } from './apiErrors'
 
 type ReturnLabelClaim = {
   id: string
@@ -46,27 +48,8 @@ type ReturnLabelPanelProps = {
   onRefresh: () => Promise<void>
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
-
-function readErrorKey(value: unknown): string | null {
-  if (!isRecord(value)) return null
-  return typeof value.error === 'string' && value.error.trim().length ? value.error.trim() : null
-}
-
-function toApiError(status: number, result: unknown, fallbackKey: string, t: TranslateFn): Error & { status?: number } {
-  const key = readErrorKey(result) ?? fallbackKey
-  return Object.assign(new Error(t(key, key)), { status })
-}
-
 function isReturnLabelStatus(value: unknown): value is ReturnLabelResponse {
   return isRecord(value) && (value.status === 'created' || value.status === 'notConfigured')
-}
-
-function cleanText(value: string): string | undefined {
-  const trimmed = value.trim()
-  return trimmed.length ? trimmed : undefined
 }
 
 export function ReturnLabelPanel({ claim, canManage, onRefresh }: ReturnLabelPanelProps) {
@@ -155,9 +138,9 @@ export function ReturnLabelPanel({ claim, canManage, onRefresh }: ReturnLabelPan
     const payload = {
       claimId: claim.id,
       manual: true,
-      labelUrl: cleanText(labelUrl),
-      trackingNumber: cleanText(trackingNumber),
-      carrier: cleanText(carrier),
+      labelUrl: trimToUndefined(labelUrl),
+      trackingNumber: trimToUndefined(trackingNumber),
+      carrier: trimToUndefined(carrier),
     }
     if (!payload.labelUrl && !payload.trackingNumber && !payload.carrier) {
       const message = t('warranty_claims.returnLabel.error.manualRequired', 'Enter at least one return label detail.')

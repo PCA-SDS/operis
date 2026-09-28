@@ -1,19 +1,10 @@
 import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
-import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
-import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
-import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
-import type { CommandBus, CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
-import { CrudHttpError, isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
+import type { CommandBus } from '@open-mercato/shared/lib/commands'
+import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
-import { getAllMutationGuardInstances } from '@open-mercato/shared/lib/crud/mutation-guard-store'
-import {
-  bridgeLegacyGuard,
-  runMutationGuards,
-  type MutationGuard,
-  type MutationGuardInput,
-} from '@open-mercato/shared/lib/crud/mutation-guard-registry'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 import type { QueryEngine } from '@open-mercato/shared/lib/query/types'
 import { E } from '#generated/entities.ids.generated'
 import {
@@ -23,6 +14,8 @@ import {
 import { suggestCommodityForHsCode } from '../../../../lib/reference-data'
 import { resolveGrantedFeatures } from '@open-mercato/shared/lib/auth/grantedFeatures'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
+import { resolveRequestContext, type RequestContext } from '../../../requestContext'
 
 const logger = createLogger('eudr').child({ component: 'api/product-mappings/suggestions/apply' })
 
@@ -62,90 +55,7 @@ type CatalogProductRecord = Record<string, unknown> & {
   sku?: unknown
   hs_code?: unknown
 }
-type RequestContext = {
-  ctx: CommandRuntimeContext
-  tenantId: string
-  organizationId: string
-}
 type CommandCreateResult = { entityId?: string; id?: string }
-
-function readString(value: unknown): string | null {
-  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
-}
-
-async function runGuards(
-  ctx: CommandRuntimeContext,
-  input: MutationGuardInput,
-): Promise<{
-  ok: boolean
-  errorBody?: Record<string, unknown>
-  errorStatus?: number
-  modifiedPayload?: Record<string, unknown>
-  afterSuccessCallbacks: Array<{ guard: MutationGuard; metadata: Record<string, unknown> | null }>
-}> {
-  const legacyGuard = bridgeLegacyGuard(ctx.container)
-  const guards = [...getAllMutationGuardInstances(), ...(legacyGuard ? [legacyGuard] : [])]
-  return runMutationGuards(guards, input, {
-    userFeatures: await resolveGrantedFeatures(ctx.container, ctx.auth, input.organizationId),
-  })
-}
-
-async function runGuardAfterSuccessCallbacks(
-  callbacks: Array<{ guard: MutationGuard; metadata: Record<string, unknown> | null }>,
-  input: {
-    tenantId: string
-    organizationId: string
-    userId: string
-    resourceKind: string
-    resourceId: string
-    operation: 'create'
-    requestMethod: string
-    requestHeaders: Headers
-  },
-): Promise<void> {
-  for (const callback of callbacks) {
-    if (!callback.guard.afterSuccess) continue
-    try {
-      await callback.guard.afterSuccess({
-        ...input,
-        metadata: callback.metadata ?? null,
-      })
-    } catch (err) {
-      logger.warn('Mutation guard afterSuccess callback failed', { err })
-    }
-  }
-}
-
-async function resolveRequestContext(req: Request): Promise<RequestContext> {
-  const container = await createRequestContainer()
-  const auth = await getAuthFromRequest(req)
-  const { translate } = await resolveTranslations()
-
-  if (!auth || !auth.tenantId) {
-    throw new CrudHttpError(401, { error: translate('eudr.errors.unauthorized', 'Unauthorized') })
-  }
-
-  const scope = await resolveOrganizationScopeForRequest({ container, auth, request: req })
-  const organizationId = scope?.selectedId ?? auth.orgId ?? null
-  if (!organizationId) {
-    throw new CrudHttpError(400, {
-      error: translate('eudr.errors.organization_required', 'Organization context is required'),
-    })
-  }
-
-  return {
-    tenantId: auth.tenantId,
-    organizationId,
-    ctx: {
-      container,
-      auth,
-      organizationScope: scope,
-      selectedOrganizationId: organizationId,
-      organizationIds: scope?.filterIds ?? (auth.orgId ? [auth.orgId] : null),
-      request: req,
-    },
-  }
-}
 
 async function loadCatalogProductInfo(ctx: RequestContext, productIds: string[]): Promise<Map<string, CatalogProductInfo>> {
   const info = new Map<string, CatalogProductInfo>()
@@ -172,14 +82,14 @@ async function loadCatalogProductInfo(ctx: RequestContext, productIds: string[])
       products.push(...result.items)
     }
     for (const product of products) {
-      const id = readString(product.id)
+      const id = normalizeOptionalString(product.id)
       if (!id) continue
       info.set(id, {
         snapshot: {
-          name: readString(product.title) ?? readString(product.name),
-          sku: readString(product.sku),
+          name: normalizeOptionalString(product.title) ?? normalizeOptionalString(product.name),
+          sku: normalizeOptionalString(product.sku),
         },
-        hsCode: readString(product.hs_code),
+        hsCode: normalizeOptionalString(product.hs_code),
       })
     }
   } catch {
@@ -270,23 +180,23 @@ export async function POST(req: Request) {
       ])),
     )
     const resolved = resolveApplyItems(input, catalogInfo)
-    const guardResult = await runGuards(requestContext.ctx, {
-      tenantId: requestContext.tenantId,
-      organizationId: requestContext.organizationId,
-      userId: requestContext.ctx.auth?.sub ?? '',
-      resourceKind: 'eudr.product_mapping',
-      resourceId: null,
-      operation: 'create',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      mutationPayload: { items: resolved.items },
+    const guardResult = await runRouteMutationGuards({
+      container: requestContext.ctx.container,
+      req,
+      auth: {
+        userId: requestContext.ctx.auth?.sub ?? '',
+        tenantId: requestContext.tenantId,
+        organizationId: requestContext.organizationId,
+        userFeatures: await resolveGrantedFeatures(requestContext.ctx.container, requestContext.ctx.auth, requestContext.organizationId),
+      },
+      input: {
+        resourceKind: 'eudr.product_mapping',
+        resourceId: null,
+        operation: 'create',
+        mutationPayload: { items: resolved.items },
+      },
     })
-    if (!guardResult.ok) {
-      return Response.json(
-        guardResult.errorBody ?? { error: translate('eudr.errors.operation_blocked', 'Operation blocked by guard') },
-        { status: guardResult.errorStatus ?? 422 },
-      )
-    }
+    if (!guardResult.ok) return guardResult.response
 
     const commandBus = requestContext.ctx.container.resolve('commandBus') as CommandBus
     const failed: ApplyFailure[] = [...resolved.failed]
@@ -313,19 +223,8 @@ export async function POST(req: Request) {
       }
     }
 
-    if (guardResult.afterSuccessCallbacks.length) {
-      for (const id of createdIds) {
-        await runGuardAfterSuccessCallbacks(guardResult.afterSuccessCallbacks, {
-          tenantId: requestContext.tenantId,
-          organizationId: requestContext.organizationId,
-          userId: requestContext.ctx.auth?.sub ?? '',
-          resourceKind: 'eudr.product_mapping',
-          resourceId: id,
-          operation: 'create',
-          requestMethod: req.method,
-          requestHeaders: req.headers,
-        })
-      }
+    for (const id of createdIds) {
+      await guardResult.runAfterSuccess({ resourceId: id })
     }
 
     return Response.json({ created: createdIds.length, failed })

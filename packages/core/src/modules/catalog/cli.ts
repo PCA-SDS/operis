@@ -8,28 +8,12 @@ import {
   seedCatalogUnits,
   type CatalogSeedScope,
 } from './lib/seeds'
-
-function parseArgs(rest: string[]) {
-  const args: Record<string, string> = {}
-  for (let i = 0; i < rest.length; i += 1) {
-    const part = rest[i]
-    if (!part) continue
-    if (part.startsWith('--')) {
-      const [rawKey, rawValue] = part.slice(2).split('=')
-      if (rawValue !== undefined) args[rawKey] = rawValue
-      else if (rest[i + 1] && !rest[i + 1]!.startsWith('--')) {
-        args[rawKey] = rest[i + 1]!
-        i += 1
-      }
-    }
-  }
-  return args
-}
+import { parseCliValueArgs } from '@open-mercato/shared/lib/cli/args'
 
 const seedUnitsCommand: ModuleCli = {
   command: 'seed-units',
   async run(rest) {
-    const args = parseArgs(rest)
+    const args = parseCliValueArgs(rest)
     const tenantId = String(args.tenantId ?? args.tenant ?? '')
     const organizationId = String(args.organizationId ?? args.org ?? args.orgId ?? '')
     if (!tenantId || !organizationId) {
@@ -56,7 +40,7 @@ const seedUnitsCommand: ModuleCli = {
 const seedPriceKindsCommand: ModuleCli = {
   command: 'seed-price-kinds',
   async run(rest) {
-    const args = parseArgs(rest)
+    const args = parseCliValueArgs(rest)
     const tenantId = String(args.tenantId ?? args.tenant ?? '')
     const organizationId = String(args.organizationId ?? args.org ?? args.orgId ?? '')
     if (!tenantId) {
@@ -87,7 +71,7 @@ const seedPriceKindsCommand: ModuleCli = {
 const seedExamplesCommand: ModuleCli = {
   command: 'seed-examples',
   async run(rest) {
-    const args = parseArgs(rest)
+    const args = parseCliValueArgs(rest)
     const tenantId = String(args.tenantId ?? args.tenant ?? '')
     const organizationId = String(args.organizationId ?? args.org ?? args.orgId ?? '')
     if (!tenantId || !organizationId) {
@@ -119,7 +103,7 @@ const seedExamplesCommand: ModuleCli = {
 const installExamplesBundle: ModuleCli = {
   command: 'seed-examples-bundle',
   async run(rest) {
-    const args = parseArgs(rest)
+    const args = parseCliValueArgs(rest)
     const tenantId = String(args.tenantId ?? args.tenant ?? '')
     const organizationId = String(args.organizationId ?? args.org ?? args.orgId ?? '')
     if (!tenantId || !organizationId) {

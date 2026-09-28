@@ -26,6 +26,7 @@ import { IconButton } from '../primitives/icon-button'
 import { SIDE_PANEL_MOTION, useSidePanelPresence, type SidePanelState } from '../primitives/side-panel-motion'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
+import { isRecord } from '@open-mercato/shared/lib/guards'
 
 // Lazy import keeps the heavy chat surface (AI SDK + streaming runtime) out
 // of the AppShell import graph. The dock provider only renders the chat when
@@ -103,10 +104,6 @@ interface AiDockApi {
 const COLLAPSED_WIDTH = 48
 
 const AiDockContext = React.createContext<AiDockApi | null>(null)
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
-}
 
 function readOptionalString(value: unknown): string | undefined {
   return typeof value === 'string' && value.length > 0 ? value : undefined

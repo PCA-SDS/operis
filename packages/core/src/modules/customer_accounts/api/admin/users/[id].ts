@@ -14,13 +14,12 @@ import { findOneWithDecryption, findWithDecryption } from '@open-mercato/shared/
 import { isOwnedCompanyEntity, isOwnedPersonEntity } from '@open-mercato/core/modules/customer_accounts/lib/customerEntityOwnership'
 import { enforceCommandOptimisticLockWithGuards } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
+import { UUID_SHAPE_PATTERN } from '@open-mercato/shared/lib/validation'
 
 export const metadata = {}
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
 export async function GET(req: Request, { params }: { params: { id: string } }) {
-  if (!UUID_RE.test(params.id)) {
+  if (!UUID_SHAPE_PATTERN.test(params.id)) {
     return NextResponse.json({ ok: false, error: 'Invalid user ID' }, { status: 400 })
   }
 

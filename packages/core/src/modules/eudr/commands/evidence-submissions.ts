@@ -36,6 +36,7 @@ import {
 } from '../data/validators'
 import { computeSubmissionCompleteness, type CompletenessContext } from '../lib/completeness'
 import { toDateOrNull as toDate } from '@open-mercato/shared/lib/date/normalize'
+import { parseCountValue } from '../lib/counts'
 
 const EVIDENCE_SUBMISSION_ENTITY_ID = 'eudr:eudr_evidence_submission'
 
@@ -219,16 +220,6 @@ function refreshSubmissionCompleteness(record: EudrEvidenceSubmission, context: 
   })
   record.completenessScore = completeness.score
   record.missingFields = [...completeness.missingFields]
-}
-
-function parseCountValue(value: string | number | bigint | null | undefined): number | undefined {
-  if (typeof value === 'number') return Number.isFinite(value) ? value : undefined
-  if (typeof value === 'bigint') return Number(value)
-  if (typeof value === 'string') {
-    const parsed = Number(value)
-    return Number.isFinite(parsed) ? parsed : undefined
-  }
-  return undefined
 }
 
 async function countLinkedAttachments(

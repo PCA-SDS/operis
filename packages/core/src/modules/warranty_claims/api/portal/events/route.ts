@@ -1,18 +1,17 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import type { EntityManager } from '@mikro-orm/postgresql'
-import type { AuthContext } from '@open-mercato/shared/lib/auth/server'
-import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
-import type { CommandBus, CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
+import type { CommandBus } from '@open-mercato/shared/lib/commands'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { runRouteMutationGuards, type RouteMutationGuardResult } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
-import { getCustomerAuthFromRequest, type CustomerAuthContext } from '@open-mercato/core/modules/customer_accounts/lib/customerAuth'
 import { WarrantyClaim, WarrantyClaimEvent } from '../../../data/entities'
 import type { CommentClaimInput } from '../../../data/validators'
 import { WARRANTY_CLAIM_RESOURCE_KIND } from '../../../commands/shared'
 import { loadPortalOwnedClaim } from '../../../lib/portalClaimAccess'
+import { toIsoOrEcho } from '@open-mercato/shared/lib/date/normalize'
+import { type PortalClaimActionContext, resolvePortalActionContext } from '../claims/[id]/shared'
+import { relationId } from '../../../lib/relations'
 
 export const metadata = {
   GET: { requireAuth: false },
@@ -30,32 +29,6 @@ const portalCommentSchema = z
   })
   .strict()
 
-type PortalContext = {
-  auth: CustomerAuthContext
-  customerId: string
-  tenantId: string
-  organizationId: string
-  em: EntityManager
-  commandCtx: CommandRuntimeContext
-}
-
-function toRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
-}
-
-function relationId(value: unknown): string | null {
-  if (typeof value === 'string') return value
-  const record = toRecord(value)
-  return typeof record.id === 'string' ? record.id : null
-}
-
-function toIso(value: Date | string | null | undefined): string | null {
-  if (!value) return null
-  if (value instanceof Date) return value.toISOString()
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? value : date.toISOString()
-}
-
 function serializeEvent(event: WarrantyClaimEvent) {
   return {
     id: event.id,
@@ -65,47 +38,11 @@ function serializeEvent(event: WarrantyClaimEvent) {
     body: event.body ?? null,
     payload: event.payload ?? null,
     actorCustomerId: event.actorCustomerId ?? null,
-    createdAt: toIso(event.createdAt),
+    createdAt: toIsoOrEcho(event.createdAt),
   }
 }
 
-async function resolvePortalContext(req: Request): Promise<PortalContext | Response> {
-  const auth = await getCustomerAuthFromRequest(req)
-  if (!auth) {
-    return NextResponse.json({ ok: false, error: 'warranty_claims.errors.unauthorized' }, { status: 401 })
-  }
-  if (!auth.customerEntityId) {
-    return NextResponse.json({ ok: false, error: 'warranty_claims.errors.customerAccountNotLinked' }, { status: 403 })
-  }
-  const container = await createRequestContainer()
-  const em = container.resolve('em') as EntityManager
-  const commandAuth: NonNullable<AuthContext> = {
-    sub: auth.sub,
-    sid: auth.sid,
-    tenantId: auth.tenantId,
-    orgId: auth.orgId,
-    email: auth.email,
-    customerEntityId: auth.customerEntityId ?? null,
-    personEntityId: auth.personEntityId ?? null,
-  }
-  return {
-    auth,
-    customerId: auth.customerEntityId,
-    tenantId: auth.tenantId,
-    organizationId: auth.orgId,
-    em,
-    commandCtx: {
-      container,
-      auth: commandAuth,
-      organizationScope: null,
-      selectedOrganizationId: auth.orgId,
-      organizationIds: [auth.orgId],
-      request: req,
-    },
-  }
-}
-
-async function loadOwnedClaim(context: PortalContext, claimId: string): Promise<WarrantyClaim | null> {
+async function loadOwnedClaim(context: PortalClaimActionContext, claimId: string): Promise<WarrantyClaim | null> {
   return loadPortalOwnedClaim(
     context.em,
     {
@@ -119,7 +56,7 @@ async function loadOwnedClaim(context: PortalContext, claimId: string): Promise<
 
 async function runPortalCommentGuard(
   req: Request,
-  context: PortalContext,
+  context: PortalClaimActionContext,
   claimId: string,
   mutationPayload: Record<string, unknown>,
 ): Promise<RouteMutationGuardResult> {
@@ -142,7 +79,7 @@ async function runPortalCommentGuard(
 }
 
 export async function GET(req: Request) {
-  const contextOrResponse = await resolvePortalContext(req)
+  const contextOrResponse = await resolvePortalActionContext(req)
   if (contextOrResponse instanceof Response) return contextOrResponse
   const context = contextOrResponse
   const url = new URL(req.url)
@@ -165,7 +102,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const contextOrResponse = await resolvePortalContext(req)
+  const contextOrResponse = await resolvePortalActionContext(req)
   if (contextOrResponse instanceof Response) return contextOrResponse
   const context = contextOrResponse
   let body: unknown

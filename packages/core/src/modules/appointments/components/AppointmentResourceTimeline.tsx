@@ -8,6 +8,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@open-mercato/ui/primit
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { resolveRegisteredLucideIconNode } from '@open-mercato/ui/backend/icons/lucideRegistry'
+import { minutesToTime, timeToMinutes } from '../lib/timeOfDay'
+import { formatTime } from '@open-mercato/shared/lib/time'
 
 const START_HOUR = 8
 const END_HOUR = 22
@@ -75,15 +77,6 @@ type AppointmentResourceTimelineProps = {
   ) => React.ReactNode
 }
 
-function displayTime(value: string) {
-  return new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-}
-
-function timeToMinutes(value: string) {
-  const [hour = '0', minute = '0'] = value.split(':')
-  return Number(hour) * 60 + Number(minute)
-}
-
 function slotTop(value: string, hourHeight: number, timelineStartMinutes: number) {
   return ((timeToMinutes(value) - timelineStartMinutes) / SLOT_MINUTES) * (hourHeight / (60 / SLOT_MINUTES))
 }
@@ -95,10 +88,6 @@ function allocationTop(value: string, hourHeight: number, timelineStartMinutes: 
 
 function allocationHeight(startsAt: string, endsAt: string, hourHeight: number) {
   return Math.max(24, ((new Date(endsAt).getTime() - new Date(startsAt).getTime()) / 60000 / SLOT_MINUTES) * (hourHeight / (60 / SLOT_MINUTES)))
-}
-
-function minutesToTime(minutes: number) {
-  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`
 }
 
 function buildSlots(timelineStartMinutes: number, timelineEndMinutes: number) {
@@ -267,13 +256,13 @@ function TimelineAppointmentBlock({
             <span key={`${service.name}-${service.startsAt}`} className="block min-w-0">
               <span className="flex items-baseline justify-between gap-2">
                 <span className={cn('truncate font-semibold', isCompact ? 'text-[11px]' : 'text-xs')}>{service.name}</span>
-                <span className={cn('shrink-0 opacity-75', isCompact ? 'text-[10px]' : 'text-[11px]')}>{displayTime(service.startsAt)} - {displayTime(service.endsAt)}</span>
+                <span className={cn('shrink-0 opacity-75', isCompact ? 'text-[10px]' : 'text-[11px]')}>{formatTime(service.startsAt)} - {formatTime(service.endsAt)}</span>
               </span>
               {!isVeryCompact && service.category ? <span className="block truncate text-[11px] opacity-75">{service.category}</span> : null}
             </span>
           ))}
         </span>
-        {!isVeryCompact ? <span className="mt-1 block truncate text-xs opacity-80">{displayTime(block.startsAt)} - {displayTime(block.endsAt)}</span> : null}
+        {!isVeryCompact ? <span className="mt-1 block truncate text-xs opacity-80">{formatTime(block.startsAt)} - {formatTime(block.endsAt)}</span> : null}
       </span>
     </Button>
   )

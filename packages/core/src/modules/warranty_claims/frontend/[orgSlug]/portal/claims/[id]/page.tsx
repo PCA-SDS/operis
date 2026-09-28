@@ -30,6 +30,7 @@ import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/u
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { usePortalContext } from '@open-mercato/ui/portal/PortalContext'
 import { PortalEmptyState } from '@open-mercato/ui/portal/components/PortalEmptyState'
+import { formatShortDate } from '@open-mercato/shared/lib/time'
 
 type Props = { params: { orgSlug: string; id: string } }
 
@@ -204,13 +205,6 @@ function bannerMessage(claim: PortalClaim, t: TranslateFn): string {
   }
 }
 
-function formatShortDate(value: string | null, locale: string): string | null {
-  if (!value) return null
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return null
-  return date.toLocaleDateString(locale || undefined, { month: 'short', day: 'numeric' })
-}
-
 function formatLongDate(value: string | null, locale: string): string | null {
   if (!value) return null
   const date = new Date(value)
@@ -228,14 +222,11 @@ function buildTrackerSteps(claim: PortalClaim, t: TranslateFn, locale: string): 
         ? 'current'
         : 'pending'
     let dateLabel: string | null = null
-    if (index === 0 && state === 'complete') dateLabel = formatShortDate(claim.submittedAt, locale)
+    if (index === 0 && state === 'complete') dateLabel = formatShortDate(claim.submittedAt, { locale })
     if (index === TRACKER_STEP_KEYS.length - 1 && state === 'complete') {
-      dateLabel = formatShortDate(
-        claim.status === 'closed'
+      dateLabel = formatShortDate(claim.status === 'closed'
           ? claim.closedAt ?? claim.resolvedAt
-          : claim.resolvedAt ?? claim.closedAt,
-        locale,
-      )
+          : claim.resolvedAt ?? claim.closedAt, { locale })
     }
     if (state === 'current') dateLabel = t('warranty_claims.portal.tracker.step.now')
     return {
@@ -853,7 +844,7 @@ export default function WarrantyClaimPortalDetailPage({ params }: Props) {
                     <p className="text-sm font-medium text-foreground">{entry.title}</p>
                     <div className="min-w-px flex-1" />
                     {entry.createdAt ? (
-                      <p className="text-xs text-muted-foreground">{formatShortDate(entry.createdAt, locale)}</p>
+                      <p className="text-xs text-muted-foreground">{formatShortDate(entry.createdAt, { locale })}</p>
                     ) : null}
                   </div>
                   {entry.href ? (

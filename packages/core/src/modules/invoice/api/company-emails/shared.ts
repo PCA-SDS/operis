@@ -1,20 +1,16 @@
 import { NextResponse } from 'next/server'
-import type { AwilixContainer } from 'awilix'
-import type { EntityManager } from '@mikro-orm/postgresql'
 import { z } from 'zod'
-import { getAuthFromRequest, type AuthContext } from '@open-mercato/shared/lib/auth/server'
-import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
-import { CrudHttpError, isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
-import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
+import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import type { OpenApiResponseDoc } from '@open-mercato/shared/lib/openapi'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 
 import type { InvoiceCompanyEmail } from '../../data/entities'
-import { requireInvoiceScope, type InvoiceScope } from '../../data/scope'
 import { invoiceCompanyEmailIdSchema } from '../../data/validators'
 import { invoiceCommonErrors } from '../openapi'
+import { toIsoOrNull } from '@open-mercato/shared/lib/date/normalize'
+import { toRecord } from '@open-mercato/shared/lib/guards'
 
 const logger = createLogger('invoice').child({ component: 'company-emails-api' })
 
@@ -51,21 +47,6 @@ export const invoiceCompanyEmailDeleteResponseSchema = z.object({
 
 export const invoiceCompanyEmailRouteErrors: OpenApiResponseDoc[] = [...invoiceCommonErrors]
 
-export type InvoiceCompanyEmailRouteContext = {
-  container: AwilixContainer
-  auth: AuthContext
-  userId: string
-  scope: InvoiceScope
-  em: EntityManager
-  translate: (key: string, fallback?: string) => string
-}
-
-function toIso(value: Date | string | null | undefined): string | null {
-  if (!value) return null
-  const date = value instanceof Date ? value : new Date(value)
-  return Number.isNaN(date.getTime()) ? null : date.toISOString()
-}
-
 export function toInvoiceCompanyEmailDto(
   email: InvoiceCompanyEmail,
 ): z.infer<typeof invoiceCompanyEmailDtoSchema> {
@@ -73,44 +54,12 @@ export function toInvoiceCompanyEmailDto(
     id: email.id,
     companyId: email.company.id,
     email: email.email,
-    updatedAt: toIso(email.updatedAt),
+    updatedAt: toIsoOrNull(email.updatedAt),
   }
-}
-
-export function toRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
 }
 
 export async function readRequestRecord(req: Request): Promise<Record<string, unknown>> {
   return toRecord(await readJsonSafe(req, {}))
-}
-
-export async function resolveInvoiceCompanyEmailRouteContext(
-  req: Request,
-): Promise<InvoiceCompanyEmailRouteContext> {
-  const container = await createRequestContainer()
-  const auth = await getAuthFromRequest(req)
-  const { translate } = await resolveTranslations()
-  if (!auth?.sub || !auth.tenantId) {
-    throw new CrudHttpError(401, { error: translate('invoice.errors.unauthorized', 'Unauthorized') })
-  }
-
-  const organizationScope = await resolveOrganizationScopeForRequest({ container, auth, request: req })
-  const selectedOrganizationId = organizationScope?.selectedId ?? auth.orgId ?? null
-  const scope = requireInvoiceScope({
-    auth: { tenantId: auth.tenantId, orgId: auth.orgId },
-    selectedOrganizationId,
-    organizationScope: organizationScope ? { selectedId: organizationScope.selectedId ?? null } : null,
-  }, (key, fallback) => translate(key, fallback))
-
-  return {
-    container,
-    auth,
-    userId: auth.sub,
-    scope,
-    em: container.resolve('em') as EntityManager,
-    translate,
-  }
 }
 
 export async function handleInvoiceCompanyEmailRouteError(

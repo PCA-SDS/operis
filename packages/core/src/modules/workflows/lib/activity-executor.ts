@@ -32,6 +32,7 @@ import { getWorkflowSafeCommand } from './workflow-safe-commands'
 
 export { isPrivateUrl } from '@open-mercato/shared/lib/network'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { sleep } from '@open-mercato/shared/lib/async'
 
 const logger = createLogger('workflows')
 
@@ -1467,13 +1468,6 @@ function calculateBackoff(
 ): number {
   const backoff = initialIntervalMs * Math.pow(backoffCoefficient, attempt)
   return Math.min(backoff, maxIntervalMs || Infinity)
-}
-
-/**
- * Sleep for specified milliseconds
- */
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 /**

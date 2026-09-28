@@ -16,6 +16,7 @@ import { checkAuthRateLimit } from '@open-mercato/core/modules/auth/lib/rateLimi
 import { mapSecurityEmailUrlError, toSecurityEmailUrl } from '@open-mercato/shared/lib/url'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { emitAuthEvent } from '@open-mercato/core/modules/auth/events'
+import { emailSchema } from '@open-mercato/shared/lib/validation'
 
 const logger = createLogger('auth').child({ component: 'reset' })
 
@@ -106,7 +107,7 @@ export async function POST(req: Request) {
 export const metadata = { requireAuth: false }
 
 const passwordResetRequestSchema = z.object({
-  email: z.string().email(),
+  email: emailSchema(),
 })
 
 const passwordResetResponseSchema = z.object({

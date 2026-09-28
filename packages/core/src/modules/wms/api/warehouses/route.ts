@@ -8,6 +8,7 @@ import { E } from '#generated/entities.ids.generated'
 import { Warehouse } from '../../data/entities'
 import { warehouseCreateSchema, warehouseUpdateSchema } from '../../data/validators'
 import { createPagedListResponseSchema, createWmsCrudOpenApi, defaultOkResponseSchema } from '../openapi'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 const F = {
   id: 'id',
@@ -38,8 +39,7 @@ export const metadata = routeMetadata
 const rawBodySchema = z.object({}).passthrough()
 
 const listSchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(25),
+  ...paginationQuerySchema({ defaultPageSize: 25 }).shape,
   search: z.string().optional(),
   ids: z.string().optional(),
   isActive: z.string().optional(),

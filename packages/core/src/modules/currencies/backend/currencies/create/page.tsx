@@ -9,6 +9,7 @@ import { createCrudFormError } from '@open-mercato/ui/backend/utils/serverErrors
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useOrganizationScopeDetail } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
+import { CURRENCY_CODE_PATTERN } from '@open-mercato/shared/lib/validation'
 
 export default function CreateCurrencyPage() {
   const t = useT()
@@ -103,7 +104,7 @@ export default function CreateCurrencyPage() {
           onSubmit={async (values) => {
             // Validate currency code
             const code = String(values.code || '').trim().toUpperCase()
-            if (!/^[A-Z]{3}$/.test(code)) {
+            if (!CURRENCY_CODE_PATTERN.test(code)) {
               throw createCrudFormError(t('currencies.form.errors.codeFormat'), {
                 code: t('currencies.form.errors.codeFormat'),
               })

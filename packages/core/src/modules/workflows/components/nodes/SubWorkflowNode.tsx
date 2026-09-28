@@ -3,7 +3,7 @@
 import { memo } from 'react'
 import { Handle, Position, NodeProps } from '@xyflow/react'
 import { WorkflowNodeCard } from '../WorkflowNodeCard'
-import { WorkflowStatus } from '../../lib/status-colors'
+import { mapStatus } from './nodeStatus'
 
 export interface SubWorkflowNodeData {
   label: string
@@ -16,15 +16,6 @@ export interface SubWorkflowNodeData {
   badge?: string
   tooltip?: string
   executionStatus?: 'completed' | 'active' | 'pending' | 'failed' | 'skipped'
-}
-
-// Map old status values to new WorkflowStatus types
-function mapStatus(status?: string): WorkflowStatus {
-  if (!status || status === 'pending') return 'not_started'
-  if (status === 'running' || status === 'in_progress') return 'in_progress'
-  if (status === 'completed') return 'completed'
-  if (status === 'error') return 'not_started'
-  return 'not_started'
 }
 
 /**

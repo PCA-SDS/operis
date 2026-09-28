@@ -37,6 +37,7 @@ import type { DateRange } from '@open-mercato/ui/backend/date-range/dateRanges'
 import { FilterBar } from '@open-mercato/ui/backend/FilterBar'
 import { format } from 'date-fns/format'
 import { getAppointmentPermissionSet } from '../../lib/permissions'
+import { formatDate, formatTime } from '@open-mercato/shared/lib/time'
 
 type Row = {
   id: string
@@ -73,18 +74,6 @@ function parseRequestedAt(value: string): Date | null {
   } catch {
     return null
   }
-}
-
-function formatBookingDate(value: string, emptyLabel: string) {
-  const date = parseRequestedAt(value)
-  if (!date) return emptyLabel
-  return date.toLocaleDateString()
-}
-
-function formatBookingTime(value: string, emptyLabel: string) {
-  const date = parseRequestedAt(value)
-  if (!date) return emptyLabel
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
 function formatBookingType(value: string | null | undefined, emptyLabel: string) {
@@ -454,7 +443,7 @@ export default function AppointmentsListPage() {
         accessorKey: 'requestedStartAt',
         header: t('appointments.list.columns.bookingDate', 'Booking Date'),
         cell: ({ row }) =>
-          formatBookingDate(row.original.requestedStartAt, t('appointments.list.noValue')),
+          formatDate(parseRequestedAt(row.original.requestedStartAt), { fallback: t('appointments.list.noValue') }),
       },
       {
         id: 'bookingTime',
@@ -463,7 +452,7 @@ export default function AppointmentsListPage() {
         cell: ({ row }) => (
           <div className="flex flex-col">
             <span className="font-medium">
-              {formatBookingTime(row.original.requestedStartAt, t('appointments.list.noValue'))}
+              {formatTime(parseRequestedAt(row.original.requestedStartAt), { fallback: t('appointments.list.noValue') })}
             </span>
             <AppointmentArrivalInfo
               requestedStartAt={row.original.requestedStartAt}

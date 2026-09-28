@@ -5,28 +5,12 @@ import type { FilterDef } from '../FilterOverlay'
 import type { FilterFieldDef as AdvancedFilterFieldDef, FilterFieldType, FilterOption } from '@open-mercato/shared/lib/query/advanced-filter'
 import { mapCustomFieldKindToFilterType, normalizeCustomFieldFilterOptions } from './customFieldColumns'
 import type { CustomFieldDefDto } from './customFieldDefs'
+import { buildOptionsUrl } from './customFieldOptionsUrl'
 export type { CustomFieldDefDto }
 import { filterCustomFieldDefs, fetchCustomFieldDefs as loadCustomFieldDefs } from './customFieldDefs'
 import { type UseQueryResult } from '@tanstack/react-query'
 import { apiCall } from './apiCall'
 import { CURRENCY_OPTIONS_URL } from '@open-mercato/shared/modules/entities/kinds'
-
-function buildOptionsUrl(base: string, query?: string): string {
-  if (!query) return base
-  try {
-    const isAbsolute = /^([a-z][a-z\d+\-.]*:)?\/\//i.test(base)
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost'
-    const url = isAbsolute ? new URL(base) : new URL(base, origin)
-    if (!url.searchParams.has('query')) url.searchParams.append('query', query)
-    if (!url.searchParams.has('q')) url.searchParams.append('q', query)
-    if (isAbsolute) return url.toString()
-    return `${url.pathname}${url.search}`
-  } catch {
-    const sep = base.includes('?') ? '&' : '?'
-    if (base.includes('query=')) return `${base}${sep}q=${encodeURIComponent(query)}`
-    return `${base}${sep}query=${encodeURIComponent(query)}`
-  }
-}
 
 type OptionsResponse = { items?: unknown[] }
 

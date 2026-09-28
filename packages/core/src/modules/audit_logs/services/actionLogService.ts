@@ -8,7 +8,7 @@ import {
   type ActionLogCreateInput,
   type ActionLogListQuery,
 } from '@open-mercato/core/modules/audit_logs/data/validators'
-import { isRecord } from '@open-mercato/core/modules/audit_logs/lib/changeRows'
+import { isRecord } from '@open-mercato/shared/lib/guards'
 import {
   ACTION_LOG_FILTER_TYPES,
   type ActionLogFilterType,
@@ -21,14 +21,13 @@ import {
 } from '@open-mercato/shared/lib/encryption/tenantDataEncryptionService'
 import { toOptionalString } from '@open-mercato/shared/lib/string/coerce'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { isZodRuntimeMissing } from '../lib/zodRuntime'
 
 const logger = createLogger('audit_logs').child({ component: 'action-log-service' })
 
 let validationWarningLogged = false
 let runtimeValidationAvailable: boolean | null = null
 let decryptionWarningLogged = false
-
-const isZodRuntimeMissing = (err: unknown) => err instanceof TypeError && typeof err.message === 'string' && err.message.includes('_zod')
 
 const SORT_FIELDS = {
   createdAt: 'action_logs.created_at',

@@ -22,6 +22,7 @@ import {
 import type { TagSummary } from './types'
 import { ManageTagsDialog } from './ManageTagsDialog'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { humanizeCategoryKind } from './tagFormat'
 
 const logger = createLogger('customers')
 
@@ -237,14 +238,6 @@ function mergeOptions(...groups: CategoryOption[][]): CategoryOption[] {
     merged.set(entry.value, entry)
   })
   return sortOptions(Array.from(merged.values()))
-}
-
-function humanizeCategoryKind(kind: string): string {
-  return kind
-    .split(/[-_]+/)
-    .filter((part) => part.trim().length > 0)
-    .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
-    .join(' ')
 }
 
 function resolveCustomCategoryFieldKey(kind: string): string {

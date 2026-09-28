@@ -1,9 +1,9 @@
-import { createHash } from 'node:crypto'
 import type { ModuleSetupConfig } from '@open-mercato/shared/modules/setup'
 import { CLAIM_TYPES } from './data/validators'
 import { WarrantyClaimSequence } from './data/entities'
 import { seedWarrantyClaimDictionaries } from './lib/dictionaries'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { stableUuidFromKey } from '@open-mercato/shared/lib/ids'
 
 const logger = createLogger('warranty_claims')
 
@@ -67,13 +67,8 @@ const ownerFeatures = [
   ...connectedIntakeFeatures,
 ]
 
-function stableScheduleUuid(stableKey: string): string {
-  const hex = createHash('sha256').update(stableKey).digest('hex')
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`
-}
-
 function stableSlaSweepScheduleId(organizationId: string): string {
-  return stableScheduleUuid(`warranty_claims:sla-sweep:${organizationId}`)
+  return stableUuidFromKey(`warranty_claims:sla-sweep:${organizationId}`)
 }
 
 export const setup: ModuleSetupConfig = {

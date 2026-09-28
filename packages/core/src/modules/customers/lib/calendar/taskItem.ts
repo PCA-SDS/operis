@@ -5,6 +5,7 @@ import type {
   CalendarTaskPayload,
 } from '../../components/calendar/types'
 import { addCalendarDays, startOfLocalDay } from './time'
+import { toLocalDateKey } from '@open-mercato/shared/lib/date/format'
 
 /**
  * How long a task occupies on the time grid.
@@ -67,14 +68,6 @@ export function formatWallClockTime(date: Date): string {
   const hours = String(date.getHours()).padStart(2, '0')
   const minutes = String(date.getMinutes()).padStart(2, '0')
   return `${hours}:${minutes}`
-}
-
-/** `YYYY-MM-DD` in local time — the shape `dueDate` stores. */
-export function formatCalendarDate(date: Date): string {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
 }
 
 function participantsOfTask(task: CalendarTaskPayload): CalendarParticipant[] {
@@ -155,22 +148,7 @@ export type TaskScheduleChange = { dueDate: string; dueTime: string | null }
  */
 export function taskScheduleChangeFor(start: Date, allDay: boolean): TaskScheduleChange {
   return {
-    dueDate: formatCalendarDate(start),
+    dueDate: toLocalDateKey(start),
     dueTime: allDay ? null : formatWallClockTime(start),
-  }
-}
-
-/**
- * The IANA zone the caller is reading the calendar in.
- *
- * The task API treats `tz` as optional and falls back to UTC, but completion
- * resolves `completedAt` — and a recurring task's next due date — against it,
- * so every task write from the calendar has to say which clock it meant.
- */
-export function calendarTimeZone(): string {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
-  } catch {
-    return 'UTC'
   }
 }

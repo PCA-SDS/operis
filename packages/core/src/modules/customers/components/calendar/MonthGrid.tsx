@@ -9,7 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@open-mercato/ui/primit
 import { getVisibleRange } from '../../lib/calendar/range'
 import { allItemsForDay, packMonthRowBars, singleDayItemsFor } from '../../lib/calendar/layout'
 import { BAR_ROW_GAP_PX, BAR_ROW_HEIGHT_PX, CalendarBar } from './CalendarBar'
-import { addCalendarDays, isSameLocalDay, localDayKey } from '../../lib/calendar/time'
+import { addCalendarDays, isSameLocalDay } from '../../lib/calendar/time'
 import { eventDisplayTitle } from '../../lib/calendar/labels'
 import { formatTimeLabel, formatTimeRangeLabel } from '../../lib/calendar/format'
 import { toneDotStyle } from '../../lib/calendar/tone'
@@ -17,6 +17,7 @@ import { EventPeekPopover } from './EventPeekPopover'
 import { resolveJoinUrl } from '../../lib/calendar/mapItem'
 import { useNowTick } from './useNowTick'
 import type { CalendarItem, MonthGridProps } from './types'
+import { toLocalDateKey } from '@open-mercato/shared/lib/date/format'
 
 const DAYS_PER_WEEK = 7
 /**
@@ -271,7 +272,7 @@ export function MonthGrid({
 
       {rows.map(({ week, bars, visibleBarRows, cells }, rowIndex) => (
         <div
-          key={localDayKey(week[0])}
+          key={toLocalDateKey(week[0])}
           ref={rowIndex === 0 ? rowProbeRef : undefined}
           role="row"
           aria-rowindex={rowIndex + 1}
@@ -280,7 +281,7 @@ export function MonthGrid({
           {cells.map(({ day, visiblePills, hiddenCount }, columnIndex) => {
             const inMonth = isSameMonth(day, anchor)
             const today = isSameLocalDay(day, new Date(nowMs))
-            const overflowKey = localDayKey(day)
+            const overflowKey = toLocalDateKey(day)
             const firstOfMonth = day.getDate() === 1
             return (
               <div
@@ -407,7 +408,7 @@ export function MonthGrid({
                   t('customers.calendar.grid.untitled', 'Untitled'),
                 )
                 return (
-                  <React.Fragment key={`${bar.item.id}-${localDayKey(week[bar.startIndex])}`}>
+                  <React.Fragment key={`${bar.item.id}-${toLocalDateKey(week[bar.startIndex])}`}>
                     {withPeek(
                       bar.item,
                       <CalendarBar

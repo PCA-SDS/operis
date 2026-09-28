@@ -14,6 +14,7 @@ import {
   defaultOkResponseSchema,
 } from '../openapi'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 const logger = createLogger('customers')
 
@@ -21,8 +22,7 @@ const rawBodySchema = z.object({}).passthrough()
 
 const listSchema = z
   .object({
-    page: z.coerce.number().int().min(1).default(1),
-    pageSize: z.coerce.number().int().min(1).max(100).default(50),
+    ...paginationQuerySchema().shape,
     entityId: z.string().uuid().optional(),
     dealId: z.string().uuid().optional(),
     sortField: z.string().optional(),

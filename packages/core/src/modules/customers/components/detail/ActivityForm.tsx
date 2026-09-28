@@ -16,8 +16,8 @@ import { collectCustomFieldValues } from '@open-mercato/ui/backend/utils/customF
 import { createCrudFormError } from '@open-mercato/ui/backend/utils/serverErrors'
 import { DictionaryEntrySelect, type DictionarySelectLabels } from '@open-mercato/core/modules/dictionaries/components/DictionaryEntrySelect'
 import { E } from '#generated/entities.ids.generated'
-import { toLocalDateTimeInput } from './utils'
 import { normalizeCustomFieldSubmitValue } from './customFieldUtils'
+import { toLocalDateTimeInput } from '@open-mercato/ui/backend/utils/dateTimeLocalInput'
 
 type DictionaryOption = {
   value: string

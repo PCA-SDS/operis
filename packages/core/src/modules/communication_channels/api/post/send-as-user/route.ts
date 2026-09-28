@@ -5,6 +5,7 @@ import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 import { sendAsUser } from '../../../lib/send-as-user'
 import { validateRouteMutationGuard } from '../../../lib/route-mutation-guard'
+import { emailSchema } from '@open-mercato/shared/lib/validation'
 
 export const metadata = {
   path: '/communication_channels/send-as-user',
@@ -17,9 +18,9 @@ export const metadata = {
 const bodySchema = z.object({
   /** ID of the user-owned channel to send from. Caller MUST own the channel. */
   userChannelId: z.string().uuid(),
-  to: z.array(z.string().email()).min(1),
-  cc: z.array(z.string().email()).optional(),
-  bcc: z.array(z.string().email()).optional(),
+  to: z.array(emailSchema()).min(1),
+  cc: z.array(emailSchema()).optional(),
+  bcc: z.array(emailSchema()).optional(),
   // `.regex(/^[^\r\n]*$/)` rejects CR/LF so a caller cannot inject extra email
   // headers (e.g. a hidden Bcc) through the subject / threading fields. The
   // outbound MIME assembler also sanitizes these, but fail fast at the edge.

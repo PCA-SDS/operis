@@ -1,7 +1,7 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi/types'
 import { Message, MessageConfirmation, MessageRecipient } from '../../../data/entities'
-import { resolveMessageContext } from '../../../lib/routeHelpers'
+import { resolveMessageContext, hasOrganizationAccess } from '../../../lib/routeHelpers'
 import {
   errorResponseSchema,
   messageConfirmationResponseSchema,
@@ -9,13 +9,6 @@ import {
 
 export const metadata = {
   GET: { requireAuth: true },
-}
-
-function hasOrganizationAccess(scopeOrganizationId: string | null, messageOrganizationId: string | null | undefined): boolean {
-  if (scopeOrganizationId) {
-    return messageOrganizationId === scopeOrganizationId
-  }
-  return messageOrganizationId == null
 }
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {

@@ -22,7 +22,6 @@ import {
 } from '../data/entities'
 import { seedSalesDictionaries } from '../lib/dictionaries'
 import { refreshShipmentItemsSnapshot } from '../lib/shipments/snapshots'
-import { toNumericString } from '../commands/shared'
 import type { SalesCalculationService } from '../services/salesCalculationService'
 import { ensureExamplePaymentMethods, ensureExampleShippingMethods, type SeedScope } from './examples-data'
 import {
@@ -37,6 +36,7 @@ import {
 } from '@open-mercato/core/modules/customers/data/entities'
 import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { toNumericString } from '@open-mercato/shared/lib/number'
 
 const logger = createLogger('sales')
 

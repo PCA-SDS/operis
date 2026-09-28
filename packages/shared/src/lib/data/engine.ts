@@ -23,6 +23,7 @@ import { parseBooleanToken } from '../boolean'
 import { isReadProjectionAlwaysConsistent } from './consistency'
 import { isEventDeclared } from '../../modules/events'
 import { createLogger } from '../logger'
+import { RFC4122_UUID_PATTERN } from '../validation/uuid'
 
 const logger = createLogger('shared').child({ component: 'data-engine' })
 
@@ -313,7 +314,7 @@ export class DefaultDataEngine implements DataEngine {
     })
     await this.validateCustomFieldValues(opts.entityId, opts.organizationId ?? null, opts.tenantId ?? null, sanitizedValues)
     const rawId = String(opts.recordId ?? '').trim()
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(rawId)
+    const isUuid = RFC4122_UUID_PATTERN.test(rawId)
     const sentinel = rawId.toLowerCase()
     const shouldGenerate = !rawId || !isUuid || sentinel === 'create' || sentinel === 'new' || sentinel === 'null' || sentinel === 'undefined'
     const id = shouldGenerate ? ((): string => {

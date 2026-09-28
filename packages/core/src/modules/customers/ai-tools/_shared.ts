@@ -268,3 +268,12 @@ export function buildRelatedRecords(
   }
   return related
 }
+
+// LLMs frequently emit `""` for "not provided" — coerce blanks (and surrounding
+// whitespace) to `undefined` BEFORE per-field validators run. Mirrors the
+// `blankToUndefined` helper in deals-pack.ts.
+export const blankToUndefined = (value: unknown): unknown => {
+  if (typeof value !== 'string') return value
+  const trimmed = value.trim()
+  return trimmed.length === 0 ? undefined : trimmed
+}

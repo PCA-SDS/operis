@@ -5,6 +5,14 @@ import { Loader2, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { TabEmptyState } from '@open-mercato/ui/backend/detail'
+import {
+  addressServerFieldMap,
+  defaultAddressDraft,
+  extractValidationDetails,
+  type AddressValidationDetail,
+  type DraftAddressState,
+  type DraftFieldKey,
+} from '@open-mercato/ui/backend/detail/addressDraft'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { AddressView, formatAddressJson, formatAddressString, type AddressFormatStrategy } from '../utils/addressFormat'
@@ -22,12 +30,8 @@ import {
 } from '@open-mercato/ui/primitives/dialog'
 import { useQueryClient } from '@tanstack/react-query'
 import { ensureCustomerDictionary, invalidateCustomerDictionary } from './detail/hooks/useCustomerDictionary'
-
-export type Translator = (
-  key: string,
-  fallback?: string,
-  params?: Record<string, string | number>,
-) => string
+import type { TranslateWithFallbackFn } from '@open-mercato/shared/lib/i18n/translate'
+import { trimToUndefined } from '@open-mercato/shared/lib/string'
 
 export type CustomerAddressInput = {
   name?: string
@@ -59,7 +63,7 @@ type CustomerAddressTilesProps = {
   onCreate: (payload: CustomerAddressInput) => Promise<void> | void
   onUpdate?: (id: string, payload: CustomerAddressInput) => Promise<void> | void
   onDelete?: (id: string) => Promise<void> | void
-  t: Translator
+  t: TranslateWithFallbackFn
   emptyLabel: string
   isSubmitting?: boolean
   gridClassName?: string
@@ -70,83 +74,7 @@ type CustomerAddressTilesProps = {
   showCoordinateFields?: boolean
 }
 
-type DraftAddressState = {
-  name: string
-  purpose: string
-  companyName: string
-  addressLine1: string
-  addressLine2: string
-  buildingNumber: string
-  flatNumber: string
-  city: string
-  region: string
-  postalCode: string
-  country: string
-  latitude: string
-  longitude: string
-  isPrimary: boolean
-}
-
-type DraftFieldKey = keyof DraftAddressState
-
-type AddressValidationDetail = {
-  path?: Array<string | number>
-  code?: string
-  message?: string
-  minimum?: number
-  maximum?: number
-  type?: string
-}
-
-const defaultDraft: DraftAddressState = {
-  name: '',
-  purpose: '',
-  companyName: '',
-  addressLine1: '',
-  addressLine2: '',
-  buildingNumber: '',
-  flatNumber: '',
-  city: '',
-  region: '',
-  postalCode: '',
-  country: '',
-  latitude: '',
-  longitude: '',
-  isPrimary: false,
-}
-
-const serverFieldMap: Record<string, DraftFieldKey> = {
-  name: 'name',
-  purpose: 'purpose',
-  companyName: 'companyName',
-  addressLine1: 'addressLine1',
-  addressLine2: 'addressLine2',
-  buildingNumber: 'buildingNumber',
-  flatNumber: 'flatNumber',
-  city: 'city',
-  region: 'region',
-  postalCode: 'postalCode',
-  country: 'country',
-  latitude: 'latitude',
-  longitude: 'longitude',
-  isPrimary: 'isPrimary',
-}
-
-function normalizeOptional(value: string): string | undefined {
-  const trimmed = value.trim()
-  return trimmed.length ? trimmed : undefined
-}
-
-function extractValidationDetails(error: unknown): AddressValidationDetail[] {
-  if (!error || typeof error !== 'object') return []
-  const candidate = (error as { details?: unknown }).details
-  if (!Array.isArray(candidate)) return []
-  return candidate
-    .map((entry) => (entry && typeof entry === 'object' ? (entry as AddressValidationDetail) : null))
-    .filter((entry): entry is AddressValidationDetail => entry !== null)
-}
-
-function resolveFieldMessage(detail: AddressValidationDetail, fieldLabel: string, t: Translator): string {
+function resolveFieldMessage(detail: AddressValidationDetail, fieldLabel: string, t: TranslateWithFallbackFn): string {
   switch (detail.code) {
     case 'invalid_type':
       return t('customers.people.detail.addresses.validation.invalid', undefined, { field: fieldLabel })
@@ -191,7 +119,7 @@ export function CustomerAddressTiles({
   const queryClient = useQueryClient()
   const [isFormOpen, setIsFormOpen] = React.useState(false)
   const [editingId, setEditingId] = React.useState<string | null>(null)
-  const [draft, setDraft] = React.useState<DraftAddressState>(defaultDraft)
+  const [draft, setDraft] = React.useState<DraftAddressState>(defaultAddressDraft)
   const [saving, setSaving] = React.useState(false)
   const [deletingId, setDeletingId] = React.useState<string | null>(null)
   const [generalError, setGeneralError] = React.useState<string | null>(null)
@@ -228,7 +156,7 @@ export function CustomerAddressTiles({
 
 
   const resetForm = React.useCallback(() => {
-    setDraft(defaultDraft)
+    setDraft(defaultAddressDraft)
     setFieldErrors({})
     setGeneralError(null)
     setEditingId(null)
@@ -357,25 +285,25 @@ export function CustomerAddressTiles({
       isPrimary: draft.isPrimary,
     }
 
-    const purpose = normalizeOptional(draft.purpose)
+    const purpose = trimToUndefined(draft.purpose)
     if (purpose !== undefined) payload.purpose = purpose
-    const name = normalizeOptional(draft.name)
+    const name = trimToUndefined(draft.name)
     if (name !== undefined) payload.name = name
-    const companyName = normalizeOptional(draft.companyName)
+    const companyName = trimToUndefined(draft.companyName)
     if (companyName !== undefined) payload.companyName = companyName
-    const line2 = normalizeOptional(draft.addressLine2)
+    const line2 = trimToUndefined(draft.addressLine2)
     if (line2 !== undefined) payload.addressLine2 = line2
-    const buildingNumber = normalizeOptional(draft.buildingNumber)
+    const buildingNumber = trimToUndefined(draft.buildingNumber)
     if (buildingNumber !== undefined) payload.buildingNumber = buildingNumber
-    const flatNumber = normalizeOptional(draft.flatNumber)
+    const flatNumber = trimToUndefined(draft.flatNumber)
     if (flatNumber !== undefined) payload.flatNumber = flatNumber
-    const city = normalizeOptional(draft.city)
+    const city = trimToUndefined(draft.city)
     if (city !== undefined) payload.city = city
-    const region = normalizeOptional(draft.region)
+    const region = trimToUndefined(draft.region)
     if (region !== undefined) payload.region = region
-    const postal = normalizeOptional(draft.postalCode)
+    const postal = trimToUndefined(draft.postalCode)
     if (postal !== undefined) payload.postalCode = postal
-    const country = normalizeOptional(draft.country)
+    const country = trimToUndefined(draft.country)
     if (country !== undefined) payload.country = country.toUpperCase()
     // On edit, an emptied coordinate must be sent as `null` to clear the stored value; omitting it
     // makes the partial-update handler keep the old coordinate. On create there is nothing to clear.
@@ -400,7 +328,7 @@ export function CustomerAddressTiles({
         const nextErrors: Partial<Record<DraftFieldKey, string>> = {}
         for (const detail of details) {
           const path = Array.isArray(detail.path) ? detail.path : []
-          const targetKey = path.length ? serverFieldMap[String(path[0])] : undefined
+          const targetKey = path.length ? addressServerFieldMap[String(path[0])] : undefined
           if (!targetKey) continue
           const message = resolveFieldMessage(
             detail,

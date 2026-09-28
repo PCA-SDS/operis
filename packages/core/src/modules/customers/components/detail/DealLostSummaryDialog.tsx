@@ -1,6 +1,5 @@
 "use client"
 
-import * as React from 'react'
 import { CircleOff, Clock3, FileWarning, Radar } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Button } from '@open-mercato/ui/primitives/button'
@@ -11,7 +10,8 @@ import {
   DialogFooter,
   DialogTitle,
 } from '@open-mercato/ui/primitives/dialog'
-import { formatAmountOrDash } from '@open-mercato/core/modules/customers/lib/amountFormat'
+import { StatCard } from './StatCard'
+import { formatCurrency } from '@open-mercato/shared/lib/units/money'
 
 type DealStatsPayload = {
   dealValue: number | null
@@ -33,26 +33,6 @@ type DealLostSummaryDialogProps = {
   stats: DealStatsPayload | null
   onBackToPipeline?: () => void
   onScheduleFollowUp?: () => void
-}
-
-function StatCard({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode
-  label: string
-  value: string
-}) {
-  return (
-    <div className="rounded-2xl border bg-surface px-4 py-4">
-      <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-        {icon}
-        {label}
-      </div>
-      <div className="text-xl font-semibold text-foreground">{value}</div>
-    </div>
-  )
 }
 
 export function DealLostSummaryDialog({
@@ -89,7 +69,7 @@ export function DealLostSummaryDialog({
                 {dealTitle}
               </p>
               <p className="mt-2 text-2xl font-bold text-muted-foreground">
-                {stats ? formatAmountOrDash(stats.dealValue, stats.dealCurrency) : '—'}
+                {stats ? formatCurrency(stats.dealValue, stats.dealCurrency, { fallback: '—' }) : '—'}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 {t('customers.deals.detail.lost.popupSummary', 'Lost · reason: {{reason}}', {

@@ -4,7 +4,6 @@ import {
   TASK_PRIORITY_META,
   TASK_STATUS_META,
   TASK_STATUS_ORDER,
-  addLocalDays,
   dayHeadingParts,
   describeRecurrence,
   dueChipRelative,
@@ -19,6 +18,7 @@ import {
   TASK_STATUSES,
   type TaskRecurrenceDto,
 } from '../data/types'
+import { addDaysToIsoDate } from '@open-mercato/shared/lib/date/format'
 
 /** Stand-in translator: returns the fallback with `{placeholders}` filled, so a
  *  test asserts on the sentence a user would actually read. */
@@ -96,25 +96,25 @@ describe('relative dates', () => {
 
   it('recognises today, yesterday and tomorrow', () => {
     expect(dueChipRelative(today)).toBe('today')
-    expect(dueChipRelative(addLocalDays(today, -1))).toBe('yesterday')
-    expect(dueChipRelative(addLocalDays(today, 1))).toBe('tomorrow')
+    expect(dueChipRelative(addDaysToIsoDate(today, -1))).toBe('yesterday')
+    expect(dueChipRelative(addDaysToIsoDate(today, 1))).toBe('tomorrow')
   })
 
   it('falls back to a date for anything further out', () => {
-    expect(dueChipRelative(addLocalDays(today, 5))).toBeNull()
+    expect(dueChipRelative(addDaysToIsoDate(today, 5))).toBeNull()
   })
 
   it('flags only past dates as overdue', () => {
-    expect(isOverdue(addLocalDays(today, -1))).toBe(true)
+    expect(isOverdue(addDaysToIsoDate(today, -1))).toBe(true)
     expect(isOverdue(today)).toBe(false)
-    expect(isOverdue(addLocalDays(today, 1))).toBe(false)
+    expect(isOverdue(addDaysToIsoDate(today, 1))).toBe(false)
     expect(isOverdue(null)).toBe(false)
   })
 
   it('labels a day heading relative to today', () => {
     expect(dayHeadingParts(today)?.relative).toBe('today')
-    expect(dayHeadingParts(addLocalDays(today, 1))?.relative).toBe('tomorrow')
-    expect(dayHeadingParts(addLocalDays(today, 4))?.relative).toBeNull()
+    expect(dayHeadingParts(addDaysToIsoDate(today, 1))?.relative).toBe('tomorrow')
+    expect(dayHeadingParts(addDaysToIsoDate(today, 4))?.relative).toBeNull()
   })
 
   it('returns null for a heading it cannot parse', () => {

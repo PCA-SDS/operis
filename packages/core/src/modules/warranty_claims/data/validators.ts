@@ -1,14 +1,11 @@
 import { z } from 'zod'
 import { parseGuideSteps } from '../lib/troubleshooting'
-import { currencyCodeSchema, emptyStringToNull, moneyAmountSchema } from '@open-mercato/shared/lib/validation'
+import { currencyCodeSchema, emptyStringToNull, moneyAmountSchema, emailSchema, clearableStringSchema } from '@open-mercato/shared/lib/validation'
 
 const uuid = () => z.string().uuid()
 
-const clearableString = (max: number) =>
-  z.preprocess(emptyStringToNull, z.string().trim().max(max).nullable().optional())
-
 const clearableEmail = (max: number) =>
-  z.preprocess(emptyStringToNull, z.string().trim().email('warranty_claims.errors.invalidEmail').max(max).nullable().optional())
+  z.preprocess(emptyStringToNull, emailSchema({ message: 'warranty_claims.errors.invalidEmail', maxLength: max }).nullable().optional())
 
 const optionalString = (max: number) => z.string().trim().max(max).optional()
 const requiredOptionalString = (max: number) =>
@@ -34,8 +31,6 @@ const scopedSchema = z.object({
   organizationId: uuid(),
   tenantId: uuid(),
 })
-
-const hasOwn = (input: object, key: string): boolean => Object.prototype.hasOwnProperty.call(input, key)
 
 export const CLAIM_STATUSES = [
   'draft',
@@ -137,28 +132,28 @@ const claimLineFields = {
   lineNo: z.coerce.number().int().min(1).max(10000).optional(),
   productId: uuid().nullable().optional(),
   variantId: uuid().nullable().optional(),
-  sku: clearableString(191),
-  productName: clearableString(300),
+  sku: clearableStringSchema(191),
+  productName: clearableStringSchema(300),
   orderLineId: uuid().nullable().optional(),
-  serialNumber: clearableString(191),
-  lotNumber: clearableString(191),
+  serialNumber: clearableStringSchema(191),
+  lotNumber: clearableStringSchema(191),
   purchaseDate: z.coerce.date().nullable().optional(),
   warrantyMonths: z.coerce.number().int().min(0).max(600).nullable().optional(),
   warrantyExpiresAt: z.coerce.date().nullable().optional(),
   warrantyStatus: claimWarrantyStatusSchema.optional(),
-  faultCode: clearableString(120),
-  faultDescription: clearableString(4000),
+  faultCode: clearableStringSchema(120),
+  faultDescription: clearableStringSchema(4000),
   qtyClaimed: positiveDecimal().optional(),
   qtyApproved: nullableDecimal(),
   qtyReceived: nullableDecimal(),
-  conditionOnReceipt: clearableString(1000),
-  inspectionNotes: clearableString(4000),
+  conditionOnReceipt: clearableStringSchema(1000),
+  inspectionNotes: clearableStringSchema(4000),
   disposition: claimDispositionSchema.nullable().optional(),
   creditAmount: nullableDecimal(),
   restockingFee: nullableDecimal(),
   coreChargeAmount: nullableDecimal(),
   coreCreditAmount: nullableDecimal(),
-  vendorName: clearableString(300),
+  vendorName: clearableStringSchema(300),
 }
 
 /**
@@ -197,7 +192,7 @@ export const warrantyClaimSettingsUpdateSchema = z
     escalationTiers: z.array(jsonObjectSchema).nullable().optional(),
     adjudicationUseRules: z.boolean().optional(),
     quarantineGrades: z.array(z.string().trim().min(1).max(20)).nullable().optional(),
-    returnLabelProvider: clearableString(120),
+    returnLabelProvider: clearableStringSchema(120),
     returnWindowDays: z.coerce.number().int().min(1).max(3650).nullable().optional(),
   })
   .strict()
@@ -223,24 +218,24 @@ export const claimCreateSchema = scopedSchema
     channel: claimChannelSchema.optional(),
     priority: claimPrioritySchema.optional(),
     customerId: uuid().nullable().optional(),
-    customerName: clearableString(300),
-    externalRef: clearableString(190),
-    intakeMessageRef: clearableString(998),
-    contactEmail: clearableString(320),
-    vendorName: clearableString(300),
-    vendorRef: clearableString(191),
+    customerName: clearableStringSchema(300),
+    externalRef: clearableStringSchema(190),
+    intakeMessageRef: clearableStringSchema(998),
+    contactEmail: clearableStringSchema(320),
+    vendorName: clearableStringSchema(300),
+    vendorRef: clearableStringSchema(191),
     orderId: uuid().nullable().optional(),
     // Display-only order reference for claims without a linked sales order (e.g. portal
     // "my order isn't listed"). A linked order's number is derived from the order itself.
-    orderNumber: clearableString(190),
+    orderNumber: clearableStringSchema(190),
     salesReturnId: uuid().nullable().optional(),
     replacementOrderId: uuid().nullable().optional(),
     advanceReplacement: z.boolean().optional(),
     advanceShippedAt: z.coerce.date().nullable().optional(),
-    reasonCode: clearableString(120),
-    rejectionReasonCode: clearableString(120),
-    resolutionSummary: clearableString(4000),
-    notes: clearableString(8000),
+    reasonCode: clearableStringSchema(120),
+    rejectionReasonCode: clearableStringSchema(120),
+    resolutionSummary: clearableStringSchema(4000),
+    notes: clearableStringSchema(8000),
     currencyCode: currencyCodeSchema({ message: 'warranty_claims.errors.currencyCodeFormat' })
       .nullable()
       .optional(),
@@ -259,19 +254,19 @@ export const claimCreateSchema = scopedSchema
 
 const claimUpdateFields = z.object({
   customerId: uuid().nullable().optional(),
-  customerName: clearableString(300),
+  customerName: clearableStringSchema(300),
   orderId: uuid().nullable().optional(),
-  reasonCode: clearableString(120),
+  reasonCode: clearableStringSchema(120),
   priority: claimPrioritySchema.optional(),
-  notes: clearableString(8000),
+  notes: clearableStringSchema(8000),
   advanceReplacement: z.boolean().optional(),
   replacementOrderId: uuid().nullable().optional(),
   advanceShippedAt: z.coerce.date().nullable().optional(),
   salesReturnId: uuid().nullable().optional(),
   creditMemoId: uuid().nullable().optional(),
-  vendorName: clearableString(300),
-  vendorRef: clearableString(191),
-  resolutionSummary: clearableString(4000),
+  vendorName: clearableStringSchema(300),
+  vendorRef: clearableStringSchema(191),
+  resolutionSummary: clearableStringSchema(4000),
 })
 
 export const claimUpdateSchema = z
@@ -300,11 +295,11 @@ export const claimLineUpdateSchema = z
   }).partial())
   .strict()
   .superRefine((line, ctx) => {
-    const qtyClaimed = hasOwn(line, 'qtyClaimed') && typeof line.qtyClaimed === 'number' ? line.qtyClaimed : null
-    if (qtyClaimed !== null && hasOwn(line, 'qtyApproved') && typeof line.qtyApproved === 'number' && line.qtyApproved > qtyClaimed) {
+    const qtyClaimed = Object.hasOwn(line, 'qtyClaimed') && typeof line.qtyClaimed === 'number' ? line.qtyClaimed : null
+    if (qtyClaimed !== null && Object.hasOwn(line, 'qtyApproved') && typeof line.qtyApproved === 'number' && line.qtyApproved > qtyClaimed) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'warranty_claims.errors.qtyApprovedExceedsClaimed', path: ['qtyApproved'] })
     }
-    if (qtyClaimed !== null && hasOwn(line, 'qtyReceived') && typeof line.qtyReceived === 'number' && line.qtyReceived > qtyClaimed) {
+    if (qtyClaimed !== null && Object.hasOwn(line, 'qtyReceived') && typeof line.qtyReceived === 'number' && line.qtyReceived > qtyClaimed) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'warranty_claims.errors.qtyReceivedExceedsClaimed', path: ['qtyReceived'] })
     }
   })
@@ -313,7 +308,7 @@ export const claimLineReceiveSchema = scopedSchema
   .extend({
     id: uuid(),
     conditionGrade: claimConditionGradeSchema,
-    inspectionNotes: clearableString(4000),
+    inspectionNotes: clearableStringSchema(4000),
     updatedAt: optimisticLockTokenSchema,
   })
   .strict()
@@ -329,8 +324,8 @@ export const transitionClaimInputSchema = z
   .object({
     id: uuid(),
     toStatus: claimStatusSchema,
-    rejectionReasonCode: clearableString(120),
-    resolutionSummary: clearableString(4000),
+    rejectionReasonCode: clearableStringSchema(120),
+    resolutionSummary: clearableStringSchema(4000),
     systemNote: z.string().regex(/^warranty_claims\.[A-Za-z0-9_.]+$/).max(200).optional(),
     actorCustomerId: uuid().optional(),
   })
@@ -359,7 +354,7 @@ export const vendorRecoveryInputSchema = z
     tenantId: uuid().optional(),
     lineIds: z.array(uuid()).min(1).max(200),
     vendorName: z.string().trim().min(1).max(300),
-    vendorRef: clearableString(191),
+    vendorRef: clearableStringSchema(191),
   })
   .strict()
 
@@ -403,10 +398,10 @@ const portalClaimLineInputSchema = z
   .object({
     orderLineId: uuid().nullable().optional(),
     productId: uuid().nullable().optional(),
-    sku: clearableString(191),
-    productName: clearableString(191),
-    serialNumber: clearableString(191),
-    faultCode: clearableString(120),
+    sku: clearableStringSchema(191),
+    productName: clearableStringSchema(191),
+    serialNumber: clearableStringSchema(191),
+    faultCode: clearableStringSchema(120),
     faultDescription: z.string().trim().min(1).max(4000),
     qtyClaimed: positiveDecimal().optional(),
     // Warranty basis carried from the selected order line so entitlement is preserved (WQA-004).
@@ -420,9 +415,9 @@ export const portalIntakeInputSchema = z
     orderId: uuid().nullable().optional(),
     // Free-text "my order isn't listed" reference. Kept separate from `orderId` (a UUID) so a
     // typed purchase-order string is no longer rejected as an invalid UUID (WQA-002).
-    orderReference: clearableString(190),
+    orderReference: clearableStringSchema(190),
     reasonCode: z.string().trim().min(1).max(120),
-    notes: clearableString(8000),
+    notes: clearableStringSchema(8000),
     lines: z.array(portalClaimLineInputSchema).min(1).max(200),
   })
   .strict()
@@ -430,10 +425,10 @@ export const portalIntakeInputSchema = z
 export const externalClaimLineInputSchema = z
   .object({
     productId: uuid().nullable().optional(),
-    sku: clearableString(191),
-    productName: clearableString(191),
-    serialNumber: clearableString(191),
-    faultCode: clearableString(120),
+    sku: clearableStringSchema(191),
+    productName: clearableStringSchema(191),
+    serialNumber: clearableStringSchema(191),
+    faultCode: clearableStringSchema(120),
     faultDescription: z.string().trim().min(1).max(4000),
     qtyClaimed: positiveDecimal().optional(),
     purchaseDate: z.coerce.date().nullable().optional(),
@@ -445,12 +440,12 @@ export const externalClaimIntakeSchema = z
   .object({
     externalRef: z.string().trim().min(1).max(190),
     orderId: uuid().nullable().optional(),
-    orderNumber: clearableString(120),
+    orderNumber: clearableStringSchema(120),
     customerId: uuid().nullable().optional(),
-    contactName: clearableString(191),
-    contactEmail: clearableString(320),
-    reasonCode: clearableString(120),
-    notes: clearableString(8000),
+    contactName: clearableStringSchema(191),
+    contactEmail: clearableStringSchema(320),
+    reasonCode: clearableStringSchema(120),
+    notes: clearableStringSchema(8000),
     lines: z.array(externalClaimLineInputSchema).min(1).max(200),
   })
   .strict()
@@ -474,8 +469,8 @@ const registrationFields = {
   serialNumber: requiredOptionalString(191),
   productId: uuid().nullable().optional(),
   variantId: uuid().nullable().optional(),
-  sku: clearableString(191),
-  productName: clearableString(300),
+  sku: clearableStringSchema(191),
+  productName: clearableStringSchema(300),
   customerId: uuid().nullable().optional(),
   orderId: uuid().nullable().optional(),
   purchaseDate: nullableIsoDateString(),
@@ -484,7 +479,7 @@ const registrationFields = {
   coverageType: registrationCoverageTypeSchema.nullable().optional(),
   source: registrationSourceSchema.nullable().optional(),
   proofAttachmentId: uuid().nullable().optional(),
-  notes: clearableString(8000),
+  notes: clearableStringSchema(8000),
 }
 
 export const registrationCreateSchema = scopedSchema
@@ -515,7 +510,7 @@ const recoveryRatePctSchema = z
   .optional()
 
 const vendorPolicyFields = {
-  vendorRef: clearableString(191),
+  vendorRef: clearableStringSchema(191),
   coverageMonths: z.coerce.number().int().min(0).max(600).nullable().optional(),
   claimableReasonCodes: z.array(z.string().trim().min(1).max(120)).nullable().optional(),
   recoveryRatePct: recoveryRatePctSchema,
@@ -557,7 +552,7 @@ const troubleshootingStepsSchema = z.unknown().nullable().optional().superRefine
 
 const troubleshootingGuideFields = {
   claimType: claimTypeSchema.nullable().optional(),
-  reasonCode: clearableString(120),
+  reasonCode: clearableStringSchema(120),
   steps: troubleshootingStepsSchema,
   isActive: z.boolean().optional(),
 }

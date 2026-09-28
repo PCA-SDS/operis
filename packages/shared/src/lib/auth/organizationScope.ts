@@ -1,15 +1,11 @@
+import { normalizeOptionalString } from '../string'
+
 type OrganizationScopedAuth = {
   orgId?: string | null
   actorOrgId?: unknown
   tenantId?: string | null
   actorTenantId?: unknown
 } | null | undefined
-
-function normalizeId(value: unknown): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  return trimmed.length > 0 ? trimmed : null
-}
 
 /**
  * Resolves the organization a request is scoped to when the caller may be viewing
@@ -35,13 +31,13 @@ function normalizeId(value: unknown): string | null {
  */
 export function resolveActiveOrganizationId(auth: OrganizationScopedAuth): string | null {
   if (!auth) return null
-  const selected = normalizeId(auth.orgId)
+  const selected = normalizeOptionalString(auth.orgId)
   if (selected) return selected
-  const actorOrgId = normalizeId(auth.actorOrgId)
+  const actorOrgId = normalizeOptionalString(auth.actorOrgId)
   if (!actorOrgId) return null
   if ('actorTenantId' in auth) {
-    const actorTenantId = normalizeId(auth.actorTenantId)
-    const effectiveTenantId = normalizeId(auth.tenantId)
+    const actorTenantId = normalizeOptionalString(auth.actorTenantId)
+    const effectiveTenantId = normalizeOptionalString(auth.tenantId)
     if (!actorTenantId || actorTenantId !== effectiveTenantId) return null
   }
   return actorOrgId

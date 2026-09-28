@@ -15,6 +15,7 @@ import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuarde
 import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { surfaceRecordConflict } from '@open-mercato/ui/backend/conflicts'
+import { toApiError } from './apiErrors'
 
 type ConditionGrade = 'A' | 'B' | 'C' | 'D'
 
@@ -46,20 +47,6 @@ type ReceivingPanelProps = {
 }
 
 const CONDITION_GRADES: ConditionGrade[] = ['A', 'B', 'C', 'D']
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
-
-function readErrorKey(value: unknown): string | null {
-  if (!isRecord(value)) return null
-  return typeof value.error === 'string' && value.error.trim().length ? value.error.trim() : null
-}
-
-function toApiError(status: number, result: unknown, fallbackKey: string, t: TranslateFn): Error & { status?: number } {
-  const key = readErrorKey(result) ?? fallbackKey
-  return Object.assign(new Error(t(key, key)), { status })
-}
 
 function formatLineTitle(line: ReceivingLine, t: TranslateFn): string {
   const identifier = line.lineNo !== null

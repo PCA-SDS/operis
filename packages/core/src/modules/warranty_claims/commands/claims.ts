@@ -60,7 +60,7 @@ import { resolveEffectiveWarrantyClaimSettings, type WarrantyClaimEffectiveSetti
 import { evaluateClaimRisk } from '../lib/risk'
 import type { WarrantyAdjudicationEvaluator } from '../services/adjudicationEvaluator'
 import type { WarrantyEntitlementInput, WarrantyEntitlementResolver } from '../services/entitlementResolver'
-import { toDateOnlyIso, toIsoOrNull as toIso } from '@open-mercato/shared/lib/date/normalize'
+import { toDateOnlyIso, toIsoOrNull as toIso, toValidDateOrNull } from '@open-mercato/shared/lib/date/normalize'
 import {
   WARRANTY_CLAIM_RESOURCE_KIND,
   appendClaimEvent,
@@ -69,8 +69,9 @@ import {
   ensureTenantScope,
   extractUndoPayload,
   requireScopedClaim,
-  type WarrantyClaimScope,
+  type WarrantyClaimScope, toDateOnly, amountString, nullableAmountString, computeWarrantyDates, emitLineCrud, emitLineUndoCrud,
 } from './shared'
+import { isMissingTableError } from '../lib/dbErrors'
 
 const claimCrudEvents: CrudEventsConfig = {
   module: 'warranty_claims',
@@ -264,10 +265,6 @@ function parseCommandInput<T>(schema: z.ZodType<T>, rawInput: unknown): T {
   return result.data
 }
 
-function hasOwn(input: object, key: string): boolean {
-  return Object.prototype.hasOwnProperty.call(input, key)
-}
-
 function resolveScope(ctx: CommandRuntimeContext, input: ScopeInput): WarrantyClaimScope {
   const tenantId = input.tenantId ?? ctx.auth?.tenantId ?? null
   const organizationId = input.organizationId ?? ctx.selectedOrganizationId ?? ctx.auth?.orgId ?? null
@@ -276,52 +273,6 @@ function resolveScope(ctx: CommandRuntimeContext, input: ScopeInput): WarrantyCl
   ensureTenantScope(ctx, tenantId)
   ensureOrganizationScope(ctx, organizationId)
   return { tenantId, organizationId }
-}
-
-function toDate(value: string | null): Date | null {
-  if (!value) return null
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? null : date
-}
-
-function toDateOnly(value: string | null): Date | null {
-  if (!value) return null
-  const date = new Date(`${value}T00:00:00.000Z`)
-  return Number.isNaN(date.getTime()) ? null : date
-}
-
-function amountString(value: number | string | null | undefined, fallback = '0'): string | null {
-  if (value === null) return null
-  if (value === undefined) return fallback
-  const parsed = typeof value === 'number' ? value : Number(value)
-  if (!Number.isFinite(parsed)) return fallback
-  return String(parsed)
-}
-
-function nullableAmountString(value: number | string | null | undefined): string | null {
-  if (value === undefined || value === null) return null
-  return amountString(value, '0')
-}
-
-function addMonths(date: Date, months: number): Date {
-  const target = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1))
-  const lastDay = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate()
-  const copy = new Date(date.getTime())
-  copy.setUTCDate(1)
-  copy.setUTCFullYear(target.getUTCFullYear(), target.getUTCMonth(), Math.min(date.getUTCDate(), lastDay))
-  return copy
-}
-
-function computeWarrantyDates(
-  purchaseDate: Date | null | undefined,
-  warrantyMonths: number | null | undefined,
-): { warrantyExpiresAt: Date | null; warrantyStatus: WarrantyClaimWarrantyStatus } {
-  if (!purchaseDate || warrantyMonths === null || warrantyMonths === undefined) {
-    return { warrantyExpiresAt: null, warrantyStatus: 'unknown' }
-  }
-  const warrantyExpiresAt = addMonths(purchaseDate, warrantyMonths)
-  const warrantyStatus = warrantyExpiresAt.getTime() >= Date.now() ? 'in_warranty' : 'out_of_warranty'
-  return { warrantyExpiresAt, warrantyStatus }
 }
 
 function buildCreateEntitlementInput(input: ClaimCreateInput): WarrantyEntitlementInput | null {
@@ -560,7 +511,7 @@ function restoreClaimDelta(claim: WarrantyClaim, before: ClaimSnapshot, after: C
   if (before.creditMemoId !== after.creditMemoId) claim.creditMemoId = before.creditMemoId
   if (before.sourceClaimId !== after.sourceClaimId) claim.sourceClaimId = before.sourceClaimId
   if (before.advanceReplacement !== after.advanceReplacement) claim.advanceReplacement = before.advanceReplacement
-  if (before.advanceShippedAt !== after.advanceShippedAt) claim.advanceShippedAt = toDate(before.advanceShippedAt)
+  if (before.advanceShippedAt !== after.advanceShippedAt) claim.advanceShippedAt = toValidDateOrNull(before.advanceShippedAt)
   if (before.reasonCode !== after.reasonCode) claim.reasonCode = before.reasonCode
   if (before.rejectionReasonCode !== after.rejectionReasonCode) claim.rejectionReasonCode = before.rejectionReasonCode
   if (before.resolutionSummary !== after.resolutionSummary) claim.resolutionSummary = before.resolutionSummary
@@ -570,16 +521,16 @@ function restoreClaimDelta(claim: WarrantyClaim, before: ClaimSnapshot, after: C
   if (before.totalApprovedAmount !== after.totalApprovedAmount) claim.totalApprovedAmount = before.totalApprovedAmount
   if (before.totalRecoveredAmount !== after.totalRecoveredAmount) claim.totalRecoveredAmount = before.totalRecoveredAmount
   if (before.escalationLevel !== after.escalationLevel) claim.escalationLevel = before.escalationLevel
-  if (before.escalatedAt !== after.escalatedAt) claim.escalatedAt = toDate(before.escalatedAt)
-  if (before.slaDueAt !== after.slaDueAt) claim.slaDueAt = toDate(before.slaDueAt)
-  if (before.slaPausedAt !== after.slaPausedAt) claim.slaPausedAt = toDate(before.slaPausedAt)
-  if (before.slaAtRiskNotifiedAt !== after.slaAtRiskNotifiedAt) claim.slaAtRiskNotifiedAt = toDate(before.slaAtRiskNotifiedAt)
-  if (before.slaBreachedNotifiedAt !== after.slaBreachedNotifiedAt) claim.slaBreachedNotifiedAt = toDate(before.slaBreachedNotifiedAt)
-  if (before.submittedAt !== after.submittedAt) claim.submittedAt = toDate(before.submittedAt)
-  if (before.resolvedAt !== after.resolvedAt) claim.resolvedAt = toDate(before.resolvedAt)
-  if (before.closedAt !== after.closedAt) claim.closedAt = toDate(before.closedAt)
+  if (before.escalatedAt !== after.escalatedAt) claim.escalatedAt = toValidDateOrNull(before.escalatedAt)
+  if (before.slaDueAt !== after.slaDueAt) claim.slaDueAt = toValidDateOrNull(before.slaDueAt)
+  if (before.slaPausedAt !== after.slaPausedAt) claim.slaPausedAt = toValidDateOrNull(before.slaPausedAt)
+  if (before.slaAtRiskNotifiedAt !== after.slaAtRiskNotifiedAt) claim.slaAtRiskNotifiedAt = toValidDateOrNull(before.slaAtRiskNotifiedAt)
+  if (before.slaBreachedNotifiedAt !== after.slaBreachedNotifiedAt) claim.slaBreachedNotifiedAt = toValidDateOrNull(before.slaBreachedNotifiedAt)
+  if (before.submittedAt !== after.submittedAt) claim.submittedAt = toValidDateOrNull(before.submittedAt)
+  if (before.resolvedAt !== after.resolvedAt) claim.resolvedAt = toValidDateOrNull(before.resolvedAt)
+  if (before.closedAt !== after.closedAt) claim.closedAt = toValidDateOrNull(before.closedAt)
   if (before.assigneeUserId !== after.assigneeUserId) claim.assigneeUserId = before.assigneeUserId
-  if (before.deletedAt !== after.deletedAt) claim.deletedAt = toDate(before.deletedAt)
+  if (before.deletedAt !== after.deletedAt) claim.deletedAt = toValidDateOrNull(before.deletedAt)
   claim.updatedAt = new Date()
 }
 
@@ -614,7 +565,7 @@ function restoreLineDelta(line: WarrantyClaimLine, before: ClaimLineSnapshot, af
   if (before.coreCreditAmount !== after.coreCreditAmount) line.coreCreditAmount = before.coreCreditAmount
   if (before.vendorClaimLineId !== after.vendorClaimLineId) line.vendorClaimLineId = before.vendorClaimLineId
   if (before.vendorName !== after.vendorName) line.vendorName = before.vendorName
-  if (before.deletedAt !== after.deletedAt) line.deletedAt = toDate(before.deletedAt)
+  if (before.deletedAt !== after.deletedAt) line.deletedAt = toValidDateOrNull(before.deletedAt)
   line.updatedAt = new Date()
 }
 
@@ -743,50 +694,6 @@ async function emitClaimUndoCrud(
   )
 }
 
-async function emitLineCrud(
-  ctx: CommandRuntimeContext,
-  action: 'created' | 'updated' | 'deleted',
-  line: WarrantyClaimLine,
-): Promise<void> {
-  const dataEngine = ctx.container.resolve('dataEngine') as DataEngine
-  await emitCrudSideEffects({
-    dataEngine,
-    action,
-    entity: line,
-    identifiers: { id: line.id, organizationId: line.organizationId, tenantId: line.tenantId },
-    indexer: { entityType: E.warranty_claims.warranty_claim_line },
-  })
-  await invalidateCrudCache(
-    ctx.container,
-    'warranty_claims.claim_line',
-    { id: line.id, organizationId: line.organizationId, tenantId: line.tenantId },
-    ctx.auth?.tenantId ?? null,
-    `warranty_claims.claim_line.${action}`,
-  )
-}
-
-async function emitLineUndoCrud(
-  ctx: CommandRuntimeContext,
-  action: 'created' | 'updated' | 'deleted',
-  line: WarrantyClaimLine,
-): Promise<void> {
-  const dataEngine = ctx.container.resolve('dataEngine') as DataEngine
-  await emitCrudUndoSideEffects({
-    dataEngine,
-    action,
-    entity: line,
-    identifiers: { id: line.id, organizationId: line.organizationId, tenantId: line.tenantId },
-    indexer: { entityType: E.warranty_claims.warranty_claim_line },
-  })
-  await invalidateCrudCache(
-    ctx.container,
-    'warranty_claims.claim_line',
-    { id: line.id, organizationId: line.organizationId, tenantId: line.tenantId },
-    ctx.auth?.tenantId ?? null,
-    `warranty_claims.claim_line.undo.${action}`,
-  )
-}
-
 function resolveClaimNumberGenerator(ctx: CommandRuntimeContext, em: EntityManager): WarrantyClaimNumberGenerator {
   try {
     return ctx.container.resolve('warrantyClaimNumberGenerator') as WarrantyClaimNumberGenerator
@@ -885,13 +792,6 @@ export type ClaimedQuantityLine = {
   deletedAt?: Date | string | null
 }
 
-function isMissingReferenceTableError(err: unknown): boolean {
-  if (typeof err !== 'object' || err === null) return false
-  const candidate = err as { code?: unknown; message?: unknown }
-  return candidate.code === '42P01'
-    || (typeof candidate.message === 'string' && candidate.message.includes('does not exist'))
-}
-
 async function querySalesReferenceRow(
   ctx: CommandRuntimeContext,
   table: SalesReferenceTable,
@@ -912,7 +812,7 @@ async function querySalesReferenceRow(
       .executeTakeFirst()
     return (row as Record<string, unknown> | undefined) ?? null
   } catch (err) {
-    if (isMissingReferenceTableError(err)) return undefined
+    if (isMissingTableError(err)) return undefined
     throw err
   }
 }
@@ -937,7 +837,7 @@ async function querySalesOrderLineReferences(
       .execute()
     return rows as Record<string, unknown>[]
   } catch (err) {
-    if (isMissingReferenceTableError(err)) return undefined
+    if (isMissingTableError(err)) return undefined
     throw err
   }
 }
@@ -1046,7 +946,7 @@ export async function assertPendingClaimQuantitiesWithinSold(
         .forUpdate()
         .executeTakeFirst()
     } catch (err) {
-      if (isMissingReferenceTableError(err)) return
+      if (isMissingTableError(err)) return
       throw err
     }
     const soldQuantity = claimedQuantityUnits(soldRow?.quantity)
@@ -1398,7 +1298,7 @@ function allowedUpdateFields(status: WarrantyClaimStatus): Set<ClaimUpdateField>
 
 function assertClaimUpdateFields(claim: WarrantyClaim, input: ClaimUpdateInput): void {
   const keys = [...CLAIM_INTAKE_UPDATE_FIELDS, ...CLAIM_FULFILLMENT_UPDATE_FIELDS]
-  const requested = keys.filter((key) => hasOwn(input, key))
+  const requested = keys.filter((key) => Object.hasOwn(input, key))
   if (!requested.length) return
   const allowed = allowedUpdateFields(claim.status)
   const disallowed = requested.filter((key) => !allowed.has(key))
@@ -1408,23 +1308,23 @@ function assertClaimUpdateFields(claim: WarrantyClaim, input: ClaimUpdateInput):
 }
 
 function applyClaimUpdate(claim: WarrantyClaim, input: ClaimUpdateInput, customerName: string | null, orderNumber: string | null): void {
-  if (hasOwn(input, 'customerId')) claim.customerId = input.customerId ?? null
-  if (hasOwn(input, 'customerName')) claim.customerName = customerName
-  if (hasOwn(input, 'orderId')) {
+  if (Object.hasOwn(input, 'customerId')) claim.customerId = input.customerId ?? null
+  if (Object.hasOwn(input, 'customerName')) claim.customerName = customerName
+  if (Object.hasOwn(input, 'orderId')) {
     claim.orderId = input.orderId ?? null
     claim.orderNumber = orderNumber
   }
-  if (hasOwn(input, 'reasonCode')) claim.reasonCode = input.reasonCode ?? null
-  if (hasOwn(input, 'priority') && input.priority) claim.priority = input.priority
-  if (hasOwn(input, 'notes')) claim.notes = input.notes ?? null
-  if (hasOwn(input, 'advanceReplacement')) claim.advanceReplacement = input.advanceReplacement ?? false
-  if (hasOwn(input, 'replacementOrderId')) claim.replacementOrderId = input.replacementOrderId ?? null
-  if (hasOwn(input, 'advanceShippedAt')) claim.advanceShippedAt = input.advanceShippedAt ?? null
-  if (hasOwn(input, 'salesReturnId')) claim.salesReturnId = input.salesReturnId ?? null
-  if (hasOwn(input, 'creditMemoId')) claim.creditMemoId = input.creditMemoId ?? null
-  if (hasOwn(input, 'vendorName')) claim.vendorName = input.vendorName ?? null
-  if (hasOwn(input, 'vendorRef')) claim.vendorRef = input.vendorRef ?? null
-  if (hasOwn(input, 'resolutionSummary')) claim.resolutionSummary = input.resolutionSummary ?? null
+  if (Object.hasOwn(input, 'reasonCode')) claim.reasonCode = input.reasonCode ?? null
+  if (Object.hasOwn(input, 'priority') && input.priority) claim.priority = input.priority
+  if (Object.hasOwn(input, 'notes')) claim.notes = input.notes ?? null
+  if (Object.hasOwn(input, 'advanceReplacement')) claim.advanceReplacement = input.advanceReplacement ?? false
+  if (Object.hasOwn(input, 'replacementOrderId')) claim.replacementOrderId = input.replacementOrderId ?? null
+  if (Object.hasOwn(input, 'advanceShippedAt')) claim.advanceShippedAt = input.advanceShippedAt ?? null
+  if (Object.hasOwn(input, 'salesReturnId')) claim.salesReturnId = input.salesReturnId ?? null
+  if (Object.hasOwn(input, 'creditMemoId')) claim.creditMemoId = input.creditMemoId ?? null
+  if (Object.hasOwn(input, 'vendorName')) claim.vendorName = input.vendorName ?? null
+  if (Object.hasOwn(input, 'vendorRef')) claim.vendorRef = input.vendorRef ?? null
+  if (Object.hasOwn(input, 'resolutionSummary')) claim.resolutionSummary = input.resolutionSummary ?? null
   claim.updatedAt = new Date()
 }
 
@@ -1646,20 +1546,20 @@ const updateClaimCommand: CommandHandler<ClaimUpdateInput, { claimId: string }> 
     await enforceWarrantyClaimOptimisticLock(ctx, claim)
     assertClaimUpdateFields(claim, input)
     await validateClaimReferences(ctx, scope, {
-      orderId: hasOwn(input, 'orderId') && (input.orderId ?? null) !== (claim.orderId ?? null) ? input.orderId ?? null : null,
-      salesReturnId: hasOwn(input, 'salesReturnId') && (input.salesReturnId ?? null) !== (claim.salesReturnId ?? null) ? input.salesReturnId ?? null : null,
-      replacementOrderId: hasOwn(input, 'replacementOrderId') && (input.replacementOrderId ?? null) !== (claim.replacementOrderId ?? null) ? input.replacementOrderId ?? null : null,
-      creditMemoId: hasOwn(input, 'creditMemoId') && (input.creditMemoId ?? null) !== (claim.creditMemoId ?? null) ? input.creditMemoId ?? null : null,
+      orderId: Object.hasOwn(input, 'orderId') && (input.orderId ?? null) !== (claim.orderId ?? null) ? input.orderId ?? null : null,
+      salesReturnId: Object.hasOwn(input, 'salesReturnId') && (input.salesReturnId ?? null) !== (claim.salesReturnId ?? null) ? input.salesReturnId ?? null : null,
+      replacementOrderId: Object.hasOwn(input, 'replacementOrderId') && (input.replacementOrderId ?? null) !== (claim.replacementOrderId ?? null) ? input.replacementOrderId ?? null : null,
+      creditMemoId: Object.hasOwn(input, 'creditMemoId') && (input.creditMemoId ?? null) !== (claim.creditMemoId ?? null) ? input.creditMemoId ?? null : null,
     })
-    const effectiveOrderId = hasOwn(input, 'orderId') ? (input.orderId ?? null) : (claim.orderId ?? null)
-    const effectiveCustomerId = hasOwn(input, 'customerId') ? (input.customerId ?? null) : (claim.customerId ?? null)
+    const effectiveOrderId = Object.hasOwn(input, 'orderId') ? (input.orderId ?? null) : (claim.orderId ?? null)
+    const effectiveCustomerId = Object.hasOwn(input, 'customerId') ? (input.customerId ?? null) : (claim.customerId ?? null)
     await assertOrderBelongsToCustomer(em, scope, effectiveOrderId, effectiveCustomerId)
-    const customerChanged = hasOwn(input, 'customerId') && (input.customerId ?? null) !== (claim.customerId ?? null)
-    const shouldRefreshCustomerName = hasOwn(input, 'customerId') || hasOwn(input, 'customerName')
+    const customerChanged = Object.hasOwn(input, 'customerId') && (input.customerId ?? null) !== (claim.customerId ?? null)
+    const shouldRefreshCustomerName = Object.hasOwn(input, 'customerId') || Object.hasOwn(input, 'customerName')
     const customerName = shouldRefreshCustomerName
       ? await resolveCustomerName(ctx, input.customerId ?? claim.customerId, scope, input.customerName ?? claim.customerName, { strict: customerChanged })
       : claim.customerName ?? null
-    const orderNumber = hasOwn(input, 'orderId')
+    const orderNumber = Object.hasOwn(input, 'orderId')
       ? await resolveOrderNumber(ctx, input.orderId, scope, (input.orderId ?? null) === (claim.orderId ?? null) ? claim.orderNumber : null)
       : claim.orderNumber ?? null
     await withAtomicFlush(em, [
@@ -1895,7 +1795,7 @@ const transitionClaimCommand: CommandHandler<TransitionClaimInput, { claimId: st
         if (input.toStatus === 'rejected') claim.rejectionReasonCode = input.rejectionReasonCode ?? null
         if (input.toStatus === 'resolved') {
           claim.resolvedAt = now
-          if (hasOwn(input, 'resolutionSummary')) claim.resolutionSummary = input.resolutionSummary ?? null
+          if (Object.hasOwn(input, 'resolutionSummary')) claim.resolutionSummary = input.resolutionSummary ?? null
         }
         if (input.toStatus === 'closed') claim.closedAt = now
         applySlaResume(em, claim, fromStatus, input.toStatus, now, effectiveSettings)

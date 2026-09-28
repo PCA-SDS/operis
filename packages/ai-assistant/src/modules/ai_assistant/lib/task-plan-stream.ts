@@ -29,6 +29,7 @@ import {
   normalizeTaskPlanToolName,
   sanitizeAgentTaskPlanInput,
 } from './task-plan-labels'
+import { readSseDataPayload } from '@open-mercato/shared/lib/http/sse'
 
 const SSE_ENCODER = new TextEncoder()
 const SSE_DECODER = new TextDecoder()
@@ -420,7 +421,7 @@ function inspectEventBlock(
   eventBlock: string,
   accumulator: TaskPlanAccumulator,
 ): InjectedLines {
-  const dataPayload = extractDataPayload(eventBlock)
+  const dataPayload = readSseDataPayload(eventBlock)
   if (!dataPayload || dataPayload === '[DONE]') {
     return { before: [], after: [] }
   }
@@ -446,18 +447,4 @@ function inspectEventBlock(
     return { before: injected, after: [] }
   }
   return { before: [], after: injected }
-}
-
-function extractDataPayload(eventBlock: string): string | null {
-  const lines = eventBlock.split('\n')
-  const dataLines: string[] = []
-  for (const line of lines) {
-    if (line.startsWith('data: ')) {
-      dataLines.push(line.slice(6))
-    } else if (line.startsWith('data:')) {
-      dataLines.push(line.slice(5))
-    }
-  }
-  if (dataLines.length === 0) return null
-  return dataLines.join('\n')
 }

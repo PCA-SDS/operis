@@ -48,7 +48,7 @@ const CONFIG_PASSTHROUGH_KEYS: Array<keyof CustomFieldDefinition> = [
   'sourceMetadata',
 ]
 
-function normalizeValue(value: unknown): unknown {
+export function normalizeValue(value: unknown): unknown {
   if (Array.isArray(value)) return value.map((item) => normalizeValue(item))
   if (value && typeof value === 'object') {
     return Object.keys(value as Record<string, unknown>)

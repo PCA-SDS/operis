@@ -6,7 +6,7 @@ import {
 import { getPaymentProvider, getShippingProvider } from '../lib/providers'
 import { REFERENCE_UNIT_CODES } from '@open-mercato/shared/lib/units/unitCodes'
 import { isValidPhoneNumber } from '@open-mercato/shared/lib/phone'
-import { emailSchema, moneyAmountSchema } from '@open-mercato/shared/lib/validation'
+import { emailSchema, moneyAmountSchema, currencyCodeSchema } from '@open-mercato/shared/lib/validation'
 
 export const SALES_PHONE_INVALID_MESSAGE_KEY = 'customers.people.form.primaryPhone.invalid'
 
@@ -51,10 +51,7 @@ const scoped = z.object({
   tenantId: uuid(),
 })
 
-const currencyCode = z
-  .string()
-  .trim()
-  .regex(/^[A-Z]{3}$/, 'currency code must be a three-letter ISO code')
+const currencyCode = currencyCodeSchema({ message: 'currency code must be a three-letter ISO code', normalizeCase: false })
 
 /**
  * Generic numeric field. NOT for money — see {@link money}.

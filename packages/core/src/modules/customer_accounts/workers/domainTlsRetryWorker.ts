@@ -1,5 +1,6 @@
 import type { JobContext, QueuedJob, WorkerMeta } from '@open-mercato/queue'
 import type { DomainMappingService } from '@open-mercato/core/modules/customer_accounts/services/domainMappingService'
+import { parseInt32 } from '../lib/workerEnv'
 
 export const metadata: WorkerMeta = {
   queue: 'domain-tls-retry',
@@ -9,12 +10,6 @@ export const metadata: WorkerMeta = {
 
 type HandlerContext = JobContext & {
   resolve: <T = unknown>(name: string) => T
-}
-
-function parseInt32(value: string | undefined, fallback: number): number {
-  const parsed = Number.parseInt(value ?? '', 10)
-  if (!Number.isFinite(parsed) || parsed <= 0) return fallback
-  return parsed
 }
 
 function parseFloat01(value: string | undefined, fallback: number): number {

@@ -1,6 +1,7 @@
 import { getEntityIds } from '@open-mercato/shared/lib/encryption/entityIds'
 import { DEALS_IN_PRODUCT } from '@open-mercato/shared/lib/product-scope'
 import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
+import { camelToSnake, snakeToCamel } from '@open-mercato/shared/lib/string/case'
 
 export type ResolvedValueDisplay = {
   label: string
@@ -67,17 +68,6 @@ export function collectRelationValueIds(value: unknown): string[] {
   }
   const single = extractOptionLookupKey(value)
   return single ? [single] : []
-}
-
-function camelToSnake(value: string): string {
-  return value
-    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
-    .replace(/[\s-]+/g, '_')
-    .toLowerCase()
-}
-
-function snakeToCamel(value: string): string {
-  return value.replace(/[_-](\w)/g, (_, char: string) => char.toUpperCase())
 }
 
 export function readRecordValue(record: Record<string, unknown>, field: string): string | null {

@@ -1,18 +1,19 @@
 import { z } from 'zod'
 import { buildPasswordSchema } from '@open-mercato/shared/lib/auth/passwordPolicy'
+import { emailSchema } from '@open-mercato/shared/lib/validation'
 
 const passwordSchema = buildPasswordSchema()
 
 // Core auth validators
 export const userLoginSchema = z.object({
-  email: z.string().email(),
+  email: emailSchema(),
   password: z.string().min(6),
   requireRole: z.string().optional(),
   tenantId: z.string().uuid().optional(),
 })
 
 export const requestPasswordResetSchema = z.object({
-  email: z.string().email(),
+  email: emailSchema(),
 })
 
 export const confirmPasswordResetSchema = z.object({
@@ -102,7 +103,7 @@ export const sidebarPreferencesInputSchema = z.object({
 
 // Optional helpers for CLI or admin forms
 export const userCreateSchema = z.object({
-  email: z.string().email(),
+  email: emailSchema(),
   name: z.preprocess(
     (value) => {
       if (typeof value !== 'string') return value

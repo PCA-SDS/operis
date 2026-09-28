@@ -4,25 +4,23 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { CrudHttpError, isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
-import { createPagedListResponseSchema as createSharedPagedListResponseSchema } from '@open-mercato/shared/lib/openapi/crud'
+import { createOptionalMetaPagedListResponseSchema } from '@open-mercato/shared/lib/openapi/crud'
 import type { RbacService } from '@open-mercato/core/modules/auth/services/rbacService'
 import { resolveOrganizationScopeFilter } from '@open-mercato/core/modules/directory/utils/organizationScopeFilter'
 import { User } from '@open-mercato/core/modules/auth/data/entities'
-import {
-  resolveAuthActorId,
-  resolveCustomersRequestContext,
-} from '@open-mercato/core/modules/customers/lib/interactionRequestContext'
+import { resolveCustomersRequestContext } from '@open-mercato/core/modules/customers/lib/interactionRequestContext'
+import { resolveAuthActorId } from '@open-mercato/shared/lib/auth/actor'
 import { PlannerAvailabilityRule } from '@open-mercato/core/modules/planner/data/entities'
 import { parseAvailabilityRuleWindow } from '@open-mercato/core/modules/planner/lib/availabilitySchedule'
 import { StaffTeam, StaffTeamMember, StaffTeamRole } from '../../../data/entities'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 const logger = createLogger('staff')
 
 const querySchema = z
   .object({
-    page: z.coerce.number().int().min(1).default(1),
-    pageSize: z.coerce.number().int().min(1).max(100).default(24),
+    ...paginationQuerySchema({ defaultPageSize: 24 }).shape,
     search: z.string().optional(),
     includeUnlinked: z.enum(['true', 'false']).default('false').transform((value) => value === 'true'),
     startsAt: z.string().datetime().optional(),
@@ -62,9 +60,7 @@ const itemSchema = z.object({
 
 const errorSchema = z.object({ error: z.string() })
 
-const pagedListSchema = createSharedPagedListResponseSchema(itemSchema, {
-  paginationMetaOptional: true,
-})
+const pagedListSchema = createOptionalMetaPagedListResponseSchema(itemSchema)
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['customers.roles.view'] },

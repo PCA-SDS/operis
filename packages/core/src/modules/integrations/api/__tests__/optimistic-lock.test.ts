@@ -8,10 +8,7 @@ import {
   OPTIMISTIC_LOCK_HEADER_NAME,
 } from '@open-mercato/shared/lib/crud/optimistic-lock-headers'
 import { emitIntegrationsEvent } from '../../events'
-import {
-  runIntegrationMutationGuardAfterSuccess,
-  runIntegrationMutationGuards,
-} from '../guards'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 import { PUT as putState } from '../[id]/state/route'
 import { PUT as putVersion } from '../[id]/version/route'
 import { PUT as putCredentials } from '../[id]/credentials/route'
@@ -33,10 +30,11 @@ jest.mock('../../events', () => ({
   emitIntegrationsEvent: jest.fn(),
 }))
 
-jest.mock('../guards', () => ({
-  runIntegrationMutationGuards: jest.fn(),
-  runIntegrationMutationGuardAfterSuccess: jest.fn(),
+jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
+  runRouteMutationGuards: jest.fn(),
 }))
+
+const runAfterSuccessMock = jest.fn()
 
 const CURRENT_VERSION = '2026-06-19T00:00:00.000Z'
 const STALE_VERSION = '2026-06-18T00:00:00.000Z'
@@ -85,7 +83,7 @@ describe('integrations write routes — optimistic-lock enforcement', () => {
     jest.clearAllMocks()
     process.env.OM_OPTIMISTIC_LOCK = 'all'
     ;(getAuthFromRequest as jest.Mock).mockResolvedValue({ tenantId: 't1', orgId: 'o1', sub: 'u1' })
-    ;(runIntegrationMutationGuards as jest.Mock).mockResolvedValue({ ok: true })
+    ;(runRouteMutationGuards as jest.Mock).mockResolvedValue({ ok: true, runAfterSuccess: runAfterSuccessMock })
   })
 
   describe('state PUT', () => {
@@ -126,7 +124,7 @@ describe('integrations write routes — optimistic-lock enforcement', () => {
       const body = await res.json()
       expect(body.updatedAt).toBe(CURRENT_VERSION)
       expect(stateUpsert).toHaveBeenCalled()
-      expect(runIntegrationMutationGuardAfterSuccess).toHaveBeenCalled()
+      expect(runAfterSuccessMock).toHaveBeenCalled()
     })
 
     it('upserts when no version header is supplied (strictly additive)', async () => {

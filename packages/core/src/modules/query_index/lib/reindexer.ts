@@ -110,7 +110,7 @@ function toNumber(value: unknown): number {
   return 0
 }
 
-async function getColumnSet(db: Kysely<any>, tableName: string): Promise<Set<string>> {
+export async function getColumnSet(db: Kysely<any>, tableName: string): Promise<Set<string>> {
   try {
     const rows = await db
       .selectFrom('information_schema.columns' as any)

@@ -36,6 +36,7 @@ import {
 } from '../lib/exactDecimal'
 import type { AnalyticsRegistry } from './analyticsRegistry'
 import type { BaseCurrencyResolver } from '../lib/optionalBaseCurrency'
+import { UUID_SHAPE_PATTERN } from '@open-mercato/shared/lib/validation'
 
 const logger = createLogger('dashboards').child({ component: 'widget-data-service' })
 
@@ -716,7 +717,7 @@ export class WidgetDataService {
       .map((item) => item.groupKey)
       .filter((id): id is string => {
         if (typeof id !== 'string' || id.length === 0) return false
-        return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+        return UUID_SHAPE_PATTERN.test(id)
       })
 
     if (ids.length === 0) {

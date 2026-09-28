@@ -6,9 +6,11 @@ import { buildIlikeTerm } from '@open-mercato/shared/lib/db/buildIlikeTerm'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { ResourcesResource, ResourcesResourceTagAssignment, ResourcesResourceTag } from '../data/entities'
 import { resourcesResourceCreateSchema, resourcesResourceUpdateSchema } from '../data/validators'
-import { sanitizeSearchTerm, parseBooleanFlag } from './helpers'
 import { E } from '#generated/entities.ids.generated'
 import { createResourcesCrudOpenApi, createPagedListResponseSchema, defaultOkResponseSchema } from './openapi'
+import { sanitizeSearchTerm } from '@open-mercato/shared/lib/query/sanitizeSearchTerm'
+import { parseBooleanFlag } from '@open-mercato/shared/lib/boolean'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 // Field constants for ResourcesResource entity
 const F = {
@@ -48,8 +50,7 @@ const rawBodySchema = z.object({}).passthrough()
 
 const listSchema = z
   .object({
-    page: z.coerce.number().int().min(1).default(1),
-    pageSize: z.coerce.number().int().min(1).max(100).default(50),
+    ...paginationQuerySchema().shape,
     search: z.string().optional(),
     ids: z.string().optional(),
     resourceTypeId: z.string().uuid().optional(),

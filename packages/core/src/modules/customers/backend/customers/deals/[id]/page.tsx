@@ -38,7 +38,6 @@ import { ICON_SUGGESTIONS } from '../../../../lib/dictionaries'
 import { renderDictionaryColor, renderDictionaryIcon } from '@open-mercato/core/modules/dictionaries/components/dictionaryAppearance'
 
 import { startOfNextQuarter } from './hooks/formatters'
-import { formatAmount } from '@open-mercato/core/modules/customers/lib/amountFormat'
 import type { DealDetailPayload } from './hooks/types'
 import { useDealActivities } from './hooks/useDealActivities'
 import { useDealAssociations } from './hooks/useDealAssociations'
@@ -49,6 +48,7 @@ import { useDealInjectedTabs } from './hooks/useDealInjectedTabs'
 import { useDealMutationContext } from './hooks/useDealMutationContext'
 import { useDealPipeline } from './hooks/useDealPipeline'
 import { useScheduleDialog } from './hooks/useScheduleDialog'
+import { formatCurrency } from '@open-mercato/shared/lib/units/money'
 
 export default function DealDetailPage({ params }: { params?: { id?: string } }) {
   const id = params?.id ?? ''
@@ -377,7 +377,7 @@ export default function DealDetailPage({ params }: { params?: { id?: string } })
     )
   }
 
-  const amountLabel = formatAmount(data.deal.valueAmount, data.deal.valueCurrency)
+  const amountLabel = formatCurrency(data.deal.valueAmount, data.deal.valueCurrency)
   const dealName = data.deal.title || t('customers.deals.detail.untitled', 'Untitled deal')
 
   const zone1Content = (

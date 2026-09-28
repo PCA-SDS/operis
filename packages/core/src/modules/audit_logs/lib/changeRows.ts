@@ -1,11 +1,9 @@
+import { isRecord } from '@open-mercato/shared/lib/guards'
+
 export type ChangeRow = {
   field: string
   from: unknown
   to: unknown
-}
-
-export function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === 'object' && !Array.isArray(value)
 }
 
 function readPathValue(source: unknown, field: string): unknown {

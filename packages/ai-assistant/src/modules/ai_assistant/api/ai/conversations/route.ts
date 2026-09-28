@@ -13,6 +13,7 @@ import {
   createConversationStorage,
   serializeAiChatConversation,
 } from '../../../lib/conversation-storage'
+import { jsonError } from '../../jsonError'
 
 const logger = createLogger('ai_assistant')
 
@@ -77,15 +78,6 @@ export const openApi: OpenApiRouteDoc = {
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: [REQUIRED_FEATURE] },
   POST: { requireAuth: true, requireFeatures: [REQUIRED_FEATURE] },
-}
-
-function jsonError(
-  status: number,
-  message: string,
-  code: string,
-  extra?: Record<string, unknown>,
-): NextResponse {
-  return NextResponse.json({ error: message, code, ...(extra ?? {}) }, { status })
 }
 
 async function loadCallerContext(req: NextRequest): Promise<

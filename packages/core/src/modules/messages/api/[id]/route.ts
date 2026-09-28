@@ -11,9 +11,8 @@ import { buildResolvedMessageActions } from '../../lib/actions'
 import { MESSAGE_OPTIMISTIC_LOCK_RESOURCE_KIND } from '../../lib/constants'
 import { getMessageObjectType } from '../../lib/message-objects-registry'
 import { getMessageTypeOrDefault } from '../../lib/message-types-registry'
-import { attachOperationMetadataHeader } from '../../lib/operationMetadata'
+import { attachOperationMetadataHeader } from '@open-mercato/shared/lib/commands/operationMetadata'
 import { hasOrganizationAccess, resolveMessageContext } from '../../lib/routeHelpers'
-import { runMessageMutationGuardAfterSuccess, runMessageMutationGuards } from '../guards'
 import {
   errorResponseSchema,
   messageDetailResponseSchema,
@@ -22,6 +21,7 @@ import {
 } from '../openapi'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const logger = createLogger('messages').child({ component: 'api' })
 
@@ -298,24 +298,21 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     return Response.json({ error: 'Only draft messages can be edited' }, { status: 409 })
   }
 
-  const guardResult = await runMessageMutationGuards(
-    ctx.container,
-    {
-      tenantId: scope.tenantId,
-      organizationId: scope.organizationId,
-      userId: scope.userId,
+  const guardResult = await runRouteMutationGuards({
+    container: ctx.container,
+    req,
+    auth: { userId: scope.userId, tenantId: scope.tenantId, organizationId: scope.organizationId },
+    input: {
       resourceKind: 'messages.message',
       resourceId: message.id,
       operation: 'update',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
       mutationPayload: input as Record<string, unknown>,
     },
-  )
+  })
   if (!guardResult.ok) {
     return Response.json(
-      guardResult.errorBody ?? { error: 'Operation blocked by guard' },
-      { status: guardResult.errorStatus ?? 422 },
+      guardResult.errorBody,
+      { status: guardResult.errorStatus },
     )
   }
 
@@ -352,16 +349,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       resourceKind: 'messages.message',
       resourceId: message.id,
     })
-    await runMessageMutationGuardAfterSuccess(guardResult.afterSuccessCallbacks, {
-      tenantId: scope.tenantId,
-      organizationId: scope.organizationId,
-      userId: scope.userId,
-      resourceKind: 'messages.message',
-      resourceId: message.id,
-      operation: 'update',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-    })
+    await guardResult.runAfterSuccess()
     return response
   } catch (error) {
     if (isCrudHttpError(error)) {
@@ -423,24 +411,21 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     return Response.json({ error: 'Access denied' }, { status: 403 })
   }
 
-  const guardResult = await runMessageMutationGuards(
-    ctx.container,
-    {
-      tenantId: scope.tenantId,
-      organizationId: scope.organizationId,
-      userId: scope.userId,
+  const guardResult = await runRouteMutationGuards({
+    container: ctx.container,
+    req,
+    auth: { userId: scope.userId, tenantId: scope.tenantId, organizationId: scope.organizationId },
+    input: {
       resourceKind: 'messages.message',
       resourceId: params.id,
       operation: 'delete',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
       mutationPayload: null,
     },
-  )
+  })
   if (!guardResult.ok) {
     return Response.json(
-      guardResult.errorBody ?? { error: 'Operation blocked by guard' },
-      { status: guardResult.errorStatus ?? 422 },
+      guardResult.errorBody,
+      { status: guardResult.errorStatus },
     )
   }
 
@@ -476,16 +461,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
       resourceKind: 'messages.message',
       resourceId: params.id,
     })
-    await runMessageMutationGuardAfterSuccess(guardResult.afterSuccessCallbacks, {
-      tenantId: scope.tenantId,
-      organizationId: scope.organizationId,
-      userId: scope.userId,
-      resourceKind: 'messages.message',
-      resourceId: params.id,
-      operation: 'delete',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-    })
+    await guardResult.runAfterSuccess()
     return response
   } catch (error) {
     if (isCrudHttpError(error)) {

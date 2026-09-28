@@ -16,6 +16,7 @@ import {
 } from '@open-mercato/ui/primitives/dialog'
 import { apiCallOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@open-mercato/ui/primitives/table'
+import { formatDateTime } from '@open-mercato/shared/lib/time'
 
 type DailyRow = {
   id: string
@@ -139,10 +140,6 @@ function sumBigintRows(rows: DailyRow[], field: keyof DailyRow): number {
 
 function formatNumber(value: number): string {
   return value.toLocaleString()
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString()
 }
 
 function shortId(id: string): string {
@@ -350,7 +347,7 @@ export function AiUsageStatsPageClient() {
                     >
                       <TableCell className="font-mono text-xs">{shortId(session.sessionId)}…</TableCell>
                       <TableCell className="font-mono text-xs">{session.agentId}</TableCell>
-                      <TableCell className="text-muted-foreground text-xs">{formatDate(session.startedAt)}</TableCell>
+                      <TableCell className="text-muted-foreground text-xs">{formatDateTime(session.startedAt)}</TableCell>
                       <TableCell align="right" className="tabular-nums">{formatNumber(session.inputTokens)}</TableCell>
                       <TableCell align="right" className="tabular-nums">{formatNumber(session.outputTokens)}</TableCell>
                       <TableCell align="right" className="tabular-nums">{session.stepCount}</TableCell>

@@ -7,6 +7,7 @@ import { hasFeature, matchFeature } from '@open-mercato/shared/security/features
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import type { FeatureDescriptor } from '@open-mercato/shared/security/aclDependencies'
 import { AclDependencyDiagnosticsPanel } from './AclDependencyDiagnosticsPanel'
+import { isTenantRestrictedFeature } from '../lib/tenantRestrictedFeatures'
 
 function toTitleCase(value: string): string {
   return value.replace(/[-_.]/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())
@@ -22,12 +23,6 @@ function normalizeFeatureArray(input: unknown): string[] {
     dedup.add(trimmed)
   }
   return Array.from(dedup)
-}
-
-function isTenantRestrictedFeature(feature: string): boolean {
-  if (feature === '*' || feature === 'directory.*') return true
-  if (feature.startsWith('directory.tenants')) return true
-  return false
 }
 
 function formatWildcardLabel(moduleId: string, wildcard: string): string {

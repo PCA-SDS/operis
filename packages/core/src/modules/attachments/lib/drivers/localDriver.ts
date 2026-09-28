@@ -4,21 +4,7 @@ import { randomUUID } from 'crypto'
 import { resolvePartitionRoot } from '../storage'
 import { resolveContainedPath } from '../pathContainment'
 import type { PrepareFilePayload, StorageDriver, StoreFilePayload, StoredFile, ReadFileResult } from './types'
-
-function sanitizeFileName(fileName: string): string {
-  if (!fileName) return 'file'
-  return fileName.replace(/[^a-zA-Z0-9._-]/g, '_')
-}
-
-function resolveOrgSegment(orgId: string | null | undefined): string {
-  if (typeof orgId === 'string' && orgId.trim().length > 0) return `org_${orgId}`
-  return 'org_shared'
-}
-
-function resolveTenantSegment(tenantId: string | null | undefined): string {
-  if (typeof tenantId === 'string' && tenantId.trim().length > 0) return `tenant_${tenantId}`
-  return 'tenant_shared'
-}
+import { sanitizeFileName, resolveOrgSegment, resolveTenantSegment } from '../storagePaths'
 
 export class LocalStorageDriver implements StorageDriver {
   readonly key = 'local'

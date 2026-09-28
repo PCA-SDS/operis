@@ -11,7 +11,8 @@ import {
 } from '@open-mercato/shared/lib/commands/scope'
 import { extractUndoPayload } from '@open-mercato/shared/lib/commands/undo'
 import type { EntityManager } from '@mikro-orm/postgresql'
-import { StaffTeamMember } from '../data/entities'
+import { StaffTeamMember, StaffTeam } from '../data/entities'
+import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 
 export { ensureOrganizationScope, ensureTenantScope, extractUndoPayload }
 
@@ -106,4 +107,15 @@ export async function requireTeamMember(
   )
   if (!member) throw new CrudHttpError(404, { error: message })
   return member
+}
+
+export async function ensureTeamExists(em: EntityManager, teamId: string, tenantId: string, organizationId: string): Promise<void> {
+  const team = await findOneWithDecryption(
+    em,
+    StaffTeam,
+    { id: teamId, tenantId, organizationId, deletedAt: null },
+    undefined,
+    { tenantId, organizationId },
+  )
+  if (!team) throw new CrudHttpError(400, { error: 'Team not found.' })
 }

@@ -8,10 +8,10 @@ import {
   DealCustomAttributes,
   type DealCustomAttributesLoadState,
 } from './DealCustomAttributes'
-import type { Translate } from './dealFormTypes'
+import type { TranslateWithRequiredFallbackFn } from '@open-mercato/shared/lib/i18n/translate'
 
 export type DealCreateSidebarProps = {
-  tr: Translate
+  tr: TranslateWithRequiredFallbackFn
   customValues: Record<string, unknown>
   onCustomChange: (key: string, value: unknown) => void
   errors: Record<string, string>

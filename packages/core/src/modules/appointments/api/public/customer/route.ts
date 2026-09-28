@@ -21,10 +21,6 @@ export const metadata = {
   POST: { requireAuth: false },
 }
 
-export function OPTIONS(req: Request) {
-  return new Response(null, { status: 204, headers: publicCorsHeaders(req) })
-}
-
 const publicCustomerLookupRateLimitConfig = readEndpointRateLimitConfig('APPOINTMENTS_PUBLIC_CUSTOMER_LOOKUP', {
   points: 10,
   duration: 60,

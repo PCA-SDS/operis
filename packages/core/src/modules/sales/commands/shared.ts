@@ -3,6 +3,7 @@ import { notFound } from '@open-mercato/shared/lib/crud/errors'
 import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import type { CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
 import { enforceCommandOptimisticLockWithGuards } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
+import { toNumericString } from '@open-mercato/shared/lib/number'
 export { assertFound } from '@open-mercato/shared/lib/crud/errors'
 export { ensureOrganizationScope, ensureSameScope, ensureTenantScope } from '@open-mercato/shared/lib/commands/scope'
 export { extractUndoPayload } from '@open-mercato/shared/lib/commands/undo'
@@ -50,11 +51,6 @@ export async function enforceSalesDocumentOptimisticLock(
 }
 
 export { cloneJson } from '@open-mercato/shared/lib/json/cloneJson'
-
-export function toNumericString(value: number | null | undefined): string | null {
-  if (value === undefined || value === null) return null
-  return value.toString()
-}
 
 /** Numeric scale of the `total_net_amount` / `total_gross_amount` line columns. */
 const LINE_AMOUNT_SCALE = 4

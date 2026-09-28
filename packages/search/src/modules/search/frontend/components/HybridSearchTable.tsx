@@ -12,13 +12,11 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { resolveEntityTypeLabel } from '../lib/entityTypeLabel'
 import {
-  getCurrentOrganizationScope,
   subscribeOrganizationScopeChanged,
 } from '@open-mercato/shared/lib/frontend/organizationEvents'
-import { isAllOrganizationsSelection } from '@open-mercato/core/modules/directory/constants'
-import { parseSelectedOrganizationCookie } from '@open-mercato/core/modules/directory/utils/scopeCookies'
 import { resolveSearchMinTokenLength } from '@open-mercato/shared/lib/search/config'
 import { fetchHybridSearchResults } from '../utils'
+import { hasActiveOrganizationSelection } from './organizationSelection'
 
 type Row = {
   entityId: string
@@ -39,16 +37,6 @@ type Translator = (
   fallbackOrParams?: string | Record<string, string | number>,
   params?: Record<string, string | number>
 ) => string
-
-function hasActiveOrganizationSelection(): boolean {
-  const fromEvent = getCurrentOrganizationScope().organizationId
-  if (typeof fromEvent === 'string' && fromEvent.trim().length > 0) return true
-
-  const cookieHeader = typeof document === 'undefined' ? null : document.cookie
-  const cookieValue = parseSelectedOrganizationCookie(cookieHeader)
-  if (!cookieValue) return false
-  return !isAllOrganizationsSelection(cookieValue);
-}
 
 function createColumns(t: Translator): ColumnDef<Row>[] {
   return [

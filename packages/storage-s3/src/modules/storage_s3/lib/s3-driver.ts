@@ -33,6 +33,7 @@ import {
   filterS3ObjectsToTenant,
   type S3TenantScope,
 } from './key-scope'
+import { sanitizeFileName, resolveOrgSegment, resolveTenantSegment } from '@open-mercato/core/modules/attachments/lib/storagePaths'
 
 export type S3DriverConfig = {
   bucket: string
@@ -56,21 +57,6 @@ export type S3DriverConfig = {
   sessionToken?: string
   organizationId?: string | null
   tenantId?: string | null
-}
-
-function sanitizeFileName(fileName: string): string {
-  if (!fileName) return 'file'
-  return fileName.replace(/[^a-zA-Z0-9._-]/g, '_')
-}
-
-function resolveOrgSegment(orgId: string | null | undefined): string {
-  if (typeof orgId === 'string' && orgId.trim().length > 0) return `org_${orgId}`
-  return 'org_shared'
-}
-
-function resolveTenantSegment(tenantId: string | null | undefined): string {
-  if (typeof tenantId === 'string' && tenantId.trim().length > 0) return `tenant_${tenantId}`
-  return 'tenant_shared'
 }
 
 async function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {

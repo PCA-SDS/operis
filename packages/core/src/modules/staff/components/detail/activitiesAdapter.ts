@@ -3,10 +3,9 @@
 import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { createCrud, updateCrud, deleteCrud } from '@open-mercato/ui/backend/utils/crud'
 import type { ActivitiesDataAdapter, ActivitySummary } from '@open-mercato/ui/backend/detail'
+import type { TranslateWithFallbackFn } from '@open-mercato/shared/lib/i18n/translate'
 
-type Translator = (key: string, fallback?: string, params?: Record<string, string | number>) => string
-
-export function createStaffActivitiesAdapter(translator: Translator): ActivitiesDataAdapter {
+export function createStaffActivitiesAdapter(translator: TranslateWithFallbackFn): ActivitiesDataAdapter {
   return {
     list: async ({ entityId }) => {
       const params = new URLSearchParams({

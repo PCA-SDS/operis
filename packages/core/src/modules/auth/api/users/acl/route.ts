@@ -18,6 +18,8 @@ import type { RbacService } from '@open-mercato/core/modules/auth/services/rbacS
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
+import { isTenantRestrictedFeature } from '../../../lib/tenantRestrictedFeatures'
+import { normalizeOrganizations } from '../../aclRouteHelpers'
 
 const getSchema = z.object({ userId: z.string().uuid() })
 const putSchema = z.object({
@@ -263,19 +265,8 @@ export async function PUT(req: Request) {
   })
 }
 
-function normalizeOrganizations(organizations: unknown): string[] | null {
-  if (!Array.isArray(organizations)) return null
-  return normalizeGrantFeatureList(organizations)
-}
-
 function sanitizeTenantFeatures(features: string[]): string[] {
   return features.filter((feature) => !isTenantRestrictedFeature(feature))
-}
-
-function isTenantRestrictedFeature(feature: string): boolean {
-  if (feature === '*' || feature === 'directory.*') return true
-  if (feature.startsWith('directory.tenants')) return true
-  return false
 }
 
 function hasRestrictedChanges(requested: string[], effective: string[], existing: string[]): boolean {

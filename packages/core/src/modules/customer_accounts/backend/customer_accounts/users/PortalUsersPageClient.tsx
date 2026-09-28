@@ -22,6 +22,7 @@ import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuarde
 import { ListEmptyState } from '@open-mercato/ui/backend/filters/ListEmptyState'
 import type { FilterDef, FilterValues } from '@open-mercato/ui/backend/FilterBar'
 import { buildPortalRootUrl, buildPortalUrlPattern } from '../../../lib/portalUrl'
+import { formatDate } from '@open-mercato/shared/lib/time'
 
 type UserRow = {
   id: string
@@ -41,13 +42,6 @@ type UsersResponse = {
   items?: UserRow[]
   total?: number
   totalPages?: number
-}
-
-function formatDate(value: string | null | undefined, fallback: string): string {
-  if (!value) return fallback
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return fallback
-  return date.toLocaleDateString()
 }
 
 async function fetchRoleFilterOptions(): Promise<Array<{ value: string; label: string; id: string }>> {
@@ -468,7 +462,7 @@ export function PortalUsersPageClient({ portalOrigin }: PortalUsersPageClientPro
       {
         accessorKey: 'lastLoginAt',
         header: t('customer_accounts.admin.columns.lastLogin', 'Last Login'),
-        cell: ({ row }) => formatDate(row.original.lastLoginAt, '-') || noValue,
+        cell: ({ row }) => formatDate(row.original.lastLoginAt, { fallback: '-' }) || noValue,
       },
       {
         accessorKey: 'roles',
@@ -482,7 +476,7 @@ export function PortalUsersPageClient({ portalOrigin }: PortalUsersPageClientPro
       {
         accessorKey: 'createdAt',
         header: t('customer_accounts.admin.columns.createdAt', 'Created'),
-        cell: ({ row }) => formatDate(row.original.createdAt, '-'),
+        cell: ({ row }) => formatDate(row.original.createdAt, { fallback: '-' }),
       },
     ]
   }, [t])

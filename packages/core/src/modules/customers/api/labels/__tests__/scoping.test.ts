@@ -33,8 +33,8 @@ const container = {
   }),
 }
 
-const validateCrudMutationGuardMock = jest.fn()
-const runCrudMutationGuardAfterSuccessMock = jest.fn()
+const runRouteMutationGuardsMock = jest.fn()
+const runAfterSuccessMock = jest.fn()
 
 jest.mock('@open-mercato/shared/lib/di/container', () => ({
   createRequestContainer: jest.fn(async () => container),
@@ -55,9 +55,8 @@ jest.mock('@open-mercato/core/modules/directory/utils/organizationScope', () => 
   })),
 }))
 
-jest.mock('@open-mercato/shared/lib/crud/mutation-guard', () => ({
-  validateCrudMutationGuard: (...args: unknown[]) => validateCrudMutationGuardMock(...args),
-  runCrudMutationGuardAfterSuccess: (...args: unknown[]) => runCrudMutationGuardAfterSuccessMock(...args),
+jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
+  runRouteMutationGuards: (...args: unknown[]) => runRouteMutationGuardsMock(...args),
 }))
 
 jest.mock('@open-mercato/shared/lib/i18n/server', () => ({
@@ -91,8 +90,8 @@ describe('customer label route scoping', () => {
       ...payload,
     }))
     em.flush.mockResolvedValue(undefined)
-    validateCrudMutationGuardMock.mockResolvedValue({ ok: true, shouldRunAfterSuccess: true, metadata: { token: 'guard' } })
-    runCrudMutationGuardAfterSuccessMock.mockResolvedValue(undefined)
+    runRouteMutationGuardsMock.mockResolvedValue({ ok: true, runAfterSuccess: runAfterSuccessMock })
+    runAfterSuccessMock.mockResolvedValue(undefined)
     userHasAllFeaturesMock.mockResolvedValue(true)
     commandBusExecuteMock.mockResolvedValue({
       result: {
@@ -139,23 +138,18 @@ describe('customer label route scoping', () => {
         }),
       }),
     )
-    expect(validateCrudMutationGuardMock).toHaveBeenCalledWith(
-      container,
+    expect(runRouteMutationGuardsMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        tenantId,
-        organizationId,
-        userId,
-        resourceKind: 'customers.person',
-        resourceId: entityId,
-        operation: 'custom',
+        container,
+        auth: expect.objectContaining({ tenantId, organizationId, userId }),
+        input: expect.objectContaining({
+          resourceKind: 'customers.person',
+          resourceId: entityId,
+          operation: 'custom',
+        }),
       }),
     )
-    expect(runCrudMutationGuardAfterSuccessMock).toHaveBeenCalledWith(
-      container,
-      expect.objectContaining({
-        resourceKind: 'customers.person',
-      }),
-    )
+    expect(runAfterSuccessMock).toHaveBeenCalled()
   })
 
   it('assigns label with company resourceKind and checks customers.companies.manage', async () => {
@@ -175,11 +169,10 @@ describe('customer label route scoping', () => {
       ['customers.companies.manage'],
       { tenantId, organizationId },
     )
-    expect(validateCrudMutationGuardMock).toHaveBeenCalledWith(
-      container,
+    expect(runRouteMutationGuardsMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        resourceKind: 'customers.company',
-        resourceId: entityId,
+        container,
+        input: expect.objectContaining({ resourceKind: 'customers.company', resourceId: entityId }),
       }),
     )
   })
@@ -198,7 +191,7 @@ describe('customer label route scoping', () => {
 
     expect(response.status).toBe(403)
     expect(commandBusExecuteMock).not.toHaveBeenCalled()
-    expect(validateCrudMutationGuardMock).not.toHaveBeenCalled()
+    expect(runRouteMutationGuardsMock).not.toHaveBeenCalled()
   })
 
   it('unassigns label with scoped mutation guard and kind-appropriate feature check', async () => {
@@ -229,18 +222,18 @@ describe('customer label route scoping', () => {
         }),
       }),
     )
-    expect(validateCrudMutationGuardMock).toHaveBeenCalledWith(
-      container,
+    expect(runRouteMutationGuardsMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        tenantId,
-        organizationId,
-        userId,
-        resourceKind: 'customers.person',
-        resourceId: entityId,
-        operation: 'custom',
+        container,
+        auth: expect.objectContaining({ tenantId, organizationId, userId }),
+        input: expect.objectContaining({
+          resourceKind: 'customers.person',
+          resourceId: entityId,
+          operation: 'custom',
+        }),
       }),
     )
-    expect(runCrudMutationGuardAfterSuccessMock).toHaveBeenCalled()
+    expect(runAfterSuccessMock).toHaveBeenCalled()
   })
 
   it('unassign returns 403 when actor lacks the kind-appropriate manage feature', async () => {
@@ -257,6 +250,6 @@ describe('customer label route scoping', () => {
 
     expect(response.status).toBe(403)
     expect(commandBusExecuteMock).not.toHaveBeenCalled()
-    expect(validateCrudMutationGuardMock).not.toHaveBeenCalled()
+    expect(runRouteMutationGuardsMock).not.toHaveBeenCalled()
   })
 })

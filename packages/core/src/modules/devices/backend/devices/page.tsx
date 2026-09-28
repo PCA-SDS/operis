@@ -12,6 +12,7 @@ import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/u
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import type { FilterDef, FilterValues } from '@open-mercato/ui/backend/FilterBar'
+import { formatDateTime } from '@open-mercato/shared/lib/time'
 
 type Row = {
   id: string
@@ -32,17 +33,6 @@ type ResponsePayload = {
   page?: number
   pageSize?: number
   totalPages: number
-}
-
-function formatDate(value: string | null, t: (key: string) => string) {
-  if (!value) return t('devices.list.noValue')
-  try {
-    const date = new Date(value)
-    if (Number.isNaN(date.getTime())) return t('devices.list.noValue')
-    return date.toLocaleString()
-  } catch {
-    return t('devices.list.noValue')
-  }
 }
 
 export default function DevicesAdminListPage() {
@@ -223,7 +213,7 @@ export default function DevicesAdminListPage() {
     {
       accessorKey: 'last_seen_at',
       header: t('devices.list.columns.lastSeen'),
-      cell: ({ row }) => formatDate(row.original.last_seen_at, t),
+      cell: ({ row }) => formatDateTime(row.original.last_seen_at, { fallback: t('devices.list.noValue') }),
     },
   ], [t, userLabelById])
 

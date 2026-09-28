@@ -17,11 +17,12 @@ const logger = createLogger('shared').child({ component: 'crud' })
  * This mirrors `collectAndRunGuards()` in `factory.ts`: it runs **every** guard
  * collected from the global mutation-guard store (`getAllMutationGuardInstances()`)
  * plus the bridged legacy DI service (`bridgeLegacyGuard()`), so a custom route
- * enforces the same guard set as every `makeCrudRoute` write.
+ * enforces the same guard set as every `makeCrudRoute` write. Like the factory,
+ * the legacy DI service is bridged for `update`/`delete` only.
  *
- * Prefer this over the deprecated `validateCrudMutationGuard()` /
- * `runCrudMutationGuardAfterSuccess()` pair, which resolve only the single
- * DI-registered `crudMutationGuardService` and silently skip registry guards.
+ * It replaced the removed `validateCrudMutationGuard()` /
+ * `runCrudMutationGuardAfterSuccess()` pair, which resolved only the single
+ * DI-registered `crudMutationGuardService` and silently skipped registry guards.
  */
 
 export type RouteMutationGuardOperation = 'create' | 'update' | 'delete' | 'custom'
@@ -59,6 +60,15 @@ export type RouteMutationGuardBlocked = {
   response: Response
 }
 
+export type RouteMutationGuardAfterSuccessOverrides = {
+  /**
+   * The id of the record the write produced, when it differs from the
+   * validated `input.resourceId` (a create only learns its id on write).
+   * Nullish falls back to the validated id.
+   */
+  resourceId?: string | null
+}
+
 export type RouteMutationGuardPassed = {
   ok: true
   /** Merged payload when a guard transformed it; `undefined` when unchanged. */
@@ -68,7 +78,7 @@ export type RouteMutationGuardPassed = {
    * failures are caught and logged so a committed write still succeeds — call
    * this only after the mutation has committed.
    */
-  runAfterSuccess: () => Promise<void>
+  runAfterSuccess: (overrides?: RouteMutationGuardAfterSuccessOverrides) => Promise<void>
 }
 
 export type RouteMutationGuardResult = RouteMutationGuardBlocked | RouteMutationGuardPassed
@@ -148,7 +158,8 @@ export async function runRouteMutationGuards(params: {
   return {
     ok: true,
     modifiedPayload: guardResult.modifiedPayload,
-    runAfterSuccess: async () => {
+    runAfterSuccess: async (overrides) => {
+      const resourceId = overrides?.resourceId ?? input.resourceId ?? ''
       for (const { guard, metadata } of guardResult.afterSuccessCallbacks) {
         try {
           await guard.afterSuccess!({
@@ -156,7 +167,7 @@ export async function runRouteMutationGuards(params: {
             organizationId: auth.organizationId ?? null,
             userId: auth.userId,
             resourceKind: input.resourceKind,
-            resourceId: input.resourceId ?? '',
+            resourceId,
             operation,
             requestMethod: req.method,
             requestHeaders: req.headers,

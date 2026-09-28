@@ -51,8 +51,8 @@ const container = {
   }),
 }
 
-const validateCrudMutationGuardMock = jest.fn(async () => null as unknown)
-const runCrudMutationGuardAfterSuccessMock = jest.fn(async () => undefined)
+const runRouteMutationGuardsMock = jest.fn(async () => null as unknown)
+const runAfterSuccessMock = jest.fn(async () => undefined)
 
 jest.mock('@open-mercato/shared/lib/di/container', () => ({
   createRequestContainer: jest.fn(async () => container),
@@ -62,9 +62,8 @@ jest.mock('@open-mercato/shared/lib/auth/server', () => ({
   getAuthFromRequest: jest.fn(async () => ({ sub: userId, tenantId, orgId: organizationId })),
 }))
 
-jest.mock('@open-mercato/shared/lib/crud/mutation-guard', () => ({
-  validateCrudMutationGuard: (...args: unknown[]) => validateCrudMutationGuardMock(...args),
-  runCrudMutationGuardAfterSuccess: (...args: unknown[]) => runCrudMutationGuardAfterSuccessMock(...args),
+jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
+  runRouteMutationGuards: (...args: unknown[]) => runRouteMutationGuardsMock(...args),
 }))
 
 jest.mock('@open-mercato/core/modules/customer_accounts/data/entities', () => ({
@@ -100,7 +99,7 @@ describe('customer role ACL PUT — optimistic locking + mutation guard (#3194)'
       }
       return null
     })
-    validateCrudMutationGuardMock.mockResolvedValue(null)
+    runRouteMutationGuardsMock.mockResolvedValue({ ok: true, runAfterSuccess: runAfterSuccessMock })
   })
 
   afterAll(() => {
@@ -145,7 +144,7 @@ describe('customer role ACL PUT — optimistic locking + mutation guard (#3194)'
   })
 
   it('blocks the write when the generic mutation guard rejects it', async () => {
-    validateCrudMutationGuardMock.mockResolvedValueOnce({ ok: false, status: 423, body: { error: 'locked' } })
+    runRouteMutationGuardsMock.mockResolvedValueOnce({ ok: false, errorStatus: 423, errorBody: { error: 'locked' } })
     const res = await PUT(makeRequest(['portal.orders.view'], CURRENT_VERSION), { params: { id: roleId } })
     expect(res.status).toBe(423)
     expect(em.nativeUpdate).not.toHaveBeenCalled()
@@ -153,18 +152,10 @@ describe('customer role ACL PUT — optimistic locking + mutation guard (#3194)'
   })
 
   it('runs the mutation-guard after-success hook when the guard requests it', async () => {
-    validateCrudMutationGuardMock.mockResolvedValueOnce({ ok: true, shouldRunAfterSuccess: true, metadata: { trace: 'x' } })
+    runRouteMutationGuardsMock.mockResolvedValueOnce({ ok: true, runAfterSuccess: runAfterSuccessMock })
     const res = await PUT(makeRequest(['portal.orders.view'], CURRENT_VERSION), { params: { id: roleId } })
     expect(res.status).toBe(200)
-    expect(runCrudMutationGuardAfterSuccessMock).toHaveBeenCalledWith(
-      container,
-      expect.objectContaining({
-        resourceKind: 'customer_accounts.role',
-        resourceId: roleId,
-        operation: 'update',
-        metadata: { trace: 'x' },
-      }),
-    )
+    expect(runAfterSuccessMock).toHaveBeenCalled()
   })
 
   it('returns 404 when the role does not exist', async () => {
@@ -197,7 +188,7 @@ describe('customer role ACL PUT — optimistic locking + mutation guard (#3194)'
       organizationId,
       deletedAt: null,
     })
-    expect(validateCrudMutationGuardMock).not.toHaveBeenCalled()
+    expect(runRouteMutationGuardsMock).not.toHaveBeenCalled()
     expect(em.nativeUpdate).not.toHaveBeenCalled()
     expect(invalidateRoleCacheMock).not.toHaveBeenCalled()
   })

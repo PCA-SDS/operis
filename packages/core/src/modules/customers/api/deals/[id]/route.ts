@@ -34,6 +34,8 @@ import {
 } from '@open-mercato/shared/lib/crud/cache'
 import type { OrganizationScope } from '@open-mercato/core/modules/directory/utils/organizationScope'
 import { isMissingDealStageTransitionTable, warnMissingDealStageTransitionTable } from '../../../lib/dealStageTransitionTable'
+import { toRecordOrNull } from '@open-mercato/shared/lib/guards'
+import { forbidden, notFound } from '../../detailRouteHelpers'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['customers.deals.view'] },
@@ -42,14 +44,6 @@ export const metadata = {
 const paramsSchema = z.object({
   id: z.string().uuid(),
 })
-
-function notFound(message: string) {
-  return NextResponse.json({ error: message }, { status: 404 })
-}
-
-function forbidden(message: string) {
-  return NextResponse.json({ error: message }, { status: 403 })
-}
 
 type DealAssociation = {
   id: string
@@ -134,12 +128,6 @@ type DealSnapshotStageInfo = {
   stageLabel: string | null
 }
 
-function asObject(value: unknown): Record<string, unknown> | null {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? value as Record<string, unknown>
-    : null
-}
-
 function readRecordString(record: Record<string, unknown> | null, ...keys: string[]): string | null {
   if (!record) return null
   for (const key of keys) {
@@ -152,9 +140,9 @@ function readRecordString(record: Record<string, unknown> | null, ...keys: strin
 }
 
 function readSnapshotDealRecord(snapshot: unknown): Record<string, unknown> | null {
-  const root = asObject(snapshot)
+  const root = toRecordOrNull(snapshot)
   if (!root) return null
-  return asObject(root.deal) ?? root
+  return toRecordOrNull(root.deal) ?? root
 }
 
 function readSnapshotStageInfo(snapshot: unknown): DealSnapshotStageInfo {

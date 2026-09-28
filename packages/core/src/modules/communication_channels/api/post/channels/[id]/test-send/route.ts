@@ -14,6 +14,7 @@ import {
 } from '../../../../../lib/access-control'
 import { refreshCredentialsIfNeeded } from '../../../../../lib/credential-refresh'
 import { validateRouteMutationGuard } from '../../../../../lib/route-mutation-guard'
+import { emailSchema } from '@open-mercato/shared/lib/validation'
 
 type RbacServiceLike = {
   loadAcl: (
@@ -34,7 +35,7 @@ export const metadata = {
 }
 
 const bodySchema = z.object({
-  to: z.string().email(),
+  to: emailSchema(),
   subject: z.string().min(1).max(500).optional(),
   body: z.string().max(50_000).optional(),
 })

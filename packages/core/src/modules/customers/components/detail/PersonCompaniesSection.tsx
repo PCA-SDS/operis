@@ -14,6 +14,7 @@ import { CompanyCard, type EnrichedCompanyData } from './CompanyCard'
 import { useCustomerDictionary } from './hooks/useCustomerDictionary'
 import { LinkEntityDialog, type LinkEntityOption } from '../linking/LinkEntityDialog'
 import { createCompanyLinkAdapter } from '../linking/adapters/companyAdapter'
+import { sameIdSet } from '../../lib/idLists'
 
 type GuardedMutationRunner = <T,>(
   operation: () => Promise<T>,
@@ -35,12 +36,6 @@ type PersonCompaniesSectionProps = {
 }
 
 const LINKED_PAGE_SIZE = 20
-
-function sameIdSet(left: string[], right: string[]): boolean {
-  if (left.length !== right.length) return false
-  const rightSet = new Set(right)
-  return left.every((value) => rightSet.has(value))
-}
 
 function Pagination({
   page,

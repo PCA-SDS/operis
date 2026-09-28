@@ -33,24 +33,14 @@ import { ComponentReplacementHandles } from '@open-mercato/shared/modules/widget
 import { MarkdownPreview } from '../markdown'
 import { useRegisteredComponent } from '../injection/useRegisteredComponent'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { loadMarkdownPlugins } from '../markdown/useMarkdownRemarkPlugins'
+import { extractDictionaryValue } from './dictionaryValue'
 
 const logger = createLogger('ui').child({ component: 'CustomDataSection' })
 
 const isTestEnv =
   typeof process !== 'undefined' &&
   (process.env.NODE_ENV === 'test' || typeof process.env.JEST_WORKER_ID !== 'undefined')
-
-let markdownPluginsPromise: Promise<PluggableList> | null = null
-
-async function loadMarkdownPlugins(): Promise<PluggableList> {
-  if (isTestEnv) return []
-  if (!markdownPluginsPromise) {
-    markdownPluginsPromise = import('remark-gfm')
-      .then((mod) => [mod.default ?? mod] as PluggableList)
-      .catch(() => [])
-  }
-  return markdownPluginsPromise
-}
 
 const MARKDOWN_FIELD_TYPES = new Set<CrudField['type']>(['text', 'textarea', 'richtext'])
 const MARKDOWN_CLASSNAME =
@@ -62,21 +52,6 @@ function renderMarkdownValue(content: string, remarkPlugins: PluggableList) {
       {content}
     </MarkdownPreview>
   )
-}
-
-function extractDictionaryValue(entry: unknown): string | null {
-  if (typeof entry === 'string') {
-    const trimmed = entry.trim()
-    return trimmed.length ? trimmed : null
-  }
-  if (!entry || typeof entry !== 'object') return null
-  const record = entry as Record<string, unknown>
-  const candidate = record.value ?? record.name ?? record.id ?? record.key ?? record.label
-  if (typeof candidate === 'string') {
-    const trimmed = candidate.trim()
-    return trimmed.length ? trimmed : null
-  }
-  return null
 }
 
 function readCustomDataFieldValue(values: Record<string, unknown> | undefined, fieldId: string): unknown {

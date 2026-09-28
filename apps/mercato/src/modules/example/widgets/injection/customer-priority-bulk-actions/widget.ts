@@ -1,5 +1,6 @@
 import type { InjectionBulkActionWidget } from '@open-mercato/shared/modules/widgets/injection'
 import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
+import { readRowId } from '../rowIds'
 
 type PriorityRecord = {
   id: string
@@ -8,13 +9,6 @@ type PriorityRecord = {
 type PriorityListResponse = {
   items?: PriorityRecord[]
   data?: PriorityRecord[]
-}
-
-function readRowId(row: unknown): string | null {
-  if (!row || typeof row !== 'object') return null
-  const value = (row as Record<string, unknown>).id
-  if (typeof value !== 'string' || value.length === 0) return null
-  return value
 }
 
 const widget: InjectionBulkActionWidget = {

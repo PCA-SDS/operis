@@ -8,17 +8,8 @@ import { cn } from '@open-mercato/shared/lib/utils'
 import { useLocale, useT } from '@open-mercato/shared/lib/i18n/context'
 import { formatRelativeTime } from '@open-mercato/shared/lib/time'
 import type { NotificationRendererProps } from '@open-mercato/shared/modules/notifications/types'
-import { formatMoney } from '../../components/documents/lineItemUtils'
-import { useSalesDocumentTotals } from './useSalesDocumentTotals'
-
-function normalizeTotal(value?: string | null): string | null {
-  if (!value) return null
-  let trimmed = value.trim()
-  if (trimmed.startsWith('(') && trimmed.endsWith(')')) {
-    trimmed = trimmed.slice(1, -1).trim()
-  }
-  return trimmed.length ? trimmed : null
-}
+import { useSalesDocumentTotals, normalizeTotal } from './useSalesDocumentTotals'
+import { formatCurrency } from '@open-mercato/shared/lib/units/money'
 
 export function SalesQuoteCreatedRenderer({
   notification,
@@ -39,7 +30,7 @@ export function SalesQuoteCreatedRenderer({
 
   const currentTotal =
     totals && typeof totals.grandTotalGrossAmount === 'number'
-      ? formatMoney(totals.grandTotalGrossAmount, totals.currencyCode)
+      ? formatCurrency(totals.grandTotalGrossAmount, totals.currencyCode, { fallback: '—' })
       : fallbackTotal
 
   const viewAction = actions.find((action) => action.id === 'view') ?? actions[0] ?? null

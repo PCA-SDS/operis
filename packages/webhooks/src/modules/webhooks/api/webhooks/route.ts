@@ -10,16 +10,10 @@ import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { escapeLikePattern } from '@open-mercato/shared/lib/db/escapeLikePattern'
 import { parseBooleanToken } from '@open-mercato/shared/lib/boolean'
 import type { WebhookCreateInput, WebhookUpdateInput } from '../../data/validators'
+import { jsonResponse } from '@open-mercato/shared/lib/http/responses'
 
 type WebhookCrudCtx = CrudCtx & {
   __webhookSecret?: string
-}
-
-function json(payload: unknown, init: ResponseInit = { status: 200 }) {
-  return new Response(JSON.stringify(payload), {
-    ...init,
-    headers: { 'content-type': 'application/json', ...(init.headers || {}) },
-  })
 }
 
 const webhookListItemSchema = z.object({
@@ -136,14 +130,14 @@ const crud = makeCrudRoute<WebhookCreateInput, WebhookUpdateInput, z.infer<typeo
     beforeList: async (query, ctx) => {
       const auth = ctx.auth
       const { translate } = await resolveTranslations()
-      if (!auth?.tenantId) throw json({ error: translate('webhooks.errors.tenantRequired', 'Tenant context required') }, { status: 400 })
+      if (!auth?.tenantId) throw jsonResponse({ error: translate('webhooks.errors.tenantRequired', 'Tenant context required') }, { status: 400 })
 
       const { page, pageSize } = query
       const search = (query.search ?? '').trim().toLowerCase()
 
       const organizationIds = Array.isArray(ctx.organizationIds) ? ctx.organizationIds : null
       if (organizationIds && organizationIds.length === 0) {
-        throw json({ items: [], total: 0, page, pageSize, totalPages: 0 })
+        throw jsonResponse({ items: [], total: 0, page, pageSize, totalPages: 0 })
       }
 
       const em = ctx.container.resolve('em') as EntityManager
@@ -201,13 +195,13 @@ const crud = makeCrudRoute<WebhookCreateInput, WebhookUpdateInput, z.infer<typeo
         totalPages: Math.ceil(total / pageSize),
       }
 
-      throw json(payload)
+      throw jsonResponse(payload)
     },
     beforeCreate: async (input, ctx) => {
       const auth = ctx.auth
       const { translate } = await resolveTranslations()
-      if (!auth?.tenantId) throw json({ error: translate('webhooks.errors.tenantRequired', 'Tenant context required') }, { status: 400 })
-      if (!auth?.orgId) throw json({ error: translate('webhooks.errors.orgRequired', 'Organization context required') }, { status: 400 })
+      if (!auth?.tenantId) throw jsonResponse({ error: translate('webhooks.errors.tenantRequired', 'Tenant context required') }, { status: 400 })
+      if (!auth?.orgId) throw jsonResponse({ error: translate('webhooks.errors.orgRequired', 'Organization context required') }, { status: 400 })
 
       const scopedCtx = ctx as WebhookCrudCtx
       scopedCtx.__webhookSecret = generateWebhookSecret()
@@ -223,16 +217,16 @@ const crud = makeCrudRoute<WebhookCreateInput, WebhookUpdateInput, z.infer<typeo
     beforeDelete: async (id, ctx) => {
       const auth = ctx.auth
       const { translate } = await resolveTranslations()
-      if (!auth?.tenantId) throw json({ error: translate('webhooks.errors.tenantRequired', 'Tenant context required') }, { status: 400 })
+      if (!auth?.tenantId) throw jsonResponse({ error: translate('webhooks.errors.tenantRequired', 'Tenant context required') }, { status: 400 })
 
       const em = ctx.container.resolve('em') as EntityManager
       const record = await em.findOne(WebhookEntity, { id, deletedAt: null, tenantId: auth.tenantId })
-      if (!record) throw json({ error: translate('webhooks.errors.notFound', 'Webhook not found') }, { status: 404 })
+      if (!record) throw jsonResponse({ error: translate('webhooks.errors.notFound', 'Webhook not found') }, { status: 404 })
 
       const allowedIds = ctx.organizationScope?.allowedIds ?? null
       if (record.organizationId && Array.isArray(allowedIds) && allowedIds.length > 0) {
         if (!allowedIds.includes(record.organizationId)) {
-          throw json({ error: translate('webhooks.errors.forbidden', 'Forbidden') }, { status: 403 })
+          throw jsonResponse({ error: translate('webhooks.errors.forbidden', 'Forbidden') }, { status: 403 })
         }
       }
     },

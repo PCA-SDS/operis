@@ -21,6 +21,7 @@ import {
   EUDR_STATEMENT_STATUSES,
   EUDR_SUBMISSION_STATUSES,
 } from '../../../../data/validators'
+import { daysLeft, DAY_MS } from '../../../../lib/dates'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['eudr.statements.view'] },
@@ -39,7 +40,6 @@ type AvgCompletenessRow = {
   avg_completeness: string | number | null
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000
 const QUEUE_LIMIT = 5
 const NON_TERMINAL_SUBMISSION_STATUSES = ['draft', 'submitted'] as const
 
@@ -119,11 +119,6 @@ async function fetchAverageCompleteness(
   if (value === null) return null
   const parsed = typeof value === 'number' ? value : Number(value)
   return Number.isFinite(parsed) ? parsed : null
-}
-
-function daysLeft(deadline: string, now: Date): number {
-  const deadlineDate = new Date(`${deadline}T00:00:00.000Z`)
-  return Math.ceil((deadlineDate.getTime() - now.getTime()) / DAY_MS)
 }
 
 type QueueScope = { tenantId: string; organizationId: string }

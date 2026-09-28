@@ -32,6 +32,7 @@ import {
 import { logWorkflowEvent } from './event-logger'
 import * as stepHandler from './step-handler'
 import { branchToken } from './execution-token'
+import { normalizeWorkflowUserId } from './workflow-user-id'
 
 export interface AdvanceBranchesResult {
   outcome: 'joined' | 'waiting' | 'failed'
@@ -102,13 +103,6 @@ export async function resumeBranch(
 
 interface ParallelContext {
   userId?: string
-}
-
-function normalizeWorkflowUserId(value: unknown): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  if (!trimmed || trimmed.startsWith('trigger:')) return null
-  return trimmed
 }
 
 function getNestedValue(obj: any, path: string): any {

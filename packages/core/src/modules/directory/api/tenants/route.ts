@@ -18,11 +18,11 @@ import type { OpenApiMethodDoc, OpenApiRouteDoc } from '@open-mercato/shared/lib
 import { directoryTag, directoryErrorSchema, directoryOkSchema, tenantListResponseSchema } from '../openapi'
 import { escapeLikePattern } from '@open-mercato/shared/lib/db/escapeLikePattern'
 import { parseBooleanToken } from '@open-mercato/shared/lib/boolean'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 const listQuerySchema = z.object({
   id: z.string().uuid().optional(),
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(50),
+  ...paginationQuerySchema().shape,
   search: z.string().optional(),
   sortField: z.enum(['name', 'createdAt', 'updatedAt']).optional(),
   sortDir: z.enum(['asc', 'desc']).optional(),

@@ -1,3 +1,6 @@
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
+import { isRecord } from '@open-mercato/shared/lib/guards'
+
 export type TroubleshootingOption = {
   label: string
   next?: TroubleshootingNode
@@ -18,24 +21,14 @@ export type TroubleshootingGuideMatcher = {
 
 const MAX_TREE_DEPTH = 50
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
-
-function requiredText(value: unknown): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  return trimmed.length ? trimmed : null
-}
-
 function optionalText(value: unknown): string | undefined {
   if (value === undefined || value === null) return undefined
-  return requiredText(value) ?? undefined
+  return normalizeOptionalString(value) ?? undefined
 }
 
 function parseOption(raw: unknown, depth: number, seen: WeakSet<object>): TroubleshootingOption | null {
   if (!isRecord(raw)) return null
-  const label = requiredText(raw.label)
+  const label = normalizeOptionalString(raw.label)
   if (!label) return null
 
   const next = raw.next === undefined || raw.next === null
@@ -60,7 +53,7 @@ function parseNode(raw: unknown, depth: number, seen: WeakSet<object>): Troubles
   if (seen.has(raw)) return null
 
   seen.add(raw)
-  const prompt = requiredText(raw.prompt)
+  const prompt = normalizeOptionalString(raw.prompt)
   const optionsRaw = raw.options
   if (!prompt || !Array.isArray(optionsRaw)) {
     seen.delete(raw)

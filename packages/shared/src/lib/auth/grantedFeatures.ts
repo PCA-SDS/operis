@@ -1,6 +1,6 @@
 import type { AwilixContainer } from 'awilix'
 
-type RbacServiceLike = {
+export type RbacServiceLike = {
   getGrantedFeatures: (
     userId: string,
     opts: { tenantId: string | null; organizationId: string | null },

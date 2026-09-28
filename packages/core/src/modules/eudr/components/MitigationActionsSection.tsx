@@ -30,6 +30,8 @@ import {
   type EudrMitigationStatus,
   type EudrMitigationType,
 } from '../data/validators'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
+import { formatDate } from '@open-mercato/shared/lib/time'
 
 type MitigationActionRow = {
   id: string
@@ -66,19 +68,6 @@ type MutationContext = {
 
 export type MitigationActionsSectionProps = {
   riskAssessmentId: string
-}
-
-function optionalText(value: unknown): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  return trimmed.length ? trimmed : null
-}
-
-function formatDate(value: string | null | undefined, emptyLabel: string, locale: string): string {
-  if (!value) return emptyLabel
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return emptyLabel
-  return date.toLocaleDateString(locale || undefined)
 }
 
 function formatDateInput(value: string | null | undefined): string {
@@ -292,14 +281,14 @@ export function MitigationActionsSection({
       header: translate('eudr.mitigationActions.columns.dueDate'),
       cell: ({ row }) => (
         <span className={isOverdue(row.original) ? 'text-status-warning-text' : undefined}>
-          {formatDate(row.original.dueDate, translate('eudr.common.empty'), locale)}
+          {formatDate(row.original.dueDate, { fallback: translate('eudr.common.empty'), locale })}
         </span>
       ),
     },
     {
       accessorKey: 'completedAt',
       header: translate('eudr.mitigationActions.columns.completedAt'),
-      cell: ({ row }) => formatDate(row.original.completedAt, translate('eudr.common.empty'), locale),
+      cell: ({ row }) => formatDate(row.original.completedAt, { fallback: translate('eudr.common.empty'), locale }),
     },
   ], [locale, translate])
 
@@ -373,19 +362,19 @@ export function MitigationActionsSection({
             groups={groups}
             initialValues={initialValues}
             onSubmit={async (values) => {
-              const title = optionalText(values.title)
+              const title = normalizeOptionalString(values.title)
               if (!title) {
                 const message = translate('eudr.mitigationActions.form.titleRequired')
                 throw createCrudFormError(message, { title: message })
               }
               const payload = {
                 riskAssessmentId,
-                actionType: optionalText(values.actionType) ?? 'request_documents',
+                actionType: normalizeOptionalString(values.actionType) ?? 'request_documents',
                 title,
-                description: optionalText(values.description),
-                status: optionalText(values.status) ?? 'planned',
-                dueDate: optionalText(values.dueDate),
-                notes: optionalText(values.notes),
+                description: normalizeOptionalString(values.description),
+                status: normalizeOptionalString(values.status) ?? 'planned',
+                dueDate: normalizeOptionalString(values.dueDate),
+                notes: normalizeOptionalString(values.notes),
               }
               if (dialogMode === 'edit' && editingRow) {
                 await withScopedApiRequestHeaders(

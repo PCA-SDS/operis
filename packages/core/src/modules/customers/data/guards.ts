@@ -1,7 +1,7 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
 import type { MutationGuard } from '@open-mercato/shared/lib/crud/mutation-guard-registry'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
-import { parseOptimisticLockEnv } from '@open-mercato/shared/lib/crud/optimistic-lock'
+import { parseOptimisticLockEnv, normalizeIsoToken } from '@open-mercato/shared/lib/crud/optimistic-lock'
 import { getAllOptimisticLockReaders } from '@open-mercato/shared/lib/crud/optimistic-lock-store'
 import {
   OPTIMISTIC_LOCK_CONFLICT_CODE,
@@ -9,12 +9,6 @@ import {
   OPTIMISTIC_LOCK_ENV_VAR,
   OPTIMISTIC_LOCK_HEADER_NAME,
 } from '@open-mercato/shared/lib/crud/optimistic-lock-headers'
-
-function normalizeIsoToken(raw: string): string | null {
-  const ms = Date.parse(raw)
-  if (!Number.isFinite(ms)) return null
-  return new Date(ms).toISOString()
-}
 
 /**
  * HTTP header carrying the enterprise `record_locks` conflict resolution the

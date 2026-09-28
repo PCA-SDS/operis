@@ -30,8 +30,8 @@ const container = {
   }),
 }
 
-const runMessageMutationGuardsMock = jest.fn()
-const runMessageMutationGuardAfterSuccessMock = jest.fn()
+const runRouteMutationGuardsMock = jest.fn()
+const runAfterSuccessMock = jest.fn()
 
 jest.mock('@open-mercato/shared/lib/di/container', () => ({
   createRequestContainer: jest.fn(async () => container),
@@ -57,9 +57,8 @@ jest.mock('@open-mercato/shared/lib/encryption/find', () => ({
   findOneWithDecryption: (emInstance: typeof em, entity: unknown, filters: unknown) => emInstance.findOne(entity, filters),
 }))
 
-jest.mock('../guards', () => ({
-  runMessageMutationGuards: (...args: unknown[]) => runMessageMutationGuardsMock(...args),
-  runMessageMutationGuardAfterSuccess: (...args: unknown[]) => runMessageMutationGuardAfterSuccessMock(...args),
+jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
+  runRouteMutationGuards: (...args: unknown[]) => runRouteMutationGuardsMock(...args),
 }))
 
 import { POST as composeMessage } from '../route'
@@ -73,16 +72,12 @@ const REJECTION = {
   ok: false as const,
   errorStatus: 423,
   errorBody: { error: 'Record locked', guardId: 'record_locks.lock-check' },
-  afterSuccessCallbacks: [],
 }
 
 function allowGuard() {
-  runMessageMutationGuardsMock.mockImplementation(async () => {
+  runRouteMutationGuardsMock.mockImplementation(async () => {
     callOrder.push('guard:validate')
-    return {
-      ok: true,
-      afterSuccessCallbacks: [{ guard: { id: 'g' }, metadata: { token: 'guard' } }],
-    }
+    return { ok: true, runAfterSuccess: runAfterSuccessMock }
   })
 }
 
@@ -96,11 +91,11 @@ beforeEach(() => {
     callOrder.push('command')
     return { result: { id: messageId, threadId: 'thread-1', ok: true, actionId, result: {}, operationLogEntry: null }, logEntry: null }
   })
-  runMessageMutationGuardsMock.mockImplementation(async () => {
+  runRouteMutationGuardsMock.mockImplementation(async () => {
     callOrder.push('guard:validate')
-    return { ok: true, afterSuccessCallbacks: [] }
+    return { ok: true, runAfterSuccess: runAfterSuccessMock }
   })
-  runMessageMutationGuardAfterSuccessMock.mockImplementation(async () => {
+  runAfterSuccessMock.mockImplementation(async () => {
     callOrder.push('guard:after')
   })
 })
@@ -119,7 +114,7 @@ function draftMessage() {
 
 describe('messages compose route mutation guard wiring', () => {
   it('blocks the command when the guard rejects', async () => {
-    runMessageMutationGuardsMock.mockResolvedValue(REJECTION)
+    runRouteMutationGuardsMock.mockResolvedValue(REJECTION)
 
     const response = await composeMessage(composeRequest())
 
@@ -135,11 +130,13 @@ describe('messages compose route mutation guard wiring', () => {
 
     expect(response.status).toBe(201)
     expect(commandBusExecuteMock).toHaveBeenCalledWith('messages.messages.compose', expect.anything())
-    expect(runMessageMutationGuardsMock).toHaveBeenCalledWith(
-      container,
-      expect.objectContaining({ resourceKind: 'messages.message', operation: 'create' }),
+    expect(runRouteMutationGuardsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        container,
+        input: expect.objectContaining({ resourceKind: 'messages.message', operation: 'create' }),
+      }),
     )
-    expect(runMessageMutationGuardAfterSuccessMock).toHaveBeenCalledTimes(1)
+    expect(runAfterSuccessMock).toHaveBeenCalledTimes(1)
     expect(callOrder).toEqual(['guard:validate', 'command', 'guard:after'])
   })
 })
@@ -147,7 +144,7 @@ describe('messages compose route mutation guard wiring', () => {
 describe('messages update-draft route mutation guard wiring', () => {
   it('blocks the command when the guard rejects', async () => {
     em.findOne.mockResolvedValue(draftMessage())
-    runMessageMutationGuardsMock.mockResolvedValue(REJECTION)
+    runRouteMutationGuardsMock.mockResolvedValue(REJECTION)
 
     const response = await updateDraft(
       new Request('http://localhost/api/messages/x', { method: 'PATCH', body: JSON.stringify({ subject: 'edit' }) }),
@@ -169,9 +166,11 @@ describe('messages update-draft route mutation guard wiring', () => {
 
     expect(response.status).toBe(200)
     expect(commandBusExecuteMock).toHaveBeenCalledWith('messages.messages.update_draft', expect.anything())
-    expect(runMessageMutationGuardsMock).toHaveBeenCalledWith(
-      container,
-      expect.objectContaining({ resourceKind: 'messages.message', resourceId: messageId, operation: 'update' }),
+    expect(runRouteMutationGuardsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        container,
+        input: expect.objectContaining({ resourceKind: 'messages.message', resourceId: messageId, operation: 'update' }),
+      }),
     )
     expect(callOrder).toEqual(['guard:validate', 'command', 'guard:after'])
   })
@@ -180,7 +179,7 @@ describe('messages update-draft route mutation guard wiring', () => {
 describe('messages delete route mutation guard wiring', () => {
   it('blocks the command when the guard rejects', async () => {
     em.findOne.mockResolvedValue({ id: messageId, organizationId })
-    runMessageMutationGuardsMock.mockResolvedValue(REJECTION)
+    runRouteMutationGuardsMock.mockResolvedValue(REJECTION)
 
     const response = await deleteMessage(
       new Request('http://localhost/api/messages/x', { method: 'DELETE' }),
@@ -202,9 +201,11 @@ describe('messages delete route mutation guard wiring', () => {
 
     expect(response.status).toBe(200)
     expect(commandBusExecuteMock).toHaveBeenCalledWith('messages.messages.delete_for_actor', expect.anything())
-    expect(runMessageMutationGuardsMock).toHaveBeenCalledWith(
-      container,
-      expect.objectContaining({ resourceKind: 'messages.message', resourceId: messageId, operation: 'delete' }),
+    expect(runRouteMutationGuardsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        container,
+        input: expect.objectContaining({ resourceKind: 'messages.message', resourceId: messageId, operation: 'delete' }),
+      }),
     )
     expect(callOrder).toEqual(['guard:validate', 'command', 'guard:after'])
   })
@@ -224,7 +225,7 @@ describe('messages delete route mutation guard wiring', () => {
       ),
     ).rejects.toThrow('command boom')
 
-    expect(runMessageMutationGuardAfterSuccessMock).not.toHaveBeenCalled()
+    expect(runAfterSuccessMock).not.toHaveBeenCalled()
   })
 })
 
@@ -233,7 +234,7 @@ describe('messages mark-read route mutation guard wiring', () => {
     em.findOne
       .mockResolvedValueOnce({ id: messageId, organizationId })
       .mockResolvedValueOnce({ id: 'recipient-1', messageId, recipientUserId: userId })
-    runMessageMutationGuardsMock.mockResolvedValue(REJECTION)
+    runRouteMutationGuardsMock.mockResolvedValue(REJECTION)
 
     const response = await markRead(
       new Request('http://localhost/api/messages/x/read', { method: 'PUT' }),
@@ -257,9 +258,11 @@ describe('messages mark-read route mutation guard wiring', () => {
 
     expect(response.status).toBe(200)
     expect(commandBusExecuteMock).toHaveBeenCalledWith('messages.recipients.mark_read', expect.anything())
-    expect(runMessageMutationGuardsMock).toHaveBeenCalledWith(
-      container,
-      expect.objectContaining({ resourceKind: 'messages.message', resourceId: messageId, operation: 'update' }),
+    expect(runRouteMutationGuardsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        container,
+        input: expect.objectContaining({ resourceKind: 'messages.message', resourceId: messageId, operation: 'update' }),
+      }),
     )
     expect(callOrder).toEqual(['guard:validate', 'command', 'guard:after'])
   })
@@ -275,7 +278,7 @@ describe('messages reply route mutation guard wiring', () => {
   }
 
   it('blocks the command when the guard rejects', async () => {
-    runMessageMutationGuardsMock.mockResolvedValue(REJECTION)
+    runRouteMutationGuardsMock.mockResolvedValue(REJECTION)
 
     const response = await replyMessage(replyRequest(), { params: { id: messageId } })
 
@@ -290,9 +293,11 @@ describe('messages reply route mutation guard wiring', () => {
 
     expect(response.status).toBe(201)
     expect(commandBusExecuteMock).toHaveBeenCalledWith('messages.messages.reply', expect.anything())
-    expect(runMessageMutationGuardsMock).toHaveBeenCalledWith(
-      container,
-      expect.objectContaining({ resourceKind: 'messages.message', operation: 'create' }),
+    expect(runRouteMutationGuardsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        container,
+        input: expect.objectContaining({ resourceKind: 'messages.message', operation: 'create' }),
+      }),
     )
     expect(callOrder).toEqual(['guard:validate', 'command', 'guard:after'])
   })
@@ -300,7 +305,7 @@ describe('messages reply route mutation guard wiring', () => {
 
 describe('messages conversation-delete route mutation guard wiring', () => {
   it('blocks the command when the guard rejects', async () => {
-    runMessageMutationGuardsMock.mockResolvedValue(REJECTION)
+    runRouteMutationGuardsMock.mockResolvedValue(REJECTION)
 
     const response = await deleteConversation(
       new Request('http://localhost/api/messages/x/conversation', { method: 'DELETE' }),
@@ -321,9 +326,11 @@ describe('messages conversation-delete route mutation guard wiring', () => {
 
     expect(response.status).toBe(200)
     expect(commandBusExecuteMock).toHaveBeenCalledWith('messages.conversation.delete_for_actor', expect.anything())
-    expect(runMessageMutationGuardsMock).toHaveBeenCalledWith(
-      container,
-      expect.objectContaining({ resourceKind: 'messages.conversation', resourceId: messageId, operation: 'delete' }),
+    expect(runRouteMutationGuardsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        container,
+        input: expect.objectContaining({ resourceKind: 'messages.conversation', resourceId: messageId, operation: 'delete' }),
+      }),
     )
     expect(callOrder).toEqual(['guard:validate', 'command', 'guard:after'])
   })
@@ -331,7 +338,7 @@ describe('messages conversation-delete route mutation guard wiring', () => {
 
 describe('messages action-execute route mutation guard wiring', () => {
   it('blocks the command when the guard rejects', async () => {
-    runMessageMutationGuardsMock.mockResolvedValue(REJECTION)
+    runRouteMutationGuardsMock.mockResolvedValue(REJECTION)
 
     const response = await executeAction(
       new Request('http://localhost/api/messages/x/actions/y', { method: 'POST', body: JSON.stringify({}) }),
@@ -352,9 +359,11 @@ describe('messages action-execute route mutation guard wiring', () => {
 
     expect(response.status).toBe(200)
     expect(commandBusExecuteMock).toHaveBeenCalledWith('messages.actions.execute', expect.anything())
-    expect(runMessageMutationGuardsMock).toHaveBeenCalledWith(
-      container,
-      expect.objectContaining({ resourceKind: 'messages.message', resourceId: messageId, operation: 'update' }),
+    expect(runRouteMutationGuardsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        container,
+        input: expect.objectContaining({ resourceKind: 'messages.message', resourceId: messageId, operation: 'update' }),
+      }),
     )
     expect(callOrder).toEqual(['guard:validate', 'command', 'guard:after'])
   })

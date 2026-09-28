@@ -12,6 +12,7 @@ import {
   createSalesCrudOpenApi,
   defaultDeleteRequestSchema,
 } from '../api/openapi'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 type ResolveDictionaryContextInput = {
   em: EntityManager
@@ -105,8 +106,7 @@ export function makeStatusDictionaryRoute(config: StatusDictionaryRouteConfig) {
 
   const listSchema = z
     .object({
-      page: z.coerce.number().int().min(1).default(1),
-      pageSize: z.coerce.number().int().min(1).max(100).default(50),
+      ...paginationQuerySchema().shape,
       id: z.string().uuid().optional(),
       search: z.string().optional(),
       sortField: z.string().optional(),

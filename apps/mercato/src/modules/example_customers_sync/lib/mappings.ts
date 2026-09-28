@@ -175,7 +175,7 @@ export async function findMappingByTodoId(
   )
 }
 
-function isDuplicateKeyError(error: unknown): boolean {
+export function isDuplicateKeyError(error: unknown): boolean {
   return Boolean(
     error
     && typeof error === 'object'

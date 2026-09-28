@@ -25,6 +25,7 @@ import { deriveScheduleConfirmationStatus } from '../lib/scheduleTracking'
 import { compareAppointmentListRows } from '../lib/appointmentListSorting'
 import { getVisibleAppointmentExternalNotes } from '../lib/notes'
 import { buildIlikeTerm } from '@open-mercato/shared/lib/db/buildIlikeTerm'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['appointments.view'] },
@@ -51,8 +52,7 @@ function parseDateRange(value: string | null, endOfDay: boolean): Date | null {
 }
 
 const appointmentListQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(50),
+  ...paginationQuerySchema().shape,
   search: z.string().trim().optional(),
   statusCode: z.string().trim().optional(),
   organizationId: z.string().uuid().optional(),

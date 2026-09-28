@@ -4,41 +4,10 @@ import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { parseBooleanToken } from '@open-mercato/shared/lib/boolean'
 import { Tenant } from '@open-mercato/core/modules/directory/data/entities'
 import type { TenantModuleService } from '@open-mercato/core/modules/directory/lib/tenantModules'
-
-type ParsedArgs = Record<string, string | boolean>
-
-function parseArgs(rest: string[]): ParsedArgs {
-  const args: ParsedArgs = {}
-  for (let index = 0; index < rest.length; index += 1) {
-    const part = rest[index]
-    if (!part?.startsWith('--')) continue
-    const [rawKey, rawValue] = part.slice(2).split('=')
-    if (!rawKey) continue
-    if (rawValue !== undefined) {
-      args[rawKey] = rawValue
-      continue
-    }
-    const next = rest[index + 1]
-    if (next && !next.startsWith('--')) {
-      args[rawKey] = next
-      index += 1
-      continue
-    }
-    args[rawKey] = true
-  }
-  return args
-}
-
-function stringOption(args: ParsedArgs, ...keys: string[]): string | undefined {
-  for (const key of keys) {
-    const value = args[key]
-    if (typeof value === 'string' && value.trim().length) return value.trim()
-  }
-  return undefined
-}
+import { parseCliArgs, stringOption, type CliArgs } from '@open-mercato/shared/lib/cli/args'
 
 /** Bare `--flag` reads as `true`; `--flag=false` keeps its explicit value. */
-function flagValue(args: ParsedArgs, key: string): string | null {
+function flagValue(args: CliArgs, key: string): string | null {
   const value = args[key]
   if (value === undefined) return null
   return value === true ? 'true' : String(value)
@@ -81,7 +50,7 @@ async function resolveTenantIds(em: EntityManager, tenantId: string | undefined)
 const syncTenantModules: ModuleCli = {
   command: 'sync-tenant-modules',
   async run(rest) {
-    const args = parseArgs(rest)
+    const args = parseCliArgs(rest)
     const tenantId = stringOption(args, 'tenant', 'tenantId')
     const applyDefaults = parseBooleanToken(flagValue(args, 'apply-defaults')) ?? false
     const forceEnabledByDefault = parseBooleanToken(flagValue(args, 'enable-all')) ?? false
@@ -113,7 +82,7 @@ const syncTenantModules: ModuleCli = {
 const listTenantModules: ModuleCli = {
   command: 'list-tenant-modules',
   async run(rest) {
-    const args = parseArgs(rest)
+    const args = parseCliArgs(rest)
     const tenantId = stringOption(args, 'tenant', 'tenantId')
     if (!tenantId) {
       console.error('Usage: mercato directory list-tenant-modules --tenant <tenantId>')
@@ -147,7 +116,7 @@ const listTenantModules: ModuleCli = {
 const setTenantModule: ModuleCli = {
   command: 'set-tenant-module',
   async run(rest) {
-    const args = parseArgs(rest)
+    const args = parseCliArgs(rest)
     const tenantId = stringOption(args, 'tenant', 'tenantId')
     const moduleId = stringOption(args, 'module', 'moduleId')
     const enabledRaw = args.enabled

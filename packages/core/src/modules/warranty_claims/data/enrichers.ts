@@ -1,6 +1,7 @@
 import type { Kysely } from 'kysely'
 import type { EnricherContext, ResponseEnricher } from '@open-mercato/shared/lib/crud/response-enricher'
 import { CLAIM_METRIC_TERMINAL_STATUSES } from './constants'
+import { toIsoOrNull } from '@open-mercato/shared/lib/date/normalize'
 
 type NumericAggregateValue = string | number | bigint | null
 type NumericCountValue = Exclude<NumericAggregateValue, null>
@@ -60,12 +61,6 @@ function parseCount(value: NumericAggregateValue): number {
   return Number.isFinite(parsed) ? Math.trunc(parsed) : 0
 }
 
-function toIsoString(value: Date | string | null): string | null {
-  if (value === null) return null
-  const date = value instanceof Date ? value : new Date(value)
-  return Number.isNaN(date.getTime()) ? null : date.toISOString()
-}
-
 function withZeroPayload(records: CustomerRecord[]): Array<CustomerRecord & WarrantyClaimsEnrichment> {
   return records.map((record) => ({
     ...record,
@@ -112,7 +107,7 @@ async function enrichCustomerClaimMetrics(
     metricsByCustomer.set(customerId, {
       openCount: parseCount(row.open_count),
       lifetimeCount: parseCount(row.lifetime_count),
-      lastClaimDate: toIsoString(row.last_claim_date),
+      lastClaimDate: toIsoOrNull(row.last_claim_date),
     })
   }
 

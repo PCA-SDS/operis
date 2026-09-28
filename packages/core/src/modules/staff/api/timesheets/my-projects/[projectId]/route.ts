@@ -11,11 +11,8 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { StaffTimeProjectMember, StaffTeamMember } from '../../../../data/entities'
 import { staffMyProjectVisibilityUpdateSchema } from '../../../../data/validators'
-import {
-  runStaffMutationGuardAfterSuccess,
-  runStaffMutationGuards,
-} from '../../../guards'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const logger = createLogger('staff')
 
@@ -113,42 +110,28 @@ export async function PATCH(req: Request) {
       })
     }
 
-    const guardResult = await runStaffMutationGuards(
+    const guardResult = await runRouteMutationGuards({
       container,
-      {
-        tenantId,
-        organizationId,
-        userId: auth.sub ?? '',
+      req,
+      auth: { userId: auth.sub ?? '', tenantId, organizationId },
+      input: {
         resourceKind: 'staff.timesheets.time_project_member',
         resourceId: membership.id,
         operation: 'update',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
         mutationPayload: parsed.data as unknown as Record<string, unknown>,
       },
-    )
+    })
     if (!guardResult.ok) {
       return NextResponse.json(
-        guardResult.errorBody ?? { error: 'Operation blocked by guard' },
-        { status: guardResult.errorStatus ?? 422 },
+        guardResult.errorBody,
+        { status: guardResult.errorStatus },
       )
     }
 
     membership.showInGrid = parsed.data.showInGrid
     await em.flush()
 
-    if (guardResult.afterSuccessCallbacks.length) {
-      await runStaffMutationGuardAfterSuccess(guardResult.afterSuccessCallbacks, {
-        tenantId,
-        organizationId,
-        userId: auth.sub ?? '',
-        resourceKind: 'staff.timesheets.time_project_member',
-        resourceId: membership.id,
-        operation: 'update',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
-      })
-    }
+    await guardResult.runAfterSuccess()
 
     return NextResponse.json({ ok: true, showInGrid: membership.showInGrid }, { status: 200 })
   } catch (err) {

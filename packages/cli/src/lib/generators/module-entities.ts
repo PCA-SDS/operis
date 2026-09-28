@@ -1,8 +1,7 @@
-import fs from 'node:fs'
 import path from 'node:path'
 import { StructureKind, VariableDeclarationKind } from 'ts-morph'
 import type { PackageResolver } from '../resolver'
-import { MODULE_CODE_EXTENSIONS, stripModuleCodeExtension } from './scanner'
+import { stripModuleCodeExtension, resolveConventionFile } from './scanner'
 import {
   toVar,
   type GeneratorResult,
@@ -212,12 +211,4 @@ export async function generateModuleEntities(options: ModuleEntitiesOptions): Pr
   })
 
   return result
-}
-
-function resolveConventionFile(baseDir: string, basename: string): string | null {
-  for (const extension of MODULE_CODE_EXTENSIONS) {
-    const candidate = path.join(baseDir, `${basename}${extension}`)
-    if (fs.existsSync(candidate)) return candidate
-  }
-  return null
 }

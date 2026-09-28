@@ -17,12 +17,12 @@ import {
   sortTodoRows,
 } from '../../../lib/todoCompatibility'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 const logger = createLogger('customers')
 
 const querySchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(50),
+  ...paginationQuerySchema().shape,
   search: z.string().optional(),
   all: z.string().optional(),
   entityId: z.string().uuid().optional(),

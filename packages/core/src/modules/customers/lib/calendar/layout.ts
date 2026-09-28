@@ -4,7 +4,7 @@ import {
   addCalendarDays,
   calendarDaysBetween,
   startOfLocalDay,
-  wallMinutes,
+  wallMinutes, isSameLocalDay,
 } from './time'
 
 /**
@@ -270,7 +270,7 @@ export function packAllDayBars(items: CalendarItem[], days: Date[]): AllDayBar[]
 export function packMonthRowBars(items: CalendarItem[], weekDays: Date[]): AllDayBar[] {
   const spanning = items.filter((item) => {
     if (belongsInAllDayLane(item)) return true
-    return !isSameCalendarDay(item.start, new Date(item.end.getTime() - 1))
+    return !isSameLocalDay(item.start, new Date(item.end.getTime() - 1))
   })
   const bounds: Array<Omit<AllDayBar, 'lane'>> = []
   for (const item of spanning) {
@@ -281,21 +281,13 @@ export function packMonthRowBars(items: CalendarItem[], weekDays: Date[]): AllDa
   return assignLanes(bounds)
 }
 
-function isSameCalendarDay(first: Date, second: Date): boolean {
-  return (
-    first.getFullYear() === second.getFullYear() &&
-    first.getMonth() === second.getMonth() &&
-    first.getDate() === second.getDate()
-  )
-}
-
 /** Single-cell entries for a month day, in the order a calendar shows them. */
 export function singleDayItemsFor(items: CalendarItem[], day: Date): CalendarItem[] {
   return items
     .filter((item) => {
       if (belongsInAllDayLane(item)) return false
-      if (!isSameCalendarDay(item.start, new Date(item.end.getTime() - 1))) return false
-      return isSameCalendarDay(item.start, day)
+      if (!isSameLocalDay(item.start, new Date(item.end.getTime() - 1))) return false
+      return isSameLocalDay(item.start, day)
     })
     .sort((first, second) => {
       const startDelta = first.start.getTime() - second.start.getTime()

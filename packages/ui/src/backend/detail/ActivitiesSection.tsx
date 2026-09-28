@@ -21,14 +21,14 @@ import { formatRelativeTime, formatDateTime } from '@open-mercato/shared/lib/tim
 import { ErrorMessage, LoadingMessage, TabEmptyState } from './'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { DEALS_IN_PRODUCT } from '@open-mercato/shared/lib/product-scope'
-import { createTranslatorWithFallback } from '@open-mercato/shared/lib/i18n/translate'
+import { createTranslatorWithFallback, type TranslateWithFallbackFn } from '@open-mercato/shared/lib/i18n/translate'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@open-mercato/ui/primitives/dialog'
 import { useConfirmDialog } from '../confirm-dialog'
 import { ComponentReplacementHandles } from '@open-mercato/shared/modules/widgets/component-registry'
 import { useRegisteredComponent } from '../injection/useRegisteredComponent'
 import { useModuleEnabled } from '../BackendChromeProvider'
-
-type Translator = (key: string, fallback?: string, params?: Record<string, string | number>) => string
+import { toLocalDateTimeInput } from '../utils/dateTimeLocalInput'
+import { normalizeCustomFieldSubmitValue } from '../utils/customFieldSubmitValue'
 
 export type ActivitySummary = {
   id: string
@@ -120,16 +120,6 @@ const schema = {
     }
     return result
   },
-}
-
-function toLocalDateTimeInput(value?: string | null): string {
-  if (!value) return ''
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  const pad = (input: number) => `${input}`.padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(
-    date.getMinutes(),
-  )}`
 }
 
 
@@ -235,14 +225,6 @@ type ActivityFormProps = {
   appearanceLabels?: AppearanceSelectorLabels
 }
 
-function normalizeCustomFieldSubmitValue(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    return value.filter((entry) => entry !== undefined)
-  }
-  if (value === undefined) return null
-  return value
-}
-
 function buildActivityValidationError(errors: Array<{ path: string; message: string }>, translate: (key: string, fallback?: string) => string) {
   const issue = errors[0]
   if (!issue) {
@@ -275,7 +257,7 @@ function ActivityForm({
   appearanceLabels,
 }: ActivityFormProps) {
   const tHook = useT()
-  const t = React.useMemo<Translator>(() => createTranslatorWithFallback(tHook), [tHook])
+  const t = React.useMemo<TranslateWithFallbackFn>(() => createTranslatorWithFallback(tHook), [tHook])
   const translate = React.useCallback(
     (suffix: string, fallback?: string) => t(`${labelPrefix}.${suffix}`, fallback ?? ''),
     [labelPrefix, t],
@@ -630,7 +612,7 @@ function ActivityDialog({
   appearanceLabels,
 }: ActivityDialogProps) {
   const tHook = useT()
-  const t = React.useMemo<Translator>(() => createTranslatorWithFallback(tHook), [tHook])
+  const t = React.useMemo<TranslateWithFallbackFn>(() => createTranslatorWithFallback(tHook), [tHook])
   const translate = React.useCallback(
     (suffix: string, fallback?: string, params?: Record<string, string | number>) =>
       t(`${labelPrefix}.${suffix}`, fallback ?? '', params),
@@ -736,7 +718,7 @@ function ActivitiesSectionImpl<C = unknown>({
 }: ActivitiesSectionProps<C>) {
   const { confirm, ConfirmDialogElement } = useConfirmDialog()
   const tHook = useT()
-  const baseTranslator = React.useMemo<Translator>(() => createTranslatorWithFallback(tHook), [tHook])
+  const baseTranslator = React.useMemo<TranslateWithFallbackFn>(() => createTranslatorWithFallback(tHook), [tHook])
   const translate = React.useCallback(
     (suffix: string, fallback?: string, params?: Record<string, string | number>) =>
       baseTranslator(`${labelPrefix}.${suffix}`, fallback ?? '', params),

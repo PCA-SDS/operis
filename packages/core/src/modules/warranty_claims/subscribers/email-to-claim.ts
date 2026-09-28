@@ -4,6 +4,8 @@ import type { ModuleConfigService } from '@open-mercato/core/modules/configs/lib
 import { parseBooleanWithDefault } from '@open-mercato/shared/lib/boolean'
 import { createOrGetClaimFromInboundMessage } from '../lib/emailIntake'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { toRecord } from '@open-mercato/shared/lib/guards'
+import { readTrimmedString } from '@open-mercato/shared/lib/string'
 
 const logger = createLogger('warranty_claims')
 
@@ -30,18 +32,9 @@ type SubscriberContext = Resolver & {
   organizationId?: string | null
 }
 
-function toRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
-}
-
-function readString(record: Record<string, unknown>, key: string): string | null {
-  const value = record[key]
-  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
-}
-
 function readFirstString(record: Record<string, unknown>, keys: string[]): string | null {
   for (const key of keys) {
-    const value = readString(record, key)
+    const value = readTrimmedString(record, key)
     if (value) return value
   }
   return null
@@ -49,7 +42,7 @@ function readFirstString(record: Record<string, unknown>, keys: string[]): strin
 
 function readNestedString(record: Record<string, unknown>, parentKey: string, childKey: string): string | null {
   const child = toRecord(record[parentKey])
-  return readString(child, childKey)
+  return readTrimmedString(child, childKey)
 }
 
 function resolveContainer(ctx: SubscriberContext): AwilixContainer {

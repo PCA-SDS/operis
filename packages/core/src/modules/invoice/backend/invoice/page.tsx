@@ -12,6 +12,7 @@ import { useInvoiceT as useT } from '../../lib/useInvoiceT'
 import { InvoiceSyncButton } from './components/InvoiceSyncButton'
 import { formatInvoiceMoney } from '../../lib/format'
 import type { InvoiceForecastDto, InvoiceSummaryDto } from '../../data/mappers'
+import { addDaysToIsoDate } from '@open-mercato/shared/lib/date/format'
 
 type Invoice = { direction: 'AR' | 'AP'; settlementStatus: string | null }
 type InvoiceList = { items?: Invoice[]; data?: Invoice[] }
@@ -20,12 +21,6 @@ const PRESETS = [7, 30, 90]
 
 function Amount({ value }: { value: string }) {
   return <span>{formatInvoiceMoney(value, 'VND')}</span>
-}
-
-function addDays(iso: string, days: number): string {
-  const date = new Date(`${iso}T00:00:00.000Z`)
-  date.setUTCDate(date.getUTCDate() + days)
-  return date.toISOString().slice(0, 10)
 }
 
 function Card({ title, value, caption }: { title: string; value: string; caption: string }) {
@@ -79,7 +74,7 @@ export default function InvoiceDashboardPage() {
   const loadSummary = React.useCallback(async (nextForecast: InvoiceForecastDto, nextCutoff: number) => {
     setSummaryLoading(true)
     try {
-      const query = nextCutoff >= nextForecast.horizonDays ? '' : `?throughDate=${addDays(nextForecast.today, nextCutoff)}`
+      const query = nextCutoff >= nextForecast.horizonDays ? '' : `?throughDate=${addDaysToIsoDate(nextForecast.today, nextCutoff)}`
       const response = await apiCall<InvoiceSummaryDto>(`/api/invoice/summary${query}`)
       if (!response.ok || !response.result) throw new Error('[internal] invoice summary load failed')
       setSummary(response.result)
@@ -104,7 +99,7 @@ export default function InvoiceDashboardPage() {
   const cutoffSegment = selectedCutoff === forecast.horizonDays && !cutoffPresets.includes(selectedCutoff)
     ? 'horizon'
     : String(selectedCutoff)
-  const throughDate = addDays(forecast.today, selectedCutoff)
+  const throughDate = addDaysToIsoDate(forecast.today, selectedCutoff)
   const chartData = forecast.net.points
     .filter((point) => point.date <= throughDate)
     .map((point) => ({

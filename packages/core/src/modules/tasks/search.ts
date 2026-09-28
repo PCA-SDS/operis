@@ -1,19 +1,9 @@
 import type {
-  SearchBuildContext,
-  SearchIndexSource,
   SearchModuleConfig,
   SearchResultPresenter,
 } from '@open-mercato/shared/modules/search'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
-
-function pickString(...candidates: unknown[]): string | null {
-  for (const candidate of candidates) {
-    if (typeof candidate !== 'string') continue
-    const trimmed = candidate.trim()
-    if (trimmed.length > 0) return trimmed
-  }
-  return null
-}
+import { pickString, toIndexSource } from '@open-mercato/shared/modules/search/descriptorHelpers'
 
 function snippet(value: unknown, max = 140): string | undefined {
   if (typeof value !== 'string') return undefined
@@ -27,19 +17,6 @@ function appendLine(lines: string[], label: string, value: unknown): void {
   const text = typeof value === 'object' ? JSON.stringify(value) : String(value)
   if (!text.trim()) return
   lines.push(`${label}: ${text}`)
-}
-
-function buildSource(
-  ctx: SearchBuildContext,
-  presenter: SearchResultPresenter,
-  lines: string[],
-): SearchIndexSource | null {
-  if (!lines.length) return null
-  return {
-    text: lines,
-    presenter,
-    checksumSource: { record: ctx.record, customFields: ctx.customFields },
-  }
 }
 
 /**
@@ -60,7 +37,7 @@ export const searchConfig: SearchModuleConfig = {
         const lines: string[] = []
         appendLine(lines, 'Title', record.title)
         appendLine(lines, 'Description', record.description_plaintext)
-        return buildSource(ctx, taskPresenter(t, record), lines)
+        return toIndexSource(ctx, taskPresenter(t, record), lines)
       },
       formatResult: async (ctx) => {
         const { t } = await resolveTranslations()
@@ -82,7 +59,7 @@ export const searchConfig: SearchModuleConfig = {
         appendLine(lines, 'Name', record.name)
         appendLine(lines, 'Key', record.key)
         appendLine(lines, 'Description', record.description)
-        return buildSource(ctx, projectPresenter(t, record), lines)
+        return toIndexSource(ctx, projectPresenter(t, record), lines)
       },
       formatResult: async (ctx) => {
         const { t } = await resolveTranslations()
@@ -102,7 +79,7 @@ export const searchConfig: SearchModuleConfig = {
         const lines: string[] = []
         appendLine(lines, 'Title', record.title)
         appendLine(lines, 'Body', record.body_plaintext)
-        return buildSource(ctx, docPresenter(t, record), lines)
+        return toIndexSource(ctx, docPresenter(t, record), lines)
       },
       formatResult: async (ctx) => {
         const { t } = await resolveTranslations()

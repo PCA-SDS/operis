@@ -1,8 +1,8 @@
-import { z, type ZodTypeAny } from 'zod'
+import { z } from 'zod'
 import type { OpenApiResponseDoc, OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import {
   createCrudOpenApiFactory,
-  createPagedListResponseSchema as createSharedPagedListResponseSchema,
+  createOptionalMetaPagedListResponseSchema,
   defaultCreateResponseSchema as sharedDefaultCreateResponseSchema,
   defaultOkResponseSchema as sharedDefaultOkResponseSchema,
   type CrudOpenApiOptions,
@@ -43,9 +43,7 @@ export const invoicePublicErrors = [
   { status: 429, description: 'Too many requests', schema: invoiceErrorSchema },
 ] as const satisfies readonly OpenApiResponseDoc[]
 
-export function createPagedListResponseSchema(itemSchema: ZodTypeAny) {
-  return createSharedPagedListResponseSchema(itemSchema, { paginationMetaOptional: true })
-}
+export const createPagedListResponseSchema = createOptionalMetaPagedListResponseSchema
 
 const buildInvoiceCrudOpenApi = createCrudOpenApiFactory({
   defaultTag: invoiceTag,

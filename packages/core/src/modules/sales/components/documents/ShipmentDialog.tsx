@@ -21,11 +21,12 @@ import { cn } from '@open-mercato/shared/lib/utils'
 import { E } from '#generated/entities.ids.generated'
 import { emitSalesDocumentTotalsRefresh } from '@open-mercato/core/modules/sales/lib/frontend/documentTotalsEvents'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
-import { formatMoney, normalizeNumber } from './lineItemUtils'
 import type { OrderLine, ShipmentRow } from './shipmentTypes'
 import { formatAddressString, type AddressFormatStrategy, type AddressValue } from '@open-mercato/core/modules/customers/utils/addressFormat'
 import { normalizeCustomFieldSubmitValue, extractCustomFieldValues } from '@open-mercato/shared/lib/crud/custom-fields-client'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { toNumber } from '../../lib/numbers'
+import { formatCurrency } from '@open-mercato/shared/lib/units/money'
 
 const logger = createLogger('sales')
 
@@ -132,7 +133,7 @@ const parseTrackingNumbers = (value: string | null | undefined): string[] =>
     .filter((entry) => entry.length > 0)
 
 const normalizePrice = (value: unknown): number | null => {
-  const parsed = normalizeNumber(value, NaN)
+  const parsed = toNumber(value, NaN)
   if (!Number.isFinite(parsed)) return null
   if (parsed <= 0) return null
   return parsed
@@ -540,14 +541,14 @@ export function ShipmentDialog({
       if (option.avgPrice !== null) {
         parts.push(
           t('sales.documents.shipments.shippingMethodAvg', 'Avg {{price}}', {
-            price: formatMoney(option.avgPrice, currency ?? null),
+            price: formatCurrency(option.avgPrice, currency ?? null, { fallback: '—' }),
           }),
         )
       }
       if (option.minPrice !== null) {
         parts.push(
           t('sales.documents.shipments.shippingMethodMin', 'Min {{price}}', {
-            price: formatMoney(option.minPrice, currency ?? null),
+            price: formatCurrency(option.minPrice, currency ?? null, { fallback: '—' }),
           }),
         )
       }

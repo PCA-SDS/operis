@@ -1,10 +1,8 @@
 "use client"
 
 import { useT } from '@open-mercato/shared/lib/i18n/context'
-import {
-  AttachmentVisualPreview,
-  formatAttachmentFileSize,
-} from '@open-mercato/ui/backend/detail/AttachmentVisualPreview'
+import { AttachmentVisualPreview } from '@open-mercato/ui/backend/detail/AttachmentVisualPreview'
+import { formatFileSize } from '@open-mercato/shared/lib/units/fileSize'
 import {
   buildAttachmentImageUrl,
   slugifyAttachmentFileName,
@@ -75,7 +73,7 @@ export function MessageDetailAttachmentsSection(props: AttachmentsPanelProps) {
             <div className="min-w-0 flex-1">
               <p className="truncate">{attachment.fileName}</p>
               <p className="text-xs text-muted-foreground">
-                {formatAttachmentFileSize(attachment.fileSize)}
+                {formatFileSize(attachment.fileSize)}
               </p>
             </div>
           </a>

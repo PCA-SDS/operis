@@ -20,9 +20,10 @@ import { getWebhookEndpointAdapter } from '../../../lib/adapter-registry'
 import { getWebhookSource } from '../../../lib/inbound-registry'
 import { enqueueInboundDispatch } from '../../../lib/queue'
 import { isWebhookIntegrationEnabled, WEBHOOK_INTEGRATION_DISABLED_MESSAGE } from '../../../lib/integration-state'
-import { json } from '../../helpers'
 import { InboundEndpointConfigEntity, WebhookIngestionEntity, WebhookInboundReceiptEntity } from '../../../data/entities'
 import { isUniqueViolation } from '@open-mercato/shared/lib/db/pg-errors'
+import { jsonResponse } from '@open-mercato/shared/lib/http/responses'
+import { tryResolve } from '@open-mercato/shared/lib/di/tryResolve'
 
 type IntegrationCredentialsService = {
   resolve: (
@@ -64,7 +65,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
   const { translate } = await resolveTranslations()
 
   if (!source && !adapter) {
-    return json({ error: 'Webhook endpoint not found' }, { status: 404 })
+    return jsonResponse({ error: 'Webhook endpoint not found' }, { status: 404 })
   }
 
   const container = await createRequestContainer()
@@ -87,13 +88,13 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
     body = await readBoundedRequestBody(request)
   } catch (error) {
     if (error instanceof WebhookBodyTooLargeError) {
-      return json({ error: 'Webhook payload too large' }, { status: 413 })
+      return jsonResponse({ error: 'Webhook payload too large' }, { status: 413 })
     }
     throw error
   }
   const headers = Object.fromEntries(request.headers.entries())
   if (!isInboundWebhookTimestampFresh(headers)) {
-    return json({ error: STALE_TIMESTAMP_ERROR }, { status: 400 })
+    return jsonResponse({ error: STALE_TIMESTAMP_ERROR }, { status: 400 })
   }
 
   if (source) {
@@ -133,7 +134,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
     }
 
     if (!verifiedScope) {
-      return json({ error: 'Signature verification failed' }, { status: 401 })
+      return jsonResponse({ error: 'Signature verification failed' }, { status: 401 })
     }
 
     const eventType = source.eventTypeExtractor(parsedBody, headers)
@@ -158,7 +159,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
       await em.flush()
     } catch (error) {
       if (isUniqueViolation(error)) {
-        return json({ ok: true, duplicate: true })
+        return jsonResponse({ ok: true, duplicate: true })
       }
       throw error
     }
@@ -197,11 +198,11 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
       organizationId: verifiedScope.organizationId,
     }, { persistent: true })
 
-    return json({ ok: true })
+    return jsonResponse({ ok: true })
   }
 
   if (!adapter) {
-    return json({ error: 'Webhook endpoint not found' }, { status: 404 })
+    return jsonResponse({ error: 'Webhook endpoint not found' }, { status: 404 })
   }
   let verified: Awaited<ReturnType<typeof adapter.verifyWebhook>>
   try {
@@ -211,13 +212,13 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
       method: request.method,
     })
   } catch {
-    return json({ error: 'Verification failed' }, { status: 400 })
+    return jsonResponse({ error: 'Verification failed' }, { status: 400 })
   }
 
   const hasTenantId = Boolean(verified.tenantId)
   const hasOrganizationId = Boolean(verified.organizationId)
   if (hasTenantId !== hasOrganizationId) {
-    return json({ error: WEBHOOK_INTEGRATION_DISABLED_MESSAGE }, { status: 503 })
+    return jsonResponse({ error: WEBHOOK_INTEGRATION_DISABLED_MESSAGE }, { status: 503 })
   }
 
   const integrationScope = hasTenantId && hasOrganizationId
@@ -227,10 +228,10 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
   if (integrationScope) {
     const integrationEnabled = await isWebhookIntegrationEnabled(em, integrationScope)
     if (!integrationEnabled) {
-      return json({ error: WEBHOOK_INTEGRATION_DISABLED_MESSAGE }, { status: 503 })
+      return jsonResponse({ error: WEBHOOK_INTEGRATION_DISABLED_MESSAGE }, { status: 503 })
     }
   } else if (!adapter.allowUnscopedInbound) {
-    return json({ error: WEBHOOK_INTEGRATION_DISABLED_MESSAGE }, { status: 503 })
+    return jsonResponse({ error: WEBHOOK_INTEGRATION_DISABLED_MESSAGE }, { status: 503 })
   }
 
   const messageId = resolveInboundReceiptMessageId({
@@ -252,7 +253,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
     await em.flush()
   } catch (error) {
     if (isUniqueViolation(error)) {
-      return json({ ok: true, duplicate: true })
+      return jsonResponse({ ok: true, duplicate: true })
     }
     throw error
   }
@@ -267,7 +268,7 @@ export async function POST(request: Request, context: RouteContext): Promise<Res
     organizationId: verified.organizationId ?? null,
   }, { persistent: true })
 
-  return json({ ok: true })
+  return jsonResponse({ ok: true })
 }
 
 export const openApi: OpenApiRouteDoc = {
@@ -291,14 +292,6 @@ export const openApi: OpenApiRouteDoc = {
       ],
     },
   },
-}
-
-function tryResolve<T>(container: { resolve: (name: string) => unknown }, name: string): T | null {
-  try {
-    return container.resolve(name) as T
-  } catch {
-    return null
-  }
 }
 
 function isInboundWebhookTimestampFresh(headers: Record<string, string>): boolean {

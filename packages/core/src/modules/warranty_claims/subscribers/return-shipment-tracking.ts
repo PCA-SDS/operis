@@ -5,6 +5,8 @@ import type { CommandBus, CommandRuntimeContext } from '@open-mercato/shared/lib
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import type { TransitionClaimInput } from '../data/validators'
+import { toRecord } from '@open-mercato/shared/lib/guards'
+import { readTrimmedString } from '@open-mercato/shared/lib/string'
 
 const logger = createLogger('warranty_claims')
 const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000000'
@@ -45,15 +47,6 @@ type ReturnTrackingDb = {
   }
 }
 
-function toRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
-}
-
-function readString(record: Record<string, unknown>, key: string): string | null {
-  const value = record[key]
-  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
-}
-
 function resolveContainer(ctx: SubscriberContext): ResolverContainer {
   return ctx.container ?? { resolve: ctx.resolve }
 }
@@ -75,7 +68,7 @@ function isInvalidTransitionError(error: unknown): boolean {
 
 export default async function handle(payload: unknown, ctx: SubscriberContext): Promise<void> {
   const record = toRecord(payload)
-  const shipmentId = readString(record, 'shipmentId') ?? readString(record, 'shipment_id')
+  const shipmentId = readTrimmedString(record, 'shipmentId') ?? readTrimmedString(record, 'shipment_id')
   const tenantId = ctx.tenantId ?? null
   const organizationId = ctx.organizationId ?? null
 
@@ -130,7 +123,7 @@ export default async function handle(payload: unknown, ctx: SubscriberContext): 
     throw error
   }
 
-  const trackingNumber = readString(toRecord(shipment), 'tracking_number')
+  const trackingNumber = readTrimmedString(toRecord(shipment), 'tracking_number')
   if (!shipment || !trackingNumber) {
     logger.debug('[warranty_claims:return-shipment-tracking] shipment or tracking number not found', {
       shipmentId,

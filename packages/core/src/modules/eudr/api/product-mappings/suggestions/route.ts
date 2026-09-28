@@ -12,6 +12,7 @@ import { E } from '#generated/entities.ids.generated'
 import { EudrProductMapping } from '../../../data/entities'
 import { EUDR_COMMODITIES } from '../../../data/validators'
 import { suggestCommodityForHsCode } from '../../../lib/reference-data'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['eudr.mappings.view'] },
@@ -59,10 +60,6 @@ async function resolveRequestContext(req: Request): Promise<RequestContext> {
   }
 }
 
-function readString(value: unknown): string | null {
-  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
-}
-
 async function loadCatalogProducts(ctx: RequestContext): Promise<CatalogProductRecord[]> {
   try {
     const queryEngine = ctx.container.resolve<QueryEngine>('queryEngine')
@@ -94,14 +91,14 @@ export async function GET(req: Request) {
     const products = await loadCatalogProducts(ctx)
     const candidates = products
       .map((product) => {
-        const productId = readString(product.id)
-        const hsCode = readString(product.hs_code)
+        const productId = normalizeOptionalString(product.id)
+        const hsCode = normalizeOptionalString(product.hs_code)
         const suggestedCommodity = suggestCommodityForHsCode(hsCode)
         if (!productId || !hsCode || !suggestedCommodity) return null
         return {
           productId,
-          name: readString(product.title) ?? readString(product.name) ?? productId,
-          sku: readString(product.sku),
+          name: normalizeOptionalString(product.title) ?? normalizeOptionalString(product.name) ?? productId,
+          sku: normalizeOptionalString(product.sku),
           hsCode,
           suggestedCommodity,
         }

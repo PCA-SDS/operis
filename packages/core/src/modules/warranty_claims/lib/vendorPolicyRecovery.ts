@@ -1,5 +1,6 @@
 import { computeHeaderRollups } from './stateMachine'
 import type { WarrantyClaimLineStatus } from '../data/validators'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
 
 type AmountValue = number | string | null | undefined
 
@@ -52,20 +53,15 @@ export type VendorRecoveryCommandRequest = {
   lineIds: string[]
 }
 
-function normalizeText(value: string | null | undefined): string | null {
-  const normalized = value?.trim()
-  return normalized ? normalized : null
-}
-
 function normalizeVendorKey(value: string | null | undefined): string | null {
-  return normalizeText(value)?.toLocaleLowerCase() ?? null
+  return normalizeOptionalString(value)?.toLocaleLowerCase() ?? null
 }
 
 function normalizeReasonCodes(codes: readonly string[] | null | undefined): string[] {
   if (!Array.isArray(codes)) return []
   const result: string[] = []
   for (const code of codes) {
-    const normalized = normalizeText(code)
+    const normalized = normalizeOptionalString(code)
     if (normalized && !result.includes(normalized)) result.push(normalized)
   }
   return result
@@ -138,19 +134,19 @@ export function findVendorRecoveryMatches(input: {
   if (input.requireWarrantyResolved === true && !isWarrantyClaimResolvedForVendorRecovery(input.claim)) {
     return []
   }
-  const reasonCode = normalizeText(input.claim.reasonCode)
-  const claimVendorName = normalizeText(input.claim.vendorName)
+  const reasonCode = normalizeOptionalString(input.claim.reasonCode)
+  const claimVendorName = normalizeOptionalString(input.claim.vendorName)
   const matches: VendorRecoveryMatch[] = []
   for (const line of input.lines) {
     if (line.lineStatus !== 'resolved') continue
-    if (normalizeText(line.vendorClaimLineId)) continue
+    if (normalizeOptionalString(line.vendorClaimLineId)) continue
     const policy = selectMatchingPolicy(line, input.policies, reasonCode, input.autoOnly === true, claimVendorName)
     if (!policy) continue
     matches.push({
       line,
       policy,
       estimatedRecovery: estimateRecovery(line, policy),
-      causalFault: normalizeText(line.faultCode) ?? reasonCode,
+      causalFault: normalizeOptionalString(line.faultCode) ?? reasonCode,
     })
   }
   return matches
@@ -162,9 +158,9 @@ export function buildVendorRecoveryCommandRequests(
 ): VendorRecoveryCommandRequest[] {
   const grouped = new Map<string, VendorRecoveryCommandRequest>()
   for (const match of matches) {
-    const vendorName = normalizeText(match.policy.vendorName) ?? normalizeText(match.line.vendorName)
+    const vendorName = normalizeOptionalString(match.policy.vendorName) ?? normalizeOptionalString(match.line.vendorName)
     if (!vendorName) continue
-    const vendorRef = normalizeText(match.policy.vendorRef)
+    const vendorRef = normalizeOptionalString(match.policy.vendorRef)
     const key = `${match.policy.id}:${vendorName}:${vendorRef ?? ''}`
     const existing = grouped.get(key)
     if (existing) {

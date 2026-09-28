@@ -10,6 +10,7 @@ import {
   loadAiServerTranscript,
   serverMessageToChatMessage,
 } from './conversation-store'
+import { readSseDataPayload } from '@open-mercato/shared/lib/http/sse'
 
 /**
  * Chat message shape used by {@link AiChat}. Kept intentionally minimal so the
@@ -755,20 +756,6 @@ function parseSseLines(buffer: string): { events: string[]; rest: string } {
   return { events, rest }
 }
 
-function extractDataPayload(eventBlock: string): string | null {
-  const lines = eventBlock.split('\n')
-  const dataLines: string[] = []
-  for (const line of lines) {
-    if (line.startsWith('data: ')) {
-      dataLines.push(line.slice(6))
-    } else if (line.startsWith('data:')) {
-      dataLines.push(line.slice(5))
-    }
-  }
-  if (dataLines.length === 0) return null
-  return dataLines.join('\n')
-}
-
 async function readErrorEnvelope(response: Response): Promise<AiChatErrorEnvelope> {
   try {
     const data = (await response.clone().json()) as
@@ -1195,7 +1182,7 @@ export function useAiChat(input: UseAiChatInput): UseAiChatResult {
         const { events, rest } = parseSseLines(sseBuffer)
         sseBuffer = rest
         for (const block of events) {
-          const data = extractDataPayload(block)
+          const data = readSseDataPayload(block)
           if (!data) continue
           if (data === '[DONE]') continue
           try {

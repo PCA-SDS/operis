@@ -4,12 +4,7 @@ import type { MessageListItemProps } from '@open-mercato/shared/modules/messages
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { CheckCircle2, FileText, Paperclip, Zap } from 'lucide-react'
-
-function formatDateTime(value: Date | null): string {
-  if (!value) return '—'
-  if (Number.isNaN(value.getTime())) return '—'
-  return value.toLocaleString()
-}
+import { formatDateTime } from '@open-mercato/shared/lib/time'
 
 function formatSentTime(value: Date | null): string {
   if (!value) return '—'
@@ -41,7 +36,7 @@ export function DefaultMessageListItem({ message, onClick }: MessageListItemProp
   const t = useT()
   const senderLabel = message.senderName?.trim() || t('messages.list.noRecipient', '(No recipient)')
   const subject = message.subject.trim() || t('messages.list.noSubject', '(No subject)')
-  const absoluteSentAt = formatDateTime(message.sentAt)
+  const absoluteSentAt = formatDateTime(message.sentAt, { fallback: '—' })
   const sentAtLabel = formatSentTime(message.sentAt)
   const bodyPreview = truncateWords(message.body || '', 16)
 

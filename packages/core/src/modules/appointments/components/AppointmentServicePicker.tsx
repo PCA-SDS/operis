@@ -8,7 +8,7 @@ import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import type { BookableService } from '@open-mercato/core/modules/catalog/lib/bookableServices'
 
-import { formatCurrency } from '@open-mercato/ui/utils/format'
+import { formatCurrency } from '@open-mercato/shared/lib/units/money'
 
 export type AppointmentBookableService = Pick<BookableService,
   'id' | 'title' | 'subtitle' | 'description' | 'sku' | 'categoryPath' | 'categoryId' | 'categoryName' |

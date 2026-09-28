@@ -1,18 +1,6 @@
 "use client"
 
-export function normalizeNumber(value: unknown, fallback = 0): number {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string' && value.trim().length) {
-    const parsed = Number(value)
-    if (!Number.isNaN(parsed)) return parsed
-  }
-  return fallback
-}
-
-export function formatMoney(value: number, currency: string | null | undefined): string {
-  if (!currency) return value.toFixed(2)
-  return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(value)
-}
+import { toNumber } from '../../lib/numbers'
 
 export type LineDiscountDisplay = {
   amount: number | null
@@ -35,8 +23,8 @@ function percentAccountsForAmount(
   amount: number,
 ): boolean {
   if (percent <= 0) return false
-  const quantity = normalizeNumber(line.quantity, 0)
-  const netBeforeDiscount = normalizeNumber(line.unitPriceNet, 0) * quantity
+  const quantity = toNumber(line.quantity, 0)
+  const netBeforeDiscount = toNumber(line.unitPriceNet, 0) * quantity
   if (netBeforeDiscount <= 0) return false
   const tolerance = Math.max(
     DISCOUNT_MATCH_TOLERANCE,
@@ -48,8 +36,8 @@ function percentAccountsForAmount(
 export function resolveLineDiscountDisplay(
   line: LineDiscountSource,
 ): LineDiscountDisplay | null {
-  const amount = normalizeNumber(line.discountAmount, 0)
-  const percent = normalizeNumber(line.discountPercent, 0)
+  const amount = toNumber(line.discountAmount, 0)
+  const percent = toNumber(line.discountPercent, 0)
   if (amount > 0) {
     return {
       amount,

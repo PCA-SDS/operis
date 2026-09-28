@@ -1,6 +1,7 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
-import { type Kysely, sql } from 'kysely'
+import { sql } from 'kysely'
 import { MessageAccessToken } from '../data/entities'
+import { getKysely } from '@open-mercato/shared/lib/db/kysely'
 
 export const MAX_TOKEN_USE_COUNT = 25
 
@@ -9,10 +10,6 @@ export type TokenConsumptionFailureReason = 'expired' | 'exhausted' | 'not_found
 export type TokenConsumptionResult =
   | { ok: true }
   | { ok: false; reason: TokenConsumptionFailureReason }
-
-function getKysely(em: EntityManager): Kysely<any> {
-  return (em as unknown as { getKysely: () => Kysely<any> }).getKysely()
-}
 
 export async function consumeMessageAccessToken(
   em: EntityManager,

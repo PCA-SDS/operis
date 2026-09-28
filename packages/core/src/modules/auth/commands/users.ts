@@ -51,6 +51,7 @@ import {
 } from '@open-mercato/core/modules/auth/lib/grantChecks'
 import type { RbacService } from '@open-mercato/core/modules/auth/services/rbacService'
 import { isUniqueViolation } from '@open-mercato/shared/lib/db/pg-errors'
+import { emailSchema, UUID_SHAPE_PATTERN } from '@open-mercato/shared/lib/validation'
 
 const logger = createLogger('auth').child({ component: 'users-commands' })
 
@@ -116,7 +117,7 @@ const displayNameSchema = z.preprocess(
 )
 
 const createSchema = z.object({
-  email: z.string().email(),
+  email: emailSchema(),
   name: displayNameSchema,
   password: passwordSchema.optional(),
   sendInviteEmail: z.boolean().optional(),
@@ -134,7 +135,7 @@ const createSchema = z.object({
 
 const updateSchema = z.object({
   id: z.string().uuid(),
-  email: z.string().email().optional(),
+  email: emailSchema().optional(),
   name: displayNameSchema,
   password: passwordSchema.optional(),
   organizationId: z.string().uuid().optional(),
@@ -230,7 +231,7 @@ function normalizeOrganizationIds(values: unknown): string[] {
     values
       .filter((value): value is string => typeof value === 'string')
       .map((value) => value.trim())
-      .filter((value) => UUID_RE.test(value)),
+      .filter((value) => UUID_SHAPE_PATTERN.test(value)),
   ))
 }
 
@@ -240,7 +241,7 @@ function normalizeStaffRoleAssignments(values: unknown): StaffRoleAssignment[] |
   for (const value of values) {
     if (!value || typeof value !== 'object') continue
     const record = value as Record<string, unknown>
-    const organizationId = typeof record.organizationId === 'string' && UUID_RE.test(record.organizationId.trim())
+    const organizationId = typeof record.organizationId === 'string' && UUID_SHAPE_PATTERN.test(record.organizationId.trim())
       ? record.organizationId.trim()
       : null
     if (!organizationId) continue
@@ -1375,14 +1376,12 @@ registerCommand(createUserCommand)
 registerCommand(updateUserCommand)
 registerCommand(deleteUserCommand)
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
 async function resolveRole(
   em: EntityManager,
   value: string,
   normalizedTenantId: string | null,
 ): Promise<Role | null> {
-  if (UUID_RE.test(value)) {
+  if (UUID_SHAPE_PATTERN.test(value)) {
     const where: Record<string, unknown> = { id: value }
     if (normalizedTenantId !== null) {
       where.tenantId = normalizedTenantId

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { parseBooleanWithDefault } from '@open-mercato/shared/lib/boolean'
+import { emailSchema } from '@open-mercato/shared/lib/validation'
 
 /**
  * SSRF guard: reject hostnames that resolve to internal networks. Operators
@@ -143,7 +144,7 @@ export const imapCredentialsSchema = z
     smtpUser: z.string().min(1, 'SMTP username required'),
     smtpPassword: z.string().min(1, 'SMTP password required'),
 
-    fromAddress: z.string().email('From address must be a valid email'),
+    fromAddress: emailSchema({ message: 'From address must be a valid email' }),
   })
   // `.passthrough()` (not `.strict()`) so the connect-credential-channel command
   // can stash bookkeeping fields like `userId` alongside the user-entered

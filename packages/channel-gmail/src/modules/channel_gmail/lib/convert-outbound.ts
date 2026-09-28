@@ -8,9 +8,9 @@ import {
   generateMessageId,
   htmlToText,
   referencesFromMeta,
-  stringOrUndefined,
   toAddressList,
 } from '@open-mercato/core/modules/communication_channels/lib/email-mime'
+import { trimToUndefined } from '@open-mercato/shared/lib/string'
 import { GMAIL_THREAD_REF_PREFIX } from './normalize-inbound'
 
 /**
@@ -58,9 +58,9 @@ export interface ConvertOutboundForGmailInput extends ConvertOutboundInput {
  *      so `threadId` stays unset and Gmail opens a fresh server-side thread.
  */
 function deriveGmailThreadId(meta: Record<string, unknown>): string | undefined {
-  const explicit = stringOrUndefined(meta.gmailThreadId) ?? stringOrUndefined(meta.threadId)
+  const explicit = trimToUndefined(meta.gmailThreadId) ?? trimToUndefined(meta.threadId)
   if (explicit) return explicit
-  const conversationRef = stringOrUndefined(meta.thread_id)
+  const conversationRef = trimToUndefined(meta.thread_id)
   if (conversationRef && conversationRef.startsWith(GMAIL_THREAD_REF_PREFIX)) {
     const rawThreadId = conversationRef.slice(GMAIL_THREAD_REF_PREFIX.length)
     return rawThreadId.length > 0 ? rawThreadId : undefined
@@ -72,16 +72,16 @@ export async function convertOutboundForGmail(
   input: ConvertOutboundForGmailInput,
 ): Promise<ChannelNativeContent> {
   const meta = (input.channelMetadata ?? {}) as Record<string, unknown>
-  const subject = stringOrUndefined(meta.subject)
+  const subject = trimToUndefined(meta.subject)
   const to = toAddressList(meta.to)
   if (to.length === 0) {
     throw new Error('[internal] Gmail outbound conversion requires at least one recipient (channelMetadata.to)')
   }
   const cc = toAddressList(meta.cc)
   const bcc = toAddressList(meta.bcc)
-  const inReplyTo = stringOrUndefined(meta.inReplyTo)
+  const inReplyTo = trimToUndefined(meta.inReplyTo)
   const references = referencesFromMeta(meta.references)
-  const messageId = stringOrUndefined(meta.messageId) ?? generateMessageId(input.fromAddress, 'gmail.com')
+  const messageId = trimToUndefined(meta.messageId) ?? generateMessageId(input.fromAddress, 'gmail.com')
   const threadId = deriveGmailThreadId(meta)
 
   const html = input.bodyFormat === 'html' ? input.body : undefined

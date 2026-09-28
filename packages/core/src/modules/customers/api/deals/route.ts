@@ -24,6 +24,7 @@ import { escapeLikePattern } from '@open-mercato/shared/lib/db/escapeLikePattern
 import { consumeAdvancedFilterState, mergeAdvancedFilterTree } from '@open-mercato/shared/lib/crud/advanced-filter-integration'
 import { fetchStuckDealIds } from '../../lib/stuckDeals'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { CURRENCY_CODE_PATTERN, paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 const logger = createLogger('customers')
 
@@ -38,8 +39,7 @@ const booleanQueryParam = z.preprocess((value) => {
 
 export const dealListQuerySchema = z
   .object({
-    page: z.coerce.number().int().min(1).default(1),
-    pageSize: z.coerce.number().int().min(1).max(100).default(50),
+    ...paginationQuerySchema().shape,
     id: z.string().uuid().optional(),
     search: z.string().optional(),
     status: stringOrStringArray.optional(),
@@ -210,7 +210,7 @@ function normalizeCurrencyList(value: unknown): string[] {
     entry
       .split(',')
       .map((token) => token.trim().toUpperCase())
-      .filter((token) => /^[A-Z]{3}$/.test(token))
+      .filter((token) => CURRENCY_CODE_PATTERN.test(token))
       .forEach((token) => set.add(token))
   }
   visit(value)

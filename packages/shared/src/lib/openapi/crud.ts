@@ -20,6 +20,14 @@ export function createPagedListResponseSchema(itemSchema: ZodTypeAny, options: P
   })
 }
 
+/**
+ * The list envelope most modules document: `page` and `pageSize` optional.
+ * Module `api/openapi.ts` files alias it as their `createPagedListResponseSchema`.
+ */
+export function createOptionalMetaPagedListResponseSchema(itemSchema: ZodTypeAny) {
+  return createPagedListResponseSchema(itemSchema, { paginationMetaOptional: true })
+}
+
 type CrudMethodConfig = {
   schema: ZodTypeAny
   description?: string

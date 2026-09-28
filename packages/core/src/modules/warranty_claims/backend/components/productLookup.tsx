@@ -10,6 +10,8 @@ import { Label } from '@open-mercato/ui/primitives/label'
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { computeWarrantyEntitlementPreview, type WarrantyEntitlementPreview } from '../../lib/warrantyPreview'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
+import { readBoolean } from './formValues'
 
 export type ClaimProductPick = {
   productId: string
@@ -54,41 +56,33 @@ type ApiVariantItem = Record<string, unknown> & {
   thumbnailUrl?: string | null
 }
 
-function readString(value: unknown): string | null {
-  return typeof value === 'string' && value.trim().length ? value.trim() : null
-}
-
-function readBoolean(value: unknown): boolean {
-  return value === true || value === 'true' || value === 1 || value === '1'
-}
-
 function mapProductOption(item: Record<string, unknown>): ProductOption | null {
-  const id = readString(item.id)
+  const id = normalizeOptionalString(item.id)
   if (!id) return null
   const product = item as ApiProductItem
-  const title = readString(item.title) ?? readString(product.name) ?? readString(product.sku) ?? '—'
+  const title = normalizeOptionalString(item.title) ?? normalizeOptionalString(product.name) ?? normalizeOptionalString(product.sku) ?? '—'
   return {
     id,
     title,
-    sku: readString(product.sku),
-    thumbnailUrl: readString(product.default_media_url) ?? readString(product.defaultMediaUrl),
+    sku: normalizeOptionalString(product.sku),
+    thumbnailUrl: normalizeOptionalString(product.default_media_url) ?? normalizeOptionalString(product.defaultMediaUrl),
     isConfigurable: readBoolean(product.is_configurable ?? product.isConfigurable),
   }
 }
 
 function mapVariantOption(item: Record<string, unknown>, fallbackThumbnail: string | null): VariantOption | null {
-  const id = readString(item.id)
+  const id = normalizeOptionalString(item.id)
   if (!id) return null
   const variant = item as ApiVariantItem
-  const title = readString(variant.name) ?? readString(item.title) ?? readString(variant.sku) ?? '—'
+  const title = normalizeOptionalString(variant.name) ?? normalizeOptionalString(item.title) ?? normalizeOptionalString(variant.sku) ?? '—'
   return {
     id,
     title,
-    sku: readString(variant.sku),
+    sku: normalizeOptionalString(variant.sku),
     thumbnailUrl:
-      readString(variant.default_media_url) ??
-      readString(variant.defaultMediaUrl) ??
-      readString(variant.thumbnailUrl) ??
+      normalizeOptionalString(variant.default_media_url) ??
+      normalizeOptionalString(variant.defaultMediaUrl) ??
+      normalizeOptionalString(variant.thumbnailUrl) ??
       fallbackThumbnail,
   }
 }
@@ -232,10 +226,10 @@ export function ClaimLineProductPicker(props: {
   const [variantOptions, setVariantOptions] = React.useState<VariantOption[]>([])
   const [variantsLoadedFor, setVariantsLoadedFor] = React.useState<string | null>(null)
 
-  const productId = readString(props.value.productId)
-  const variantId = readString(props.value.variantId)
-  const fallbackProductName = readString(props.value.productName)
-  const fallbackSku = readString(props.value.sku)
+  const productId = normalizeOptionalString(props.value.productId)
+  const variantId = normalizeOptionalString(props.value.variantId)
+  const fallbackProductName = normalizeOptionalString(props.value.productName)
+  const fallbackSku = normalizeOptionalString(props.value.sku)
 
   React.useEffect(() => {
     let cancelled = false

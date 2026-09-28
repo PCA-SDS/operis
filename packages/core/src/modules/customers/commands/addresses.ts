@@ -20,6 +20,7 @@ import { E } from '#generated/entities.ids.generated'
 import { withAtomicFlush } from '@open-mercato/shared/lib/commands/flush'
 import { resolveRedoSnapshot } from '@open-mercato/shared/lib/commands/redo'
 import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
+import { assignPostalAddressFields, readPostalAddressFields, applyPostalAddressPatch } from '@open-mercato/shared/lib/location/postalAddress'
 
 const addressCrudIndexer: CrudIndexerConfig<CustomerAddress> = {
   entityType: E.customers.customer_address,
@@ -111,20 +112,7 @@ async function loadAddressSnapshot(
     tenantId: address.tenantId,
     entityId: typeof entityRef === 'string' ? entityRef : entityRef.id,
     entityKind,
-    name: address.name ?? null,
-    purpose: address.purpose ?? null,
-    companyName: address.companyName ?? null,
-    addressLine1: address.addressLine1,
-    addressLine2: address.addressLine2 ?? null,
-    buildingNumber: address.buildingNumber ?? null,
-    flatNumber: address.flatNumber ?? null,
-    city: address.city ?? null,
-    region: address.region ?? null,
-    postalCode: address.postalCode ?? null,
-    country: address.country ?? null,
-    latitude: address.latitude ?? null,
-    longitude: address.longitude ?? null,
-    isPrimary: address.isPrimary,
+    ...readPostalAddressFields(address),
   }
 }
 
@@ -251,40 +239,14 @@ const createAddressCommand: CommandHandler<AddressCreateInput, { addressId: stri
         organizationId: after.organizationId,
         tenantId: after.tenantId,
         entity,
-        name: after.name,
-        purpose: after.purpose,
-        companyName: after.companyName,
-        addressLine1: after.addressLine1,
-        addressLine2: after.addressLine2,
-        buildingNumber: after.buildingNumber,
-        flatNumber: after.flatNumber,
-        city: after.city,
-        region: after.region,
-        postalCode: after.postalCode,
-        country: after.country,
-        latitude: after.latitude,
-        longitude: after.longitude,
-        isPrimary: after.isPrimary,
+        ...readPostalAddressFields(after),
         createdAt: new Date(),
         updatedAt: new Date(),
       })
       em.persist(address)
     } else {
       address.entity = entity
-      address.name = after.name
-      address.purpose = after.purpose
-      address.companyName = after.companyName
-      address.addressLine1 = after.addressLine1
-      address.addressLine2 = after.addressLine2
-      address.buildingNumber = after.buildingNumber
-      address.flatNumber = after.flatNumber
-      address.city = after.city
-      address.region = after.region
-      address.postalCode = after.postalCode
-      address.country = after.country
-      address.latitude = after.latitude
-      address.longitude = after.longitude
-      address.isPrimary = after.isPrimary
+      assignPostalAddressFields(address, after)
     }
     const restoredAddress = address
     await withAtomicFlush(em, [
@@ -339,20 +301,7 @@ const updateAddressCommand: CommandHandler<AddressUpdateInput, { addressId: stri
 
     await withAtomicFlush(em, [
       () => {
-        if (parsed.name !== undefined) address.name = parsed.name ?? null
-        if (parsed.purpose !== undefined) address.purpose = parsed.purpose ?? null
-        if (parsed.companyName !== undefined) address.companyName = parsed.companyName ?? null
-        if (parsed.addressLine1 !== undefined) address.addressLine1 = parsed.addressLine1
-        if (parsed.addressLine2 !== undefined) address.addressLine2 = parsed.addressLine2 ?? null
-        if (parsed.buildingNumber !== undefined) address.buildingNumber = parsed.buildingNumber ?? null
-        if (parsed.flatNumber !== undefined) address.flatNumber = parsed.flatNumber ?? null
-        if (parsed.city !== undefined) address.city = parsed.city ?? null
-        if (parsed.region !== undefined) address.region = parsed.region ?? null
-        if (parsed.postalCode !== undefined) address.postalCode = parsed.postalCode ?? null
-        if (parsed.country !== undefined) address.country = parsed.country ?? null
-        if (parsed.latitude !== undefined) address.latitude = parsed.latitude ?? null
-        if (parsed.longitude !== undefined) address.longitude = parsed.longitude ?? null
-        if (parsed.isPrimary !== undefined) address.isPrimary = parsed.isPrimary
+        applyPostalAddressPatch(address, parsed)
       },
       async () => {
         if (address.isPrimary) {
@@ -442,40 +391,14 @@ const updateAddressCommand: CommandHandler<AddressUpdateInput, { addressId: stri
         organizationId: before.organizationId,
         tenantId: before.tenantId,
         entity,
-        name: before.name,
-        purpose: before.purpose,
-        companyName: before.companyName,
-        addressLine1: before.addressLine1,
-        addressLine2: before.addressLine2,
-        buildingNumber: before.buildingNumber,
-        flatNumber: before.flatNumber,
-        city: before.city,
-        region: before.region,
-        postalCode: before.postalCode,
-        country: before.country,
-        latitude: before.latitude,
-        longitude: before.longitude,
-        isPrimary: before.isPrimary,
+        ...readPostalAddressFields(before),
         createdAt: new Date(),
         updatedAt: new Date(),
       })
       em.persist(address)
     } else {
       address.entity = entity
-      address.name = before.name
-      address.purpose = before.purpose
-      address.companyName = before.companyName
-      address.addressLine1 = before.addressLine1
-      address.addressLine2 = before.addressLine2
-      address.buildingNumber = before.buildingNumber
-      address.flatNumber = before.flatNumber
-      address.city = before.city
-      address.region = before.region
-      address.postalCode = before.postalCode
-      address.country = before.country
-      address.latitude = before.latitude
-      address.longitude = before.longitude
-      address.isPrimary = before.isPrimary
+      assignPostalAddressFields(address, before)
     }
     await withAtomicFlush(em, [
       async () => {
@@ -570,40 +493,14 @@ const deleteAddressCommand: CommandHandler<{ body?: Record<string, unknown>; que
           organizationId: before.organizationId,
           tenantId: before.tenantId,
           entity,
-          name: before.name,
-          purpose: before.purpose,
-          companyName: before.companyName,
-          addressLine1: before.addressLine1,
-          addressLine2: before.addressLine2,
-          buildingNumber: before.buildingNumber,
-          flatNumber: before.flatNumber,
-          city: before.city,
-          region: before.region,
-          postalCode: before.postalCode,
-          country: before.country,
-          latitude: before.latitude,
-          longitude: before.longitude,
-          isPrimary: before.isPrimary,
+          ...readPostalAddressFields(before),
           createdAt: new Date(),
           updatedAt: new Date(),
         })
         em.persist(address)
       } else {
         address.entity = entity
-        address.name = before.name
-        address.purpose = before.purpose
-        address.companyName = before.companyName
-        address.addressLine1 = before.addressLine1
-        address.addressLine2 = before.addressLine2
-        address.buildingNumber = before.buildingNumber
-        address.flatNumber = before.flatNumber
-        address.city = before.city
-        address.region = before.region
-        address.postalCode = before.postalCode
-        address.country = before.country
-        address.latitude = before.latitude
-        address.longitude = before.longitude
-        address.isPrimary = before.isPrimary
+        assignPostalAddressFields(address, before)
       }
       await withAtomicFlush(em, [
         async () => {

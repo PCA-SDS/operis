@@ -3,13 +3,6 @@ import type { MessageAction } from './types'
 
 export { toErrorMessage } from '@open-mercato/shared/lib/http/errorMessage'
 
-export function formatDateTime(value: string | null | undefined): string {
-  if (!value) return '—'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return '—'
-  return date.toLocaleString()
-}
-
 const SAFE_NAVIGATION_SCHEMES = new Set(['http:', 'https:', 'mailto:', 'tel:'])
 
 export function isSafeNavigationHref(value: string): boolean {

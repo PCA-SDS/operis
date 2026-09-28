@@ -19,8 +19,8 @@ import {
   DialogTitle,
 } from '@open-mercato/ui/primitives/dialog'
 import { Input } from '@open-mercato/ui/primitives/input'
-import { Label } from '@open-mercato/ui/primitives/label'
 import { Textarea } from '@open-mercato/ui/primitives/textarea'
+import { FormField } from '@open-mercato/ui/primitives/form-field'
 
 type WidgetContext = Record<string, unknown> & {
   reload?: () => void
@@ -145,7 +145,7 @@ export default function ConnectFcmWidget({
                 "This is a shared, tenant-wide channel — every user's devices in this workspace are served by it.",
               )}
             </p>
-            <Field
+            <FormField
               label={t('communication_channels.push.connect.displayName', 'Display name')}
               error={fieldErrors.displayName}
             >
@@ -154,8 +154,8 @@ export default function ConnectFcmWidget({
                 onChange={(event) => update('displayName', event.target.value)}
                 aria-invalid={Boolean(fieldErrors.displayName)}
               />
-            </Field>
-            <Field
+            </FormField>
+            <FormField
               label={t('communication_channels.push.connect.fields.fcm.serviceAccountJson', 'Service Account JSON')}
               error={fieldErrors.serviceAccountJson}
             >
@@ -166,8 +166,8 @@ export default function ConnectFcmWidget({
                 aria-invalid={Boolean(fieldErrors.serviceAccountJson)}
                 className="font-mono text-xs"
               />
-            </Field>
-            <Field
+            </FormField>
+            <FormField
               label={t('communication_channels.push.connect.fields.fcm.appName', 'App name (optional)')}
               error={fieldErrors.appName}
             >
@@ -176,7 +176,7 @@ export default function ConnectFcmWidget({
                 onChange={(event) => update('appName', event.target.value)}
                 aria-invalid={Boolean(fieldErrors.appName)}
               />
-            </Field>
+            </FormField>
           </div>
 
           <DialogFooter>
@@ -192,17 +192,5 @@ export default function ConnectFcmWidget({
         </DialogContent>
       </Dialog>
     </>
-  )
-}
-
-function Field(props: { label: string; error?: string; children: React.ReactNode }) {
-  return (
-    <label className="grid gap-1.5">
-      <Label asChild>
-        <span>{props.label}</span>
-      </Label>
-      {props.children}
-      {props.error ? <span className="text-xs text-destructive">{props.error}</span> : null}
-    </label>
   )
 }

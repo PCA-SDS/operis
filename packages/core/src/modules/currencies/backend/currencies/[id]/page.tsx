@@ -17,6 +17,7 @@ import { SendObjectMessageDialog } from '@open-mercato/ui/backend/messages'
 import { DataLoader } from '@open-mercato/ui/primitives/DataLoader'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import { RecordNotFoundState, ErrorMessage } from '@open-mercato/ui/backend/detail'
+import { CURRENCY_CODE_PATTERN } from '@open-mercato/shared/lib/validation'
 
 type CurrencyData = {
   id: string
@@ -290,7 +291,7 @@ export default function EditCurrencyPage({ params }: { params?: { id?: string } 
           onSubmit={async (values) => {
             // Validate currency code
             const code = String(values.code || '').trim().toUpperCase()
-            if (!/^[A-Z]{3}$/.test(code)) {
+            if (!CURRENCY_CODE_PATTERN.test(code)) {
               throw createCrudFormError(t('currencies.form.errors.codeFormat'), {
                 code: t('currencies.form.errors.codeFormat'),
               })

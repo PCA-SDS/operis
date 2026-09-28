@@ -59,19 +59,21 @@ const mockContext = {
 }
 mockContext.commandContext.container = mockContext.container
 
-const validateCrudMutationGuardMock = jest.fn()
-const runCrudMutationGuardAfterSuccessMock = jest.fn()
+const runRouteMutationGuardsMock = jest.fn()
+const runAfterSuccessMock = jest.fn()
 const findOneWithDecryptionMock = jest.fn()
 const findWithDecryptionMock = jest.fn()
 
 jest.mock('../../../../../lib/interactionRequestContext', () => ({
   resolveCustomersRequestContext: jest.fn(async () => mockContext),
+}))
+
+jest.mock('@open-mercato/shared/lib/auth/actor', () => ({
   resolveAuthActorId: jest.fn(() => mockContext.auth.sub),
 }))
 
-jest.mock('@open-mercato/shared/lib/crud/mutation-guard', () => ({
-  validateCrudMutationGuard: (...args: unknown[]) => validateCrudMutationGuardMock(...args),
-  runCrudMutationGuardAfterSuccess: (...args: unknown[]) => runCrudMutationGuardAfterSuccessMock(...args),
+jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
+  runRouteMutationGuards: (...args: unknown[]) => runRouteMutationGuardsMock(...args),
 }))
 
 jest.mock('@open-mercato/shared/lib/i18n/server', () => ({
@@ -92,12 +94,8 @@ describe('/api/customers/companies/[id]/roles', () => {
       result: { roleId },
       logEntry: null,
     })
-    validateCrudMutationGuardMock.mockResolvedValue({
-      ok: true,
-      shouldRunAfterSuccess: true,
-      metadata: { token: 'guard' },
-    })
-    runCrudMutationGuardAfterSuccessMock.mockResolvedValue(undefined)
+    runRouteMutationGuardsMock.mockResolvedValue({ ok: true, runAfterSuccess: runAfterSuccessMock })
+    runAfterSuccessMock.mockResolvedValue(undefined)
     findOneWithDecryptionMock.mockResolvedValue({
       id: companyId,
       kind: 'company',
@@ -134,13 +132,11 @@ describe('/api/customers/companies/[id]/roles', () => {
         organizationId: null,
       },
     )
-    expect(validateCrudMutationGuardMock).toHaveBeenCalledWith(
-      mockContext.container,
+    expect(runRouteMutationGuardsMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        tenantId,
-        organizationId,
-        resourceKind: 'customers.company',
-        resourceId: companyId,
+        container: mockContext.container,
+        auth: expect.objectContaining({ tenantId, organizationId }),
+        input: expect.objectContaining({ resourceKind: 'customers.company', resourceId: companyId }),
       }),
     )
     expect(mockCommandBus.execute).toHaveBeenCalledWith(
@@ -160,15 +156,7 @@ describe('/api/customers/companies/[id]/roles', () => {
         }),
       }),
     )
-    expect(runCrudMutationGuardAfterSuccessMock).toHaveBeenCalledWith(
-      mockContext.container,
-      expect.objectContaining({
-        tenantId,
-        organizationId,
-        resourceKind: 'customers.company',
-        resourceId: companyId,
-      }),
-    )
+    expect(runAfterSuccessMock).toHaveBeenCalled()
   })
 
   it('denies GET when the actor lacks the customers.roles.view feature', async () => {

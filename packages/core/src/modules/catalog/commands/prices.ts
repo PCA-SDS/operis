@@ -26,12 +26,12 @@ import {
   requireProduct,
   requireOffer,
   requirePriceKind,
-  toNumericString,
 } from './shared'
 import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { makeCreateRedo } from '@open-mercato/shared/lib/commands/redo'
 import type { CrudEventsConfig } from '@open-mercato/shared/lib/crud/types'
 import type { DataEngine } from '@open-mercato/shared/lib/data/engine'
+import { toNumericString } from '@open-mercato/shared/lib/number'
 
 const priceCrudEvents: CrudEventsConfig = {
   module: 'catalog',

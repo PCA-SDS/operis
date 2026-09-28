@@ -15,7 +15,6 @@ import {
   DialogTitle,
 } from '@open-mercato/ui/primitives/dialog'
 import { Input } from '@open-mercato/ui/primitives/input'
-import { Label } from '@open-mercato/ui/primitives/label'
 import { PasswordInput } from '@open-mercato/ui/primitives/password-input'
 import {
   Select,
@@ -24,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@open-mercato/ui/primitives/select'
+import { FormField } from '@open-mercato/ui/primitives/form-field'
 
 type WidgetContext = Record<string, unknown> & {
   reload?: () => void
@@ -173,7 +173,7 @@ export default function ConnectImapWidget({
           </DialogHeader>
 
           <div className="grid gap-4 py-2">
-            <Field
+            <FormField
               label={t('communication_channels.profile.connect.fields.displayName', 'Display name')}
               error={fieldErrors.displayName}
             >
@@ -182,8 +182,8 @@ export default function ConnectImapWidget({
                 onChange={(event) => update('displayName', event.target.value)}
                 aria-invalid={Boolean(fieldErrors.displayName)}
               />
-            </Field>
-            <Field
+            </FormField>
+            <FormField
               label={t('communication_channels.profile.connect.fields.fromAddress', 'From address')}
               error={fieldErrors.fromAddress}
             >
@@ -193,10 +193,10 @@ export default function ConnectImapWidget({
                 onChange={(event) => update('fromAddress', event.target.value)}
                 aria-invalid={Boolean(fieldErrors.fromAddress)}
               />
-            </Field>
+            </FormField>
 
             <div className="grid gap-3 md:grid-cols-2">
-              <Field
+              <FormField
                 label={t('communication_channels.profile.connect.fields.imapHost', 'IMAP host')}
                 error={fieldErrors.imapHost}
               >
@@ -205,8 +205,8 @@ export default function ConnectImapWidget({
                   onChange={(event) => update('imapHost', event.target.value)}
                   aria-invalid={Boolean(fieldErrors.imapHost)}
                 />
-              </Field>
-              <Field
+              </FormField>
+              <FormField
                 label={t('communication_channels.profile.connect.fields.imapPort', 'IMAP port')}
                 error={fieldErrors.imapPort}
               >
@@ -216,17 +216,17 @@ export default function ConnectImapWidget({
                   onChange={(event) => update('imapPort', event.target.value)}
                   aria-invalid={Boolean(fieldErrors.imapPort)}
                 />
-              </Field>
+              </FormField>
             </div>
 
             <div className="grid gap-3 md:grid-cols-2">
-              <Field
+              <FormField
                 label={t('communication_channels.profile.connect.fields.imapTls', 'IMAP security')}
                 error={fieldErrors.imapTls}
               >
                 <TlsSelect value={form.imapTls} onChange={(value) => update('imapTls', value)} />
-              </Field>
-              <Field
+              </FormField>
+              <FormField
                 label={t('communication_channels.profile.connect.fields.imapUser', 'IMAP username')}
                 error={fieldErrors.imapUser}
               >
@@ -235,10 +235,10 @@ export default function ConnectImapWidget({
                   onChange={(event) => update('imapUser', event.target.value)}
                   aria-invalid={Boolean(fieldErrors.imapUser)}
                 />
-              </Field>
+              </FormField>
             </div>
 
-            <Field
+            <FormField
               label={t('communication_channels.profile.connect.fields.imapPassword', 'IMAP password')}
               error={fieldErrors.imapPassword}
             >
@@ -247,10 +247,10 @@ export default function ConnectImapWidget({
                 onChange={(event) => update('imapPassword', event.target.value)}
                 aria-invalid={Boolean(fieldErrors.imapPassword)}
               />
-            </Field>
+            </FormField>
 
             <div className="grid gap-3 md:grid-cols-2">
-              <Field
+              <FormField
                 label={t('communication_channels.profile.connect.fields.smtpHost', 'SMTP host')}
                 error={fieldErrors.smtpHost}
               >
@@ -259,8 +259,8 @@ export default function ConnectImapWidget({
                   onChange={(event) => update('smtpHost', event.target.value)}
                   aria-invalid={Boolean(fieldErrors.smtpHost)}
                 />
-              </Field>
-              <Field
+              </FormField>
+              <FormField
                 label={t('communication_channels.profile.connect.fields.smtpPort', 'SMTP port')}
                 error={fieldErrors.smtpPort}
               >
@@ -270,17 +270,17 @@ export default function ConnectImapWidget({
                   onChange={(event) => update('smtpPort', event.target.value)}
                   aria-invalid={Boolean(fieldErrors.smtpPort)}
                 />
-              </Field>
+              </FormField>
             </div>
 
             <div className="grid gap-3 md:grid-cols-2">
-              <Field
+              <FormField
                 label={t('communication_channels.profile.connect.fields.smtpTls', 'SMTP security')}
                 error={fieldErrors.smtpTls}
               >
                 <TlsSelect value={form.smtpTls} onChange={(value) => update('smtpTls', value)} />
-              </Field>
-              <Field
+              </FormField>
+              <FormField
                 label={t('communication_channels.profile.connect.fields.smtpUser', 'SMTP username')}
                 error={fieldErrors.smtpUser}
               >
@@ -289,10 +289,10 @@ export default function ConnectImapWidget({
                   onChange={(event) => update('smtpUser', event.target.value)}
                   aria-invalid={Boolean(fieldErrors.smtpUser)}
                 />
-              </Field>
+              </FormField>
             </div>
 
-            <Field
+            <FormField
               label={t('communication_channels.profile.connect.fields.smtpPassword', 'SMTP password')}
               error={fieldErrors.smtpPassword}
             >
@@ -301,7 +301,7 @@ export default function ConnectImapWidget({
                 onChange={(event) => update('smtpPassword', event.target.value)}
                 aria-invalid={Boolean(fieldErrors.smtpPassword)}
               />
-            </Field>
+            </FormField>
           </div>
 
           <DialogFooter>
@@ -317,22 +317,6 @@ export default function ConnectImapWidget({
         </DialogContent>
       </Dialog>
     </>
-  )
-}
-
-function Field(props: {
-  label: string
-  error?: string
-  children: React.ReactNode
-}) {
-  return (
-    <label className="grid gap-1.5">
-      <Label asChild>
-        <span>{props.label}</span>
-      </Label>
-      {props.children}
-      {props.error ? <span className="text-xs text-destructive">{props.error}</span> : null}
-    </label>
   )
 }
 

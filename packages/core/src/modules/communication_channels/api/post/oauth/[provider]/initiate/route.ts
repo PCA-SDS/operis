@@ -15,6 +15,7 @@ import {
   normalizeOAuthReturnUrl,
   OAuthStateError,
 } from '../../../../../lib/oauth-state'
+import { emailSchema } from '@open-mercato/shared/lib/validation'
 
 export const metadata = {
   path: '/communication_channels/oauth/[provider]/initiate',
@@ -31,7 +32,7 @@ const initiateBodySchema = z.object({
     message: 'returnUrl must be a same-origin path',
   }).optional(),
   /** Optional pre-filled email — Google `login_hint`. */
-  loginHint: z.string().email().optional(),
+  loginHint: emailSchema().optional(),
 })
 
 type RouteContext = {

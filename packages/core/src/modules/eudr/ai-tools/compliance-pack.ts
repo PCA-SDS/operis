@@ -29,6 +29,11 @@ import {
   type GateSubmissionView,
 } from '../lib/statement-lifecycle'
 import { assertTenantScope, type EudrAiToolDefinition, type EudrToolContext } from './types'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
+import { toFiniteNumber } from '@open-mercato/shared/lib/number'
+import { stringArray } from '../lib/values'
+import { daysLeft, DAY_MS } from '../lib/dates'
+import { toIsoOrEcho } from '@open-mercato/shared/lib/date/normalize'
 
 type Scope = {
   tenantId: string
@@ -55,8 +60,6 @@ type ReadinessGap = {
 }
 
 const logger = createLogger('eudr').child({ component: 'ai-tools/compliance-pack' })
-
-const DAY_MS = 24 * 60 * 60 * 1000
 
 const overviewInput = z.object({}).strict()
 
@@ -110,37 +113,6 @@ function forked(em: EntityManager): EntityManager {
   return em.fork()
 }
 
-function toIsoString(value: Date | string | null | undefined): string | null {
-  if (value == null) return null
-  if (value instanceof Date) return value.toISOString()
-  if (value.length === 0) return null
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? value : date.toISOString()
-}
-
-function asNumber(value: unknown): number {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string' && value.trim().length > 0) {
-    const parsed = Number(value)
-    if (Number.isFinite(parsed)) return parsed
-  }
-  return 0
-}
-
-function stringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return []
-  return value.filter((entry): entry is string => typeof entry === 'string')
-}
-
-function readString(value: unknown): string | null {
-  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
-}
-
-function daysLeft(deadline: string, now: Date): number {
-  const deadlineDate = new Date(`${deadline}T00:00:00.000Z`)
-  return Math.ceil((deadlineDate.getTime() - now.getTime()) / DAY_MS)
-}
-
 function countRowsByStatus<T extends object>(
   em: EntityManager,
   entity: new () => T,
@@ -181,11 +153,11 @@ function hasConcernAnswers(criteria: Record<string, { answer?: string }>): boole
 
 function buildReadinessGaps(submissions: EudrEvidenceSubmission[]): ReadinessGap[] {
   return submissions
-    .filter((submission) => submission.status !== 'verified' || asNumber(submission.completenessScore) !== 100)
+    .filter((submission) => submission.status !== 'verified' || toFiniteNumber(submission.completenessScore) !== 100)
     .map((submission) => ({
       submissionId: submission.id,
       status: submission.status,
-      completenessScore: asNumber(submission.completenessScore),
+      completenessScore: toFiniteNumber(submission.completenessScore),
       missingFields: stringArray(submission.missingFields),
     }))
 }
@@ -195,7 +167,7 @@ function riskSummary(assessment: EudrRiskAssessment | null) {
   return {
     conclusion: assessment.conclusion,
     overallTier: assessment.overallTier,
-    reviewDueAt: toIsoString(assessment.reviewDueAt),
+    reviewDueAt: toIsoOrEcho(assessment.reviewDueAt),
   }
 }
 
@@ -318,13 +290,13 @@ async function loadCatalogProductById(
     })
     const product = result.items[0]
     if (!product) return null
-    const id = readString(product.id)
+    const id = normalizeOptionalString(product.id)
     if (!id) return null
     return {
       id,
-      name: readString(product.title) ?? readString(product.name),
-      sku: readString(product.sku),
-      hsCode: readString(product.hs_code),
+      name: normalizeOptionalString(product.title) ?? normalizeOptionalString(product.name),
+      sku: normalizeOptionalString(product.sku),
+      hsCode: normalizeOptionalString(product.hs_code),
     }
   } catch (err) {
     // A lookup failure is not the same as "product does not exist"; surface it so
@@ -451,7 +423,7 @@ const listStatementReadinessTool: EudrAiToolDefinition = {
         const readinessGaps = buildReadinessGaps(submissions)
         const gateSubmissions: GateSubmissionView[] = submissions.map((submission) => ({
           status: submission.status,
-          completenessScore: asNumber(submission.completenessScore),
+          completenessScore: toFiniteNumber(submission.completenessScore),
           originCountry: submission.originCountry ?? null,
         }))
         const gate = evaluateSubmissionGate({
@@ -472,7 +444,7 @@ const listStatementReadinessTool: EudrAiToolDefinition = {
             ready: submissions.length > 0 && readinessGaps.length === 0,
             submissionCount: submissions.length,
             verifiedCount: submissions.filter((submission) => submission.status === 'verified').length,
-            completeCount: submissions.filter((submission) => asNumber(submission.completenessScore) === 100).length,
+            completeCount: submissions.filter((submission) => toFiniteNumber(submission.completenessScore) === 100).length,
             gaps: readinessGaps,
           },
           latestRisk: riskSummary(latestAssessment),
@@ -525,7 +497,7 @@ const listEvidenceGapsTool: EudrAiToolDefinition = {
         supplier: submission.supplierSnapshot?.displayName ?? null,
         commodity: submission.commodity,
         status: submission.status,
-        completenessScore: asNumber(submission.completenessScore),
+        completenessScore: toFiniteNumber(submission.completenessScore),
         missingFields: stringArray(submission.missingFields),
         originCountry: submission.originCountry ?? null,
         countryRiskTier: getCountryRiskTier(submission.originCountry ?? null),

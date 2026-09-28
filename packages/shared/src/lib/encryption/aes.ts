@@ -1,8 +1,9 @@
 import crypto from 'node:crypto'
-import { isEncryptionDebugEnabled } from './toggles'
+import { createEncryptionDebugLog } from './debugLog'
 import { createLogger } from '../logger'
 
 const logger = createLogger('shared').child({ component: 'encryption' })
+const logDebug = createEncryptionDebugLog(logger)
 
 export type EncryptionPayload = {
   value: string | null
@@ -29,15 +30,6 @@ export class TenantDataEncryptionError extends Error {
 
 export function generateDek(): string {
   return crypto.randomBytes(32).toString('base64')
-}
-
-function logDebug(event: string, payload: Record<string, unknown>) {
-  if (!isEncryptionDebugEnabled()) return
-  try {
-    logger.debug(event, payload)
-  } catch {
-    // ignore
-  }
 }
 
 export function encryptWithAesGcm(value: string, dekBase64: string): EncryptionPayload {

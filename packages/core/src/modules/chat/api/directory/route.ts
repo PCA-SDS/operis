@@ -8,10 +8,10 @@ import {
   enforceChatRateLimit,
   jsonOk,
   resolveChatRequest,
-  searchParamsToObject,
   toChatErrorResponse,
 } from '../shared'
 import { CHAT_TAG, COMMON_ERRORS, directoryResponseSchema, RATE_LIMITED_ERRORS } from '../openapi'
+import { searchParamsToObject } from '@open-mercato/shared/lib/http/query'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['chat.view'] },

@@ -42,7 +42,7 @@ type AnyBuilder = any
 
 const entityTableCache = new Map<string, string>()
 
-type EncryptionResolver = () => {
+export type EncryptionResolver = () => {
   decryptEntityPayload?: (entityId: EntityId, payload: Record<string, unknown>, tenantId?: string | null, organizationId?: string | null) => Promise<Record<string, unknown>>
   getEncryptedFieldNames?: (entityId: EntityId, tenantId?: string | null, organizationId?: string | null) => Promise<readonly string[]>
   isEnabled?: () => boolean
@@ -165,7 +165,7 @@ export function resolveEntityTableName(em: EntityManager | undefined, entity: En
   return fallback
 }
 
-function buildFilterableCustomFieldJoins(
+export function buildFilterableCustomFieldJoins(
   sources: QueryCustomFieldSource[] | undefined,
 ): Array<{
   alias: string

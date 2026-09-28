@@ -14,14 +14,7 @@ import { extractCustomFieldEntries } from '@open-mercato/shared/lib/crud/custom-
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { AvailabilityRuleSetForm, buildAvailabilityRuleSetPayload, type AvailabilityRuleSetFormValues } from '@open-mercato/core/modules/planner/components/AvailabilityRuleSetForm'
 import { OrganizationAvailabilityPolicyCard } from '@open-mercato/core/modules/planner/components/OrganizationAvailabilityPolicyCard'
-
-const DAY_MS = 24 * 60 * 60 * 1000
-
-function toFullDayWindow(value: Date): { start: Date; end: Date } {
-  const start = new Date(value.getFullYear(), value.getMonth(), value.getDate())
-  const end = new Date(start.getTime() + DAY_MS)
-  return { start, end }
-}
+import { toFullDayWindow } from '../../../../lib/availabilitySchedule'
 
 type RuleSetRecord = {
   id: string

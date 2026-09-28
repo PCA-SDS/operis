@@ -20,6 +20,10 @@ import {
   resolveOrderLabel,
   resolveSalesReturnLabel,
 } from '../../../components/orderLookup'
+import { isRecord } from '@open-mercato/shared/lib/guards'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
+import { normalizeCustomerOption } from '../../../components/customerOptions'
+import { normalizeDictionaryOption } from '../../../components/dictionaryOptions'
 
 type ClaimEditRecord = {
   id: string
@@ -53,67 +57,38 @@ const DICTIONARY_KEYS = {
   claimReasons: 'warranty_claims.warranty_claim_reason',
 } as const
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
-
-function toStringOrNull(value: unknown): string | null {
-  return typeof value === 'string' && value.trim().length ? value.trim() : null
-}
-
 function normalizeClaim(value: unknown): ClaimEditRecord | null {
   if (!isRecord(value)) return null
-  const id = toStringOrNull(value.id)
+  const id = normalizeOptionalString(value.id)
   if (!id) return null
   return {
     id,
-    claimNumber: toStringOrNull(value.claimNumber),
-    status: toStringOrNull(value.status),
-    customerId: toStringOrNull(value.customerId),
-    customerName: toStringOrNull(value.customerName),
-    orderId: toStringOrNull(value.orderId),
-    orderNumber: toStringOrNull(value.orderNumber),
-    reasonCode: toStringOrNull(value.reasonCode),
-    priority: toStringOrNull(value.priority),
-    notes: toStringOrNull(value.notes),
+    claimNumber: normalizeOptionalString(value.claimNumber),
+    status: normalizeOptionalString(value.status),
+    customerId: normalizeOptionalString(value.customerId),
+    customerName: normalizeOptionalString(value.customerName),
+    orderId: normalizeOptionalString(value.orderId),
+    orderNumber: normalizeOptionalString(value.orderNumber),
+    reasonCode: normalizeOptionalString(value.reasonCode),
+    priority: normalizeOptionalString(value.priority),
+    notes: normalizeOptionalString(value.notes),
     advanceReplacement: value.advanceReplacement === true,
-    replacementOrderId: toStringOrNull(value.replacementOrderId),
-    advanceShippedAt: toStringOrNull(value.advanceShippedAt),
-    salesReturnId: toStringOrNull(value.salesReturnId),
-    creditMemoId: toStringOrNull(value.creditMemoId),
-    vendorName: toStringOrNull(value.vendorName),
-    vendorRef: toStringOrNull(value.vendorRef),
-    resolutionSummary: toStringOrNull(value.resolutionSummary),
-    updatedAt: toStringOrNull(value.updatedAt),
+    replacementOrderId: normalizeOptionalString(value.replacementOrderId),
+    advanceShippedAt: normalizeOptionalString(value.advanceShippedAt),
+    salesReturnId: normalizeOptionalString(value.salesReturnId),
+    creditMemoId: normalizeOptionalString(value.creditMemoId),
+    vendorName: normalizeOptionalString(value.vendorName),
+    vendorRef: normalizeOptionalString(value.vendorRef),
+    resolutionSummary: normalizeOptionalString(value.resolutionSummary),
+    updatedAt: normalizeOptionalString(value.updatedAt),
   }
-}
-
-function normalizeOption(item: unknown, t: TranslateFn): CrudFieldOption | null {
-  if (!isRecord(item)) return null
-  const id = toStringOrNull(item.id)
-  if (!id) return null
-  const label =
-    toStringOrNull(item.label) ??
-    toStringOrNull(item.displayName) ??
-    toStringOrNull(item.display_name) ??
-    toStringOrNull(item.name) ??
-    t('warranty_claims.form.customerUnnamed', 'Unnamed customer')
-  const email = toStringOrNull(item.primaryEmail) ?? toStringOrNull(item.primary_email)
-  return { value: id, label: email ? `${label} (${email})` : label }
-}
-
-function normalizeDictionaryOption(item: unknown): CrudFieldOption | null {
-  if (!isRecord(item)) return null
-  const value = toStringOrNull(item.value)
-  if (!value) return null
-  return { value, label: toStringOrNull(item.label) ?? value }
 }
 
 function normalizeCreditMemoOption(item: unknown, fallbackLabel: string): CrudFieldOption | null {
   if (!isRecord(item)) return null
-  const id = toStringOrNull(item.id)
+  const id = normalizeOptionalString(item.id)
   if (!id) return null
-  const creditMemoNumber = toStringOrNull(item.credit_memo_number) ?? toStringOrNull(item.creditMemoNumber)
+  const creditMemoNumber = normalizeOptionalString(item.credit_memo_number) ?? normalizeOptionalString(item.creditMemoNumber)
   return { value: id, label: creditMemoNumber ?? fallbackLabel }
 }
 
@@ -168,7 +143,7 @@ export function createCreditMemoFieldConfig(t: TranslateFn, orderId: string | nu
 }
 
 function nullableText(value: unknown): string | null {
-  return toStringOrNull(value)
+  return normalizeOptionalString(value)
 }
 
 export default function EditWarrantyClaimPage({ params }: { params?: { id?: string } }) {
@@ -223,7 +198,7 @@ export default function EditWarrantyClaimPage({ params }: { params?: { id?: stri
       ...(Array.isArray(people.result?.items) ? people.result.items : []),
       ...(Array.isArray(companies.result?.items) ? companies.result.items : []),
     ]
-    return items.map((item) => normalizeOption(item, t)).filter((option): option is CrudFieldOption => option !== null)
+    return items.map((item) => normalizeCustomerOption(item, t)).filter((option): option is CrudFieldOption => option !== null)
   }, [t])
 
   React.useEffect(() => {

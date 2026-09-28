@@ -4,18 +4,19 @@ import { CatalogProductOption } from '../../data/entities'
 import { catalogProductOptionCreateSchema, catalogProductOptionUpdateSchema } from '../../data/validators'
 import { E } from '#generated/entities.ids.generated'
 import * as FV from '#generated/entities/catalog_product_option'
-import { parseBooleanFlag, sanitizeSearchTerm } from '../helpers'
 import { escapeLikePattern } from '@open-mercato/shared/lib/db/escapeLikePattern'
 import {
   createCatalogCrudOpenApi,
   createPagedListResponseSchema,
   defaultOkResponseSchema,
 } from '../openapi'
+import { sanitizeSearchTerm } from '@open-mercato/shared/lib/query/sanitizeSearchTerm'
+import { parseBooleanFlag } from '@open-mercato/shared/lib/boolean'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 const listSchema = z
   .object({
-    page: z.coerce.number().int().min(1).default(1),
-    pageSize: z.coerce.number().int().min(1).max(100).default(50),
+    ...paginationQuerySchema().shape,
     id: z.string().uuid().optional(),
     search: z.string().optional(),
     groupId: z.string().uuid().optional(),

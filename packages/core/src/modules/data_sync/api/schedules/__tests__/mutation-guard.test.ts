@@ -9,10 +9,8 @@ const mockScheduleService = {
   saveSchedule: jest.fn(),
 }
 
-const mockCrudMutationGuardService = {
-  validateMutation: jest.fn(),
-  afterMutationSuccess: jest.fn(),
-}
+const mockGuardValidate = jest.fn()
+const mockGuardAfterSuccess = jest.fn()
 
 jest.mock('@open-mercato/shared/lib/auth/server', () => ({
   getAuthFromRequest: jest.fn((req: Request) => mockGetAuthFromRequest(req)),
@@ -25,7 +23,6 @@ jest.mock('@open-mercato/shared/lib/http/readJsonSafe', () => ({
 const mockContainer = {
   resolve: jest.fn((token: string) => {
     if (token === 'dataSyncScheduleService') return mockScheduleService
-    if (token === 'crudMutationGuardService') return mockCrudMutationGuardService
     return null
   }),
 }
@@ -34,7 +31,25 @@ jest.mock('@open-mercato/shared/lib/di/container', () => ({
   createRequestContainer: jest.fn(async () => mockContainer),
 }))
 
+import { registerMutationGuards } from '@open-mercato/shared/lib/crud/mutation-guard-store'
 import { POST } from '../route'
+
+beforeAll(() => {
+  registerMutationGuards([{
+    moduleId: 'data_sync_test',
+    guards: [{
+      id: 'data_sync_test.schedule-guard',
+      targetEntity: 'data_sync.schedule',
+      operations: ['create', 'update'],
+      validate: (input) => mockGuardValidate(input),
+      afterSuccess: (input) => mockGuardAfterSuccess(input),
+    }],
+  }])
+})
+
+afterAll(() => {
+  registerMutationGuards([])
+})
 
 function request() {
   return new Request('http://localhost/api/data_sync/schedules', {
@@ -75,26 +90,26 @@ describe('data_sync schedule create mutation guard', () => {
       updatedAt: new Date('2026-06-01T10:00:00.000Z'),
       deletedAt: null,
     })
-    mockCrudMutationGuardService.validateMutation.mockResolvedValue({ ok: true, shouldRunAfterSuccess: true, metadata: null })
-    mockCrudMutationGuardService.afterMutationSuccess.mockResolvedValue(undefined)
+    mockGuardValidate.mockResolvedValue({ ok: true, shouldRunAfterSuccess: true })
+    mockGuardAfterSuccess.mockResolvedValue(undefined)
   })
 
   it('runs the guard before the write and the after-success hook after it', async () => {
     const res = await POST(request())
     expect(res.status).toBe(201)
-    expect(mockCrudMutationGuardService.validateMutation).toHaveBeenCalledWith(expect.objectContaining({
+    expect(mockGuardValidate).toHaveBeenCalledWith(expect.objectContaining({
       resourceKind: 'data_sync.schedule',
       operation: 'create',
     }))
     expect(mockScheduleService.saveSchedule).toHaveBeenCalled()
-    expect(mockCrudMutationGuardService.afterMutationSuccess).toHaveBeenCalledWith(expect.objectContaining({
+    expect(mockGuardAfterSuccess).toHaveBeenCalledWith(expect.objectContaining({
       resourceKind: 'data_sync.schedule',
       resourceId: SCHEDULE_ID,
     }))
   })
 
   it('short-circuits the write when the guard blocks the mutation', async () => {
-    mockCrudMutationGuardService.validateMutation.mockResolvedValueOnce({
+    mockGuardValidate.mockResolvedValueOnce({
       ok: false,
       status: 403,
       body: { error: 'Blocked by guard' },
@@ -104,6 +119,6 @@ describe('data_sync schedule create mutation guard', () => {
     expect(res.status).toBe(403)
     await expect(res.json()).resolves.toEqual({ error: 'Blocked by guard' })
     expect(mockScheduleService.saveSchedule).not.toHaveBeenCalled()
-    expect(mockCrudMutationGuardService.afterMutationSuccess).not.toHaveBeenCalled()
+    expect(mockGuardAfterSuccess).not.toHaveBeenCalled()
   })
 })

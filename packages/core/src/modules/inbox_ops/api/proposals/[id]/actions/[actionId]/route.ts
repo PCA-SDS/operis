@@ -3,10 +3,6 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { runWithCacheTenant } from '@open-mercato/cache'
 import { enforceCommandOptimisticLockWithGuards } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
-import {
-  runCrudMutationGuardAfterSuccess,
-  validateCrudMutationGuard,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
 import { actionEditSchema, validateActionPayloadForType } from '../../../../../data/validators'
 import { emitInboxOpsEvent } from '../../../../../events'
 import { resolveCache, invalidateCountsCache } from '../../../../../lib/cache'
@@ -17,6 +13,7 @@ import {
   isErrorResponse,
 } from '../../../../routeHelpers'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const logger = createLogger('inbox_ops').child({ component: 'action-edit' })
 
@@ -62,37 +59,25 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ error: payloadValidation.error }, { status: 400 })
     }
 
-    const guardResult = await validateCrudMutationGuard(ctx.container, {
-      tenantId: ctx.tenantId,
-      organizationId: ctx.organizationId,
-      userId: ctx.userId,
-      resourceKind: 'inbox_ops:inbox_proposal_action',
-      resourceId: action.id,
-      operation: 'update',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      mutationPayload: parsed.data,
+    const guardResult = await runRouteMutationGuards({
+      container: ctx.container,
+      req,
+      auth: { userId: ctx.userId, tenantId: ctx.tenantId, organizationId: ctx.organizationId },
+      input: {
+        resourceKind: 'inbox_ops:inbox_proposal_action',
+        resourceId: action.id,
+        operation: 'update',
+        mutationPayload: parsed.data,
+      },
     })
-    if (guardResult && !guardResult.ok) {
-      return NextResponse.json(guardResult.body, { status: guardResult.status })
+    if (!guardResult.ok) {
+      return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
     }
 
     action.payload = mergedPayload
     await ctx.em.flush()
 
-    if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-      await runCrudMutationGuardAfterSuccess(ctx.container, {
-        tenantId: ctx.tenantId,
-        organizationId: ctx.organizationId,
-        userId: ctx.userId,
-        resourceKind: 'inbox_ops:inbox_proposal_action',
-        resourceId: action.id,
-        operation: 'update',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
-        metadata: guardResult.metadata ?? null,
-      })
-    }
+    await guardResult.runAfterSuccess()
 
     const cache = resolveCache(ctx.container)
     await runWithCacheTenant(ctx.tenantId, () => invalidateCountsCache(cache, ctx.tenantId))

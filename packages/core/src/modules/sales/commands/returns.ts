@@ -13,7 +13,7 @@ import { findOneWithDecryption, findWithDecryption } from '@open-mercato/shared/
 import { SalesDocumentNumberGenerator } from '../services/salesDocumentNumberGenerator'
 import type { SalesCalculationService } from '../services/salesCalculationService'
 import type { SalesAdjustmentDraft, SalesLineSnapshot, SalesDocumentCalculationResult } from '../lib/types'
-import { cloneJson, deriveLineNetFromGross, ensureOrganizationScope, ensureSameScope, ensureTenantScope, extractUndoPayload, toNumericString, enforceSalesDocumentOptimisticLock, SALES_RESOURCE_KIND_ORDER, SALES_RESOURCE_KIND_RETURN } from './shared'
+import { cloneJson, deriveLineNetFromGross, ensureOrganizationScope, ensureSameScope, ensureTenantScope, extractUndoPayload, enforceSalesDocumentOptimisticLock, SALES_RESOURCE_KIND_ORDER, SALES_RESOURCE_KIND_RETURN } from './shared'
 import { resolveRedoSnapshot } from '@open-mercato/shared/lib/commands/redo'
 import { SalesOrder, SalesOrderAdjustment, SalesOrderLine, SalesReturn, SalesReturnLine } from '../data/entities'
 import { loadShippedQuantityByLine } from '../lib/shipments/snapshots'
@@ -27,6 +27,8 @@ import {
   type ReturnDeleteInput,
 } from '../data/validators'
 import { E } from '#generated/entities.ids.generated'
+import { toNumericString, toFiniteNumber } from '@open-mercato/shared/lib/number'
+import { round } from '../lib/calculations'
 
 type ReturnLineInput = { orderLineId: string; quantity: number }
 
@@ -88,19 +90,6 @@ async function invalidateOrderCache(
   )
 }
 
-function toNumeric(value: unknown): number {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string' && value.trim().length) {
-    const parsed = Number(value)
-    if (Number.isFinite(parsed)) return parsed
-  }
-  return 0
-}
-
-function round(value: number): number {
-  return Math.round((value + Number.EPSILON) * 1e4) / 1e4
-}
-
 /**
  * Payment totals live on the order, not in the line/adjustment math a return
  * recalculates. Every `calculateDocumentTotals` call that writes order totals
@@ -112,8 +101,8 @@ function round(value: number): number {
  */
 function resolveExistingPaymentTotals(order: SalesOrder): { paidTotalAmount: number; refundedTotalAmount: number } {
   return {
-    paidTotalAmount: toNumeric(order.paidTotalAmount),
-    refundedTotalAmount: toNumeric(order.refundedTotalAmount),
+    paidTotalAmount: toFiniteNumber(order.paidTotalAmount),
+    refundedTotalAmount: toFiniteNumber(order.refundedTotalAmount),
   }
 }
 
@@ -144,20 +133,20 @@ function mapOrderLineEntityToSnapshot(line: SalesOrderLine): SalesLineSnapshot {
     name: line.name ?? null,
     description: line.description ?? null,
     comment: line.comment ?? null,
-    quantity: toNumeric(line.quantity),
+    quantity: toFiniteNumber(line.quantity),
     quantityUnit: line.quantityUnit ?? null,
-    normalizedQuantity: toNumeric(line.normalizedQuantity ?? line.quantity),
+    normalizedQuantity: toFiniteNumber(line.normalizedQuantity ?? line.quantity),
     normalizedUnit: line.normalizedUnit ?? line.quantityUnit ?? null,
     uomSnapshot: line.uomSnapshot ? cloneJson(line.uomSnapshot) : null,
     currencyCode: line.currencyCode,
-    unitPriceNet: toNumeric(line.unitPriceNet),
-    unitPriceGross: toNumeric(line.unitPriceGross),
-    discountAmount: toNumeric(line.discountAmount),
-    discountPercent: toNumeric(line.discountPercent),
-    taxRate: toNumeric(line.taxRate),
-    taxAmount: toNumeric(line.taxAmount),
-    totalNetAmount: toNumeric(line.totalNetAmount),
-    totalGrossAmount: toNumeric(line.totalGrossAmount),
+    unitPriceNet: toFiniteNumber(line.unitPriceNet),
+    unitPriceGross: toFiniteNumber(line.unitPriceGross),
+    discountAmount: toFiniteNumber(line.discountAmount),
+    discountPercent: toFiniteNumber(line.discountPercent),
+    taxRate: toFiniteNumber(line.taxRate),
+    taxAmount: toFiniteNumber(line.taxAmount),
+    totalNetAmount: toFiniteNumber(line.totalNetAmount),
+    totalGrossAmount: toFiniteNumber(line.totalGrossAmount),
     configuration: line.configuration ? cloneJson(line.configuration) : null,
     promotionCode: line.promotionCode ?? null,
     metadata: line.metadata ? cloneJson(line.metadata) : null,
@@ -174,9 +163,9 @@ function mapOrderAdjustmentToDraft(adjustment: SalesOrderAdjustment): SalesAdjus
     label: adjustment.label ?? null,
     calculatorKey: adjustment.calculatorKey ?? null,
     promotionId: adjustment.promotionId ?? null,
-    rate: toNumeric(adjustment.rate),
-    amountNet: toNumeric(adjustment.amountNet),
-    amountGross: toNumeric(adjustment.amountGross),
+    rate: toFiniteNumber(adjustment.rate),
+    amountNet: toFiniteNumber(adjustment.amountNet),
+    amountGross: toFiniteNumber(adjustment.amountGross),
     currencyCode: adjustment.currencyCode ?? null,
     metadata: adjustment.metadata ? cloneJson(adjustment.metadata) : null,
     position: adjustment.position ?? 0,
@@ -280,11 +269,11 @@ export async function loadReturnSnapshot(em: EntityManager, id: string): Promise
     lines: lines.map((line) => ({
       id: line.id,
       orderLineId: typeof line.orderLine === 'string' ? line.orderLine : line.orderLine?.id ?? null,
-      quantityReturned: toNumeric(line.quantityReturned),
-      unitPriceNet: toNumeric(line.unitPriceNet),
-      unitPriceGross: toNumeric(line.unitPriceGross),
-      totalNetAmount: toNumeric(line.totalNetAmount),
-      totalGrossAmount: toNumeric(line.totalGrossAmount),
+      quantityReturned: toFiniteNumber(line.quantityReturned),
+      unitPriceNet: toFiniteNumber(line.unitPriceNet),
+      unitPriceGross: toFiniteNumber(line.unitPriceGross),
+      totalNetAmount: toFiniteNumber(line.totalNetAmount),
+      totalGrossAmount: toFiniteNumber(line.totalGrossAmount),
     })),
     adjustmentIds,
   }
@@ -369,7 +358,7 @@ async function reverseReturnEffects(
         snapshot.lines.forEach((entry) => {
           const line = lineMap.get(entry.orderLineId)
           if (!line) return
-          const next = Math.max(0, toNumeric(line.returnedQuantity) - entry.quantityReturned)
+          const next = Math.max(0, toFiniteNumber(line.returnedQuantity) - entry.quantityReturned)
           line.returnedQuantity = next.toString()
           line.updatedAt = new Date()
           em.persist(line)
@@ -554,7 +543,7 @@ async function restoreReturnEffects(
           createdAdjustments.push(adjustment)
           em.persist(adjustment)
 
-          line.returnedQuantity = (toNumeric(line.returnedQuantity) + lineSnapshot.quantityReturned).toString()
+          line.returnedQuantity = (toFiniteNumber(line.returnedQuantity) + lineSnapshot.quantityReturned).toString()
           line.updatedAt = new Date()
           em.persist(line)
         })
@@ -587,7 +576,7 @@ function normalizeLinesInput(lines: ReturnCreateInput['lines']): ReturnLineInput
   for (const line of lines) {
     const orderLineId = line.orderLineId
     if (!orderLineId || seen.has(orderLineId)) continue
-    const quantity = toNumeric(line.quantity)
+    const quantity = toFiniteNumber(line.quantity)
     if (!Number.isFinite(quantity) || quantity <= 0) continue
     seen.add(orderLineId)
     result.push({ orderLineId, quantity })
@@ -645,8 +634,8 @@ const createReturnCommand: CommandHandler<ReturnCreateInput, { returnId: string 
           throw notFound(translate('sales.returns.lineMissing', 'Order line not found.'))
         }
         const available = computeAvailableReturnQuantity({
-          quantity: toNumeric(line.quantity),
-          returnedQuantity: toNumeric(line.returnedQuantity),
+          quantity: toFiniteNumber(line.quantity),
+          returnedQuantity: toFiniteNumber(line.returnedQuantity),
           shippedQuantity: shippedByLine.get(orderLineId) ?? 0,
         })
         if (quantity - 1e-6 > available) {
@@ -690,7 +679,7 @@ const createReturnCommand: CommandHandler<ReturnCreateInput, { returnId: string 
         const line = lineMap.get(lineInput.orderLineId)
         if (!line) return
         const quantity = lineInput.quantity
-        const lineQuantity = Math.max(toNumeric(line.quantity), 0)
+        const lineQuantity = Math.max(toFiniteNumber(line.quantity), 0)
         // `total_net_amount = 0` while `total_gross_amount > 0` is not a representable
         // priced state (gross = net * (1 + taxRate) ⇒ net = 0 ⇒ gross = 0). When a line
         // carries a positive gross but a zeroed/missing net, reconstruct the net from the
@@ -699,8 +688,8 @@ const createReturnCommand: CommandHandler<ReturnCreateInput, { returnId: string 
         // (gross = 0, e.g. a 100% discount / comp) keeps net 0, so the return is not
         // over-credited at the discount-ignoring unit price (#3521).
         const lineTotalNet = deriveLineNetFromGross(line.totalNetAmount, line.totalGrossAmount, line.taxRate)
-        const unitNet = lineQuantity > 0 ? lineTotalNet / lineQuantity : toNumeric(line.unitPriceNet)
-        const unitGross = lineQuantity > 0 ? toNumeric(line.totalGrossAmount) / lineQuantity : toNumeric(line.unitPriceGross)
+        const unitNet = lineQuantity > 0 ? lineTotalNet / lineQuantity : toFiniteNumber(line.unitPriceNet)
+        const unitGross = lineQuantity > 0 ? toFiniteNumber(line.totalGrossAmount) / lineQuantity : toFiniteNumber(line.unitPriceGross)
         const totalNet = -round(Math.max(unitNet, 0) * quantity)
         const totalGross = -round(Math.max(unitGross, 0) * quantity)
 
@@ -742,7 +731,7 @@ const createReturnCommand: CommandHandler<ReturnCreateInput, { returnId: string 
         createdAdjustments.push(adjustment)
         tx.persist(adjustment)
 
-        line.returnedQuantity = (toNumeric(line.returnedQuantity) + quantity).toString()
+        line.returnedQuantity = (toFiniteNumber(line.returnedQuantity) + quantity).toString()
         line.updatedAt = new Date()
         tx.persist(line)
       })

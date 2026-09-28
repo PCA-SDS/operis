@@ -37,6 +37,7 @@ import {
   DialogTitle,
 } from '@open-mercato/ui/primitives/dialog'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { nonEmptyStringOrNull } from '@open-mercato/shared/lib/string'
 
 export const CUSTOMERS_AI_DEAL_DETAIL_AGENT_ID = 'customers.account_assistant'
 
@@ -70,29 +71,25 @@ interface AiDealDetailTriggerProps {
   data?: HostInjectionContext['data']
 }
 
-function readString(value: unknown): string | null {
-  return typeof value === 'string' && value.length > 0 ? value : null
-}
-
 function buildPageContext(
   context: HostInjectionContext | undefined,
   data: HostInjectionContext['data'] | undefined,
 ): CustomersAiDealDetailPageContext | null {
   const dealRecord = data?.deal ?? context?.data?.deal
   const dealId =
-    readString(context?.dealId) ??
-    readString(context?.recordId) ??
-    readString(dealRecord?.id) ??
+    nonEmptyStringOrNull(context?.dealId) ??
+    nonEmptyStringOrNull(context?.recordId) ??
+    nonEmptyStringOrNull(dealRecord?.id) ??
     null
   if (!dealId) return null
   const stage =
-    readString(context?.stage) ??
-    readString(dealRecord?.status) ??
-    readString(dealRecord?.pipelineStage) ??
+    nonEmptyStringOrNull(context?.stage) ??
+    nonEmptyStringOrNull(dealRecord?.status) ??
+    nonEmptyStringOrNull(dealRecord?.pipelineStage) ??
     null
   const pipelineStageId =
-    readString(context?.pipelineStageId) ??
-    readString(dealRecord?.pipelineStageId) ??
+    nonEmptyStringOrNull(context?.pipelineStageId) ??
+    nonEmptyStringOrNull(dealRecord?.pipelineStageId) ??
     null
   return {
     view: 'customers.deal.detail',

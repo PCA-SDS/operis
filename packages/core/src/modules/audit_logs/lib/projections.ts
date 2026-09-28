@@ -1,4 +1,5 @@
-import { extractChangeRows, isRecord } from './changeRows'
+import { extractChangeRows } from './changeRows'
+import { isRecord } from '@open-mercato/shared/lib/guards'
 
 export const ACTION_LOG_FILTER_TYPES = ['create', 'edit', 'delete', 'assign'] as const
 export const ACTION_LOG_PROJECTION_TYPES = [...ACTION_LOG_FILTER_TYPES, 'system'] as const

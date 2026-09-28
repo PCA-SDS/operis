@@ -11,6 +11,7 @@ import { sanitizeRedirectPath } from '@open-mercato/core/modules/auth/lib/safeRe
 import { readEndpointRateLimitConfig } from '@open-mercato/shared/lib/ratelimit/config'
 import { rateLimitErrorSchema } from '@open-mercato/shared/lib/ratelimit/helpers'
 import { z } from 'zod'
+import { parseCookie } from '../../lib/requestCookies'
 
 const refreshRateLimitConfig = readEndpointRateLimitConfig('REFRESH', {
   points: 15, duration: 60, blockDuration: 60, keyPrefix: 'refresh',
@@ -18,12 +19,6 @@ const refreshRateLimitConfig = readEndpointRateLimitConfig('REFRESH', {
 const refreshIpRateLimitConfig = readEndpointRateLimitConfig('REFRESH_IP', {
   points: 60, duration: 60, blockDuration: 60, keyPrefix: 'refresh-ip',
 })
-
-function parseCookie(req: Request, name: string): string | null {
-  const cookie = req.headers.get('cookie') || ''
-  const m = cookie.match(new RegExp('(?:^|;\\s*)' + name + '=([^;]+)'))
-  return m ? decodeURIComponent(m[1]) : null
-}
 
 type RefreshedSession = NonNullable<Awaited<ReturnType<AuthService['refreshFromSessionToken']>>>
 

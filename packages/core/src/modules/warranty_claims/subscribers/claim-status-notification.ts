@@ -5,6 +5,7 @@ import { buildBatchNotificationFromType } from '../../notifications/lib/notifica
 import { WarrantyClaim, WarrantyClaimEvent } from '../data/entities'
 import { notificationTypes } from '../notifications'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { readTrimmedString } from '@open-mercato/shared/lib/string'
 
 const logger = createLogger('warranty_claims')
 
@@ -19,11 +20,6 @@ type ResolverContext = {
   container?: { resolve<T = unknown>(name: string): T }
   tenantId?: string | null
   organizationId?: string | null
-}
-
-function readString(record: Record<string, unknown>, key: string): string | null {
-  const value = record[key]
-  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
 }
 
 function readEventPayload(event: WarrantyClaimEvent): Record<string, unknown> {
@@ -55,12 +51,12 @@ async function resolveCreatorUserId(
 
 export default async function handle(payload: unknown, ctx: ResolverContext): Promise<void> {
   const record = payload && typeof payload === 'object' ? payload as Record<string, unknown> : {}
-  const claimId = readString(record, 'claimId') ?? readString(record, 'id')
-  const claimNumber = readString(record, 'claimNumber') ?? ''
+  const claimId = readTrimmedString(record, 'claimId') ?? readTrimmedString(record, 'id')
+  const claimNumber = readTrimmedString(record, 'claimNumber') ?? ''
   const tenantId = ctx.tenantId ?? null
   const organizationId = ctx.organizationId ?? null
-  const fromStatus = readString(record, 'fromStatus') ?? ''
-  const toStatus = readString(record, 'toStatus') ?? readString(record, 'status') ?? ''
+  const fromStatus = readTrimmedString(record, 'fromStatus') ?? ''
+  const toStatus = readTrimmedString(record, 'toStatus') ?? readTrimmedString(record, 'status') ?? ''
   if (!claimId || !tenantId || !organizationId) return
 
   try {

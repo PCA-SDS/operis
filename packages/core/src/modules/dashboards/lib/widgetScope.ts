@@ -3,18 +3,13 @@ import { createRequestContainer, type AppContainer } from '@open-mercato/shared/
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
 
 export type WidgetScopeContext = {
   container: AppContainer
   em: EntityManager
   tenantId: string
   organizationIds: string[] | null
-}
-
-function normalizeScopeId(value: string | null | undefined): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  return trimmed.length > 0 ? trimmed : null
 }
 
 export async function resolveWidgetScope(
@@ -31,9 +26,9 @@ export async function resolveWidgetScope(
     error: translate('dashboards.errors.forbidden_scope', 'Requested scope is not accessible'),
   })
 
-  const requestedTenantId = normalizeScopeId(overrides?.tenantId)
-  const requestedOrganizationId = normalizeScopeId(overrides?.organizationId)
-  const authTenantId = normalizeScopeId(auth.tenantId)
+  const requestedTenantId = normalizeOptionalString(overrides?.tenantId)
+  const requestedOrganizationId = normalizeOptionalString(overrides?.organizationId)
+  const authTenantId = normalizeOptionalString(auth.tenantId)
   const isSuperAdmin = auth.isSuperAdmin === true
 
   // Cross-tenant inspection is a superadmin-only branch. Everyone else is pinned to
@@ -55,7 +50,7 @@ export async function resolveWidgetScope(
     ...(requestedOrganizationId ? { selectedId: requestedOrganizationId } : {}),
   })
 
-  const tenantId = normalizeScopeId(scope?.tenantId) ?? authTenantId
+  const tenantId = normalizeOptionalString(scope?.tenantId) ?? authTenantId
   if (!tenantId) {
     throw new CrudHttpError(400, { error: translate('dashboards.errors.tenant_required', 'Tenant context is required') })
   }

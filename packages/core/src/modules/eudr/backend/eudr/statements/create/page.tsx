@@ -26,6 +26,8 @@ import {
   resolveSeedingParams,
   type StatementSeedSource,
 } from '../../../../lib/statement-seeding'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
+import { normalizeReferencedStatements, optionalSupplementaryNumber, optionalNumber } from '../../../../components/statementFormValues'
 
 type StatementFormValues = {
   title: string
@@ -155,50 +157,8 @@ async function loadOrderCommodity(orderId: string): Promise<string | null> {
   }
 }
 
-function optionalText(value: unknown): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  return trimmed.length ? trimmed : null
-}
-
-function optionalNumber(value: unknown, translate: ReturnType<typeof useT>): number | null {
-  const text = optionalText(value)
-  if (!text) return null
-  const parsedNumber = Number(text)
-  if (!Number.isFinite(parsedNumber)) {
-    const message = translate('eudr.statements.form.quantityKgInvalid')
-    throw createCrudFormError(message, { quantityKg: message })
-  }
-  return parsedNumber
-}
-
-function optionalSupplementaryNumber(value: unknown, translate: ReturnType<typeof useT>): number | null {
-  const text = optionalText(value)
-  if (!text) return null
-  const parsedNumber = Number(text)
-  if (!Number.isFinite(parsedNumber)) {
-    const message = translate('eudr.statements.form.supplementaryQuantityInvalid')
-    throw createCrudFormError(message, { supplementaryQuantity: message })
-  }
-  return parsedNumber
-}
-
 function isOrderSnapshot(value: unknown): value is OrderSnapshot {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
-
-function normalizeReferencedStatements(value: unknown): ReferencedStatementValue[] {
-  if (!Array.isArray(value)) return []
-  return value
-    .map((entry) => {
-      if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) return null
-      const record = entry as Record<string, unknown>
-      const referenceNumber = optionalText(record.referenceNumber)
-      if (!referenceNumber) return null
-      const verificationNumber = optionalText(record.verificationNumber)
-      return verificationNumber ? { referenceNumber, verificationNumber } : { referenceNumber }
-    })
-    .filter((entry): entry is ReferencedStatementValue => entry !== null)
 }
 
 export default function CreateEudrStatementPage() {
@@ -472,12 +432,12 @@ export default function CreateEudrStatementPage() {
           groups={groups}
           initialValues={initialValues}
           onSubmit={async (values) => {
-            const title = optionalText(values.title)
+            const title = normalizeOptionalString(values.title)
             if (!title) {
               const message = translate('eudr.statements.form.titleRequired')
               throw createCrudFormError(message, { title: message })
             }
-            const commodity = optionalText(values.commodity)
+            const commodity = normalizeOptionalString(values.commodity)
             if (!commodity) {
               const message = translate('eudr.statements.form.commodityRequired')
               throw createCrudFormError(message, { commodity: message })
@@ -485,18 +445,18 @@ export default function CreateEudrStatementPage() {
             await createCrud('eudr/statements', {
               title,
               commodity,
-              referenceNumber: optionalText(values.referenceNumber),
-              verificationNumber: optionalText(values.verificationNumber),
+              referenceNumber: normalizeOptionalString(values.referenceNumber),
+              verificationNumber: normalizeOptionalString(values.verificationNumber),
               status: 'draft',
-              activityType: optionalText(values.activityType),
-              actorRole: optionalText(values.actorRole),
+              activityType: normalizeOptionalString(values.activityType),
+              actorRole: normalizeOptionalString(values.actorRole),
               quantityKg: optionalNumber(values.quantityKg, translate),
-              supplementaryUnit: optionalText(values.supplementaryUnit),
+              supplementaryUnit: normalizeOptionalString(values.supplementaryUnit),
               supplementaryQuantity: optionalSupplementaryNumber(values.supplementaryQuantity, translate),
-              orderId: optionalText(values.orderId),
+              orderId: normalizeOptionalString(values.orderId),
               orderSnapshot: isOrderSnapshot(values.orderSnapshot) ? values.orderSnapshot : null,
               referencedStatements: normalizeReferencedStatements(values.referencedStatements),
-              notes: optionalText(values.notes),
+              notes: normalizeOptionalString(values.notes),
             }, {
               errorMessage: translate('eudr.statements.form.createError'),
             }).catch((err) => {

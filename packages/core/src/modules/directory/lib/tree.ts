@@ -16,12 +16,6 @@ export type OrganizationTreeOption = {
   isActive?: boolean
 }
 
-export function formatOrganizationTreeLabel(name: string, depth: number): string {
-  if (depth <= 0) return name
-  const indent = '\u00A0'.repeat(Math.max(0, (depth - 1) * 2))
-  return `${indent}↳ ${name}`
-}
-
 export function buildOrganizationTreeOptions(
   nodes: OrganizationTreeNode[],
   exclude: Set<string> = new Set(),

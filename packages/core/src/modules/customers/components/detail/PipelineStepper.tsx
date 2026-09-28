@@ -5,6 +5,7 @@ import { Check } from 'lucide-react'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { isTerminalPipelineOutcomeLabel } from './pipelineStageUtils'
+import { formatShortDate } from '@open-mercato/shared/lib/time'
 
 type PipelineStageInfo = {
   id: string
@@ -34,12 +35,6 @@ function isTerminalOutcomeStage(stage: PipelineStageInfo): boolean {
   return isTerminalPipelineOutcomeLabel(stage.label)
 }
 
-function formatTransitionDate(value: string, t: ReturnType<typeof useT>): string {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return t('customers.deals.detail.pipeline.current', 'current')
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-}
-
 function formatStageSubtitle(
   transition: StageTransitionInfo | null,
   isCurrent: boolean,
@@ -47,11 +42,11 @@ function formatStageSubtitle(
 ): string {
   if (transition && isCurrent) {
     return t('customers.deals.detail.pipeline.currentWithDate', '{{date}} · {{state}}', {
-      date: formatTransitionDate(transition.transitionedAt, t),
+      date: formatShortDate(transition.transitionedAt, { fallback: t('customers.deals.detail.pipeline.current', 'current') }),
       state: t('customers.deals.detail.pipeline.current', 'current'),
     })
   }
-  if (transition) return formatTransitionDate(transition.transitionedAt, t)
+  if (transition) return formatShortDate(transition.transitionedAt, { fallback: t('customers.deals.detail.pipeline.current', 'current') })
   if (isCurrent) return t('customers.deals.detail.pipeline.current', 'current')
   return '—'
 }

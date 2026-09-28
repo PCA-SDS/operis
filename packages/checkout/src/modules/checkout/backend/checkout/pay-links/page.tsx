@@ -16,6 +16,7 @@ import { Badge } from '@open-mercato/ui/primitives/badge'
 import { apiCallOrThrow, readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { normalizeCrudServerError } from '@open-mercato/ui/backend/utils/serverErrors'
 import { ListEmptyState } from '@open-mercato/ui/backend/filters/ListEmptyState'
+import { formatDate } from '@open-mercato/shared/lib/time'
 
 type LinkRow = {
   id: string
@@ -37,12 +38,6 @@ type ListResponse = {
   items: LinkRow[]
   total: number
   totalPages: number
-}
-
-function formatDate(value: string | null | undefined): string {
-  if (!value) return '—'
-  const parsed = new Date(value)
-  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString()
 }
 
 export default function CheckoutPayLinksPage() {
@@ -178,7 +173,7 @@ export default function CheckoutPayLinksPage() {
     {
       accessorKey: 'createdAt',
       header: t('checkout.admin.payLinks.columns.created'),
-      cell: ({ row }) => formatDate(row.original.createdAt),
+      cell: ({ row }) => formatDate(row.original.createdAt, { fallback: '—' }),
     },
   ], [t])
 

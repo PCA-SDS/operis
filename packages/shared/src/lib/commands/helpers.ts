@@ -9,6 +9,7 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import type { CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
 import type { CommandLogMetadata } from '@open-mercato/shared/lib/commands'
 import type { BulkImportSuppression } from '@open-mercato/shared/lib/commands'
+import type { CommandLogBuilderArgs } from './types'
 
 export type ParsedPayload<TSchema extends z.ZodTypeAny> = {
   parsed: z.infer<TSchema>
@@ -148,14 +149,7 @@ function isRecord(input: unknown): input is { [key: string]: unknown } {
   return !!input && typeof input === 'object'
 }
 
-export type LogBuilderArgs<TInput, TResult> = {
-  input: TInput
-  result: TResult
-  ctx: CommandRuntimeContext
-  snapshots: { before?: unknown; after?: unknown }
-}
-
-export type LogBuilder<TInput, TResult> = (args: LogBuilderArgs<TInput, TResult>) => CommandLogMetadata | null | Promise<CommandLogMetadata | null>
+export type LogBuilder<TInput, TResult> = (args: CommandLogBuilderArgs<TInput, TResult>) => CommandLogMetadata | null | Promise<CommandLogMetadata | null>
 
 export function snapshotsEqual(a: unknown, b: unknown): boolean {
   if (Object.is(a, b)) return true

@@ -16,9 +16,9 @@ import {
   invoicePartnerUpdateResponseSchema,
   invoicePartnersTag,
   readRequestRecord,
-  resolveInvoicePartnerRouteContext,
   toInvoicePartnerDto,
 } from '../shared'
+import { resolveInvoiceRouteContext } from '../../routeContext'
 
 export const metadata = {
   PATCH: invoicePartnerRouteMetadata,
@@ -34,7 +34,7 @@ export async function PATCH(req: Request, routeContext: RouteContext = {}) {
   try {
     const params = invoicePartnerParamSchema.parse({ id: routeContext.params?.id })
     const parsed = invoicePartnerTermsUpdateSchema.parse(await readRequestRecord(req))
-    const context = await resolveInvoicePartnerRouteContext(req)
+    const context = await resolveInvoiceRouteContext(req)
     const service = context.container.resolve<InvoicePartnerTermsService>('invoicePartnerTermsService')
     const partner = await service.getPartner(context.scope, params.id)
     if (!partner) {

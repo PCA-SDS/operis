@@ -5,11 +5,7 @@ import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { runWithCacheTenant, type CacheStrategy } from '@open-mercato/cache'
 import { collectCrudCacheStats, purgeCrudCacheSegment } from '@open-mercato/shared/lib/crud/cache-stats'
-import {
-  bridgeLegacyGuard,
-  runMutationGuards,
-  type MutationGuardInput,
-} from '@open-mercato/shared/lib/crud/mutation-guard-registry'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 import {
   configsTag,
   cacheStatsResponseSchema,
@@ -103,31 +99,23 @@ export async function POST(req: Request) {
     // → API Routes). A cache purge carries no per-record optimistic-lock version, so
     // the default OSS guard short-circuits; wiring it keeps the route on the shared
     // write-guard interception path for any tenant-registered guard.
-    const guardInput: MutationGuardInput = {
-      tenantId: tenantScope ?? '',
-      organizationId: auth.orgId ?? null,
-      userId: auth.sub,
-      resourceKind: 'configs.cache',
-      resourceId: segment ?? tenantScope ?? 'all',
-      operation: 'delete',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      mutationPayload: { action, ...(segment ? { segment } : {}) },
-    }
-    const guard = bridgeLegacyGuard(container)
-    let afterSuccessCallbacks: Awaited<ReturnType<typeof runMutationGuards>>['afterSuccessCallbacks'] = []
-    if (guard) {
-      const guardResult = await runMutationGuards([guard], guardInput, {
-        userFeatures: await resolveGrantedFeatures(container, auth, guardInput.organizationId),
-      })
-      if (!guardResult.ok) {
-        return NextResponse.json(
-          guardResult.errorBody ?? { error: translate('configs.cache.purgeError', 'Failed to purge cache segment.') },
-          { status: guardResult.errorStatus ?? 422 },
-        )
-      }
-      afterSuccessCallbacks = guardResult.afterSuccessCallbacks
-    }
+    const guardResult = await runRouteMutationGuards({
+      container,
+      req,
+      auth: {
+        userId: auth.sub,
+        tenantId: tenantScope ?? '',
+        organizationId: auth.orgId ?? null,
+        userFeatures: await resolveGrantedFeatures(container, auth, auth.orgId ?? null),
+      },
+      input: {
+        resourceKind: 'configs.cache',
+        resourceId: segment ?? tenantScope ?? 'all',
+        operation: 'delete',
+        mutationPayload: { action, ...(segment ? { segment } : {}) },
+      },
+    })
+    if (!guardResult.ok) return guardResult.response
 
     let responseBody: Record<string, unknown>
     if (action === 'purgeSegment') {
@@ -140,20 +128,7 @@ export async function POST(req: Request) {
       responseBody = { action: 'purgeAll', stats }
     }
 
-    for (const callback of afterSuccessCallbacks) {
-      if (!callback.guard.afterSuccess) continue
-      await callback.guard.afterSuccess({
-        tenantId: tenantScope ?? '',
-        organizationId: auth.orgId ?? null,
-        userId: auth.sub,
-        resourceKind: 'configs.cache',
-        resourceId: segment ?? tenantScope ?? 'all',
-        operation: 'delete',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
-        metadata: callback.metadata ?? null,
-      })
-    }
+    await guardResult.runAfterSuccess()
 
     return NextResponse.json(responseBody)
   } catch (error) {

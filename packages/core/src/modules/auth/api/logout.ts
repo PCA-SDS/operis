@@ -4,6 +4,7 @@ import { AuthService } from '@open-mercato/core/modules/auth/services/authServic
 import { verifyJwt } from '@open-mercato/shared/lib/auth/jwt'
 import { buildSafeRedirectResponse } from '@open-mercato/core/modules/auth/lib/requestRedirect'
 import { emitAuthEvent } from '@open-mercato/core/modules/auth/events'
+import { parseCookie } from '../lib/requestCookies'
 
 type AuthTokenClaims = {
   userId: string | null
@@ -18,12 +19,6 @@ const emptyAuthTokenClaims: AuthTokenClaims = Object.freeze({
   tenantId: null,
   organizationId: null,
 })
-
-function parseCookie(req: Request, name: string): string | null {
-  const cookie = req.headers.get('cookie') || ''
-  const m = cookie.match(new RegExp('(?:^|;\\s*)' + name + '=([^;]+)'))
-  return m ? decodeURIComponent(m[1]) : null
-}
 
 function readStringClaim(payload: Record<string, unknown>, key: string): string | null {
   const value = payload[key]

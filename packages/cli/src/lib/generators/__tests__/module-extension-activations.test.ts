@@ -231,10 +231,12 @@ describe('module extension activations and incoming index', () => {
 
   it('binds a mutation guard only when the bridge is called, not from data/guards.ts alone', () => {
     write(moduleRoot('host'), 'api/records/route.ts', `
-      import { validateCrudMutationGuard } from 'x'
+      import { runRouteMutationGuards } from 'x'
       export async function POST(req, ctx) {
-        const guardResult = await validateCrudMutationGuard(ctx.container, {
-          resourceKind: 'host:record', operation: 'update', requestMethod: 'POST',
+        const guardResult = await runRouteMutationGuards({
+          container: ctx.container,
+          req,
+          input: { resourceKind: 'host:record', operation: 'update' },
         })
         return guardResult
       }
@@ -631,12 +633,12 @@ describe('module extension activations and incoming index', () => {
 
   it('unions operations from multiple mutation-guard bridges for the same entity', () => {
     write(moduleRoot('host'), 'api/records/route.ts', `
-      import { validateCrudMutationGuard } from 'x'
-      export async function POST(container) {
-        return validateCrudMutationGuard(container, { resourceKind: 'host:record', operation: 'create' })
+      import { runRouteMutationGuards } from 'x'
+      export async function POST(req, container) {
+        return runRouteMutationGuards({ container, req, input: { resourceKind: 'host:record', operation: 'create' } })
       }
-      export async function DELETE(container) {
-        return validateCrudMutationGuard(container, { resourceKind: 'host:record', operation: 'delete' })
+      export async function DELETE(req, container) {
+        return runRouteMutationGuards({ container, req, input: { resourceKind: 'host:record', operation: 'delete' } })
       }
     `)
     write(moduleRoot('ext'), 'data/guards.ts', `

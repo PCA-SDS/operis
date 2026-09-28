@@ -21,7 +21,7 @@ import {
   MAX_MESSAGE_PAGE_SIZE,
   SEARCH_COUNT_CAP,
 } from '../data/validators'
-import { decodeCursor, encodeCursor } from '../lib/cursor'
+import { decodeKeysetCursor, encodeKeysetCursor } from '@open-mercato/shared/lib/pagination/keysetCursor'
 import {
   countMessages,
   decodeSearchCursor,
@@ -361,7 +361,7 @@ export class DefaultChatService implements ChatService {
     await this.requireParticipant(ctx, conversationId)
 
     const limit = Math.min(Math.max(options.limit ?? DEFAULT_MESSAGE_PAGE_SIZE, 1), MAX_MESSAGE_PAGE_SIZE)
-    const cursor = decodeCursor(options.cursor)
+    const cursor = decodeKeysetCursor(options.cursor)
 
     // Read newest-first so "open the conversation" costs one page regardless of
     // how long the history is, then reverse for rendering.
@@ -394,7 +394,7 @@ export class DefaultChatService implements ChatService {
       // already — putting the reversal here keeps one ordering contract instead
       // of two.
       items: await this.decorateMessages(ctx, conversationId, page.slice().reverse()),
-      nextCursor: hasMore && oldest ? encodeCursor({ createdAt: oldest.createdAt, id: oldest.id }) : null,
+      nextCursor: hasMore && oldest ? encodeKeysetCursor({ createdAt: oldest.createdAt, id: oldest.id }) : null,
       hasMore,
     }
   }
@@ -991,7 +991,7 @@ export class DefaultChatService implements ChatService {
     return {
       items: await this.decorateMessages(ctx, conversationId, page),
       // The cursor keeps walking further back from the window's own top edge.
-      nextCursor: hasMore && oldest ? encodeCursor({ createdAt: oldest.createdAt, id: oldest.id }) : null,
+      nextCursor: hasMore && oldest ? encodeKeysetCursor({ createdAt: oldest.createdAt, id: oldest.id }) : null,
       hasMore,
     }
   }

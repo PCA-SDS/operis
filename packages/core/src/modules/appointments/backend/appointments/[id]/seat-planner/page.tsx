@@ -45,6 +45,8 @@ import { resolveRegisteredLucideIconNode } from '@open-mercato/ui/backend/icons/
 import { AppointmentServicePicker, type AppointmentBookableService, type AppointmentServiceSelection } from '@open-mercato/core/modules/appointments/components/AppointmentServicePicker'
 import { groupSeatPlannerOptions } from '@open-mercato/core/modules/appointments/lib/seatPlannerOptions'
 import { AppointmentEditForm } from '../edit/page'
+import { minutesToTime, timeToMinutes } from '../../../../lib/timeOfDay'
+import { formatDateTime, formatTime } from '@open-mercato/shared/lib/time'
 
 const START_HOUR = 8
 const END_HOUR = 22
@@ -208,23 +210,6 @@ function assignedMemberIdsFor(value: { assignedMemberIds?: string[]; assignedMem
 
 interface SeatPlannerPageProps {
   params?: { id?: string }
-}
-
-function minutesToTime(minutes: number): string {
-  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`
-}
-
-function timeToMinutes(value: string): number {
-  const [hour = '0', minute = '0'] = value.split(':')
-  return Number(hour) * 60 + Number(minute)
-}
-
-function formatTime(value: string): string {
-  return new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(new Date(value))
-}
-
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
 }
 
 function formatSalutation(value: string | null | undefined): string {
@@ -622,7 +607,7 @@ function BookingSidebar(props: {
         <div className="mt-3 rounded-md border border-border bg-muted/30 p-3">
           <div className="space-y-2 text-xs text-muted-foreground">
             <div className="flex items-center gap-2"><MapPin className="size-3.5 shrink-0" /><span className="truncate font-medium text-foreground">{workspace.appointment.organizationName ?? t('appointments.seatPlanner.locationUnavailable', 'Location unavailable')}</span></div>
-            <div className="flex items-center gap-2"><Calendar className="size-3.5 shrink-0" /><span className="truncate">{formatDate(workspace.appointment.requestedStartAt)}</span></div>
+            <div className="flex items-center gap-2"><Calendar className="size-3.5 shrink-0" /><span className="truncate">{formatDateTime(workspace.appointment.requestedStartAt)}</span></div>
             <div className="flex items-center gap-2"><Clock className="size-3.5 shrink-0" /><span className="truncate">{formatTime(workspace.appointment.requestedStartAt)} - {formatTime(workspace.appointment.requestedEndAt ?? addMinutes(workspace.appointment.requestedStartAt, 60))}</span></div>
           </div>
         </div>

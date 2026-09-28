@@ -48,12 +48,8 @@ import { CycleCountWizardDialog } from './CycleCountWizardDialog'
 import { MoveInventoryDialog } from './MoveInventoryDialog'
 import { ReceiveInventoryDialog } from './ReceiveInventoryDialog'
 import { useWmsInventoryMutationAccess } from './useWmsInventoryMutationAccess'
-
-type WarehouseOption = {
-  id: string
-  name?: string | null
-  code?: string | null
-}
+import type { WarehouseOption } from './inventoryTypes'
+import { movementStatusMap } from './inventoryMovementDisplay'
 
 type PagedWarehouses = {
   items: WarehouseOption[]
@@ -305,18 +301,6 @@ function ExpiryLotList({
       )}
     </div>
   )
-}
-
-const movementStatusMap: Record<string, StatusBadgeVariant> = {
-  receipt: 'success',
-  return_receive: 'success',
-  adjust: 'warning',
-  transfer: 'info',
-  pick: 'info',
-  pack: 'info',
-  cycle_count: 'neutral',
-  putaway: 'info',
-  ship: 'success',
 }
 
 export default function WmsOperationalDashboardPage() {

@@ -5,6 +5,10 @@ import type { CrudField, CrudFieldOption, CrudFormGroup } from '@open-mercato/ui
 import { Switch } from '@open-mercato/ui/primitives/switch'
 import type { TranslateFn } from '@open-mercato/shared/lib/i18n/context'
 import { fetchClaimReasonOptions } from '../../components/claimReasonOptions'
+import { isRecord } from '@open-mercato/shared/lib/guards'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
+import { toFiniteNumberOrNull } from '@open-mercato/shared/lib/number'
+import { nullableInteger } from '../../components/formValues'
 
 export type VendorPolicyRecord = {
   id: string
@@ -23,21 +27,6 @@ export type VendorPolicyFormValues = Partial<VendorPolicyRecord> & {
   claimableReasonCodesCsv?: string | string[] | null
 } & Record<string, unknown>
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
-
-function toStringOrNull(value: unknown): string | null {
-  return typeof value === 'string' && value.trim().length ? value.trim() : null
-}
-
-function toNumberOrNull(value: unknown): number | null {
-  if (typeof value === 'number') return Number.isFinite(value) ? value : null
-  if (typeof value !== 'string' || !value.trim()) return null
-  const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : null
-}
-
 function toStringArray(value: unknown): string[] | null {
   if (!Array.isArray(value)) return null
   return value
@@ -47,13 +36,7 @@ function toStringArray(value: unknown): string[] | null {
 }
 
 function nullableText(value: unknown): string | null {
-  return toStringOrNull(value)
-}
-
-function nullableInteger(value: unknown): number | null {
-  const parsed = toNumberOrNull(value)
-  if (parsed === null) return null
-  return Number.isInteger(parsed) && parsed >= 0 ? parsed : null
+  return normalizeOptionalString(value)
 }
 
 function nullableDecimalString(value: unknown): string | null {
@@ -107,19 +90,19 @@ function createSwitchField(
 
 export function normalizeVendorPolicy(value: unknown): VendorPolicyRecord | null {
   if (!isRecord(value)) return null
-  const id = toStringOrNull(value.id)
+  const id = normalizeOptionalString(value.id)
   if (!id) return null
   return {
     id,
-    vendorName: toStringOrNull(value.vendorName),
-    vendorRef: toStringOrNull(value.vendorRef),
-    coverageMonths: toNumberOrNull(value.coverageMonths),
+    vendorName: normalizeOptionalString(value.vendorName),
+    vendorRef: normalizeOptionalString(value.vendorRef),
+    coverageMonths: toFiniteNumberOrNull(value.coverageMonths),
     claimableReasonCodes: toStringArray(value.claimableReasonCodes),
-    recoveryRatePct: toStringOrNull(value.recoveryRatePct),
-    contactEmail: toStringOrNull(value.contactEmail),
+    recoveryRatePct: normalizeOptionalString(value.recoveryRatePct),
+    contactEmail: normalizeOptionalString(value.contactEmail),
     autoGenerateRecovery: value.autoGenerateRecovery === true,
     isActive: value.isActive !== false,
-    updatedAt: toStringOrNull(value.updatedAt),
+    updatedAt: normalizeOptionalString(value.updatedAt),
   }
 }
 

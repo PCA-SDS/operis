@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 const uuid = () => z.string().uuid()
 const numericQuantity = z.coerce.number().finite()
@@ -178,8 +179,7 @@ export const inventoryLotUpdateSchema = z
 const inventoryLowStockFilterSchema = z.enum(['belowReorder', 'belowSafety'])
 
 export const inventoryBalanceListQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(25),
+  ...paginationQuerySchema({ defaultPageSize: 25 }).shape,
   warehouseId: uuid().optional(),
   locationId: uuid().optional(),
   catalogVariantId: uuid().optional(),
@@ -190,8 +190,7 @@ export const inventoryBalanceListQuerySchema = z.object({
 }).passthrough()
 
 export const inventoryMovementListQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(25),
+  ...paginationQuerySchema({ defaultPageSize: 25 }).shape,
   warehouseId: uuid().optional(),
   locationId: uuid().optional(),
   catalogVariantId: uuid().optional(),
@@ -203,8 +202,7 @@ export const inventoryMovementListQuerySchema = z.object({
 }).passthrough()
 
 export const inventoryReservationListQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(25),
+  ...paginationQuerySchema({ defaultPageSize: 25 }).shape,
   warehouseId: uuid().optional(),
   catalogVariantId: uuid().optional(),
   lotId: uuid().optional(),

@@ -9,13 +9,13 @@ import {
 } from '../data/validators'
 import { E } from '#generated/entities.ids.generated'
 import { createStaffCrudOpenApi, createPagedListResponseSchema, defaultOkResponseSchema } from './openapi'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 const rawBodySchema = z.object({}).passthrough()
 
 const listSchema = z
   .object({
-    page: z.coerce.number().int().min(1).default(1),
-    pageSize: z.coerce.number().int().min(1).max(100).default(50),
+    ...paginationQuerySchema().shape,
     /** Narrows to one team member — the detail page's only use of this route. */
     memberId: z.string().uuid().optional(),
     sortField: z.string().optional(),

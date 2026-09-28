@@ -19,8 +19,8 @@ import {
   invoiceListResponseSchema,
   invoiceManualMutationResponseSchema,
   readRequestRecord,
-  resolveInvoiceInvoiceRouteContext,
 } from './shared'
+import { resolveInvoiceRouteContext } from '../routeContext'
 
 export const metadata = {
   GET: invoiceInvoiceRouteMetadata,
@@ -30,7 +30,7 @@ export const metadata = {
 export async function GET(req: Request) {
   let routeScope: InvoiceScope | undefined
   try {
-    const context = await resolveInvoiceInvoiceRouteContext(req)
+    const context = await resolveInvoiceRouteContext(req)
     routeScope = context.scope
     const url = new URL(req.url)
     const query = invoiceListQuerySchema.parse({
@@ -59,7 +59,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   let routeScope: InvoiceScope | undefined
   try {
-    const context = await resolveInvoiceInvoiceRouteContext(req)
+    const context = await resolveInvoiceRouteContext(req)
     routeScope = context.scope
     const input = invoiceManualCreateSchema.parse(await readRequestRecord(req))
     const guarded = await runRouteMutationGuards({

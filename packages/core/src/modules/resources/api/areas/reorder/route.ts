@@ -4,10 +4,6 @@ import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import type { CommandBus, CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
-import {
-  runCrudMutationGuardAfterSuccess,
-  validateCrudMutationGuard,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
@@ -18,6 +14,7 @@ import {
   type ResourcesResourceAreaReorderInput,
 } from '../../../data/validators'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const logger = createLogger('resources').child({ component: 'resource-areas-reorder-api' })
 
@@ -52,19 +49,19 @@ export async function POST(req: Request) {
       ctx,
       translate,
     )
-    const guardResult = await validateCrudMutationGuard(ctx.container, {
-      tenantId,
-      organizationId,
-      userId: auth.sub,
-      resourceKind: 'resources.resourceArea',
-      resourceId: input.id,
-      operation: 'custom',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      mutationPayload: input,
+    const guardResult = await runRouteMutationGuards({
+      container: ctx.container,
+      req,
+      auth: { userId: auth.sub, tenantId, organizationId },
+      input: {
+        resourceKind: 'resources.resourceArea',
+        resourceId: input.id,
+        operation: 'custom',
+        mutationPayload: input,
+      },
     })
-    if (guardResult && !guardResult.ok) {
-      return NextResponse.json(guardResult.body, { status: guardResult.status })
+    if (!guardResult.ok) {
+      return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
     }
 
     const commandBus = ctx.container.resolve('commandBus') as CommandBus
@@ -72,19 +69,7 @@ export async function POST(req: Request) {
       'resources.resourceAreas.reorder',
       { input, ctx },
     )
-    if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-      await runCrudMutationGuardAfterSuccess(ctx.container, {
-        tenantId,
-        organizationId,
-        userId: auth.sub,
-        resourceKind: 'resources.resourceArea',
-        resourceId: input.id,
-        operation: 'custom',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
-        metadata: guardResult.metadata ?? null,
-      })
-    }
+    await guardResult.runAfterSuccess()
     return NextResponse.json({ ok: true })
   } catch (err) {
     if (isCrudHttpError(err)) {

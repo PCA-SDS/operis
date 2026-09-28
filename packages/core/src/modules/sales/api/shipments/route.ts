@@ -18,6 +18,7 @@ import {
 import { E } from '#generated/entities.ids.generated'
 import * as F from '#generated/entities/sales_shipment'
 import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
+import { amountToNumber } from '../amounts'
 
 const rawBodySchema = z.object({}).passthrough()
 
@@ -46,15 +47,6 @@ const deleteSchema = shipmentUpdateSchema.pick({
   organizationId: true,
   tenantId: true,
 })
-
-const toNumber = (value: unknown): number => {
-  if (typeof value === 'number') return value
-  if (typeof value === 'string') {
-    const parsed = Number(value)
-    if (!Number.isNaN(parsed)) return parsed
-  }
-  return 0
-}
 
 export async function enrichShipmentListResponse(
   payload: { items?: unknown[] },
@@ -163,7 +155,7 @@ export async function enrichShipmentListResponse(
       orderLineId: lineId,
       orderLineName: line?.name ?? null,
       orderLineNumber: line?.lineNumber ?? null,
-      quantity: toNumber(entry.quantity),
+      quantity: amountToNumber(entry.quantity),
       metadata: entry.metadata ?? null,
     })
     acc.set(shipmentId, list)

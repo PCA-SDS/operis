@@ -15,9 +15,9 @@ import {
   ChangedFieldsTable,
   CollapsibleJsonSection,
   extractChangeRows,
-  formatDate,
   formatResource,
 } from '../lib/display-helpers'
+import { formatDateTime } from '@open-mercato/shared/lib/time'
 
 export function ActionLogDetailsDialog({ item, onClose }: { item: ActionLogItem; onClose: () => void }) {
   const t = useT()
@@ -55,7 +55,7 @@ export function ActionLogDetailsDialog({ item, onClose }: { item: ActionLogItem;
             {item.actionLabel || item.commandId}
           </DialogTitle>
           <DialogDescription className="text-xs">
-            {formatDate(item.createdAt)}
+            {formatDateTime(item.createdAt, { fallback: item.createdAt })}
           </DialogDescription>
         </DialogHeader>
         <DialogBody className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto">

@@ -24,6 +24,7 @@ import {
 import { WARRANTY_CLAIM_SETTINGS_RESOURCE_KIND, type SaveWarrantyClaimSettingsResult } from '../../commands/settings'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { toIsoOrNull as toIso } from '@open-mercato/shared/lib/date/normalize'
+import { toRecord } from '@open-mercato/shared/lib/guards'
 
 const logger = createLogger('warranty_claims')
 
@@ -44,10 +45,6 @@ type SettingsRouteContext = {
 type SettingsResponseResult = WarrantyClaimEffectiveSettings & {
   returnWindowDays: number | null
   updatedAt: string | null
-}
-
-function toRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
 }
 
 async function resolveSettingsContext(req: Request): Promise<SettingsRouteContext> {

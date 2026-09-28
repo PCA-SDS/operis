@@ -13,8 +13,8 @@ import {
   type CachePurgeRequest,
 } from './lib/cache-cli'
 import { touchGeneratedBarrels } from './lib/touchGeneratedBarrels'
-
-type ParsedArgs = Record<string, string | boolean>
+import { envDisablesAutoIndexing } from '@open-mercato/shared/lib/search/auto-indexing'
+import { parseCliArgs, stringOption, type CliArgs } from '@open-mercato/shared/lib/cli/args'
 
 export const STRUCTURAL_CACHE_REQUESTS: CachePurgeRequest[] = [
   { kind: 'pattern', pattern: 'nav:*' },
@@ -27,36 +27,7 @@ type CacheScope = {
   tenantId: string | null
 }
 
-function parseArgs(rest: string[]): ParsedArgs {
-  const args: ParsedArgs = {}
-  for (let i = 0; i < rest.length; i += 1) {
-    const part = rest[i]
-    if (!part?.startsWith('--')) continue
-    const [rawKey, rawValue] = part.slice(2).split('=')
-    if (!rawKey) continue
-    if (rawValue !== undefined) {
-      args[rawKey] = rawValue
-    } else if (i + 1 < rest.length && !rest[i + 1]!.startsWith('--')) {
-      args[rawKey] = rest[i + 1]!
-      i += 1
-    } else {
-      args[rawKey] = true
-    }
-  }
-  return args
-}
-
-function stringOption(args: ParsedArgs, ...keys: string[]): string | undefined {
-  for (const key of keys) {
-    const raw = args[key]
-    if (typeof raw !== 'string') continue
-    const trimmed = raw.trim()
-    if (trimmed.length > 0) return trimmed
-  }
-  return undefined
-}
-
-function flagEnabled(args: ParsedArgs, ...keys: string[]): boolean {
+function flagEnabled(args: CliArgs, ...keys: string[]): boolean {
   for (const key of keys) {
     const raw = args[key]
     if (raw === undefined) continue
@@ -84,7 +55,7 @@ function splitListOption(raw: string | undefined): string[] {
 
 async function resolveCacheScopes(
   em: EntityManager,
-  args: ParsedArgs,
+  args: CliArgs,
 ): Promise<CacheScope[]> {
   const explicitTenantId = stringOption(args, 'tenant', 'tenantId')
   const globalOnly = flagEnabled(args, 'global')
@@ -124,7 +95,7 @@ async function resolveCacheScopes(
   return scopes
 }
 
-function resolveCachePurgeRequest(args: ParsedArgs): CachePurgeRequest {
+function resolveCachePurgeRequest(args: CliArgs): CachePurgeRequest {
   if (flagEnabled(args, 'all')) return { kind: 'all' }
 
   const segment = stringOption(args, 'segment')
@@ -174,7 +145,7 @@ async function disposeContainer(container: unknown) {
   }
 }
 
-async function runCacheStats(args: ParsedArgs) {
+async function runCacheStats(args: CliArgs) {
   const json = flagEnabled(args, 'json')
   const container = await createRequestContainer()
   try {
@@ -208,7 +179,7 @@ async function runCacheStats(args: ParsedArgs) {
 }
 
 async function runCachePurgeRequest(
-  args: ParsedArgs,
+  args: CliArgs,
   request: CachePurgeRequest,
   emitOutput = true,
 ) {
@@ -261,11 +232,11 @@ async function runCachePurgeRequest(
   }
 }
 
-async function runCachePurge(args: ParsedArgs) {
+async function runCachePurge(args: CliArgs) {
   await runCachePurgeRequest(args, resolveCachePurgeRequest(args))
 }
 
-async function runStructuralCachePurge(args: ParsedArgs) {
+async function runStructuralCachePurge(args: CliArgs) {
   const json = flagEnabled(args, 'json')
   const structuralResults: Array<{
     request: CachePurgeRequest
@@ -290,14 +261,6 @@ async function runStructuralCachePurge(args: ParsedArgs) {
       }
     }
   }
-}
-
-function envDisablesAutoIndexing(): boolean {
-  const raw =
-    process.env.OM_DISABLE_VECTOR_SEARCH_AUTOINDEXING ??
-    process.env.DISABLE_VECTOR_SEARCH_AUTOINDEXING
-  if (!raw) return false
-  return parseBooleanToken(raw) === true
 }
 
 const restoreDefaults: ModuleCli = {
@@ -362,7 +325,7 @@ const cacheCommand: ModuleCli = {
   command: 'cache',
   async run(rest) {
     const [subcommand, ...subRest] = rest
-    const args = parseArgs(subRest)
+    const args = parseCliArgs(subRest, { keepEmptyValues: true })
 
     if (!subcommand || subcommand === 'help' || subcommand === '--help' || subcommand === '-h') {
       printCacheHelp()

@@ -16,7 +16,6 @@ import { ResourcesAssignment } from '@open-mercato/core/modules/resources/data/e
 import {
   StaffEmployeeProfile,
   StaffLeaveRequest,
-  StaffTeam,
   StaffTeamMember,
   StaffTeamMemberActivity,
   StaffTeamMemberAddress,
@@ -45,7 +44,7 @@ import {
   staffSnapshotDecryptionScope,
   staffSnapshotScopeFromContext,
   staffSnapshotScopeFromSnapshot,
-  type StaffSnapshotScope,
+  type StaffSnapshotScope, ensureTeamExists,
 } from './shared'
 import { E } from '#generated/entities.ids.generated'
 
@@ -187,17 +186,6 @@ async function ensureUserExists(em: EntityManager, userId: string, tenantId: str
   if (!membership && user.organizationId && user.organizationId !== organizationId) {
     throw new CrudHttpError(400, { error: 'User does not belong to this organization.' })
   }
-}
-
-async function ensureTeamExists(em: EntityManager, teamId: string, tenantId: string, organizationId: string): Promise<void> {
-  const team = await findOneWithDecryption(
-    em,
-    StaffTeam,
-    { id: teamId, tenantId, organizationId, deletedAt: null },
-    undefined,
-    { tenantId, organizationId },
-  )
-  if (!team) throw new CrudHttpError(400, { error: 'Team not found.' })
 }
 
 async function ensureTeamMemberHasNoReferences(

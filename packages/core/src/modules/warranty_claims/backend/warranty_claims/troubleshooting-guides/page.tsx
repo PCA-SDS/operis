@@ -35,6 +35,7 @@ import {
 } from './troubleshootingGuideForm'
 import { WarrantyWorkspace } from '../../components/WarrantyWorkspace'
 import { extensionPoints } from '../../../extension-points'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
 
 type TroubleshootingGuidesResponse = {
   items?: unknown[]
@@ -49,10 +50,6 @@ type GuideSegment = 'all' | 'published' | 'draft'
 function reasonLabel(value: string | null, t: TranslateFn, storedLabels: Record<string, string>): string {
   if (!value) return t('warranty_claims.troubleshootingGuides.reason.any', 'Any reason')
   return localizeDictionaryLabel(t, 'reason', value, storedLabels[value] ?? value)
-}
-
-function toFilterString(value: unknown): string | null {
-  return typeof value === 'string' && value.trim().length ? value.trim() : null
 }
 
 function countGuideSteps(node: TroubleshootingNode | null): number {
@@ -111,8 +108,8 @@ export default function WarrantyTroubleshootingGuidesPage() {
       sortDir: 'desc',
     })
     if (search.trim()) params.set('search', search.trim())
-    const claimType = toFilterString(filterValues.claimType)
-    const isActive = toFilterString(filterValues.isActive)
+    const claimType = normalizeOptionalString(filterValues.claimType)
+    const isActive = normalizeOptionalString(filterValues.isActive)
     if (claimType) params.set('claimType', claimType)
     if (isActive) params.set('isActive', isActive)
     return params.toString()
@@ -369,9 +366,9 @@ export default function WarrantyTroubleshootingGuidesPage() {
     },
   ], [reasonLabels, locale, t])
 
-  const activeTab = toFilterString(filterValues.isActive) === 'true'
+  const activeTab = normalizeOptionalString(filterValues.isActive) === 'true'
     ? 'published'
-    : toFilterString(filterValues.isActive) === 'false'
+    : normalizeOptionalString(filterValues.isActive) === 'false'
       ? 'draft'
       : 'all'
 

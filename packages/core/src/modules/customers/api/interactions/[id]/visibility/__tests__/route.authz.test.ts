@@ -4,15 +4,14 @@ jest.mock('@open-mercato/shared/lib/encryption/find', () => ({
   findOneWithDecryption: jest.fn(),
   findWithDecryption: jest.fn(),
 }))
-jest.mock('@open-mercato/shared/lib/crud/mutation-guard', () => ({
-  validateCrudMutationGuard: jest.fn(async () => ({ ok: true, shouldRunAfterSuccess: false })),
-  runCrudMutationGuardAfterSuccess: jest.fn(async () => {}),
+jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
+  runRouteMutationGuards: jest.fn(async () => ({ ok: true, runAfterSuccess: async () => undefined })),
 }))
 jest.mock('@open-mercato/core/modules/directory/utils/organizationScope', () => ({
   resolveOrganizationScopeForRequest: jest.fn(async () => ({ selectedId: 'org-1' })),
 }))
 jest.mock('../../../../../events', () => ({ emitCustomersEvent: jest.fn(async () => {}) }))
-jest.mock('../../../../../lib/interactionRequestContext', () => ({
+jest.mock('@open-mercato/shared/lib/auth/actor', () => ({
   resolveAuthActorId: (auth: { sub?: string }) => auth?.sub ?? 'actor',
 }))
 

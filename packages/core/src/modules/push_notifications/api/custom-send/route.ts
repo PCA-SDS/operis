@@ -6,13 +6,7 @@ import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/d
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { createLogger } from '@open-mercato/shared/lib/logger'
-import {
-  bridgeLegacyGuard,
-  runMutationGuards,
-  type MutationGuard,
-  type MutationGuardInput,
-} from '@open-mercato/shared/lib/crud/mutation-guard-registry'
-import type { AwilixContainer } from 'awilix'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 import {
   customSendSchema,
   customSendResponseSchema,
@@ -29,21 +23,6 @@ const errorResponseSchema = z.object({ error: z.string() })
 
 export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['push_notifications.send_custom'] },
-}
-
-async function runGuards(
-  container: AwilixContainer,
-  userFeatures: string[],
-  input: MutationGuardInput,
-): Promise<{
-  ok: boolean
-  errorBody?: Record<string, unknown>
-  errorStatus?: number
-  afterSuccessCallbacks: Array<{ guard: MutationGuard; metadata: Record<string, unknown> | null }>
-}> {
-  const legacyGuard = bridgeLegacyGuard(container)
-  if (!legacyGuard) return { ok: true, afterSuccessCallbacks: [] }
-  return runMutationGuards([legacyGuard], input, { userFeatures })
 }
 
 export async function POST(req: Request) {
@@ -64,28 +43,23 @@ export async function POST(req: Request) {
 
     // Custom write route → wire the mutation-guard registry (AGENTS → API Routes). The send creates
     // append-only delivery rows; map it to a `create` on the delivery resource keyed by recipient.
-    const guardInput: MutationGuardInput = {
-      tenantId: auth.tenantId,
-      organizationId,
-      userId: auth.sub,
-      resourceKind: RESOURCE_KIND,
-      resourceId: body.recipientUserId,
-      operation: 'create',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      mutationPayload: body,
-    }
-    const guardResult = await runGuards(
+    const guardResult = await runRouteMutationGuards({
       container,
-      await resolveGrantedFeatures(container, auth, guardInput.organizationId),
-      guardInput,
-    )
-    if (!guardResult.ok) {
-      return NextResponse.json(
-        guardResult.errorBody ?? { error: translate('push_notifications.errors.send_failed', 'Operation blocked') },
-        { status: guardResult.errorStatus ?? 422 },
-      )
-    }
+      req,
+      auth: {
+        userId: auth.sub,
+        tenantId: auth.tenantId,
+        organizationId,
+        userFeatures: await resolveGrantedFeatures(container, auth, organizationId),
+      },
+      input: {
+        resourceKind: RESOURCE_KIND,
+        resourceId: body.recipientUserId,
+        operation: 'create',
+        mutationPayload: body,
+      },
+    })
+    if (!guardResult.ok) return guardResult.response
 
     const service = container.resolve('pushNotificationService') as PushNotificationService
     const result = await service.sendCustomPush({
@@ -101,14 +75,7 @@ export async function POST(req: Request) {
       silent: body.silent ?? false,
     })
 
-    for (const callback of guardResult.afterSuccessCallbacks) {
-      if (!callback.guard.afterSuccess) continue
-      await callback.guard.afterSuccess({
-        ...guardInput,
-        resourceId: body.recipientUserId,
-        metadata: callback.metadata ?? null,
-      })
-    }
+    await guardResult.runAfterSuccess()
 
     // A well-formed request that enqueued nothing (no push channel, no in-scope device, or no device
     // whose provider matches an active channel) previously returned a bare 201 — a silent

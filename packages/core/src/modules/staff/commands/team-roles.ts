@@ -9,7 +9,7 @@ import { buildCustomFieldResetMap, diffCustomFieldChanges, loadCustomFieldSnapsh
 import { makeCreateRedo } from '@open-mercato/shared/lib/commands/redo'
 import type { DataEngine } from '@open-mercato/shared/lib/data/engine'
 import type { CrudIndexerConfig } from '@open-mercato/shared/lib/crud/types'
-import { StaffTeam, StaffTeamMember, StaffTeamRole } from '../data/entities'
+import { StaffTeamMember, StaffTeamRole } from '../data/entities'
 import {
   staffTeamRoleCreateSchema,
   staffTeamRoleUpdateSchema,
@@ -29,7 +29,7 @@ import {
   staffSnapshotDecryptionScope,
   staffSnapshotScopeFromContext,
   staffSnapshotScopeFromSnapshot,
-  type StaffSnapshotScope,
+  type StaffSnapshotScope, ensureTeamExists,
 } from './shared'
 import { E } from '#generated/entities.ids.generated'
 
@@ -96,22 +96,6 @@ const redoTeamRoleCreate = makeCreateRedo<StaffTeamRole, TeamRoleSnapshot, Staff
   events: staffTeamRoleCrudEvents,
   indexer: teamRoleCrudIndexer,
 })
-
-async function ensureTeamExists(
-  em: EntityManager,
-  teamId: string,
-  tenantId: string,
-  organizationId: string,
-): Promise<void> {
-  const team = await findOneWithDecryption(
-    em,
-    StaffTeam,
-    { id: teamId, tenantId, organizationId, deletedAt: null },
-    undefined,
-    { tenantId, organizationId },
-  )
-  if (!team) throw new CrudHttpError(400, { error: 'Team not found.' })
-}
 
 const createTeamRoleCommand: CommandHandler<StaffTeamRoleCreateInput, { roleId: string }> = {
   id: 'staff.team-roles.create',

@@ -6,10 +6,7 @@ import { CheckoutLink, CheckoutLinkTemplate } from '../data/entities'
 import { requireCheckoutScope, type CheckoutScope } from '../lib/utils'
 import { serializeTemplateOrLink, toMoneyString } from '../lib/utils'
 import { cloneJson } from '@open-mercato/shared/lib/json/cloneJson'
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === 'object' && !Array.isArray(value)
-}
+import { isRecord } from '@open-mercato/shared/lib/guards'
 
 export function resolveCommandScope(ctx: CommandRuntimeContext): CheckoutScope {
   return requireCheckoutScope({ auth: ctx.auth })

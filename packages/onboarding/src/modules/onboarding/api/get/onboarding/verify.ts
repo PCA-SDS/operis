@@ -15,7 +15,7 @@ import {
 import { resolveVerifyRedirectBaseUrl } from '../../../lib/verify-base-url'
 import {
   resolveProvisioningIds,
-  runDeferredProvisioning,
+  runDeferredProvisioning, createTimeoutPromise,
 } from '../../../lib/deferred-provisioning'
 import { setupInitialTenant } from '@open-mercato/core/modules/auth/lib/setup-app'
 import { UserConsent } from '@open-mercato/core/modules/auth/data/entities'
@@ -37,12 +37,6 @@ export const metadata = {
 }
 
 const SEED_DEFAULTS_TIMEOUT_MS = 15_000
-
-function createTimeoutPromise(label: string, timeoutMs: number): Promise<never> {
-  return new Promise((_, reject) => {
-    setTimeout(() => reject(new Error(`${label} timed out after ${timeoutMs}ms`)), timeoutMs)
-  })
-}
 
 async function runModuleSetupHook(args: {
   moduleId: string

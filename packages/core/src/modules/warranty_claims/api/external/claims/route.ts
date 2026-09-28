@@ -38,6 +38,8 @@ import {
 import { WARRANTY_CLAIM_RESOURCE_KIND } from '../../../commands/shared'
 import type { TenantDataEncryptionService } from '@open-mercato/shared/lib/encryption/tenantDataEncryptionService'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { toRecord } from '@open-mercato/shared/lib/guards'
+import { toIsoOrEcho } from '@open-mercato/shared/lib/date/normalize'
 
 const logger = createLogger('warranty_claims')
 
@@ -52,17 +54,6 @@ type ActionRouteContext = {
 export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['warranty_claims.external.submit'] },
   GET: { requireAuth: true, requireFeatures: ['warranty_claims.external.view'] },
-}
-
-function toRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
-}
-
-function toIso(value: Date | string | null | undefined): string | null {
-  if (!value) return null
-  if (value instanceof Date) return value.toISOString()
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? value : date.toISOString()
 }
 
 async function resolveActionContext(req: Request): Promise<ActionRouteContext> {
@@ -226,11 +217,11 @@ function serializeLookupResponse(
       claimType: claim.claimType,
       channel: claim.channel,
       priority: claim.priority,
-      createdAt: toIso(claim.createdAt),
-      updatedAt: toIso(claim.updatedAt),
-      submittedAt: toIso(claim.submittedAt),
-      resolvedAt: toIso(claim.resolvedAt),
-      closedAt: toIso(claim.closedAt),
+      createdAt: toIsoOrEcho(claim.createdAt),
+      updatedAt: toIsoOrEcho(claim.updatedAt),
+      submittedAt: toIsoOrEcho(claim.submittedAt),
+      resolvedAt: toIsoOrEcho(claim.resolvedAt),
+      closedAt: toIsoOrEcho(claim.closedAt),
       totalClaimedAmount: claim.totalClaimedAmount ?? null,
       totalApprovedAmount: claim.totalApprovedAmount ?? null,
       currencyCode: claim.currencyCode ?? null,
@@ -253,7 +244,7 @@ function serializeLookupResponse(
       id: event.id,
       kind: event.kind,
       body: event.body ?? null,
-      createdAt: toIso(event.createdAt),
+      createdAt: toIsoOrEcho(event.createdAt),
     })),
   }
 }

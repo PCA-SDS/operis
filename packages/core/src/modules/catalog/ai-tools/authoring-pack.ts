@@ -54,9 +54,8 @@ import {
   resolveEm,
   type AttributeSchemaResult,
   type ProductBundle,
-  type ProductBundleResult,
+  type ProductBundleResult, resolvePricingService,
 } from './_shared'
-import type { CatalogPricingService } from '../services/catalogPricingService'
 import type { PriceRow, PricingContext } from '../lib/pricing'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 
@@ -93,14 +92,6 @@ async function loadProductContext(
     return { found: false as const, productId }
   }
   return { found: true as const, productId, bundle: result }
-}
-
-function resolvePricingService(ctx: CatalogToolContext): CatalogPricingService | null {
-  try {
-    return ctx.container.resolve<CatalogPricingService>('catalogPricingService')
-  } catch {
-    return null
-  }
 }
 
 /* -------------------------------------------------------------------------- */

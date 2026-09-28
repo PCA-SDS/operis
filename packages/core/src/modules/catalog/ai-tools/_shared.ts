@@ -291,7 +291,7 @@ export type ProductBundle = {
 
 export type ProductBundleResult = ProductBundle | { found: false; productId: string }
 
-function resolvePricingService(ctx: CatalogToolContext): CatalogPricingService | null {
+export function resolvePricingService(ctx: CatalogToolContext): CatalogPricingService | null {
   try {
     return ctx.container.resolve<CatalogPricingService>('catalogPricingService')
   } catch {

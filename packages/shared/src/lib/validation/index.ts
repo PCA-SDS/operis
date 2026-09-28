@@ -17,7 +17,7 @@ export {
   type ParsedEmailAddress,
   type EmailSchemaOptions,
 } from './email'
-export { emptyStringToNull } from './preprocess'
+export { clearableStringSchema, emptyStringToNull } from './preprocess'
 export {
   CURRENCY_CODE_PATTERN,
   currencyCodeSchema,
@@ -37,3 +37,4 @@ export {
   paginationQuerySchema,
   type PaginationSchemaOptions,
 } from './pagination'
+export { RFC4122_UUID_PATTERN, RFC_UUID_PATTERN, UUID_SHAPE_PATTERN } from './uuid'

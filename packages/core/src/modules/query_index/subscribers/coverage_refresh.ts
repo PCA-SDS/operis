@@ -3,6 +3,7 @@ import { recordIndexerError } from '@open-mercato/shared/lib/indexers/error-log'
 import { isReadProjectionAlwaysConsistent } from '@open-mercato/shared/lib/data/consistency'
 import { refreshCoverageSnapshot } from '../lib/coverage'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { forkSubscriberEntityManager } from '../lib/subscriberEm'
 
 const logger = createLogger('query_index').child({ component: 'coverage-refresh' })
 
@@ -18,12 +19,6 @@ type Payload = {
 
 const DEFAULT_DELAY_MS = 0
 const pending = new Map<string, NodeJS.Timeout>()
-
-function forkRefreshEntityManager(em: EntityManager): EntityManager {
-  const fork = (em as unknown as { fork?: (options?: Record<string, unknown>) => EntityManager }).fork
-  if (typeof fork !== 'function') return em
-  return fork.call(em, { clear: true, freshEventManager: true, useContext: false })
-}
 
 function scopeKey(input: Payload): string {
   const entity = String(input.entityType || '')
@@ -48,7 +43,7 @@ export default async function handle(payload: Payload, ctx: { resolve: <T = any>
   const key = scopeKey({ entityType, tenantId, organizationId, withDeleted })
 
   const handleRefresh = async () => {
-    const em = forkRefreshEntityManager(ctx.resolve<EntityManager>('em'))
+    const em = forkSubscriberEntityManager(ctx.resolve<EntityManager>('em'))
     try {
       await refreshCoverageSnapshot(em, { entityType, tenantId, organizationId, withDeleted })
     } catch (err) {

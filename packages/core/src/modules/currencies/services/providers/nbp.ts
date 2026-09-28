@@ -1,17 +1,10 @@
 import { RateProvider, RateProviderResult } from './base'
 import { fromZonedTime } from 'date-fns-tz'
-import { fetchWithTimeout, resolveTimeoutMs } from '@open-mercato/shared/lib/http/fetchWithTimeout'
+import { fetchWithTimeout } from '@open-mercato/shared/lib/http/fetchWithTimeout'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { resolveRateFetchTimeoutMs } from './timeout'
 
 const logger = createLogger('currencies').child({ component: 'nbp' })
-
-const DEFAULT_RATE_FETCH_TIMEOUT_MS = 15_000
-
-function resolveRateFetchTimeoutMs(): number {
-  const raw = process.env.CURRENCY_RATE_FETCH_TIMEOUT_MS
-  const parsed = raw ? Number.parseInt(raw, 10) : undefined
-  return resolveTimeoutMs(parsed, DEFAULT_RATE_FETCH_TIMEOUT_MS)
-}
 
 interface NBPTableCResponse {
   table: string

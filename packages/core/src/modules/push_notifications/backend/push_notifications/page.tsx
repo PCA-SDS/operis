@@ -10,6 +10,7 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import type { FilterDef, FilterValues } from '@open-mercato/ui/backend/FilterBar'
+import { formatDateTime } from '@open-mercato/shared/lib/time'
 
 type PushDeliveryStatus = 'pending' | 'sending' | 'sent' | 'failed' | 'skipped' | 'expired'
 
@@ -41,17 +42,6 @@ const statusVariant: StatusMap<PushDeliveryStatus> = {
   failed: 'error',
   skipped: 'neutral',
   expired: 'warning',
-}
-
-function formatDate(value: string | null, t: (key: string) => string) {
-  if (!value) return t('push_notifications.deliveries.noValue')
-  try {
-    const date = new Date(value)
-    if (Number.isNaN(date.getTime())) return t('push_notifications.deliveries.noValue')
-    return date.toLocaleString()
-  } catch {
-    return t('push_notifications.deliveries.noValue')
-  }
 }
 
 export default function PushDeliveriesListPage() {
@@ -208,12 +198,12 @@ export default function PushDeliveriesListPage() {
     {
       accessorKey: 'created_at',
       header: t('push_notifications.deliveries.columns.created'),
-      cell: ({ row }) => formatDate(row.original.created_at, t),
+      cell: ({ row }) => formatDateTime(row.original.created_at, { fallback: t('push_notifications.deliveries.noValue') }),
     },
     {
       accessorKey: 'sent_at',
       header: t('push_notifications.deliveries.columns.sent'),
-      cell: ({ row }) => formatDate(row.original.sent_at, t),
+      cell: ({ row }) => formatDateTime(row.original.sent_at, { fallback: t('push_notifications.deliveries.noValue') }),
     },
   ], [t, userLabelById])
 

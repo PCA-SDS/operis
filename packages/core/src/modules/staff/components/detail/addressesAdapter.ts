@@ -5,12 +5,11 @@ import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimi
 import type { AddressDataAdapter } from '@open-mercato/ui/backend/detail'
 import type { AddressTypesAdapter } from '@open-mercato/ui/backend/detail'
 import { loadStaffDictionaryEntries, createStaffDictionaryEntry } from './dictionaries'
-
-type Translator = (key: string, fallback?: string, params?: Record<string, string | number>) => string
+import type { TranslateWithFallbackFn } from '@open-mercato/shared/lib/i18n/translate'
 
 type ApiAddressPayload = Record<string, unknown>
 
-export function createStaffAddressAdapter(translator: Translator): AddressDataAdapter {
+export function createStaffAddressAdapter(translator: TranslateWithFallbackFn): AddressDataAdapter {
   return {
     list: async ({ entityId }) => {
       if (!entityId) return []
@@ -143,7 +142,7 @@ export function createStaffAddressAdapter(translator: Translator): AddressDataAd
   }
 }
 
-export function createStaffAddressTypesAdapter(translator: Translator): AddressTypesAdapter {
+export function createStaffAddressTypesAdapter(translator: TranslateWithFallbackFn): AddressTypesAdapter {
   return {
     list: async () => {
       const entries = await loadStaffDictionaryEntries('addressTypes')

@@ -1,5 +1,5 @@
 import { createLogger } from '@open-mercato/shared/lib/logger'
-import { NextResponse, type NextRequest } from 'next/server'
+import { type NextRequest } from 'next/server'
 import type { UIMessage } from 'ai'
 import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
@@ -33,6 +33,7 @@ import { AiAgentRuntimeOverrideRepository } from '../../../data/repositories/AiA
 import { createConversationStorage } from '../../../lib/conversation-storage'
 import { checkAiChatRateLimit } from '../../../lib/rate-limit'
 import type { EntityManager } from '@mikro-orm/postgresql'
+import { jsonError } from '../../jsonError'
 
 const logger = createLogger('ai_assistant')
 
@@ -179,15 +180,6 @@ export const openApi: OpenApiRouteDoc = {
 
 export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['ai_assistant.view'] },
-}
-
-function jsonError(
-  status: number,
-  message: string,
-  code: string,
-  extra?: Record<string, unknown>,
-): NextResponse {
-  return NextResponse.json({ error: message, code, ...(extra ?? {}) }, { status })
 }
 
 function statusForDenyCode(code: AgentPolicyDenyCode): number {

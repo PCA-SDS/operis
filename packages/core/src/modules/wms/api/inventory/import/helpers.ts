@@ -7,10 +7,6 @@ import type { CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
-import {
-  runCrudMutationGuardAfterSuccess,
-  validateCrudMutationGuard,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
 import { runCustomRouteAfterInterceptors } from '@open-mercato/shared/lib/crud/custom-route-interceptor'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { parseInventoryImportCsv } from '../../../lib/inventoryImportCsv'
@@ -19,6 +15,7 @@ import {
   inventoryImportApplySchema,
   inventoryImportValidateSchema,
 } from '../../../data/validators'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const logger = createLogger('wms')
 
@@ -142,38 +139,26 @@ export async function executeWmsInventoryImportRoute(options: ImportRouteOptions
       (await readJsonSafe<Record<string, unknown>>(options.request, {})) ?? {},
     )
     assertImportScope(ctx, parsed, translate)
-    const guardResult = await validateCrudMutationGuard(ctx.container, {
-      tenantId: auth.tenantId,
-      organizationId: ctx.selectedOrganizationId,
-      userId: auth.sub,
-      resourceKind: 'wms.inventory',
-      resourceId: parsed.importBatchId,
-      operation: 'custom',
-      requestMethod: options.request.method,
-      requestHeaders: options.request.headers,
-      mutationPayload: parsed as Record<string, unknown>,
+    const guardResult = await runRouteMutationGuards({
+      container: ctx.container,
+      req: options.request,
+      auth: { userId: auth.sub, tenantId: auth.tenantId, organizationId: ctx.selectedOrganizationId },
+      input: {
+        resourceKind: 'wms.inventory',
+        resourceId: parsed.importBatchId,
+        operation: 'custom',
+        mutationPayload: parsed as Record<string, unknown>,
+      },
     })
-    if (guardResult && !guardResult.ok) {
-      return NextResponse.json(guardResult.body, { status: guardResult.status })
+    if (!guardResult.ok) {
+      return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
     }
 
     const result = await applyInventoryImport(ctx, {
       ...parsed,
       performedBy: auth.sub,
     })
-    if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-      await runCrudMutationGuardAfterSuccess(ctx.container, {
-        tenantId: auth.tenantId,
-        organizationId: ctx.selectedOrganizationId,
-        userId: auth.sub,
-        resourceKind: 'wms.inventory',
-        resourceId: parsed.importBatchId,
-        operation: 'custom',
-        requestMethod: options.request.method,
-        requestHeaders: options.request.headers,
-        metadata: guardResult.metadata ?? null,
-      })
-    }
+    await guardResult.runAfterSuccess()
 
     const intercepted = await runCustomRouteAfterInterceptors({
       routePath: options.routePath,

@@ -27,10 +27,6 @@ export const metadata = {
   GET: { requireAuth: false },
 }
 
-export function OPTIONS(req: Request) {
-  return new Response(null, { status: 204, headers: publicCorsHeaders(req) })
-}
-
 // Anonymous callers reach this list, and each request fans out to product,
 // price and custom-field reads. Throttle per client IP like the other public
 // booking-intake endpoints.

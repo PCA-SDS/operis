@@ -1,7 +1,7 @@
 /**
  * @jest-environment node
  */
-import { resolveStatusVariant, formatDateLabel, formatDateRange } from '../leaveRequestHelpers'
+import { resolveStatusVariant, formatDateRange } from '../leaveRequestHelpers'
 
 describe('leaveRequestHelpers', () => {
   describe('resolveStatusVariant', () => {
@@ -19,26 +19,6 @@ describe('leaveRequestHelpers', () => {
 
     it('returns secondary for unknown status', () => {
       expect(resolveStatusVariant('unknown' as 'pending')).toBe('secondary')
-    })
-  })
-
-  describe('formatDateLabel', () => {
-    it('returns formatted date for valid date string', () => {
-      const result = formatDateLabel('2025-06-15')
-      expect(result).toBeTruthy()
-      expect(result).not.toBe('2025-06-15')
-    })
-
-    it('returns raw value for invalid date', () => {
-      expect(formatDateLabel('not-a-date')).toBe('not-a-date')
-    })
-
-    it('returns empty string for null', () => {
-      expect(formatDateLabel(null)).toBe('')
-    })
-
-    it('returns empty string for undefined', () => {
-      expect(formatDateLabel(undefined)).toBe('')
     })
   })
 

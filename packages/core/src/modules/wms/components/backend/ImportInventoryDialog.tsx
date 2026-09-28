@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { ArrowRight, Check, FileText } from 'lucide-react'
+import { ArrowRight, FileText } from 'lucide-react'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { flashMutationError } from '../../lib/flashMutationError'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
@@ -42,6 +42,7 @@ import {
 } from '../../lib/inventoryImportCsv'
 import type { useWmsInventoryMutationAccess } from './useWmsInventoryMutationAccess'
 import { formatFileSize } from '@open-mercato/shared/lib/units/fileSize'
+import { WizardStepIndicator, type WizardStep } from './WizardStepIndicator'
 
 const logger = createLogger('wms')
 
@@ -49,8 +50,6 @@ type ImportAccess = Pick<
   ReturnType<typeof useWmsInventoryMutationAccess>,
   'organizationId' | 'tenantId' | 'userId' | 'scopeReady'
 >
-
-type WizardStep = 1 | 2 | 3
 
 type ValidationRow = {
   rowNumber: number
@@ -105,44 +104,6 @@ const TARGET_FIELD_KEYS: Array<keyof InventoryImportRawRow> = [
   'lotNumber',
   'serialNumber',
 ]
-
-function ImportStepIndicator({ step }: { step: WizardStep }) {
-  const steps = [1, 2, 3] as const
-
-  return (
-    <div className="flex items-center gap-1.5 pt-1" aria-label={`Step ${step} of 3`}>
-      {steps.map((stepNumber, index) => {
-        const completed = stepNumber < step
-        const current = stepNumber === step
-
-        return (
-          <React.Fragment key={stepNumber}>
-            {index > 0 ? (
-              <div
-                className={cn(
-                  'h-0.5 w-4 shrink-0',
-                  stepNumber <= step ? 'bg-primary' : 'bg-border',
-                )}
-                aria-hidden="true"
-              />
-            ) : null}
-            <div
-              className={cn(
-                'flex size-5 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
-                completed || current
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted text-muted-foreground',
-              )}
-              aria-current={current ? 'step' : undefined}
-            >
-              {completed ? <Check className="size-3" aria-hidden="true" /> : stepNumber}
-            </div>
-          </React.Fragment>
-        )
-      })}
-    </div>
-  )
-}
 
 
 function formatRowCount(value: number): string {
@@ -590,7 +551,7 @@ export function ImportInventoryDialog({ open, onOpenChange, access }: ImportInve
         <DialogHeader className="space-y-1 text-left">
           <DialogTitle>{t('wms.backend.inventory.import.dialog.title', 'Import CSV')}</DialogTitle>
           <DialogDescription>{stepSubtitle}</DialogDescription>
-          <ImportStepIndicator step={step} />
+          <WizardStepIndicator step={step} />
         </DialogHeader>
 
         <DialogBody className="flex max-h-[min(70vh,640px)] flex-col gap-5 overflow-y-auto">

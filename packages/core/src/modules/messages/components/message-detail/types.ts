@@ -1,4 +1,5 @@
 import type {
+  MessageAction,
   MessageActionsProps,
   MessageContentProps,
   ObjectPreviewData,
@@ -31,18 +32,7 @@ export type MessageAttachment = {
   url: string
 }
 
-export type MessageAction = {
-  id: string
-  label: string
-  labelKey?: string
-  variant?: 'default' | 'secondary' | 'destructive' | 'outline' | 'ghost'
-  icon?: string
-  commandId?: string
-  href?: string
-  isTerminal?: boolean
-  confirmRequired?: boolean
-  confirmMessage?: string
-}
+export type { MessageAction }
 
 export type MessageDetail = {
   id: string

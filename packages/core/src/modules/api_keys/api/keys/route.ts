@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
+import { paginationQuerySchema, RFC4122_UUID_PATTERN } from '@open-mercato/shared/lib/validation'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import type { EntityManager, FilterQuery } from '@mikro-orm/postgresql'
 import { makeCrudRoute } from '@open-mercato/shared/lib/crud/factory'
@@ -16,6 +16,7 @@ import { escapeLikePattern } from '@open-mercato/shared/lib/db/escapeLikePattern
 import { assertActorCanGrantRoles } from '@open-mercato/core/modules/auth/lib/grantChecks'
 import { isOrganizationAccessAllowed } from '@open-mercato/shared/lib/auth/organizationAccess'
 import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
+import { jsonResponse } from '@open-mercato/shared/lib/http/responses'
 
 type ApiKeyCrudCtx = CrudCtx & {
   __apiKeySecret?: { secret: string; prefix: string }
@@ -82,13 +83,6 @@ const errorSchema = z.object({
   error: z.string(),
 })
 
-function json(payload: unknown, init: ResponseInit = { status: 200 }) {
-  return new Response(JSON.stringify(payload), {
-    ...init,
-    headers: { 'content-type': 'application/json', ...(init.headers || {}) },
-  })
-}
-
 const crud = makeCrudRoute<
   z.infer<typeof createApiKeySchema>,
   never,
@@ -145,13 +139,13 @@ const crud = makeCrudRoute<
     beforeList: async (query, ctx) => {
       const auth = ctx.auth
       const { translate } = await resolveTranslations()
-      if (!auth?.tenantId) throw json({ error: translate('api_keys.errors.tenantRequired', 'Tenant context required') }, { status: 400 })
+      if (!auth?.tenantId) throw jsonResponse({ error: translate('api_keys.errors.tenantRequired', 'Tenant context required') }, { status: 400 })
       const { page, pageSize } = query
       const search = (query.search ?? '').trim().toLowerCase()
 
       const organizationIds = Array.isArray(ctx.organizationIds) ? ctx.organizationIds : null
       if (organizationIds && organizationIds.length === 0) {
-        throw json({ items: [], total: 0, page, pageSize, totalPages: 0 })
+        throw jsonResponse({ items: [], total: 0, page, pageSize, totalPages: 0 })
       }
 
       const em = (ctx.container.resolve('em') as EntityManager)
@@ -177,7 +171,7 @@ const crud = makeCrudRoute<
       const [items, total] = await qb.getResultAndCount()
 
       if (!items.length) {
-        throw json({ items: [], total, page, pageSize, totalPages: Math.ceil(total / pageSize) })
+        throw jsonResponse({ items: [], total, page, pageSize, totalPages: Math.ceil(total / pageSize) })
       }
 
       const roleIdSet = new Set<string>()
@@ -221,12 +215,12 @@ const crud = makeCrudRoute<
         totalPages: Math.ceil(total / pageSize),
       }
 
-      throw json(payload)
+      throw jsonResponse(payload)
     },
     beforeCreate: async (input, ctx) => {
       const auth = ctx.auth
       const { translate } = await resolveTranslations()
-      if (!auth?.tenantId) throw json({ error: translate('api_keys.errors.tenantRequired', 'Tenant context required') }, { status: 400 })
+      if (!auth?.tenantId) throw jsonResponse({ error: translate('api_keys.errors.tenantRequired', 'Tenant context required') }, { status: 400 })
 
       const requestedTenant = Object.prototype.hasOwnProperty.call(input, 'tenantId') ? input.tenantId : auth.tenantId
       const scopedCtx = ctx as ApiKeyCrudCtx
@@ -247,7 +241,7 @@ const crud = makeCrudRoute<
         const effectiveTenantId = typeof rawTenantId === 'string' && rawTenantId.trim().length > 0 ? rawTenantId.trim() : null
         const normalizedEffectiveTenantId = effectiveTenantId ? effectiveTenantId.toLowerCase() : null
         let role: Role | null = null
-        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) {
+        if (RFC4122_UUID_PATTERN.test(value)) {
           role = await em.findOne(Role, { id: value, deletedAt: null })
         }
         if (!role) {
@@ -277,12 +271,12 @@ const crud = makeCrudRoute<
           }
         }
         if (!role) {
-          throw json({ error: translate('api_keys.errors.roleNotFound', `Role ${value} not found`, { identifier: value }) }, { status: 400 })
+          throw jsonResponse({ error: translate('api_keys.errors.roleNotFound', `Role ${value} not found`, { identifier: value }) }, { status: 400 })
         }
         const roleTenantId = role.tenantId ? String(role.tenantId) : null
         const normalizedRoleTenantId = roleTenantId ? roleTenantId.toLowerCase() : null
         if (normalizedRoleTenantId && normalizedEffectiveTenantId && normalizedRoleTenantId !== normalizedEffectiveTenantId) {
-          throw json({ error: translate('api_keys.errors.roleWrongTenant', `Role ${role.name} belongs to another tenant`, { role: role.name ?? value }) }, { status: 400 })
+          throw jsonResponse({ error: translate('api_keys.errors.roleWrongTenant', `Role ${role.name} belongs to another tenant`, { role: role.name ?? value }) }, { status: 400 })
         }
         roleEntities.push(role)
         roleIds.push(String(role.id))
@@ -308,7 +302,7 @@ const crud = makeCrudRoute<
           targetOrganizationId: organizationId,
         })
       ) {
-        throw json({ error: translate('api_keys.errors.organizationOutOfScope', 'Organization out of scope') }, { status: 403 })
+        throw jsonResponse({ error: translate('api_keys.errors.organizationOutOfScope', 'Organization out of scope') }, { status: 403 })
       }
       scopedCtx.__apiKeyOrganizationId = organizationId ?? null
 
@@ -328,7 +322,7 @@ const crud = makeCrudRoute<
     beforeDelete: async (id, ctx) => {
       const auth = ctx.auth
       const { translate } = await resolveTranslations()
-      if (!auth?.tenantId) throw json({ error: translate('api_keys.errors.tenantRequired', 'Tenant context required') }, { status: 400 })
+      if (!auth?.tenantId) throw jsonResponse({ error: translate('api_keys.errors.tenantRequired', 'Tenant context required') }, { status: 400 })
       const em = (ctx.container.resolve('em') as EntityManager)
       const scopedCtx = ctx as ApiKeyCrudCtx
       const isSuperAdmin = await resolveIsSuperAdmin(scopedCtx)
@@ -357,7 +351,7 @@ const crud = makeCrudRoute<
           targetOrganizationId: record.organizationId ?? null,
         })
       ) {
-        throw json({ error: translate('api_keys.errors.notFound', 'Not found') }, { status: 404 })
+        throw jsonResponse({ error: translate('api_keys.errors.notFound', 'Not found') }, { status: 404 })
       }
       scopedCtx.__apiKeyOrganizationId = record.organizationId ?? null
     },

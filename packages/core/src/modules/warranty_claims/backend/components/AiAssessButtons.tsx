@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from 'react'
-import type { TranslateFn } from '@open-mercato/shared/lib/i18n/context'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { AiIcon } from '@open-mercato/ui/ai/AiIcon'
 import { Button } from '@open-mercato/ui/primitives/button'
@@ -14,6 +13,10 @@ import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuarde
 import { apiCall, readApiResultOrThrow, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { surfaceRecordConflict } from '@open-mercato/ui/backend/conflicts'
+import { isRecord } from '@open-mercato/shared/lib/guards'
+import { finiteNumberOrNull } from '@open-mercato/shared/lib/number'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
+import { toApiError } from './apiErrors'
 
 type AiAssessKind = 'damage' | 'proof'
 
@@ -69,51 +72,29 @@ type AiAssessButtonsProps = {
 
 const LINE_ATTACHMENT_ENTITY_ID = 'warranty_claims:warranty_claim_line'
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
-
-function readString(value: unknown): string | null {
-  return typeof value === 'string' && value.trim().length ? value.trim() : null
-}
-
-function readNumber(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null
-}
-
 function readBoolean(value: unknown): boolean | null {
   return typeof value === 'boolean' ? value : null
-}
-
-function readErrorKey(value: unknown): string | null {
-  if (!isRecord(value)) return null
-  return readString(value.error)
-}
-
-function toApiError(status: number, result: unknown, fallbackKey: string, t: TranslateFn): Error & { status?: number } {
-  const key = readErrorKey(result) ?? fallbackKey
-  return Object.assign(new Error(t(key, key)), { status })
 }
 
 function readDamageAssessment(value: unknown): DamageAssessment | null {
   if (!isRecord(value)) return null
   return {
-    damageType: readString(value.damageType),
-    severity: readString(value.severity),
-    probableCause: readString(value.probableCause),
+    damageType: normalizeOptionalString(value.damageType),
+    severity: normalizeOptionalString(value.severity),
+    probableCause: normalizeOptionalString(value.probableCause),
     misuseSuspected: readBoolean(value.misuseSuspected),
-    confidence: readNumber(value.confidence),
-    summary: readString(value.summary),
+    confidence: finiteNumberOrNull(value.confidence),
+    summary: normalizeOptionalString(value.summary),
   }
 }
 
 function readProofExtraction(value: unknown): ProofExtraction | null {
   if (!isRecord(value)) return null
   return {
-    purchaseDate: readString(value.purchaseDate),
-    serialNumber: readString(value.serialNumber),
-    merchant: readString(value.merchant),
-    confidence: readNumber(value.confidence),
+    purchaseDate: normalizeOptionalString(value.purchaseDate),
+    serialNumber: normalizeOptionalString(value.serialNumber),
+    merchant: normalizeOptionalString(value.merchant),
+    confidence: finiteNumberOrNull(value.confidence),
   }
 }
 

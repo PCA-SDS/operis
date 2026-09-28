@@ -3,12 +3,14 @@ import { ReferenceKind } from '@mikro-orm/core'
 import { resolveEntityIdFromMetadata } from './entityIds'
 import { TenantDataEncryptionService, parseDecryptedFieldValue } from './tenantDataEncryptionService'
 import { isTenantDataEncryptionEnabled } from './toggles'
-import { isEncryptionDebugEnabled } from './toggles'
+import { createEncryptionDebugLog } from './debugLog'
 import { resolveTenantEncryptionService } from './customFieldValues'
 import { createLogger } from '../logger'
 import { listEntityMetadataFromRegistry } from '../db/entityMetadata'
+import { toSnakeCase } from '../string/case'
 
 const logger = createLogger('shared').child({ component: 'encryption' })
+const debug = createEncryptionDebugLog(logger)
 
 type Scoped = {
   tenantId?: string | null
@@ -27,15 +29,6 @@ function resolveScope(entity: Scoped): Scope {
   return {
     tenantId: tenantId ? String(tenantId) : null,
     organizationId: organizationId ? String(organizationId) : null,
-  }
-}
-
-function debug(event: string, payload: Record<string, unknown>) {
-  if (!isEncryptionDebugEnabled()) return
-  try {
-    logger.debug(event, payload)
-  } catch {
-    // ignore
   }
 }
 
@@ -61,9 +54,6 @@ function getSubscriberForService(service: TenantDataEncryptionService): TenantEn
   subscribersByService.set(service, subscriber)
   return subscriber
 }
-
-const toSnakeCase = (value: string): string =>
-  value.replace(/([A-Z])/g, '_$1').replace(/__/g, '_').toLowerCase()
 
 export class TenantEncryptionSubscriber implements EventSubscriber<any> {
   constructor(private readonly service: TenantDataEncryptionService) {}

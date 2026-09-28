@@ -9,8 +9,8 @@ import { StaffTimeEntry, StaffTimeEntrySegment } from '@open-mercato/core/module
 const mockFindOneWithDecryption = jest.fn()
 const mockFindWithDecryption = jest.fn()
 const mockGetStaffMemberByUserId = jest.fn()
-const mockRunStaffMutationGuards = jest.fn()
-const mockRunStaffMutationGuardAfterSuccess = jest.fn()
+const mockRunRouteMutationGuards = jest.fn()
+const mockRunAfterSuccess = jest.fn()
 const mockEmitStaffEvent = jest.fn()
 const mockParseScopedCommandInput = jest.fn()
 
@@ -76,11 +76,8 @@ jest.mock('@open-mercato/core/modules/staff/lib/staffMemberResolver', () => ({
   getStaffMemberByUserId: jest.fn((...args: unknown[]) => mockGetStaffMemberByUserId(...args)),
 }))
 
-jest.mock('@open-mercato/core/modules/staff/api/guards', () => ({
-  runStaffMutationGuards: jest.fn((...args: unknown[]) => mockRunStaffMutationGuards(...args)),
-  runStaffMutationGuardAfterSuccess: jest.fn((...args: unknown[]) =>
-    mockRunStaffMutationGuardAfterSuccess(...args),
-  ),
+jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
+  runRouteMutationGuards: (...args: unknown[]) => mockRunRouteMutationGuards(...args),
 }))
 
 jest.mock('@open-mercato/core/modules/staff/events', () => ({
@@ -120,8 +117,8 @@ beforeEach(() => {
   lastTrxFlushCount = 0
   mockEm.fork.mockReturnValue(mockEm)
   mockGetStaffMemberByUserId.mockResolvedValue({ id: STAFF_MEMBER_ID })
-  mockRunStaffMutationGuards.mockResolvedValue({ ok: true, afterSuccessCallbacks: [] })
-  mockRunStaffMutationGuardAfterSuccess.mockResolvedValue(undefined)
+  mockRunRouteMutationGuards.mockResolvedValue({ ok: true, runAfterSuccess: mockRunAfterSuccess })
+  mockRunAfterSuccess.mockResolvedValue(undefined)
   mockEmitStaffEvent.mockResolvedValue(undefined)
   mockFindOneWithDecryption.mockImplementation(async (_em, _cls, _where, opts) => {
     if (opts) findOneOptions.push(opts)

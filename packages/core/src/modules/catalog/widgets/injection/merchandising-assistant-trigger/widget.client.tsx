@@ -17,6 +17,8 @@ import MerchandisingAssistantSheet, {
   type MerchandisingPageContext,
   type MerchandisingPageContextFilter,
 } from '../../../backend/catalog/products/MerchandisingAssistantSheet'
+import { nonEmptyStringOrNull } from '@open-mercato/shared/lib/string'
+import { readCount } from '@open-mercato/shared/lib/number'
 
 interface HostInjectionContext {
   search?: string
@@ -40,32 +42,19 @@ interface MerchandisingAssistantTriggerProps {
   context?: HostInjectionContext
 }
 
-function readString(value: unknown): string | null {
-  return typeof value === 'string' && value.length > 0 ? value : null
-}
-
-function readNumber(value: unknown): number {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string') {
-    const parsed = Number.parseInt(value, 10)
-    if (Number.isFinite(parsed)) return parsed
-  }
-  return 0
-}
-
 function normalizeFilters(context: HostInjectionContext | undefined): MerchandisingPageContextFilter {
   const rawCategories = context?.filters?.categoryIds
   const categoryIds = Array.isArray(rawCategories) ? rawCategories : []
   const firstCategoryId = categoryIds
-    .map(readString)
+    .map(nonEmptyStringOrNull)
     .find((value): value is string => value !== null && value.length > 0) ?? null
 
   const rawTags = context?.filters?.tagIds
   const tags = Array.isArray(rawTags)
-    ? rawTags.map(readString).filter((value): value is string => value !== null)
+    ? rawTags.map(nonEmptyStringOrNull).filter((value): value is string => value !== null)
     : []
 
-  const status = readString(context?.filters?.status)
+  const status = nonEmptyStringOrNull(context?.filters?.status)
 
   return {
     categoryId: firstCategoryId,
@@ -82,9 +71,9 @@ function normalizeFilters(context: HostInjectionContext | undefined): Merchandis
 export function computeCatalogMerchandisingPageContext(
   context: HostInjectionContext | undefined,
 ): MerchandisingPageContext {
-  const totalMatching = readNumber(context?.totalMatching ?? context?.total)
+  const totalMatching = readCount(context?.totalMatching ?? context?.total)
   const selectedRowIds = Array.isArray(context?.selectedRowIds) ? context.selectedRowIds : []
-  const selectedCount = selectedRowIds.length > 0 ? selectedRowIds.length : readNumber(context?.selectedCount)
+  const selectedCount = selectedRowIds.length > 0 ? selectedRowIds.length : readCount(context?.selectedCount)
   return {
     view: 'catalog.products.list',
     entityType: 'catalog.products.list',

@@ -29,6 +29,10 @@ import {
   EUDR_STATEMENT_TRANSITIONS,
 } from '../lib/statement-lifecycle'
 import { statusBadgeVariant } from './formConfig'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
+import { isRecord } from '@open-mercato/shared/lib/guards'
+import { toValidDateOrNull } from '@open-mercato/shared/lib/date/normalize'
+import { toDateTimeLocalInput } from '../lib/dates'
 
 type StatementLifecycleRecord = {
   id: string
@@ -59,10 +63,6 @@ export type StatementLifecycleBarProps = {
   onChanged: () => void
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
-
 function extractGateReasons(error: unknown): string[] {
   const candidates: unknown[] = []
   if (isRecord(error)) {
@@ -78,12 +78,6 @@ function extractGateReasons(error: unknown): string[] {
   return []
 }
 
-function parseDate(value: string | null | undefined): Date | null {
-  if (!value) return null
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? null : date
-}
-
 function addYears(date: Date, years: number): Date {
   const next = new Date(date)
   next.setFullYear(next.getFullYear() + years)
@@ -93,17 +87,6 @@ function addYears(date: Date, years: number): Date {
 function remainingParts(ms: number): { hours: number; minutes: number } {
   const totalMinutes = Math.max(0, Math.ceil(ms / 60_000))
   return { hours: Math.floor(totalMinutes / 60), minutes: totalMinutes % 60 }
-}
-
-function toDateTimeLocalInput(date: Date): string {
-  const offsetMs = date.getTimezoneOffset() * 60_000
-  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16)
-}
-
-function optionalText(value: unknown): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  return trimmed.length ? trimmed : null
 }
 
 function transitionActionKey(status: EudrStatementStatus): string {
@@ -150,8 +133,8 @@ export function StatementLifecycleBar({
     return () => window.clearInterval(interval)
   }, [statement.status, statement.referenceIssuedAt])
 
-  const issuedAt = parseDate(statement.referenceIssuedAt)
-  const submittedAt = parseDate(statement.submittedAt)
+  const issuedAt = toValidDateOrNull(statement.referenceIssuedAt)
+  const submittedAt = toValidDateOrNull(statement.submittedAt)
   const amendRemainingMs = statement.status === 'available' && issuedAt
     ? issuedAt.getTime() + EUDR_AMEND_WINDOW_MS - now.getTime()
     : 0
@@ -326,17 +309,17 @@ export function StatementLifecycleBar({
                 : toDateTimeLocalInput(new Date()),
             }}
             onSubmit={async (values) => {
-              const referenceNumber = optionalText(values.referenceNumber)
+              const referenceNumber = normalizeOptionalString(values.referenceNumber)
               if (!referenceNumber) {
                 const message = translate('eudr.lifecycle.referenceDialog.referenceNumberRequired')
                 throw createCrudFormError(message, { referenceNumber: message })
               }
-              const verificationNumber = optionalText(values.verificationNumber)
+              const verificationNumber = normalizeOptionalString(values.verificationNumber)
               if (!verificationNumber) {
                 const message = translate('eudr.lifecycle.referenceDialog.verificationNumberRequired')
                 throw createCrudFormError(message, { verificationNumber: message })
               }
-              const issuedAtText = optionalText(values.referenceIssuedAt)
+              const issuedAtText = normalizeOptionalString(values.referenceIssuedAt)
               const issuedAt = issuedAtText ? new Date(issuedAtText) : new Date()
               if (Number.isNaN(issuedAt.getTime()) || issuedAt.getTime() > Date.now()) {
                 const message = translate('eudr.lifecycle.referenceDialog.referenceIssuedAtInvalid')

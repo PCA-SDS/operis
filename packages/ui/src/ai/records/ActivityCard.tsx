@@ -15,7 +15,7 @@ import type { LucideIcon } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { KeyValueList, RecordCardShell, TagRow, statusToTagVariant } from './RecordCardShell'
 import type { ActivityRecordPayload } from './types'
-import { formatDate } from '../../utils/format'
+import { formatDate } from '@open-mercato/shared/lib/time'
 
 function pickActivityIcon(type: string | null | undefined): LucideIcon {
   if (!type) return ActivityIcon

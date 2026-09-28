@@ -2,6 +2,7 @@ import type { EntityId } from '@open-mercato/shared/modules/entities'
 import type { QueryEngine } from '@open-mercato/shared/lib/query/types'
 import { E } from '#generated/entities.ids.generated'
 import { readSafeDecryptedString } from './decryptionSafety'
+import { toRecordOrNull } from '@open-mercato/shared/lib/guards'
 
 export const ASSIGNEE_NAME_LOOKUP_LIMIT = 100
 
@@ -13,10 +14,6 @@ export type AssigneeNameLookupDeps = {
 }
 
 const assigneeOrganizationId = Symbol('warranty_claims.assigneeOrganizationId')
-
-function toRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null
-}
 
 function resolveAuthUserEntityId(): EntityId | null {
   const registry = E as unknown as Record<string, Record<string, string> | undefined>
@@ -68,7 +65,7 @@ async function queryAssigneeRecords(
     fields: ['id', 'name', 'email', 'tenant_id', 'organization_id', 'is_confirmed'],
     page: { page: 1, pageSize: ASSIGNEE_NAME_LOOKUP_LIMIT },
   })
-  return (result.items ?? []).map(toRecord).filter((record): record is Record<string, unknown> => record !== null)
+  return (result.items ?? []).map(toRecordOrNull).filter((record): record is Record<string, unknown> => record !== null)
 }
 
 export function attachAssigneeOrganizationId<T extends Record<string, unknown>>(record: T, organizationId: string | null): T {
@@ -79,7 +76,7 @@ export function attachAssigneeOrganizationId<T extends Record<string, unknown>>(
 export function collectAssigneeUserIds(items: readonly unknown[]): string[] {
   const ids = new Set<string>()
   for (const item of items) {
-    const record = toRecord(item)
+    const record = toRecordOrNull(item)
     if (!record) continue
     const value = record.assigneeUserId
     if (typeof value === 'string' && value.length) ids.add(value)
@@ -139,7 +136,7 @@ export async function decorateItemsWithAssigneeNames(
   items: readonly unknown[],
   deps: AssigneeNameLookupDeps,
 ): Promise<void> {
-  const records = items.map(toRecord).filter((record): record is Record<string, unknown> => record !== null)
+  const records = items.map(toRecordOrNull).filter((record): record is Record<string, unknown> => record !== null)
   if (!records.length) return
   for (const record of records) {
     if (!('assigneeName' in record)) record.assigneeName = null

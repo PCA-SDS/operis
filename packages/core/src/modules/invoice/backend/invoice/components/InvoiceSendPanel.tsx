@@ -25,6 +25,8 @@ import { surfaceRecordConflict } from '@open-mercato/ui/backend/conflicts'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
+import { LOOSE_EMAIL_PATTERN } from '@open-mercato/shared/lib/validation'
+import { formatDateTime } from '@open-mercato/shared/lib/time'
 
 type InvoiceSendPanelInvoice = {
   id: string
@@ -54,13 +56,6 @@ type InvoiceSendPanelProps = {
   onSent: () => Promise<void>
 }
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
-function displayDateTime(value: string, fallback: string): string {
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? fallback : date.toLocaleString()
-}
-
 function responseError(payload: MutationError | null, fallback: string): string {
   return typeof payload?.error === 'string' && payload.error.trim() ? payload.error : fallback
 }
@@ -88,10 +83,10 @@ export function InvoiceSendPanel({ invoice, onSent }: InvoiceSendPanelProps) {
     || t('invoice.detail.untitled')
   const companyName = invoice.partnerName ?? invoice.buyerName ?? t('invoice.send.customerFallback')
   const sentLabel = invoice.lastSentAt
-    ? displayDateTime(invoice.lastSentAt, t('invoice.send.unknownDate'))
+    ? formatDateTime(invoice.lastSentAt, { fallback: t('invoice.send.unknownDate') })
     : null
   const openedLabel = invoice.openedAt
-    ? displayDateTime(invoice.openedAt, t('invoice.send.unknownDate'))
+    ? formatDateTime(invoice.openedAt, { fallback: t('invoice.send.unknownDate') })
     : null
 
   const loadEmails = React.useCallback(async () => {
@@ -169,7 +164,7 @@ export function InvoiceSendPanel({ invoice, onSent }: InvoiceSendPanelProps) {
   const submit = React.useCallback(async () => {
     if (isSending || removingId) return
     const recipient = email.trim()
-    if (!EMAIL_PATTERN.test(recipient)) {
+    if (!LOOSE_EMAIL_PATTERN.test(recipient)) {
       setEmailError(t('invoice.send.invalidRecipient'))
       return
     }

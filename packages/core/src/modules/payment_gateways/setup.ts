@@ -1,18 +1,13 @@
-import { createHash } from 'node:crypto'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import type { ModuleSetupConfig } from '@open-mercato/shared/modules/setup'
 import { PAYMENT_SESSION_INITIALIZATION_PRUNE_QUEUE } from './lib/session-idempotency'
+import { stableUuidFromKey } from '@open-mercato/shared/lib/ids'
 
 type SchedulerServiceLike = {
   register: (registration: Record<string, unknown>) => Promise<void>
 }
 
 const logger = createLogger('payment_gateways')
-
-function stableScheduleUuid(stableKey: string): string {
-  const hex = createHash('sha256').update(stableKey).digest('hex')
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`
-}
 
 export async function registerSessionInitializationPruneSchedule(
   container: import('awilix').AwilixContainer | undefined,
@@ -26,7 +21,7 @@ export async function registerSessionInitializationPruneSchedule(
 
   const schedulerService = container.resolve('schedulerService') as SchedulerServiceLike
   await schedulerService.register({
-    id: stableScheduleUuid(
+    id: stableUuidFromKey(
       `payment_gateways:session-initialization-prune:${scope.tenantId}:${scope.organizationId}`,
     ),
     name: 'Payment-session initialization prune',

@@ -17,8 +17,9 @@ import { Badge } from '@open-mercato/ui/primitives/badge'
 import { formatRelativeTime } from '@open-mercato/shared/lib/time'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { DEFAULT_SETTINGS, hydrateSalesNewOrdersSettings, type DatePeriodOption, type SalesNewOrdersSettings } from './config'
-import { readString, toDateInputValue, openNativeDatePicker, formatAmount } from '../shared'
+import { readString, toDateInputValue, openNativeDatePicker } from '../shared'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { formatCurrency } from '@open-mercato/shared/lib/units/money'
 
 const logger = createLogger('sales')
 
@@ -235,7 +236,7 @@ const SalesNewOrdersWidget: React.FC<DashboardWidgetComponentProps<SalesNewOrder
     <ul className="divide-y divide-border">
       {items.map((item) => {
         const detailHref = resolveDetailHref(item)
-        const amountLabel = formatAmount(item.grossAmount, item.currency, locale)
+        const amountLabel = formatCurrency(item.grossAmount, item.currency, { locale, fallback: '--' })
         const createdLabel = formatRelativeTime(item.createdAt) ?? ''
         return (
           <li key={item.id} className="py-3 first:pt-0 last:pb-0">

@@ -24,6 +24,8 @@ import {
   resolveCrudCache,
 } from '@open-mercato/shared/lib/crud/cache'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { readId } from '../aclRouteHelpers'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 const ROLES_LIST_CACHE_TTL_MS = 120_000
 const logger = createLogger('auth').child({ component: 'roles' })
@@ -54,8 +56,7 @@ function buildRolesListCacheKey(scope: {
 
 const querySchema = z.object({
   id: z.string().uuid().optional(),
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(50),
+  ...paginationQuerySchema().shape,
   search: z.string().optional(),
   tenantId: z.string().uuid().optional(),
 }).passthrough()
@@ -369,11 +370,6 @@ function resolveDeleteTargetId(parsed: unknown, raw: unknown): string | null {
   if (fromParsed) return fromParsed
   const rawRecord = raw as { body?: Record<string, unknown>; query?: Record<string, unknown> } | null | undefined
   return readId(rawRecord?.query) ?? readId(rawRecord?.body)
-}
-
-function readId(record: Record<string, unknown> | null | undefined): string | null {
-  const value = record?.id
-  return typeof value === 'string' && value.length > 0 ? value : null
 }
 
 export const openApi: OpenApiRouteDoc = {

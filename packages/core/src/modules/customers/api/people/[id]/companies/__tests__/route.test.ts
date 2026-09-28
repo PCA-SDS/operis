@@ -24,8 +24,8 @@ const container = {
   }),
 }
 
-const validateCrudMutationGuardMock = jest.fn()
-const runCrudMutationGuardAfterSuccessMock = jest.fn()
+const runRouteMutationGuardsMock = jest.fn()
+const runAfterSuccessMock = jest.fn()
 
 jest.mock('@open-mercato/shared/lib/di/container', () => ({
   createRequestContainer: jest.fn(async () => container),
@@ -47,9 +47,8 @@ jest.mock('@open-mercato/core/modules/directory/utils/organizationScope', () => 
   })),
 }))
 
-jest.mock('@open-mercato/shared/lib/crud/mutation-guard', () => ({
-  validateCrudMutationGuard: (...args: unknown[]) => validateCrudMutationGuardMock(...args),
-  runCrudMutationGuardAfterSuccess: (...args: unknown[]) => runCrudMutationGuardAfterSuccessMock(...args),
+jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
+  runRouteMutationGuards: (...args: unknown[]) => runRouteMutationGuardsMock(...args),
 }))
 
 jest.mock('@open-mercato/shared/lib/i18n/server', () => ({
@@ -91,8 +90,8 @@ describe('customer person company link routes', () => {
       .mockResolvedValueOnce({ id: personId, tenantId, organizationId, kind: 'person' })
       .mockResolvedValueOnce({ entity: personId, company: null })
     em.flush.mockResolvedValue(undefined)
-    validateCrudMutationGuardMock.mockResolvedValue({ ok: true, shouldRunAfterSuccess: true, metadata: { token: 'guard' } })
-    runCrudMutationGuardAfterSuccessMock.mockResolvedValue(undefined)
+    runRouteMutationGuardsMock.mockResolvedValue({ ok: true, runAfterSuccess: runAfterSuccessMock })
+    runAfterSuccessMock.mockResolvedValue(undefined)
   })
 
   it('requires manage access for all write methods', () => {
@@ -121,28 +120,18 @@ describe('customer person company link routes', () => {
     )
 
     expect(response.status).toBe(200)
-    expect(validateCrudMutationGuardMock).toHaveBeenCalledWith(
-      container,
+    expect(runRouteMutationGuardsMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        tenantId,
-        organizationId,
-        userId,
-        resourceKind: 'customers.person',
-        resourceId: personId,
-        operation: 'custom',
+        container,
+        auth: expect.objectContaining({ tenantId, organizationId, userId }),
+        input: expect.objectContaining({
+          resourceKind: 'customers.person',
+          resourceId: personId,
+          operation: 'custom',
+        }),
       }),
     )
-    expect(runCrudMutationGuardAfterSuccessMock).toHaveBeenCalledWith(
-      container,
-      expect.objectContaining({
-        tenantId,
-        organizationId,
-        userId,
-        resourceKind: 'customers.person',
-        resourceId: personId,
-        operation: 'custom',
-      }),
-    )
+    expect(runAfterSuccessMock).toHaveBeenCalled()
   })
 
   it('runs the mutation guard for PATCH and DELETE link mutations', async () => {
@@ -184,25 +173,29 @@ describe('customer person company link routes', () => {
 
     expect(patchResponse.status).toBe(200)
     expect(deleteResponse.status).toBe(200)
-    expect(validateCrudMutationGuardMock).toHaveBeenNthCalledWith(
+    expect(runRouteMutationGuardsMock).toHaveBeenNthCalledWith(
       1,
-      container,
       expect.objectContaining({
-        resourceKind: 'customers.person',
-        resourceId: personId,
-        operation: 'custom',
+        container,
+        input: expect.objectContaining({
+          resourceKind: 'customers.person',
+          resourceId: personId,
+          operation: 'custom',
+        }),
       }),
     )
-    expect(validateCrudMutationGuardMock).toHaveBeenNthCalledWith(
+    expect(runRouteMutationGuardsMock).toHaveBeenNthCalledWith(
       2,
-      container,
       expect.objectContaining({
-        resourceKind: 'customers.person',
-        resourceId: personId,
-        operation: 'custom',
+        container,
+        input: expect.objectContaining({
+          resourceKind: 'customers.person',
+          resourceId: personId,
+          operation: 'custom',
+        }),
       }),
     )
-    expect(runCrudMutationGuardAfterSuccessMock).toHaveBeenCalledTimes(2)
+    expect(runAfterSuccessMock).toHaveBeenCalledTimes(2)
   })
 
   it('resolves a DELETE call using the company id as the last path segment', async () => {

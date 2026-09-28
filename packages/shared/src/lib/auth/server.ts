@@ -3,6 +3,7 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import { verifyJwt } from './jwt'
 import { getSharedApiKeyAuthCache } from './apiKeyAuthCache'
 import { isTransientDbError } from '@open-mercato/shared/lib/db/pg-errors'
+import { readCookieFromHeader } from '../http/cookies'
 
 const TENANT_COOKIE_NAME = 'om_selected_tenant'
 const ORGANIZATION_COOKIE_NAME = 'om_selected_org'
@@ -84,18 +85,6 @@ function decodeCookieValue(raw: string | undefined): string | null {
   } catch {
     return raw ?? null
   }
-}
-
-function readCookieFromHeader(header: string | null | undefined, name: string): string | undefined {
-  if (!header) return undefined
-  const parts = header.split(';')
-  for (const part of parts) {
-    const trimmed = part.trim()
-    if (trimmed.startsWith(`${name}=`)) {
-      return trimmed.slice(name.length + 1)
-    }
-  }
-  return undefined
 }
 
 /**

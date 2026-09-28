@@ -28,6 +28,7 @@ import { fetchClaimReasonOptions } from '../../components/claimReasonOptions'
 import { WarrantyWorkspace } from '../../components/WarrantyWorkspace'
 import { extensionPoints } from '../../../extension-points'
 import { vendorPolicySegmentQuery, type VendorPolicySegment } from '../../../lib/listSegments'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
 
 type VendorPoliciesResponse = {
   items?: unknown[]
@@ -63,10 +64,6 @@ function autoLabel(value: boolean, t: TranslateFn): string {
   return value
     ? t('warranty_claims.vendorPolicies.status.auto', 'Automatic')
     : t('warranty_claims.vendorPolicies.status.manual', 'Manual')
-}
-
-function toFilterString(value: unknown): string | null {
-  return typeof value === 'string' && value.trim().length ? value.trim() : null
 }
 
 export default function WarrantyVendorPoliciesPage() {
@@ -119,8 +116,8 @@ export default function WarrantyVendorPoliciesPage() {
       sortDir: 'desc',
     })
     if (search.trim()) params.set('search', search.trim())
-    const isActive = toFilterString(filterValues.isActive)
-    const autoGenerateRecovery = toFilterString(filterValues.autoGenerateRecovery)
+    const isActive = normalizeOptionalString(filterValues.isActive)
+    const autoGenerateRecovery = normalizeOptionalString(filterValues.autoGenerateRecovery)
     if (isActive) params.set('isActive', isActive)
     if (autoGenerateRecovery) params.set('autoGenerateRecovery', autoGenerateRecovery)
     return params.toString()
@@ -391,13 +388,13 @@ export default function WarrantyVendorPoliciesPage() {
     ]
   }, [reasonLabels, t])
 
-  const activeTab = toFilterString(filterValues.autoGenerateRecovery) === 'true'
+  const activeTab = normalizeOptionalString(filterValues.autoGenerateRecovery) === 'true'
     ? 'automatic'
-    : toFilterString(filterValues.autoGenerateRecovery) === 'false'
+    : normalizeOptionalString(filterValues.autoGenerateRecovery) === 'false'
       ? 'manual'
-      : toFilterString(filterValues.isActive) === 'true'
+      : normalizeOptionalString(filterValues.isActive) === 'true'
         ? 'active'
-        : toFilterString(filterValues.isActive) === 'false'
+        : normalizeOptionalString(filterValues.isActive) === 'false'
           ? 'inactive'
           : 'all'
 

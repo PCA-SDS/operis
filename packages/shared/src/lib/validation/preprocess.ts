@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 /**
  * Zod preprocessors shared across module `data/validators.ts` files.
  */
@@ -20,3 +22,10 @@ export const emptyStringToNull = (value: unknown): unknown => {
   const trimmed = value.trim()
   return trimmed.length ? trimmed : null
 }
+
+/**
+ * An optional text field a form can clear: blank becomes `null`, anything else is
+ * trimmed and capped at `max`. Three modules each defined this factory.
+ */
+export const clearableStringSchema = (max: number) =>
+  z.preprocess(emptyStringToNull, z.string().trim().max(max).nullable().optional())

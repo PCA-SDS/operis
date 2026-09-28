@@ -1,8 +1,7 @@
-import { type ZodTypeAny } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import {
   createCrudOpenApiFactory,
-  createPagedListResponseSchema as createSharedPagedListResponseSchema,
+  createOptionalMetaPagedListResponseSchema,
   defaultCreateResponseSchema as sharedDefaultCreateResponseSchema,
   defaultOkResponseSchema as sharedDefaultOkResponseSchema,
   type CrudOpenApiOptions,
@@ -11,9 +10,7 @@ import {
 export const defaultCreateResponseSchema = sharedDefaultCreateResponseSchema
 export const defaultOkResponseSchema = sharedDefaultOkResponseSchema
 
-export function createPagedListResponseSchema(itemSchema: ZodTypeAny) {
-  return createSharedPagedListResponseSchema(itemSchema, { paginationMetaOptional: true })
-}
+export const createPagedListResponseSchema = createOptionalMetaPagedListResponseSchema
 
 const buildWmsCrudOpenApi = createCrudOpenApiFactory({
   defaultTag: 'WMS',

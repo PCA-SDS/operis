@@ -1,7 +1,7 @@
-import { parseBooleanToken } from '@open-mercato/shared/lib/boolean'
 import type { IntegrationScope } from '@open-mercato/shared/modules/integrations/types'
 import type { CredentialsService } from '@open-mercato/core/modules/integrations/lib/credentials-service'
 import type { IntegrationLogService } from '@open-mercato/core/modules/integrations/lib/log-service'
+import { readBooleanEnv, readEnvValue } from '@open-mercato/shared/lib/env'
 
 const S3_INTEGRATION_ID = 'storage_s3'
 
@@ -24,22 +24,6 @@ type S3EnvPreset = {
 export type ApplyS3PresetResult =
   | { status: 'skipped'; reason: string }
   | { status: 'configured' }
-
-function readEnvValue(env: NodeJS.ProcessEnv, keys: string[]): string | undefined {
-  for (const key of keys) {
-    const value = env[key]?.trim()
-    if (value) return value
-  }
-  return undefined
-}
-
-function readBooleanEnv(env: NodeJS.ProcessEnv, keys: string[]): boolean | undefined {
-  for (const key of keys) {
-    const parsed = parseBooleanToken(env[key])
-    if (parsed !== null) return parsed
-  }
-  return undefined
-}
 
 export function readS3EnvPreset(env: NodeJS.ProcessEnv = process.env): S3EnvPreset | null {
   const credentialKeys = {

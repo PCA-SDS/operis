@@ -1,5 +1,6 @@
 import { hashForLookup, lookupHashCandidates } from '@open-mercato/shared/lib/encryption/aes'
 import { extractPhoneDigits } from '@open-mercato/shared/lib/phone'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
 
 /**
  * `primary_phone` and `primary_email` are encrypted at rest (see
@@ -32,12 +33,6 @@ export function normalizePhoneCountry(value: string | null | undefined): string 
   if (typeof value !== 'string') return null
   const letters = value.trim().toUpperCase().replace(/[^A-Z]/g, '')
   return letters.length === 2 ? letters : null
-}
-
-export function normalizePrimaryPhone(value: string | null | undefined): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  return trimmed.length ? trimmed : null
 }
 
 /**
@@ -75,7 +70,7 @@ export function resolvePhoneIdentity(input: {
   phoneCountryCode?: string | null
   phoneCountry?: string | null
 }): PhoneIdentityParts {
-  const primaryPhone = normalizePrimaryPhone(input.primaryPhone)
+  const primaryPhone = normalizeOptionalString(input.primaryPhone)
   return {
     primaryPhone,
     primaryPhoneHash: computePhoneLookupHash(primaryPhone),

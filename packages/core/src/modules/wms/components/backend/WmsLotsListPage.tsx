@@ -24,6 +24,7 @@ import { ImportInventoryDialog } from './ImportInventoryDialog'
 import { MoveInventoryDialog } from './MoveInventoryDialog'
 import { ReceiveInventoryDialog } from './ReceiveInventoryDialog'
 import { useWmsInventoryMutationAccess } from './useWmsInventoryMutationAccess'
+import type { PagedResponse } from './inventoryTypes'
 
 type InventoryLotRow = {
   id: string
@@ -34,12 +35,6 @@ type InventoryLotRow = {
   expires_at?: string | null
   status?: string | null
   updated_at?: string | null
-}
-
-type PagedResponse<T> = {
-  items: T[]
-  total: number
-  totalPages: number
 }
 
 function parseExpiryWindow(value: string | null): ExpiryWindow | null {

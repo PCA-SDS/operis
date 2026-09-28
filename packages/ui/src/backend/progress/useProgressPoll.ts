@@ -34,7 +34,7 @@ export type UseProgressPollResult = {
 
 const POLL_INTERVAL = 5000
 
-function isVisibleProgressJob(job: ProgressJobDto): boolean {
+export function isVisibleProgressJob(job: ProgressJobDto): boolean {
   return job.meta?.hiddenFromTopBar !== true
 }
 
@@ -42,7 +42,7 @@ export function isLocalProgressJob(job: ProgressJobDto): boolean {
   return job.id.startsWith('client:')
 }
 
-function isTerminalStatus(status: ProgressJobDto['status']): boolean {
+export function isTerminalStatus(status: ProgressJobDto['status']): boolean {
   return status === 'completed' || status === 'failed' || status === 'cancelled'
 }
 
@@ -67,7 +67,7 @@ function localJobFromProgressDetail(detail: ProgressUpdateDetail): ProgressJobDt
   }
 }
 
-function upsertLocalJob(list: ProgressJobDto[], job: ProgressJobDto): ProgressJobDto[] {
+export function upsertLocalJob(list: ProgressJobDto[], job: ProgressJobDto): ProgressJobDto[] {
   if (!isVisibleProgressJob(job)) {
     return list.filter((item) => item.id !== job.id)
   }

@@ -12,8 +12,9 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { AppointmentStatusBadge } from '../../../components/AppointmentStatusBadge'
 import { APPOINTMENT_BOOKING_TYPE_OPTIONS } from '../../../data/constants'
 import { formatCustomerPhone } from '../../../lib/phoneSnapshot'
-import { formatCurrency } from '@open-mercato/ui/utils/format'
+import { formatCurrency } from '@open-mercato/shared/lib/units/money'
 import { CalendarDays, Check, ClipboardList, Clock3, Copy, DollarSign, FileText, Globe2, LayoutPanelTop, ListChecks, Mail, MapPin, Megaphone, MessageSquare, Phone, UserRound } from 'lucide-react'
+import { formatDateTime } from '@open-mercato/shared/lib/time'
 
 type Line = {
   id: string
@@ -55,17 +56,6 @@ type StatusOption = {
   label: string
   backgroundColor?: string | null
   textColor?: string | null
-}
-
-function formatDateTime(value: string | null, emptyLabel: string) {
-  if (!value) return emptyLabel
-  try {
-    const date = new Date(value)
-    if (Number.isNaN(date.getTime())) return emptyLabel
-    return date.toLocaleString()
-  } catch {
-    return emptyLabel
-  }
 }
 
 function formatCustomerName(salutation: string | null, name: string): string {
@@ -398,13 +388,13 @@ export default function AppointmentDetailPage({ params }: { params?: { id?: stri
             />
             <Field
               label={t('appointments.detail.field.requestedStart')}
-              value={formatDateTime(detail.requestedStartAt, empty)}
+              value={formatDateTime(detail.requestedStartAt, { fallback: empty })}
               icon={<Clock3 className="size-4" aria-hidden="true" />}
               layout="row"
             />
             <Field
               label={t('appointments.detail.field.requestedEnd')}
-              value={formatDateTime(detail.requestedEndAt, empty)}
+              value={formatDateTime(detail.requestedEndAt, { fallback: empty })}
               icon={<Clock3 className="size-4" aria-hidden="true" />}
               layout="row"
             />

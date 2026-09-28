@@ -6,6 +6,7 @@ import {
   InventoryReservation,
   type InventoryLot,
 } from '../data/entities'
+import { toFiniteNumber } from '@open-mercato/shared/lib/number'
 
 type Scope = {
   tenantId: string
@@ -44,15 +45,6 @@ export type BalanceDriftRow = {
   expectedAllocated: number
 }
 
-function toNumber(value: unknown): number {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string' && value.trim().length > 0) {
-    const parsed = Number(value)
-    if (Number.isFinite(parsed)) return parsed
-  }
-  return 0
-}
-
 function buildBucketKey(bucket: BalanceBucketKey): string {
   return [
     bucket.warehouseId,
@@ -85,7 +77,7 @@ export function recomputeBalanceFromMovements(
     const catalogVariantId = movement.catalogVariantId
     const lotId = resolveRelationId(movement.lot)
     const serialNumber = movement.serialNumber ?? null
-    const quantity = toNumber(movement.quantity)
+    const quantity = toFiniteNumber(movement.quantity)
     const locationToId = resolveRelationId(movement.locationTo)
     const locationFromId = resolveRelationId(movement.locationFrom)
 
@@ -137,9 +129,9 @@ function recomputeReservedAllocatedFromReservations(
         serialNumber: bucket.serialNumber ?? null,
       })
       if (allocationState === 'allocated') {
-        allocatedByBucket.set(key, (allocatedByBucket.get(key) ?? 0) + toNumber(bucket.quantity))
+        allocatedByBucket.set(key, (allocatedByBucket.get(key) ?? 0) + toFiniteNumber(bucket.quantity))
       } else {
-        reservedByBucket.set(key, (reservedByBucket.get(key) ?? 0) + toNumber(bucket.quantity))
+        reservedByBucket.set(key, (reservedByBucket.get(key) ?? 0) + toFiniteNumber(bucket.quantity))
       }
     }
   }
@@ -205,9 +197,9 @@ export async function verifyBalances(
     const expectedOnHand = onHandByBucket.get(key) ?? 0
     const expectedReserved = reservedByBucket.get(key) ?? 0
     const expectedAllocated = allocatedByBucket.get(key) ?? 0
-    const storedOnHand = toNumber(balance.quantityOnHand)
-    const storedReserved = toNumber(balance.quantityReserved)
-    const storedAllocated = toNumber(balance.quantityAllocated)
+    const storedOnHand = toFiniteNumber(balance.quantityOnHand)
+    const storedReserved = toFiniteNumber(balance.quantityReserved)
+    const storedAllocated = toFiniteNumber(balance.quantityAllocated)
 
     const onHandDrift = Math.abs(storedOnHand - expectedOnHand) > 0.000001
     const reservedDrift = Math.abs(storedReserved - expectedReserved) > 0.000001

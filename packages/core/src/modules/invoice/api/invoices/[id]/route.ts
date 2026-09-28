@@ -26,8 +26,8 @@ import {
   invoiceManualDeleteResponseSchema,
   invoiceManualMutationResponseSchema,
   readRequestRecord,
-  resolveInvoiceInvoiceRouteContext,
 } from '../shared'
+import { resolveInvoiceRouteContext } from '../../routeContext'
 
 export const metadata = {
   GET: invoiceInvoiceRouteMetadata,
@@ -46,7 +46,7 @@ export async function GET(req: Request, routeContext: RouteContext = {}) {
     const rawParams = routeContext.params ? await routeContext.params : {}
     const params = invoiceInvoiceParamSchema.parse(rawParams)
     invoiceId = params.id
-    const context = await resolveInvoiceInvoiceRouteContext(req)
+    const context = await resolveInvoiceRouteContext(req)
     routeScope = context.scope
     const service = context.container.resolve<InvoiceService>('invoiceService')
     const invoice = await service.getInvoiceDetail(context.scope, params.id)
@@ -72,7 +72,7 @@ export async function PUT(req: Request, routeContext: RouteContext = {}) {
     const rawParams = routeContext.params ? await routeContext.params : {}
     const params = invoiceInvoiceParamSchema.parse(rawParams)
     invoiceId = params.id
-    const context = await resolveInvoiceInvoiceRouteContext(req)
+    const context = await resolveInvoiceRouteContext(req)
     routeScope = context.scope
     const input = invoiceManualUpdateSchema.parse(await readRequestRecord(req))
     const guarded = await runRouteMutationGuards({
@@ -115,7 +115,7 @@ export async function DELETE(req: Request, routeContext: RouteContext = {}) {
     const rawParams = routeContext.params ? await routeContext.params : {}
     const params = invoiceInvoiceParamSchema.parse(rawParams)
     invoiceId = params.id
-    const context = await resolveInvoiceInvoiceRouteContext(req)
+    const context = await resolveInvoiceRouteContext(req)
     routeScope = context.scope
     const guarded = await runRouteMutationGuards({
       container: context.container,

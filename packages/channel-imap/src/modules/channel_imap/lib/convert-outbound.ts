@@ -6,9 +6,9 @@ import {
   htmlToText,
   referencesFromMeta,
   sanitizeHeaderValue,
-  stringOrUndefined,
   toAddressList,
 } from '@open-mercato/core/modules/communication_channels/lib/email-mime'
+import { trimToUndefined } from '@open-mercato/shared/lib/string'
 
 /**
  * Convert a hub-canonical outbound payload to an email-shaped `ChannelNativeContent`.
@@ -35,16 +35,16 @@ export async function convertOutboundForEmail(
   // instead of relying solely on the downstream SMTP composer to neutralize it.
   const sanitizeOptionalHeader = (value: string | undefined): string | undefined =>
     value === undefined ? undefined : sanitizeHeaderValue(value)
-  const subject = sanitizeOptionalHeader(stringOrUndefined(meta.subject))
+  const subject = sanitizeOptionalHeader(trimToUndefined(meta.subject))
   const to = toAddressList(meta.to).map(sanitizeHeaderValue)
   if (to.length === 0) {
     throw new Error('Email outbound conversion requires at least one recipient (channelMetadata.to)')
   }
   const cc = toAddressList(meta.cc).map(sanitizeHeaderValue)
   const bcc = toAddressList(meta.bcc).map(sanitizeHeaderValue)
-  const inReplyTo = sanitizeOptionalHeader(stringOrUndefined(meta.inReplyTo))
+  const inReplyTo = sanitizeOptionalHeader(trimToUndefined(meta.inReplyTo))
   const references = referencesFromMeta(meta.references)?.map(sanitizeHeaderValue)
-  const messageId = sanitizeOptionalHeader(stringOrUndefined(meta.messageId))
+  const messageId = sanitizeOptionalHeader(trimToUndefined(meta.messageId))
 
   const html = input.bodyFormat === 'html' ? input.body : undefined
   const text = input.bodyFormat === 'html' ? htmlToText(input.body) : input.body

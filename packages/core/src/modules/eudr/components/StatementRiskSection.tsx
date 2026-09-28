@@ -15,6 +15,8 @@ import type {
   EudrRiskConclusion,
   EudrRiskTier,
 } from '../data/validators'
+import { isOverdue } from '../lib/dates'
+import { formatDate } from '@open-mercato/shared/lib/time'
 
 export type CountryRiskView = {
   country: string
@@ -59,19 +61,6 @@ export function riskConclusionBadgeVariant(conclusion: string | null | undefined
   if (conclusion === 'negligible') return 'success'
   if (conclusion === 'non_negligible') return 'warning'
   return 'neutral'
-}
-
-function formatDate(value: string | null | undefined, emptyLabel: string, locale: string): string {
-  if (!value) return emptyLabel
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return emptyLabel
-  return date.toLocaleDateString(locale || undefined)
-}
-
-function isOverdue(value: string | null | undefined): boolean {
-  if (!value) return false
-  const date = new Date(value)
-  return !Number.isNaN(date.getTime()) && date.getTime() < Date.now()
 }
 
 function normalizeHistoryRow(raw: RiskHistoryRow): RiskHistoryRow {
@@ -132,7 +121,7 @@ export function StatementRiskSection({
     {
       accessorKey: 'assessedAt',
       header: translate('eudr.risk.history.columns.assessedAt'),
-      cell: ({ row }) => formatDate(row.original.assessedAt, translate('eudr.common.empty'), locale),
+      cell: ({ row }) => formatDate(row.original.assessedAt, { fallback: translate('eudr.common.empty'), locale }),
     },
     {
       accessorKey: 'conclusion',
@@ -193,7 +182,7 @@ export function StatementRiskSection({
             ) : null}
             <span className="text-sm text-muted-foreground">
               {translate('eudr.risk.reviewDueAt', {
-                date: formatDate(latestRisk.reviewDueAt, translate('eudr.common.empty'), locale),
+                date: formatDate(latestRisk.reviewDueAt, { fallback: translate('eudr.common.empty'), locale }),
               })}
             </span>
           </div>

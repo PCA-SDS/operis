@@ -50,6 +50,10 @@ import {
   selectBestGuide,
   type TroubleshootingNode,
 } from '../../../lib/troubleshooting'
+import { isRecord } from '@open-mercato/shared/lib/guards'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
+import { normalizeCustomerOption } from '../../components/customerOptions'
+import { dateInputValue, readBoolean } from '../../components/formValues'
 
 type ClaimCreateLineValues = {
   productId?: string | null
@@ -164,50 +168,24 @@ function normalizeClaimType(value: string | null): (typeof CLAIM_TYPES)[number] 
   return CLAIM_TYPES.find((claimType) => claimType === value) ?? 'warranty'
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
-
-function toStringOrNull(value: unknown): string | null {
-  return typeof value === 'string' && value.trim().length ? value.trim() : null
-}
-
-function normalizeOption(item: unknown, t: TranslateFn): CrudFieldOption | null {
-  if (!isRecord(item)) return null
-  const id = toStringOrNull(item.id)
-  if (!id) return null
-  const label =
-    toStringOrNull(item.label) ??
-    toStringOrNull(item.displayName) ??
-    toStringOrNull(item.display_name) ??
-    toStringOrNull(item.name) ??
-    t('warranty_claims.form.customerUnnamed', 'Unnamed customer')
-  const email = toStringOrNull(item.primaryEmail) ?? toStringOrNull(item.primary_email)
-  return { value: id, label: email ? `${label} (${email})` : label }
-}
-
 function normalizeDictionaryOption(item: unknown): CrudFieldOption | null {
   if (!isRecord(item)) return null
-  const value = toStringOrNull(item.value)
+  const value = normalizeOptionalString(item.value)
   if (!value) return null
-  const label = toStringOrNull(item.label) ?? value
+  const label = normalizeOptionalString(item.label) ?? value
   return { value, label }
-}
-
-function readBoolean(value: unknown): boolean {
-  return value === true || value === 'true' || value === 1 || value === '1'
 }
 
 function normalizeTroubleshootingGuideCandidate(item: unknown): TroubleshootingGuideCandidate | null {
   if (!isRecord(item)) return null
-  const id = toStringOrNull(item.id)
-  const title = toStringOrNull(item.title)
+  const id = normalizeOptionalString(item.id)
+  const title = normalizeOptionalString(item.title)
   if (!id || !title) return null
   return {
     id,
     title,
-    claimType: toStringOrNull(item.claimType) ?? toStringOrNull(item.claim_type),
-    reasonCode: toStringOrNull(item.reasonCode) ?? toStringOrNull(item.reason_code),
+    claimType: normalizeOptionalString(item.claimType) ?? normalizeOptionalString(item.claim_type),
+    reasonCode: normalizeOptionalString(item.reasonCode) ?? normalizeOptionalString(item.reason_code),
     isActive: readBoolean(item.isActive ?? item.is_active),
   }
 }
@@ -267,27 +245,27 @@ function readCatalogSnapshotName(value: unknown): string | null {
   if (!isRecord(value)) return null
   const product = isRecord(value.product) ? value.product : null
   const variant = isRecord(value.variant) ? value.variant : null
-  return toStringOrNull(variant?.title) ?? toStringOrNull(product?.title) ?? null
+  return normalizeOptionalString(variant?.title) ?? normalizeOptionalString(product?.title) ?? null
 }
 
 function normalizeSalesOrderLine(item: unknown): SalesOrderLine | null {
   if (!isRecord(item)) return null
-  const id = toStringOrNull(item.id)
+  const id = normalizeOptionalString(item.id)
   if (!id) return null
-  const kind = toStringOrNull(item.kind)
+  const kind = normalizeOptionalString(item.kind)
   if (kind !== 'product') return null
   return {
     id,
-    productId: toStringOrNull(item.product_id) ?? toStringOrNull(item.productId),
-    variantId: toStringOrNull(item.product_variant_id) ?? toStringOrNull(item.productVariantId),
-    sku: toStringOrNull(item.sku),
-    name: toStringOrNull(item.name) ?? readCatalogSnapshotName(item.catalog_snapshot ?? item.catalogSnapshot),
+    productId: normalizeOptionalString(item.product_id) ?? normalizeOptionalString(item.productId),
+    variantId: normalizeOptionalString(item.product_variant_id) ?? normalizeOptionalString(item.productVariantId),
+    sku: normalizeOptionalString(item.sku),
+    name: normalizeOptionalString(item.name) ?? readCatalogSnapshotName(item.catalog_snapshot ?? item.catalogSnapshot),
     quantity: typeof item.quantity === 'number' || typeof item.quantity === 'string' ? item.quantity : null,
   }
 }
 
 function nullableText(value: unknown): string | null {
-  const next = toStringOrNull(value)
+  const next = normalizeOptionalString(value)
   return next ?? null
 }
 
@@ -295,12 +273,6 @@ function stringifyFieldValue(value: unknown): string {
   if (typeof value === 'number') return String(value)
   if (typeof value === 'string') return value
   return ''
-}
-
-function dateInputValue(value: unknown): string {
-  if (typeof value !== 'string') return ''
-  const trimmed = value.trim()
-  return trimmed.length >= 10 ? trimmed.slice(0, 10) : trimmed
 }
 
 function dateFromInputValue(value: unknown): Date | null {
@@ -790,7 +762,7 @@ export function LineItemsEditor({
       }
       const order = Array.isArray(orderCall.result?.items) ? orderCall.result.items[0] : null
       const placedAt = isRecord(order)
-        ? toStringOrNull(order.placed_at) ?? toStringOrNull(order.placedAt)
+        ? normalizeOptionalString(order.placed_at) ?? normalizeOptionalString(order.placedAt)
         : null
       setOrderLines(linesFetch.lines)
       setOrderLinesTruncated(linesFetch.truncated)
@@ -1222,7 +1194,7 @@ export default function CreateWarrantyClaimPage() {
       ...(Array.isArray(people.result?.items) ? people.result.items : []),
       ...(Array.isArray(companies.result?.items) ? companies.result.items : []),
     ]
-    return items.map((item) => normalizeOption(item, t)).filter((option): option is CrudFieldOption => option !== null)
+    return items.map((item) => normalizeCustomerOption(item, t)).filter((option): option is CrudFieldOption => option !== null)
   }, [t])
 
   const loadOrderOptions = React.useCallback(async (query?: string): Promise<CrudFieldOption[]> => {

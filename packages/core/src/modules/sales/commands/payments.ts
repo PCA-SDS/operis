@@ -29,7 +29,6 @@ import {
   ensureSameScope,
   ensureTenantScope,
   extractUndoPayload,
-  toNumericString,
   enforceSalesDocumentOptimisticLock,
   SALES_RESOURCE_KIND_ORDER,
 } from './shared'
@@ -44,6 +43,9 @@ import { resolveNotificationService } from '../../notifications/lib/notification
 import { buildFeatureNotificationFromType } from '../../notifications/lib/notificationBuilder'
 import { notificationTypes } from '../notifications'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { toNumericString } from '@open-mercato/shared/lib/number'
+import { toRecord } from '@open-mercato/shared/lib/guards'
+import { toNumber } from '../lib/numbers'
 
 const logger = createLogger('sales')
 
@@ -83,18 +85,6 @@ type PaymentUndoPayload = {
   orderPaymentMethodIdBefore?: string | null
   orderPaymentMethodCodeBefore?: string | null
 }
-
-const toNumber = (value: unknown): number => {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string' && value.trim().length) {
-    const parsed = Number(value)
-    if (!Number.isNaN(parsed)) return parsed
-  }
-  return 0
-}
-
-const normalizeCustomFieldsInput = (input: unknown): Record<string, unknown> =>
-  input && typeof input === 'object' && !Array.isArray(input) ? (input as Record<string, unknown>) : {}
 
 const paymentCrudEvents: CrudEventsConfig = {
   module: 'sales',
@@ -495,7 +485,7 @@ const createPaymentCommand: CommandHandler<
           recordId: payment.id,
           organizationId: input.organizationId,
           tenantId: input.tenantId,
-          values: normalizeCustomFieldsInput(input.customFields),
+          values: toRecord(input.customFields),
         })
       }
       await tx.flush()
@@ -843,7 +833,7 @@ const updatePaymentCommand: CommandHandler<
           recordId: payment.id,
           organizationId: payment.organizationId,
           tenantId: payment.tenantId,
-          values: normalizeCustomFieldsInput(input.customFields),
+          values: toRecord(input.customFields),
         })
       }
       payment.updatedAt = new Date()

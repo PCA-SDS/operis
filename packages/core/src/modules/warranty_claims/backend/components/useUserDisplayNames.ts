@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 
-function toStringOrNull(value: unknown): string | null {
+export function toStringOrNull(value: unknown): string | null {
   return typeof value === 'string' && value.trim().length ? value : null
 }
 

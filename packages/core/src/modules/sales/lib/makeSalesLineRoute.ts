@@ -17,6 +17,7 @@ import {
   defaultOkResponseSchema,
 } from '../api/openapi'
 import { withScopedPayload } from '../api/utils'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MikroORM entity class constructor
 type EntityClass = new (...args: any[]) => unknown
@@ -116,8 +117,7 @@ export function makeSalesLineRoute(config: SalesLineRouteConfig) {
 
   const listSchema = z
     .object({
-      page: z.coerce.number().int().min(1).default(1),
-      pageSize: z.coerce.number().int().min(1).max(100).default(50),
+      ...paginationQuerySchema().shape,
       id: z.string().uuid().optional(),
       [parentFkParam]: z.string().uuid().optional(),
       sortField: z.string().optional(),

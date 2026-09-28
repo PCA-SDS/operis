@@ -7,6 +7,7 @@ import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { buildAttachmentImageUrl, slugifyAttachmentFileName } from '@open-mercato/core/modules/attachments/lib/imageUrls'
+import { formatFileSize } from '@open-mercato/shared/lib/units/fileSize'
 
 export type ProductMediaItem = {
   id: string
@@ -23,18 +24,6 @@ type Props = {
   defaultMediaId: string | null
   onItemsChange: (items: ProductMediaItem[]) => void
   onDefaultChange: (attachmentId: string | null) => void
-}
-
-function humanFileSize(size: number): string {
-  if (!Number.isFinite(size)) return `${size}`
-  const units = ['B', 'KB', 'MB', 'GB']
-  let idx = 0
-  let value = size
-  while (value >= 1024 && idx < units.length - 1) {
-    value /= 1024
-    idx++
-  }
-  return `${value.toFixed(idx === 0 ? 0 : 1)} ${units[idx]}`
 }
 
 export function ProductMediaManager({
@@ -222,7 +211,7 @@ export function ProductMediaManager({
                 </div>
                 <div className="p-2">
                   <p className="line-clamp-1 text-sm font-medium">{item.fileName}</p>
-                  <p className="text-xs text-muted-foreground">{humanFileSize(item.fileSize)}</p>
+                  <p className="text-xs text-muted-foreground">{formatFileSize(item.fileSize)}</p>
                   {isDefault ? (
                     <p className="text-xs font-semibold text-primary">
                       {t('catalog.products.media.default', 'Default preview')}

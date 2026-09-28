@@ -36,6 +36,9 @@ import {
   createWarrantyClaimsCrudOpenApi,
   defaultOkResponseSchema,
 } from './openapi'
+import { toRecord } from '@open-mercato/shared/lib/guards'
+import { readString, readBool } from './rowFields'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 const rawBodySchema = z.object({}).passthrough()
 
@@ -88,8 +91,7 @@ const listSchema = z
     submittedTo: isoDateQuerySchema,
     createdFrom: isoDateQuerySchema,
     createdTo: isoDateQuerySchema,
-    page: z.coerce.number().int().min(1).default(1),
-    pageSize: z.coerce.number().int().min(1).max(100).default(20),
+    ...paginationQuerySchema({ defaultPageSize: 20 }).shape,
     sortField: z.enum(['slaDueAt', 'createdAt', 'updatedAt']).optional(),
     sortDir: z.enum(['asc', 'desc']).optional(),
   })
@@ -113,20 +115,6 @@ const routeMetadata = {
 }
 
 export const metadata = routeMetadata
-
-function toRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
-}
-
-function readString(record: Record<string, unknown>, snakeKey: string, camelKey: string): string | null {
-  const value = record[snakeKey] ?? record[camelKey]
-  return typeof value === 'string' ? value : null
-}
-
-function readBool(record: Record<string, unknown>, snakeKey: string, camelKey: string): boolean {
-  const value = record[snakeKey] ?? record[camelKey]
-  return value === true
-}
 
 type ClaimLineSearchDb = {
   warranty_claim_lines: {

@@ -13,7 +13,8 @@ import { Button } from '@open-mercato/ui/primitives/button'
 import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
-import { formatDateLabel, formatDateRange, resolveStatusVariant } from '@open-mercato/core/modules/staff/lib/leaveRequestHelpers'
+import { formatDateRange, resolveStatusVariant } from '@open-mercato/core/modules/staff/lib/leaveRequestHelpers'
+import { formatDate } from '@open-mercato/shared/lib/time'
 
 const PAGE_SIZE = 50
 
@@ -98,7 +99,7 @@ export default function StaffLeaveRequestsPage() {
       accessorKey: 'updatedAt',
       header: labels.table.updatedAt,
       meta: { priority: 5 },
-      cell: ({ row }) => formatDateLabel(row.original.updatedAt),
+      cell: ({ row }) => formatDate(row.original.updatedAt, { fallback: '' }),
     },
   ], [labels, t])
 

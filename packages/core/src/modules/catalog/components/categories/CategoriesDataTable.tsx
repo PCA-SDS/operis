@@ -16,7 +16,8 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
-import { formatCategoryTreeLabel } from '../../lib/categoryTree'
+import { formatTreeLabel } from '@open-mercato/shared/lib/tree'
+import { computeIndent } from '@open-mercato/ui/backend/utils/treeIndent'
 
 type CategoryRow = {
   id: string
@@ -42,13 +43,6 @@ type CategoriesResponse = {
 }
 
 const PAGE_SIZE = 50
-const TREE_BASE_INDENT = 18
-const TREE_STEP_INDENT = 14
-
-function computeIndent(depth: number): number {
-  if (depth <= 0) return 0
-  return TREE_BASE_INDENT + (depth - 1) * TREE_STEP_INDENT
-}
 
 export default function CategoriesDataTable() {
   const t = useT()
@@ -128,7 +122,7 @@ export default function CategoriesDataTable() {
         return (
           <div className="flex items-center text-sm font-medium leading-none text-foreground">
             <span style={{ marginLeft: computeIndent(depth), whiteSpace: 'pre' }}>
-              {formatCategoryTreeLabel(row.original.name, depth)}
+              {formatTreeLabel(row.original.name, depth)}
             </span>
           </div>
         )

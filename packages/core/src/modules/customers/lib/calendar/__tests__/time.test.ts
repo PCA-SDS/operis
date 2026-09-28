@@ -5,11 +5,11 @@ import {
   calendarDaysBetween,
   clampDayMinutes,
   isSameLocalDay,
-  localDayKey,
   snapMinutes,
   startOfLocalDay,
   wallMinutes,
 } from '../time'
+import { toLocalDateKey } from '@open-mercato/shared/lib/date/format'
 
 describe('wallMinutes', () => {
   it('reads minutes off the clock, not elapsed time', () => {
@@ -111,8 +111,8 @@ describe('startOfLocalDay / isSameLocalDay / localDayKey', () => {
   })
 
   it('produces a sortable zero-padded key', () => {
-    expect(localDayKey(new Date(2026, 0, 5))).toBe('2026-01-05')
-    expect(localDayKey(new Date(2026, 11, 31))).toBe('2026-12-31')
+    expect(toLocalDateKey(new Date(2026, 0, 5))).toBe('2026-01-05')
+    expect(toLocalDateKey(new Date(2026, 11, 31))).toBe('2026-12-31')
   })
 })
 

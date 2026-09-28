@@ -1,6 +1,4 @@
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === 'object' && !Array.isArray(value)
-}
+import { isRecord } from '@open-mercato/shared/lib/guards'
 
 function readString(record: Record<string, unknown>, ...keys: string[]): string | null {
   for (const key of keys) {

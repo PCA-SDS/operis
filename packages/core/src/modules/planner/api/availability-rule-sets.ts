@@ -7,6 +7,8 @@ import { PlannerAvailabilityRuleSet } from '../data/entities'
 import { plannerAvailabilityRuleSetCreateSchema, plannerAvailabilityRuleSetUpdateSchema } from '../data/validators'
 import { E } from '#generated/entities.ids.generated'
 import { createPlannerCrudOpenApi, createPagedListResponseSchema, defaultOkResponseSchema } from './openapi'
+import { parseCommaSeparatedList } from '@open-mercato/shared/lib/string'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 const routeMetadata = {
   GET: { requireAuth: true, requireFeatures: ['planner.view'] },
@@ -21,22 +23,13 @@ const rawBodySchema = z.object({}).passthrough()
 
 const listSchema = z
   .object({
-    page: z.coerce.number().int().min(1).default(1),
-    pageSize: z.coerce.number().int().min(1).max(100).default(50),
+    ...paginationQuerySchema().shape,
     ids: z.string().optional(),
     search: z.string().optional(),
     sortField: z.string().optional(),
     sortDir: z.enum(['asc', 'desc']).optional(),
   })
   .passthrough()
-
-const parseIds = (value?: string) => {
-  if (!value) return []
-  return value
-    .split(',')
-    .map((item) => item.trim())
-    .filter((item) => item.length > 0)
-}
 
 const crud = makeCrudRoute({
   metadata: routeMetadata,
@@ -72,7 +65,7 @@ const crud = makeCrudRoute({
       if (ctx.selectedOrganizationId) {
         filters.organization_id = ctx.selectedOrganizationId
       }
-      const ids = parseIds(query.ids)
+      const ids = parseCommaSeparatedList(query.ids)
       if (ids.length) {
         filters.id = { $in: ids }
       }

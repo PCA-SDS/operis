@@ -3,18 +3,13 @@ import type { AuthContext } from '@open-mercato/shared/lib/auth/server'
 import { isAllOrganizationsSelection } from '@open-mercato/core/modules/directory/constants'
 import { getSelectedOrganizationFromRequest, resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
 import type { TenantScope } from '../../data_sync/lib/adapter'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
 
 export type SyncExcelConcreteScopeResult =
   | { ok: true; scope: TenantScope }
   | { ok: false; status: 401 | 422; error: string }
 
 const CONCRETE_ORGANIZATION_REQUIRED_ERROR = 'Select a concrete organization before importing CSV.'
-
-function normalizeSelectedOrganizationId(value: string | null | undefined): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  return trimmed.length > 0 ? trimmed : null
-}
 
 export async function resolveSyncExcelConcreteScope(params: {
   auth: AuthContext
@@ -26,7 +21,7 @@ export async function resolveSyncExcelConcreteScope(params: {
     return { ok: false, status: 401, error: 'Unauthorized' }
   }
 
-  const requestedSelectedId = normalizeSelectedOrganizationId(getSelectedOrganizationFromRequest(request))
+  const requestedSelectedId = normalizeOptionalString(getSelectedOrganizationFromRequest(request))
   if (!requestedSelectedId || isAllOrganizationsSelection(requestedSelectedId)) {
     return { ok: false, status: 422, error: CONCRETE_ORGANIZATION_REQUIRED_ERROR }
   }

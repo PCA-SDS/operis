@@ -1,18 +1,12 @@
-import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
+import { resolveRequestEm } from '@open-mercato/shared/lib/di/container'
 import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import type { ObjectPreviewData } from '@open-mercato/shared/modules/messages/types'
-import type { EntityManager } from '@mikro-orm/postgresql'
 import { Currency } from '../data/entities'
 
 type PreviewContext = {
   tenantId: string
   organizationId?: string | null
-}
-
-async function resolveEm() {
-  const { resolve } = await createRequestContainer()
-  return resolve('em') as EntityManager
 }
 
 export async function loadCurrencyPreview(
@@ -26,7 +20,7 @@ export async function loadCurrencyPreview(
     return { title: defaultTitle, subtitle: entityId }
   }
 
-  const em = await resolveEm()
+  const em = await resolveRequestEm()
   const entity = await findOneWithDecryption(
     em,
     Currency,

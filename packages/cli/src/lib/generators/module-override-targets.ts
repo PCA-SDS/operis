@@ -1,14 +1,13 @@
 import crypto from 'node:crypto'
 import type { ModuleOverrideDomain } from '@open-mercato/shared/modules/overrides'
-import type { ModuleExtensionContributionFact } from '@open-mercato/shared/modules/widgets/extension-points'
+import type { ModuleExtensionContributionFact, ModuleFactSourceRef } from '@open-mercato/shared/modules/widgets/extension-points'
 import type {
   ModuleFactRef,
   ModuleFactSourceKind,
-  ModuleFactSourceRef,
   ModuleFactsJsonEntry,
   ModuleOwnedContractFact,
 } from './module-facts'
-import { buildFactSourceLookup, type FactSourceLookup } from './module-fact-sources'
+import { buildFactSourceLookup, type FactSourceLookup, compareSourceRefs, contributionSourceRef } from './module-fact-sources'
 import { getFrameworkOverrideHostOperations } from './module-extension-facts'
 
 /**
@@ -151,14 +150,6 @@ export function computeOverrideTargetId(moduleId: string, domain: ModuleOverride
   return crypto.createHash('sha1').update(JSON.stringify([moduleId, domain, path])).digest('hex').slice(0, 16)
 }
 
-function compareSourceRefs(left: ModuleFactSourceRef, right: ModuleFactSourceRef): number {
-  return (
-    left.sourcePath.localeCompare(right.sourcePath) ||
-    (left.line ?? 0) - (right.line ?? 0) ||
-    (left.exportName ?? '').localeCompare(right.exportName ?? '')
-  )
-}
-
 function comparePaths(left: string[], right: string[]): number {
   const length = Math.max(left.length, right.length)
   for (let index = 0; index < length; index += 1) {
@@ -227,14 +218,6 @@ function pushTarget(
     candidatePath: input.path,
     source: input.source,
   })
-}
-
-/** Portable contribution source ref → override target source ref. */
-function contributionSource(contribution: ModuleExtensionContributionFact): ModuleFactSourceRef {
-  return {
-    sourcePath: contribution.source.path,
-    ...(contribution.source.symbol ? { exportName: contribution.source.symbol } : {}),
-  }
 }
 
 /** Owned-contract source ref, dropping the (constant) exportName for compactness. */
@@ -447,7 +430,7 @@ const eventsAdapter: InternalAdapter = {
       pushTarget(targets, diagnostics, {
         moduleId, domain: 'events', path, key: subscriberId, dottedHost: 'events.subscribers',
         factRef: { factSection: 'extensionSurfaces.contributions', factKey: contribution.id },
-        source: contributionSource(contribution),
+        source: contributionSourceRef(contribution),
       })
     }
     return { targets, diagnostics }
@@ -488,7 +471,7 @@ const widgetsAdapter: InternalAdapter = {
       pushTarget(targets, diagnostics, {
         moduleId, domain: 'widgets', path, key: registryKey, dottedHost: 'widgets.injection',
         factRef: { factSection: 'extensionSurfaces.contributions', factKey: contribution.id },
-        source: contributionSource(contribution),
+        source: contributionSourceRef(contribution),
       })
     }
 
@@ -503,7 +486,7 @@ const widgetsAdapter: InternalAdapter = {
         pushTarget(targets, diagnostics, {
           moduleId, domain: 'widgets', path, key: registryKey, dottedHost: 'widgets.dashboard',
           factRef: { factSection: 'extensionSurfaces.contributions', factKey: contribution.id },
-          source: contributionSource(contribution),
+          source: contributionSourceRef(contribution),
         })
       } else {
         emitInjection(registryKey, contribution)
@@ -530,7 +513,7 @@ const widgetsAdapter: InternalAdapter = {
       pushTarget(targets, diagnostics, {
         moduleId, domain: 'widgets', path, key: componentId, dottedHost: 'widgets.components',
         factRef: { factSection: 'extensionSurfaces.contributions', factKey: contribution.id },
-        source: contributionSource(contribution),
+        source: contributionSourceRef(contribution),
       })
     }
 
@@ -548,7 +531,7 @@ const notificationsAdapter: InternalAdapter = {
     const registrySources = new Map<string, ModuleFactSourceRef>()
     for (const contribution of contributionsOfKind(facts, 'specialized-registry')) {
       if (contribution.details.registry !== 'notification') continue
-      registrySources.set(contribution.details.registryId, contributionSource(contribution))
+      registrySources.set(contribution.details.registryId, contributionSourceRef(contribution))
     }
     for (const type of facts.notifications) {
       const path = ['notifications', 'types', type]
@@ -576,7 +559,7 @@ const notificationsAdapter: InternalAdapter = {
           moduleId,
           domain: 'notifications',
           candidatePath: ['notifications', 'handlers'],
-          source: contributionSource(contribution),
+          source: contributionSourceRef(contribution),
         })
         continue
       }
@@ -587,7 +570,7 @@ const notificationsAdapter: InternalAdapter = {
         key: overrideKey,
         dottedHost: 'notifications.handlers',
         factRef: { factSection: 'extensionSurfaces.contributions', factKey: contribution.id },
-        source: contributionSource(contribution),
+        source: contributionSourceRef(contribution),
       })
     }
     return { targets, diagnostics }
@@ -614,7 +597,7 @@ function contributionIdAdapter(
         pushTarget(targets, diagnostics, {
           moduleId, domain, path, key: contribution.id, dottedHost,
           factRef: { factSection: 'extensionSurfaces.contributions', factKey: contribution.id },
-          source: contributionSource(contribution),
+          source: contributionSourceRef(contribution),
         })
       }
       return { targets, diagnostics }

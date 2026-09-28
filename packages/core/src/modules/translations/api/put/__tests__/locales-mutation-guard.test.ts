@@ -2,8 +2,8 @@ const tenantId = '11111111-1111-4111-8111-111111111111'
 const organizationId = '22222222-2222-4222-8222-222222222222'
 const userId = '33333333-3333-4333-8333-333333333333'
 
-const validateCrudMutationGuardMock = jest.fn()
-const runCrudMutationGuardAfterSuccessMock = jest.fn()
+const runRouteMutationGuardsMock = jest.fn()
+const runAfterSuccessMock = jest.fn()
 const setValueMock = jest.fn()
 
 const container = {
@@ -26,9 +26,8 @@ jest.mock('@open-mercato/core/modules/translations/api/context', () => ({
   resolveTranslationsActorId: jest.fn(() => userId),
 }))
 
-jest.mock('@open-mercato/shared/lib/crud/mutation-guard', () => ({
-  validateCrudMutationGuard: (...args: unknown[]) => validateCrudMutationGuardMock(...args),
-  runCrudMutationGuardAfterSuccess: (...args: unknown[]) => runCrudMutationGuardAfterSuccessMock(...args),
+jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
+  runRouteMutationGuards: (...args: unknown[]) => runRouteMutationGuardsMock(...args),
 }))
 
 import PUT from '../locales'
@@ -43,8 +42,8 @@ const makeRequest = () =>
 describe('translations locales route mutation guard', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    validateCrudMutationGuardMock.mockResolvedValue({ ok: true, shouldRunAfterSuccess: true, metadata: { token: 'guard' } })
-    runCrudMutationGuardAfterSuccessMock.mockResolvedValue(undefined)
+    runRouteMutationGuardsMock.mockResolvedValue({ ok: true, runAfterSuccess: runAfterSuccessMock })
+    runAfterSuccessMock.mockResolvedValue(undefined)
     setValueMock.mockResolvedValue(undefined)
   })
 
@@ -52,15 +51,11 @@ describe('translations locales route mutation guard', () => {
     const response = await PUT(makeRequest())
 
     expect(response.status).toBe(200)
-    expect(validateCrudMutationGuardMock).toHaveBeenCalledWith(
-      container,
+    expect(runRouteMutationGuardsMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        tenantId,
-        organizationId,
-        userId,
-        resourceKind: 'translations.locales',
-        operation: 'custom',
-        requestMethod: 'PUT',
+        container,
+        auth: expect.objectContaining({ tenantId, organizationId, userId }),
+        input: expect.objectContaining({ resourceKind: 'translations.locales', operation: 'custom' }),
       }),
     )
     expect(setValueMock).toHaveBeenCalledWith(
@@ -69,24 +64,17 @@ describe('translations locales route mutation guard', () => {
       ['en', 'fr'],
       { tenantId },
     )
-    expect(runCrudMutationGuardAfterSuccessMock).toHaveBeenCalledWith(
-      container,
-      expect.objectContaining({
-        resourceKind: 'translations.locales',
-        operation: 'custom',
-        metadata: { token: 'guard' },
-      }),
-    )
+    expect(runAfterSuccessMock).toHaveBeenCalled()
   })
 
   it('aborts the locale update before persisting when the guard blocks the write', async () => {
-    validateCrudMutationGuardMock.mockResolvedValue({ ok: false, status: 409, body: { error: 'Conflict' } })
+    runRouteMutationGuardsMock.mockResolvedValue({ ok: false, errorStatus: 409, errorBody: { error: 'Conflict' } })
 
     const response = await PUT(makeRequest())
 
     expect(response.status).toBe(409)
     await expect(response.json()).resolves.toEqual({ error: 'Conflict' })
     expect(setValueMock).not.toHaveBeenCalled()
-    expect(runCrudMutationGuardAfterSuccessMock).not.toHaveBeenCalled()
+    expect(runAfterSuccessMock).not.toHaveBeenCalled()
   })
 })

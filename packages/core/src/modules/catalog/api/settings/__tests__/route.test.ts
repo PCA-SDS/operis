@@ -2,8 +2,8 @@ const tenantId = '11111111-1111-4111-8111-111111111111'
 const organizationId = '22222222-2222-4222-8222-222222222222'
 const userId = '33333333-3333-4333-8333-333333333333'
 
-const validateCrudMutationGuardMock = jest.fn()
-const runCrudMutationGuardAfterSuccessMock = jest.fn()
+const runRouteMutationGuardsMock = jest.fn()
+const runAfterSuccessMock = jest.fn()
 const getValueMock = jest.fn()
 const setValueMock = jest.fn()
 
@@ -29,9 +29,8 @@ jest.mock('@open-mercato/shared/lib/auth/server', () => ({
   getAuthFromRequest: jest.fn(async () => authValue),
 }))
 
-jest.mock('@open-mercato/shared/lib/crud/mutation-guard', () => ({
-  validateCrudMutationGuard: (...args: unknown[]) => validateCrudMutationGuardMock(...args),
-  runCrudMutationGuardAfterSuccess: (...args: unknown[]) => runCrudMutationGuardAfterSuccessMock(...args),
+jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
+  runRouteMutationGuards: (...args: unknown[]) => runRouteMutationGuardsMock(...args),
 }))
 
 import { GET, PUT } from '../route'
@@ -47,8 +46,8 @@ describe('catalog settings route', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     authValue = { tenantId, sub: userId, orgId: organizationId }
-    validateCrudMutationGuardMock.mockResolvedValue({ ok: true, shouldRunAfterSuccess: true, metadata: { token: 'guard' } })
-    runCrudMutationGuardAfterSuccessMock.mockResolvedValue(undefined)
+    runRouteMutationGuardsMock.mockResolvedValue({ ok: true, runAfterSuccess: runAfterSuccessMock })
+    runAfterSuccessMock.mockResolvedValue(undefined)
     getValueMock.mockResolvedValue(undefined)
     setValueMock.mockResolvedValue(undefined)
   })
@@ -81,33 +80,29 @@ describe('catalog settings route', () => {
 
     expect(response.status).toBe(200)
     await expect(response.json()).resolves.toEqual({ unitPriceDisplayEnabled: false })
-    expect(validateCrudMutationGuardMock).toHaveBeenCalledWith(
-      container,
+    expect(runRouteMutationGuardsMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        tenantId,
-        organizationId,
-        userId,
-        resourceKind: 'catalog.settings',
-        resourceId: 'unit_price_display_enabled',
-        operation: 'custom',
-        requestMethod: 'PUT',
+        container,
+        auth: expect.objectContaining({ tenantId, organizationId, userId }),
+        input: expect.objectContaining({
+          resourceKind: 'catalog.settings',
+          resourceId: 'unit_price_display_enabled',
+          operation: 'custom',
+        }),
       }),
     )
     expect(setValueMock).toHaveBeenCalledWith('catalog', 'unit_price_display_enabled', false, { tenantId })
-    expect(runCrudMutationGuardAfterSuccessMock).toHaveBeenCalledWith(
-      container,
-      expect.objectContaining({ resourceKind: 'catalog.settings', metadata: { token: 'guard' } }),
-    )
+    expect(runAfterSuccessMock).toHaveBeenCalled()
   })
 
   it('aborts the write before persisting when the guard blocks it', async () => {
-    validateCrudMutationGuardMock.mockResolvedValue({ ok: false, status: 409, body: { error: 'Conflict' } })
+    runRouteMutationGuardsMock.mockResolvedValue({ ok: false, errorStatus: 409, errorBody: { error: 'Conflict' } })
 
     const response = await PUT(makePutRequest(true))
 
     expect(response.status).toBe(409)
     await expect(response.json()).resolves.toEqual({ error: 'Conflict' })
     expect(setValueMock).not.toHaveBeenCalled()
-    expect(runCrudMutationGuardAfterSuccessMock).not.toHaveBeenCalled()
+    expect(runAfterSuccessMock).not.toHaveBeenCalled()
   })
 })

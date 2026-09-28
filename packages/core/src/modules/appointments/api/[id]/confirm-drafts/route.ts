@@ -8,13 +8,10 @@ import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
-import {
-  runCrudMutationGuardAfterSuccess,
-  validateCrudMutationGuard,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { AppointmentSeatPlannerService } from '../../../lib/seatPlannerService'
 import { emitAppointmentEvent } from '../../../events'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 type RouteContext = { params: Promise<{ id: string }> }
 
@@ -65,19 +62,19 @@ export async function POST(req: Request, ctx: RouteContext) {
       )
     }
 
-    const guardResult = await validateCrudMutationGuard(container, {
-      tenantId: auth.tenantId,
-      organizationId,
-      userId: auth.sub,
-      resourceKind: 'appointments.seatPlanner',
-      resourceId: appointmentId,
-      operation: 'custom',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      mutationPayload: { appointmentId },
+    const guardResult = await runRouteMutationGuards({
+      container,
+      req,
+      auth: { userId: auth.sub, tenantId: auth.tenantId, organizationId },
+      input: {
+        resourceKind: 'appointments.seatPlanner',
+        resourceId: appointmentId,
+        operation: 'custom',
+        mutationPayload: { appointmentId },
+      },
     })
-    if (guardResult && !guardResult.ok) {
-      return NextResponse.json(guardResult.body, { status: guardResult.status })
+    if (!guardResult.ok) {
+      return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
     }
 
     const service = new AppointmentSeatPlannerService(em)
@@ -89,19 +86,7 @@ export async function POST(req: Request, ctx: RouteContext) {
       userId: auth.userId ?? null,
       expectedAssignments: body.expectedAssignments,
     })
-    if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-      await runCrudMutationGuardAfterSuccess(container, {
-        tenantId: auth.tenantId,
-        organizationId,
-        userId: auth.sub,
-        resourceKind: 'appointments.seatPlanner',
-        resourceId: appointmentId,
-        operation: 'custom',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
-        metadata: guardResult.metadata ?? null,
-      })
-    }
+    await guardResult.runAfterSuccess()
 
     await emitAppointmentEvent('appointments.appointment.schedule_confirmed', {
       id: appointmentId,
