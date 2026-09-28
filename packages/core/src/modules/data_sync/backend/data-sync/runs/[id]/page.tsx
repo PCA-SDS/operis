@@ -24,6 +24,7 @@ import {
   resolveRunParameterText,
   type RetryFailureBody,
 } from '../../../../components/RunParameterFields'
+import { resolveRouteId } from '@open-mercato/ui/backend/utils/routeParams'
 
 type RunParameterDeclaration = {
   key: string
@@ -89,11 +90,6 @@ type SyncRunDetailPageProps = {
   params?: {
     id?: string | string[]
   }
-}
-
-function resolveRouteId(value: string | string[] | undefined): string | undefined {
-  if (Array.isArray(value)) return value[0]
-  return value
 }
 
 function resolvePathnameId(pathname: string): string | undefined {

@@ -12,10 +12,8 @@ const mockEm = {
   flush: jest.fn(async () => undefined),
 }
 
-const mockCrudMutationGuardService = {
-  validateMutation: jest.fn(),
-  afterMutationSuccess: jest.fn(),
-}
+const mockGuardValidate = jest.fn()
+const mockGuardAfterSuccess = jest.fn()
 
 jest.mock('@open-mercato/shared/lib/auth/server', () => ({
   getAuthFromRequest: jest.fn((req: Request) => mockGetAuthFromRequest(req)),
@@ -29,7 +27,6 @@ jest.mock('@open-mercato/shared/lib/encryption/find', () => ({
 const mockContainer = {
   resolve: jest.fn((token: string) => {
     if (token === 'em') return mockEm
-    if (token === 'crudMutationGuardService') return mockCrudMutationGuardService
     return null
   }),
 }
@@ -38,7 +35,25 @@ jest.mock('@open-mercato/shared/lib/di/container', () => ({
   createRequestContainer: jest.fn(async () => mockContainer),
 }))
 
+import { registerMutationGuards } from '@open-mercato/shared/lib/crud/mutation-guard-store'
 import { POST } from '../route'
+
+beforeAll(() => {
+  registerMutationGuards([{
+    moduleId: 'data_sync_test',
+    guards: [{
+      id: 'data_sync_test.mapping-guard',
+      targetEntity: 'data_sync.mapping',
+      operations: ['create', 'update'],
+      validate: (input) => mockGuardValidate(input),
+      afterSuccess: (input) => mockGuardAfterSuccess(input),
+    }],
+  }])
+})
+
+afterAll(() => {
+  registerMutationGuards([])
+})
 
 function request() {
   return new Request('http://localhost/api/data_sync/mappings', {
@@ -63,19 +78,19 @@ describe('data_sync mapping create mutation guard', () => {
       entityType: 'products',
       mapping: { foo: 'bar' },
     })
-    mockCrudMutationGuardService.validateMutation.mockResolvedValue({ ok: true, shouldRunAfterSuccess: true, metadata: null })
-    mockCrudMutationGuardService.afterMutationSuccess.mockResolvedValue(undefined)
+    mockGuardValidate.mockResolvedValue({ ok: true, shouldRunAfterSuccess: true })
+    mockGuardAfterSuccess.mockResolvedValue(undefined)
   })
 
   it('runs the guard before the create write and the after-success hook after persistence', async () => {
     const res = await POST(request())
     expect(res.status).toBe(201)
-    expect(mockCrudMutationGuardService.validateMutation).toHaveBeenCalledWith(expect.objectContaining({
+    expect(mockGuardValidate).toHaveBeenCalledWith(expect.objectContaining({
       resourceKind: 'data_sync.mapping',
       operation: 'create',
     }))
     expect(mockEm.persist).toHaveBeenCalled()
-    expect(mockCrudMutationGuardService.afterMutationSuccess).toHaveBeenCalledWith(expect.objectContaining({
+    expect(mockGuardAfterSuccess).toHaveBeenCalledWith(expect.objectContaining({
       resourceKind: 'data_sync.mapping',
       resourceId: MAPPING_ID,
       operation: 'create',
@@ -83,7 +98,7 @@ describe('data_sync mapping create mutation guard', () => {
   })
 
   it('short-circuits the create when the guard blocks the mutation', async () => {
-    mockCrudMutationGuardService.validateMutation.mockResolvedValueOnce({
+    mockGuardValidate.mockResolvedValueOnce({
       ok: false,
       status: 403,
       body: { error: 'Blocked by guard' },
@@ -94,7 +109,7 @@ describe('data_sync mapping create mutation guard', () => {
     await expect(res.json()).resolves.toEqual({ error: 'Blocked by guard' })
     expect(mockEm.create).not.toHaveBeenCalled()
     expect(mockEm.persist).not.toHaveBeenCalled()
-    expect(mockCrudMutationGuardService.afterMutationSuccess).not.toHaveBeenCalled()
+    expect(mockGuardAfterSuccess).not.toHaveBeenCalled()
   })
 
   it('uses the update operation when a mapping already exists', async () => {
@@ -107,13 +122,13 @@ describe('data_sync mapping create mutation guard', () => {
 
     const res = await POST(request())
     expect(res.status).toBe(200)
-    expect(mockCrudMutationGuardService.validateMutation).toHaveBeenCalledWith(expect.objectContaining({
+    expect(mockGuardValidate).toHaveBeenCalledWith(expect.objectContaining({
       resourceKind: 'data_sync.mapping',
       resourceId: MAPPING_ID,
       operation: 'update',
     }))
     expect(mockEm.flush).toHaveBeenCalled()
-    expect(mockCrudMutationGuardService.afterMutationSuccess).toHaveBeenCalledWith(expect.objectContaining({
+    expect(mockGuardAfterSuccess).toHaveBeenCalledWith(expect.objectContaining({
       resourceKind: 'data_sync.mapping',
       resourceId: MAPPING_ID,
       operation: 'update',

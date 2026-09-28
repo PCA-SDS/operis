@@ -12,11 +12,8 @@ import { startDataSyncRun } from '../lib/start-run'
 import { getDataSyncAdapter } from '../lib/adapter-registry'
 import { normalizeRunParameters } from '../lib/run-parameters'
 import { resolveStartCursor } from '../lib/start-cursor'
-import {
-  runCrudMutationGuardAfterSuccess,
-  validateCrudMutationGuard,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const logger = createLogger('data_sync').child({ component: 'run' })
 
@@ -107,19 +104,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'A sync run is already in progress for this integration and entity direction' }, { status: 409 })
     }
 
-    const guardResult = await validateCrudMutationGuard(container, {
-      tenantId: auth.tenantId,
-      organizationId: scope.organizationId,
-      userId: auth.sub,
-      resourceKind: 'data_sync.run',
-      resourceId: parsed.data.integrationId,
-      operation: 'custom',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      mutationPayload: parsed.data,
+    const guardResult = await runRouteMutationGuards({
+      container,
+      req,
+      auth: { userId: auth.sub, tenantId: auth.tenantId, organizationId: scope.organizationId },
+      input: {
+        resourceKind: 'data_sync.run',
+        resourceId: parsed.data.integrationId,
+        operation: 'custom',
+        mutationPayload: parsed.data,
+      },
     })
-    if (guardResult && !guardResult.ok) {
-      return NextResponse.json(guardResult.body, { status: guardResult.status })
+    if (!guardResult.ok) {
+      return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
     }
 
     const cursor = parsed.data.fullSync
@@ -153,19 +150,7 @@ export async function POST(req: Request) {
       },
     })
 
-    if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-      await runCrudMutationGuardAfterSuccess(container, {
-        tenantId: auth.tenantId,
-        organizationId: scope.organizationId,
-        userId: auth.sub,
-        resourceKind: 'data_sync.run',
-        resourceId: run.id,
-        operation: 'custom',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
-        metadata: guardResult.metadata ?? null,
-      })
-    }
+    await guardResult.runAfterSuccess({ resourceId: run.id })
 
     return NextResponse.json({ id: run.id, progressJobId: progressJob?.id ?? null }, { status: 201 })
   } catch (error) {

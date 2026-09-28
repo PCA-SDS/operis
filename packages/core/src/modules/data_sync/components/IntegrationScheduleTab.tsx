@@ -39,6 +39,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@open-mercato/ui/primitives/table'
+import { buildDefaultScheduleState, type SyncScheduleEditorState, formatEntityTypeLabel } from './scheduleDefaults'
 
 type SyncOption = {
   integrationId: string
@@ -74,43 +75,10 @@ type SyncSchedulesResponse = {
   items?: SyncScheduleRecord[]
 }
 
-type SyncScheduleEditorState = {
-  id?: string
-  scheduleType: 'cron' | 'interval'
-  scheduleValue: string
-  timezone: string
-  fullSync: boolean
-  isEnabled: boolean
-  lastRunAt: string | null
-  updatedAt?: string | null
-}
-
 type IntegrationScheduleTabProps = {
   integrationId: string
   hasCredentials: boolean
   isEnabled: boolean
-}
-
-const DEFAULT_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
-
-function formatEntityTypeLabel(entityType: string): string {
-  return entityType
-    .replace(/[_-]+/g, ' ')
-    .replace(/\b\w/g, (letter) => letter.toUpperCase())
-}
-
-function buildDefaultScheduleState(entityType: string): SyncScheduleEditorState {
-  const normalized = entityType.trim().toLowerCase()
-  const longerInterval = normalized === 'categories' || normalized === 'attributes'
-  return {
-    scheduleType: 'interval',
-    scheduleValue: longerInterval ? '6h' : '1h',
-    timezone: DEFAULT_TIMEZONE,
-    fullSync: normalized !== 'products',
-    isEnabled: true,
-    lastRunAt: null,
-    updatedAt: null,
-  }
 }
 
 function getSupportedDirections(direction: SyncOption['direction'] | null | undefined): Array<'import' | 'export'> {

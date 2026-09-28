@@ -8,10 +8,7 @@ import type { SyncScheduleService } from '../../lib/sync-schedule-service'
 import { serializeSchedule } from './serialize'
 import { readOptimisticLockExpected } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
-import {
-  runCrudMutationGuardAfterSuccess,
-  validateCrudMutationGuard,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['data_sync.configure'] },
@@ -80,19 +77,19 @@ export async function POST(req: Request) {
   const scheduleService = container.resolve('dataSyncScheduleService') as SyncScheduleService
   const scope = { organizationId, tenantId: auth.tenantId }
 
-  const guardResult = await validateCrudMutationGuard(container, {
-    tenantId: auth.tenantId,
-    organizationId: scope.organizationId,
-    userId: auth.sub,
-    resourceKind: 'data_sync.schedule',
-    resourceId: scope.organizationId,
-    operation: 'create',
-    requestMethod: req.method,
-    requestHeaders: req.headers,
-    mutationPayload: parsed.data,
+  const guardResult = await runRouteMutationGuards({
+    container,
+    req,
+    auth: { userId: auth.sub, tenantId: auth.tenantId, organizationId: scope.organizationId },
+    input: {
+      resourceKind: 'data_sync.schedule',
+      resourceId: scope.organizationId,
+      operation: 'create',
+      mutationPayload: parsed.data,
+    },
   })
-  if (guardResult && !guardResult.ok) {
-    return NextResponse.json(guardResult.body, { status: guardResult.status })
+  if (!guardResult.ok) {
+    return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
   }
 
   try {
@@ -101,19 +98,7 @@ export async function POST(req: Request) {
       expectedUpdatedAt: readOptimisticLockExpected(req),
     }, scope, container)
 
-    if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-      await runCrudMutationGuardAfterSuccess(container, {
-        tenantId: auth.tenantId,
-        organizationId: scope.organizationId,
-        userId: auth.sub,
-        resourceKind: 'data_sync.schedule',
-        resourceId: schedule.id,
-        operation: 'create',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
-        metadata: guardResult.metadata ?? null,
-      })
-    }
+    await guardResult.runAfterSuccess({ resourceId: schedule.id })
 
     return NextResponse.json(serializeSchedule(schedule), { status: 201 })
   } catch (error) {

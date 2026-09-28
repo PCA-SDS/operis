@@ -56,6 +56,7 @@ import {
   type RunFailureBody,
   type RunParameterFormValue,
 } from '../../components/RunParameterFields'
+import { buildDefaultScheduleState, type SyncScheduleEditorState, DEFAULT_TIMEZONE, formatEntityTypeLabel } from '../../components/scheduleDefaults'
 
 type SyncRunRow = {
   id: string
@@ -111,39 +112,6 @@ type SyncScheduleRecord = {
 
 type SyncSchedulesResponse = {
   items?: SyncScheduleRecord[]
-}
-
-type SyncScheduleEditorState = {
-  id?: string
-  scheduleType: 'cron' | 'interval'
-  scheduleValue: string
-  timezone: string
-  fullSync: boolean
-  isEnabled: boolean
-  lastRunAt: string | null
-  updatedAt?: string | null
-}
-
-const DEFAULT_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
-
-function formatEntityTypeLabel(entityType: string): string {
-  return entityType
-    .replace(/[_-]+/g, ' ')
-    .replace(/\b\w/g, (letter) => letter.toUpperCase())
-}
-
-function buildDefaultScheduleState(entityType: string): SyncScheduleEditorState {
-  const normalized = entityType.trim().toLowerCase()
-  const longerInterval = normalized === 'categories' || normalized === 'attributes'
-  return {
-    scheduleType: 'interval',
-    scheduleValue: longerInterval ? '6h' : '1h',
-    timezone: DEFAULT_TIMEZONE,
-    fullSync: normalized !== 'products',
-    isEnabled: true,
-    lastRunAt: null,
-    updatedAt: null,
-  }
 }
 
 export default function SyncRunsDashboardPage() {

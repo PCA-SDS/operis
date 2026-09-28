@@ -138,7 +138,7 @@ describe('data_sync run route', () => {
     expect(mockStartDataSyncRun).toHaveBeenCalled()
     expect(mockCrudMutationGuardService.validateMutation).toHaveBeenCalledWith(expect.objectContaining({
       resourceKind: 'data_sync.run',
-      operation: 'custom',
+      operation: 'update',
     }))
     expect(mockCrudMutationGuardService.afterMutationSuccess).toHaveBeenCalledWith(expect.objectContaining({
       resourceKind: 'data_sync.run',
