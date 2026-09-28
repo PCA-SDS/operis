@@ -5,16 +5,10 @@ import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { tryNormalizeHostname } from '@open-mercato/core/modules/customer_accounts/lib/hostname'
 import { secretEqual } from '@open-mercato/core/modules/customer_accounts/lib/secretCompare'
 import { DomainMappingService } from '@open-mercato/core/modules/customer_accounts/services/domainMappingService'
-
-const ORIGIN_HEADER_NAME = process.env.CUSTOMER_DOMAIN_ORIGIN_HEADER ?? 'X-Open-Mercato-Origin'
+import { withOriginHeader } from './originHeader'
 
 export const metadata = {
   GET: { requireAuth: false },
-}
-
-function withOriginHeader(response: NextResponse): NextResponse {
-  response.headers.set(ORIGIN_HEADER_NAME, '1')
-  return response
 }
 
 function unauthorized(message: string): NextResponse {

@@ -79,7 +79,7 @@ jest.mock('@open-mercato/core/modules/customer_accounts/events', () => ({
   emitCustomerAccountsEvent: jest.fn(async () => undefined),
 }))
 
-import { readCookieFromHeader } from '@open-mercato/core/modules/customer_accounts/lib/customerAuth'
+import { readCookieFromHeader } from '@open-mercato/shared/lib/http/cookies'
 import { POST as loginPOST } from '@open-mercato/core/modules/customer_accounts/api/login'
 import { POST as logoutPOST } from '@open-mercato/core/modules/customer_accounts/api/portal/logout'
 

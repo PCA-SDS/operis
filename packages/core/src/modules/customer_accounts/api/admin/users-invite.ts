@@ -20,10 +20,9 @@ import { createLogger } from '@open-mercato/shared/lib/logger'
 import { CustomerUserInvitation } from '@open-mercato/core/modules/customer_accounts/data/entities'
 import { findAndCountWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { lookupHashCandidates } from '@open-mercato/shared/lib/encryption/aes'
+import { UUID_SHAPE_PATTERN } from '@open-mercato/shared/lib/validation'
 
 const logger = createLogger('customer_accounts').child({ component: 'admin-users-invite' })
-
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export const metadata = {}
 
@@ -64,7 +63,7 @@ export async function GET(req: Request) {
   const email = url.searchParams.get('email')
 
   for (const value of [personEntityId, customerEntityId]) {
-    if (value && !UUID_PATTERN.test(value)) {
+    if (value && !UUID_SHAPE_PATTERN.test(value)) {
       return NextResponse.json({ ok: false, error: 'Validation failed' }, { status: 400 })
     }
   }

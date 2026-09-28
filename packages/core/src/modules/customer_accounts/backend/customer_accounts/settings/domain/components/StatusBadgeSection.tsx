@@ -5,16 +5,10 @@ import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { domainStatusMap } from './domainStatusMap'
 import type { DomainMappingRow } from './types'
+import { formatDateTime } from '@open-mercato/shared/lib/time'
 
 export type StatusBadgeSectionProps = {
   mapping: DomainMappingRow
-}
-
-function formatTime(value: string | null, fallback: string): string {
-  if (!value) return fallback
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return fallback
-  return date.toLocaleString()
 }
 
 export function DefaultStatusBadge({ mapping }: StatusBadgeSectionProps) {
@@ -24,10 +18,7 @@ export function DefaultStatusBadge({ mapping }: StatusBadgeSectionProps) {
     `customer_accounts.domainMapping.status.${mapping.status}`,
     mapping.status,
   )
-  const lastChecked = formatTime(
-    mapping.lastDnsCheckAt,
-    t('customer_accounts.domainMapping.autoVerify.checking', 'Automatically checking every 5 minutes'),
-  )
+  const lastChecked = formatDateTime(mapping.lastDnsCheckAt, { fallback: t('customer_accounts.domainMapping.autoVerify.checking', 'Automatically checking every 5 minutes') })
   const showAutoCheck = mapping.status === 'pending' || mapping.status === 'dns_failed'
 
   return (

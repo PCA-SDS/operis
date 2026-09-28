@@ -4,11 +4,8 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { RbacService } from '@open-mercato/core/modules/auth/services/rbacService'
-import {
-  validateCrudMutationGuard,
-  runCrudMutationGuardAfterSuccess,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
 import { DomainMappingService } from '@open-mercato/core/modules/customer_accounts/services/domainMappingService'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const FEATURE = 'customer_accounts.domain.manage'
 
@@ -33,18 +30,14 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   const record = await service.findById(id, { tenantId: auth.tenantId })
   if (!record) return NextResponse.json({ ok: false, error: 'Not found' }, { status: 404 })
 
-  const guardResult = await validateCrudMutationGuard(container, {
-    tenantId: auth.tenantId,
-    organizationId: record.organizationId,
-    userId: auth.sub,
-    resourceKind: 'customer_accounts.domain_mapping',
-    resourceId: id,
-    operation: 'update',
-    requestMethod: req.method,
-    requestHeaders: req.headers,
+  const guardResult = await runRouteMutationGuards({
+    container,
+    req,
+    auth: { userId: auth.sub, tenantId: auth.tenantId, organizationId: record.organizationId },
+    input: { resourceKind: 'customer_accounts.domain_mapping', resourceId: id, operation: 'update' },
   })
-  if (guardResult && !guardResult.ok) {
-    return NextResponse.json(guardResult.body, { status: guardResult.status })
+  if (!guardResult.ok) {
+    return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
   }
 
   let updated
@@ -57,19 +50,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     )
   }
 
-  if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-    await runCrudMutationGuardAfterSuccess(container, {
-      tenantId: auth.tenantId,
-      organizationId: record.organizationId,
-      userId: auth.sub,
-      resourceKind: 'customer_accounts.domain_mapping',
-      resourceId: id,
-      operation: 'update',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      metadata: guardResult.metadata ?? null,
-    })
-  }
+  await guardResult.runAfterSuccess()
 
   return NextResponse.json({
     ok: true,

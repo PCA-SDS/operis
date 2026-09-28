@@ -8,6 +8,7 @@ import { CustomerSessionService } from '@open-mercato/core/modules/customer_acco
 import { CustomerRbacService } from '@open-mercato/core/modules/customer_accounts/services/customerRbacService'
 import { emitCustomerAccountsEvent } from '@open-mercato/core/modules/customer_accounts/events'
 import { getClientIp } from '@open-mercato/shared/lib/ratelimit/helpers'
+import { emailSchema } from '@open-mercato/shared/lib/validation'
 
 export const metadata: { path?: string; requireAuth?: boolean } = { requireAuth: false }
 
@@ -95,7 +96,7 @@ const acceptSuccessSchema = z.object({
   ok: z.literal(true),
   user: z.object({
     id: z.string().uuid(),
-    email: z.string().email(),
+    email: emailSchema(),
     displayName: z.string(),
     emailVerified: z.boolean(),
   }),

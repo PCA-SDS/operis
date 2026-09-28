@@ -26,6 +26,7 @@ import type {
 } from '@open-mercato/shared/modules/widgets/extension-points'
 import { extractCommandIdsFromSource } from './module-registry'
 import { scanModuleDir, SCAN_CONFIGS } from './scanner'
+import { contributionSourceRef } from './module-fact-sources'
 
 type StaticScalar = string | number | boolean | null
 type StaticValue = StaticScalar | StaticValue[] | { [key: string]: StaticValue }
@@ -820,9 +821,10 @@ function apiExtensionHostIds(moduleId: string, moduleRoot: string): ApiExtension
       if (
         ts.isCallExpression(node)
         && ts.isIdentifier(node.expression)
-        && node.expression.text === 'validateCrudMutationGuard'
+        && node.expression.text === 'runRouteMutationGuards'
       ) {
-        const input = node.arguments[1] ? staticValue(node.arguments[1], context) : undefined
+        const params = node.arguments[0] ? staticValue(node.arguments[0], context) : undefined
+        const input = isStaticObject(params) ? params.input : undefined
         const entityId = isStaticObject(input) ? stringValue(input.resourceKind) : undefined
         if (entityId) {
           entityIds.add(entityId)
@@ -1674,13 +1676,12 @@ export const ALL_CONTRIBUTION_KINDS = Object.keys(CONTRIBUTION_ACTIVATION_CLASSI
 /**
  * Verified mutation-guard bridge shapes. The canonical route helper nests the
  * resource under `input` (`runRouteMutationGuards({ …, input: { resourceKind } })`),
- * while the legacy helpers take the resource object directly. Module wrappers around
+ * while the registry runner takes the resource object directly. Module wrappers around
  * the canonical helper live under `lib/` as often as under `api/`, so both trees are
  * scanned.
  */
 const MUTATION_GUARD_BRIDGE_ADAPTERS: Record<string, { resourceArgument: 'input-property' | 'any-argument' }> = {
   runRouteMutationGuards: { resourceArgument: 'input-property' },
-  validateCrudMutationGuard: { resourceArgument: 'any-argument' },
   runMutationGuards: { resourceArgument: 'any-argument' },
 }
 
@@ -2045,13 +2046,6 @@ function operationsIntersect(
   if (!activationOperations || activationOperations.length === 0) return true
   if (!contributionOperations || contributionOperations.length === 0) return true
   return contributionOperations.some((operation) => activationOperations.includes(operation))
-}
-
-function contributionSourceRef(contribution: ModuleExtensionContributionFact): ModuleFactSourceRef {
-  return {
-    sourcePath: contribution.source.path,
-    ...(contribution.source.symbol ? { exportName: contribution.source.symbol } : {}),
-  }
 }
 
 function targetRefKindFor(

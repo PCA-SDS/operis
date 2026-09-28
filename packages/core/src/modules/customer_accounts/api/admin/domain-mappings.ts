@@ -6,10 +6,6 @@ import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { RbacService } from '@open-mercato/core/modules/auth/services/rbacService'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
-import {
-  validateCrudMutationGuard,
-  runCrudMutationGuardAfterSuccess,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
 import { registerDomainSchema } from '@open-mercato/core/modules/customer_accounts/data/validators'
 import {
   DomainMappingService,
@@ -17,6 +13,7 @@ import {
 } from '@open-mercato/core/modules/customer_accounts/services/domainMappingService'
 import { DomainMapping } from '@open-mercato/core/modules/customer_accounts/data/entities'
 import { isUniqueViolation } from '@open-mercato/shared/lib/db/pg-errors'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const FEATURE = 'customer_accounts.domain.manage'
 
@@ -97,28 +94,27 @@ export async function POST(req: Request) {
     )
   }
 
-  const guardResult = await validateCrudMutationGuard(container, {
-    tenantId: auth.tenantId,
-    organizationId: parsed.data.organizationId,
-    userId: auth.sub,
-    resourceKind: 'customer_accounts.domain_mapping',
-    resourceId: parsed.data.organizationId,
-    operation: 'create',
-    requestMethod: req.method,
-    requestHeaders: req.headers,
-    mutationPayload: parsed.data as unknown as Record<string, unknown>,
+  const guardResult = await runRouteMutationGuards({
+    container,
+    req,
+    auth: { userId: auth.sub, tenantId: auth.tenantId, organizationId: parsed.data.organizationId },
+    input: {
+      resourceKind: 'customer_accounts.domain_mapping',
+      resourceId: parsed.data.organizationId,
+      operation: 'create',
+      mutationPayload: parsed.data as unknown as Record<string, unknown>,
+    },
   })
-  if (guardResult && !guardResult.ok) {
-    return NextResponse.json(guardResult.body, { status: guardResult.status })
+  if (!guardResult.ok) {
+    return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
   }
 
   const service = container.resolve('domainMappingService') as DomainMappingService
 
   let entity: DomainMapping
   try {
-    // service.register normalizes hostname internally — guards may have
-    // returned modifiedPayload but the typed runner doesn't expose it,
-    // so we rely on the service for the canonical form.
+    // service.register applies normalizeHostname, the same canonical form the
+    // hostname-format guard returns in modifiedPayload.
     entity = await service.register({
       hostname: parsed.data.hostname,
       organizationId: parsed.data.organizationId,
@@ -136,19 +132,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: message }, { status: 500 })
   }
 
-  if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-    await runCrudMutationGuardAfterSuccess(container, {
-      tenantId: auth.tenantId,
-      organizationId: parsed.data.organizationId,
-      userId: auth.sub,
-      resourceKind: 'customer_accounts.domain_mapping',
-      resourceId: entity.id,
-      operation: 'create',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      metadata: guardResult.metadata ?? null,
-    })
-  }
+  await guardResult.runAfterSuccess({ resourceId: entity.id })
 
   return NextResponse.json({ ok: true, domainMapping: serializeRecord(entity) }, { status: 201 })
 }
@@ -173,35 +157,19 @@ export async function DELETE(req: Request) {
   const existing = await service.findById(id, { tenantId: auth.tenantId })
   if (!existing) return NextResponse.json({ ok: false, error: 'Not found' }, { status: 404 })
 
-  const guardResult = await validateCrudMutationGuard(container, {
-    tenantId: auth.tenantId,
-    organizationId: existing.organizationId,
-    userId: auth.sub,
-    resourceKind: 'customer_accounts.domain_mapping',
-    resourceId: id,
-    operation: 'delete',
-    requestMethod: req.method,
-    requestHeaders: req.headers,
+  const guardResult = await runRouteMutationGuards({
+    container,
+    req,
+    auth: { userId: auth.sub, tenantId: auth.tenantId, organizationId: existing.organizationId },
+    input: { resourceKind: 'customer_accounts.domain_mapping', resourceId: id, operation: 'delete' },
   })
-  if (guardResult && !guardResult.ok) {
-    return NextResponse.json(guardResult.body, { status: guardResult.status })
+  if (!guardResult.ok) {
+    return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
   }
 
   await service.remove(id, { tenantId: auth.tenantId })
 
-  if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-    await runCrudMutationGuardAfterSuccess(container, {
-      tenantId: auth.tenantId,
-      organizationId: existing.organizationId,
-      userId: auth.sub,
-      resourceKind: 'customer_accounts.domain_mapping',
-      resourceId: id,
-      operation: 'delete',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      metadata: guardResult.metadata ?? null,
-    })
-  }
+  await guardResult.runAfterSuccess()
 
   return NextResponse.json({ ok: true })
 }

@@ -24,6 +24,7 @@ import {
   getPasswordPolicy,
   validatePassword,
 } from '@open-mercato/shared/lib/auth/passwordPolicy'
+import { formatDateTime } from '@open-mercato/shared/lib/time'
 
 type UserDetail = {
   id: string
@@ -45,13 +46,6 @@ type UserDetail = {
     createdAt: string
     expiresAt: string
   }>
-}
-
-function formatDate(value: string | null | undefined, fallback: string): string {
-  if (!value) return fallback
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return fallback
-  return date.toLocaleString()
 }
 
 function ResetPasswordDialog({
@@ -581,11 +575,11 @@ export function PortalUserDetailPageClient({ params, portalOrigin }: PortalUserD
             </div>
             <div className="flex justify-between">
               <dt className="text-muted-foreground">{t('customer_accounts.admin.detail.fields.lastLogin', 'Last Login')}</dt>
-              <dd>{formatDate(data.lastLoginAt, '-')}</dd>
+              <dd>{formatDateTime(data.lastLoginAt, { fallback: '-' })}</dd>
             </div>
             <div className="flex justify-between">
               <dt className="text-muted-foreground">{t('customer_accounts.admin.detail.fields.createdAt', 'Created')}</dt>
-              <dd>{formatDate(data.createdAt, '-')}</dd>
+              <dd>{formatDateTime(data.createdAt, { fallback: '-' })}</dd>
             </div>
           </dl>
         </div>
@@ -818,7 +812,7 @@ export function PortalUserDetailPageClient({ params, portalOrigin }: PortalUserD
                     {session.userAgent || t('customer_accounts.admin.detail.unknownDevice', 'Unknown device')}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {t('customer_accounts.admin.detail.fields.lastUsed', 'Last used')}: {formatDate(session.lastUsedAt, '-')}
+                    {t('customer_accounts.admin.detail.fields.lastUsed', 'Last used')}: {formatDateTime(session.lastUsedAt, { fallback: '-' })}
                   </p>
                 </div>
                 <Button

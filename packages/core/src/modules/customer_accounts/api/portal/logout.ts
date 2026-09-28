@@ -3,7 +3,7 @@ import { z } from 'zod'
 import type { OpenApiRouteDoc, OpenApiMethodDoc } from '@open-mercato/shared/lib/openapi'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { CustomerSessionService } from '@open-mercato/core/modules/customer_accounts/services/customerSessionService'
-import { readCookieFromHeader } from '@open-mercato/core/modules/customer_accounts/lib/customerAuth'
+import { readCookieFromHeader } from '@open-mercato/shared/lib/http/cookies'
 
 export const metadata: { path?: string; requireAuth?: boolean } = { requireAuth: false }
 

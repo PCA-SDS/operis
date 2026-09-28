@@ -1,15 +1,11 @@
 import { EntityManager } from '@mikro-orm/postgresql'
-import type { Kysely } from 'kysely'
 import {
   CustomerUser,
   CustomerUserEmailVerification,
   CustomerUserPasswordReset,
 } from '@open-mercato/core/modules/customer_accounts/data/entities'
 import { generateSecureToken, hashToken } from '@open-mercato/core/modules/customer_accounts/lib/tokenGenerator'
-
-function getKysely(em: EntityManager): Kysely<any> {
-  return (em as unknown as { getKysely: () => Kysely<any> }).getKysely()
-}
+import { getKysely } from '@open-mercato/shared/lib/db/kysely'
 
 const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours
 const MAGIC_LINK_TTL_MS = 15 * 60 * 1000 // 15 minutes

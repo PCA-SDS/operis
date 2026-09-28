@@ -2,21 +2,11 @@ import { NextResponse } from 'next/server'
 import { verifyAudienceJwt, verifyJwt } from '@open-mercato/shared/lib/auth/jwt'
 import type { CustomerRbacService } from '@open-mercato/core/modules/customer_accounts/services/customerRbacService'
 import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
+import { readCookieFromHeader } from '@open-mercato/shared/lib/http/cookies'
+import type { CustomerAuthContext } from '@open-mercato/shared/modules/customer-auth'
 import { CUSTOMER_JWT_AUDIENCE } from '@open-mercato/core/modules/customer_accounts/services/customerSessionService'
 
-export interface CustomerAuthContext {
-  sub: string
-  sid: string
-  type: 'customer'
-  tenantId: string
-  orgId: string
-  email: string
-  displayName: string
-  customerEntityId?: string | null
-  personEntityId?: string | null
-  resolvedFeatures: string[]
-  isPortalAdmin?: boolean
-}
+export type { CustomerAuthContext }
 
 async function assertSessionStillActive(input: {
   sessionId: string
@@ -38,18 +28,6 @@ async function assertSessionStillActive(input: {
     // replay of leaked JWTs when the backend is partially degraded.
     return false
   }
-}
-
-export function readCookieFromHeader(header: string | null | undefined, name: string): string | undefined {
-  if (!header) return undefined
-  const parts = header.split(';')
-  for (const part of parts) {
-    const trimmed = part.trim()
-    if (trimmed.startsWith(`${name}=`)) {
-      return trimmed.slice(name.length + 1)
-    }
-  }
-  return undefined
 }
 
 export type UserValidationResult =
