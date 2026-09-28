@@ -9,6 +9,7 @@ import { WarehouseLocation } from '../../data/entities'
 import { warehouseLocationCreateSchema, warehouseLocationUpdateSchema } from '../../data/validators'
 import { createPagedListResponseSchema, createWmsCrudOpenApi, defaultOkResponseSchema } from '../openapi'
 import { attachWarehouseLabelsToListItems } from '../listEnrichers'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 const routeMetadata = {
   GET: { requireAuth: true, requireFeatures: ['wms.view'] },
@@ -22,8 +23,7 @@ export const metadata = routeMetadata
 const rawBodySchema = z.object({}).passthrough()
 
 const listSchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(25),
+  ...paginationQuerySchema({ defaultPageSize: 25 }).shape,
   search: z.string().optional(),
   warehouseId: z.string().uuid().optional(),
   parentId: z.string().uuid().optional(),

@@ -36,23 +36,19 @@ import { StatusBadge, type StatusBadgeVariant } from '@open-mercato/ui/primitive
 import { Checkbox } from '@open-mercato/ui/primitives/checkbox'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { E } from '#generated/entities.ids.generated'
-import {
-  inventoryMovementReasonLabel,
-  type InventoryDisplayTranslator,
-} from '../../lib/inventoryDisplayUi'
 import { AdjustInventoryDialog } from './AdjustInventoryDialog'
 import { ChangeLotStatusDialog } from './ChangeLotStatusDialog'
 import { CycleCountWizardDialog } from './CycleCountWizardDialog'
 import { useWmsInventoryMutationAccess } from './useWmsInventoryMutationAccess'
+import { useBalancePageSelection } from './useBalancePageSelection'
 import { downloadCsvExport } from '../../lib/downloadCsvExport'
+import { toFiniteNumber } from '@open-mercato/shared/lib/number'
+import { isNearExpiry, isExpired, formatWarehouseLabel, formatLocationLabel, NON_SELLABLE_LOCATION_TYPES, PICKING_LOCATION_TYPES, resolveBalanceStatus, type DistributionFilter } from './inventoryDetailFormat'
+import type { PagedResponse, WarehouseOption, InventoryBalanceRow, InventoryMovementRow } from './inventoryTypes'
+import { movementTypeLabel, movementStatusMap, formatMovementSubtitle, formatMovementLocation } from './inventoryMovementDisplay'
+import { InventoryKpiCard } from './InventoryKpiCard'
 
 const lotIdSchema = z.string().uuid()
-
-type PagedResponse<T> = {
-  items: T[]
-  total: number
-  totalPages: number
-}
 
 type CatalogVariantRow = {
   id: string
@@ -85,44 +81,6 @@ type InventoryProfileRow = {
   reorder_point?: string | number | null
 }
 
-type InventoryBalanceRow = {
-  id: string
-  warehouse_id?: string | null
-  warehouse_name?: string | null
-  warehouse_code?: string | null
-  location_id?: string | null
-  location_code?: string | null
-  location_type?: string | null
-  catalog_variant_id?: string | null
-  quantity_on_hand?: string | number | null
-  quantity_reserved?: string | number | null
-  quantity_allocated?: string | number | null
-  quantity_available?: number | null
-}
-
-type InventoryMovementRow = {
-  id: string
-  warehouse_id?: string | null
-  warehouse_name?: string | null
-  warehouse_code?: string | null
-  location_from_id?: string | null
-  location_from_code?: string | null
-  location_to_id?: string | null
-  location_to_code?: string | null
-  catalog_variant_id?: string | null
-  variant_sku?: string | null
-  variant_name?: string | null
-  lot_id?: string | null
-  quantity?: string | number | null
-  type?: string | null
-  reference_type?: string | null
-  reference_id?: string | null
-  reason?: string | null
-  reason_code?: string | null
-  performed_at?: string | null
-  received_at?: string | null
-}
-
 type InventoryMutationPreset = {
   warehouseId?: string
   locationId?: string
@@ -130,40 +88,7 @@ type InventoryMutationPreset = {
   lotId?: string
 }
 
-type WarehouseOption = {
-  id: string
-  name?: string | null
-  code?: string | null
-}
-
-type DistributionFilter = 'all' | 'sellable' | 'picking' | 'nearExpiry'
-
-const NON_SELLABLE_LOCATION_TYPES = new Set(['staging', 'dock'])
-const PICKING_LOCATION_TYPES = new Set(['staging', 'bin', 'slot'])
-const NEAR_EXPIRY_MS = 30 * 24 * 60 * 60 * 1000
 const MS_PER_DAY = 24 * 60 * 60 * 1000
-
-function toNumber(value: string | number | null | undefined): number {
-  const parsed = Number(value ?? 0)
-  return Number.isFinite(parsed) ? parsed : 0
-}
-
-function formatWarehouseLabel(row: {
-  warehouse_name?: string | null
-  warehouse_code?: string | null
-  warehouse_id?: string | null
-}): string {
-  const code = (row.warehouse_code ?? '').trim()
-  const name = (row.warehouse_name ?? '').trim()
-  if (code && name) return `${code} · ${name}`
-  return name || code || row.warehouse_id || '—'
-}
-
-function formatLocationLabel(code: string | null | undefined, id: string | null | undefined): string {
-  const trimmed = (code ?? '').trim()
-  if (trimmed) return trimmed
-  return id || '—'
-}
 
 function balanceLocationKey(row: InventoryBalanceRow): string {
   return `${row.warehouse_id?.trim() ?? ''}:${row.location_id?.trim() ?? ''}`
@@ -174,19 +99,6 @@ function movementLocationKey(
   locationId: string | null | undefined,
 ): string {
   return `${warehouseId?.trim() ?? ''}:${locationId?.trim() ?? ''}`
-}
-
-function isNearExpiry(expiresAt: string | null | undefined, nowMs: number): boolean {
-  if (!expiresAt) return false
-  const expires = new Date(expiresAt).getTime()
-  if (Number.isNaN(expires)) return false
-  return expires > nowMs && expires - nowMs <= NEAR_EXPIRY_MS
-}
-
-function isExpired(expiresAt: string | null | undefined, nowMs: number): boolean {
-  if (!expiresAt) return false
-  const expires = new Date(expiresAt).getTime()
-  return !Number.isNaN(expires) && expires <= nowMs
 }
 
 function daysUntilExpiry(expiresAt: string | null | undefined, nowMs: number): number | null {
@@ -248,50 +160,6 @@ function resolveLotQualityStatus(
   }
 }
 
-function resolveBalanceStatus(
-  row: InventoryBalanceRow,
-  lot: InventoryLotRow | null | undefined,
-  reorderPoint: number,
-  nowMs: number,
-): { variant: StatusBadgeVariant; labelKey: string; labelFallback: string } {
-  if (lot?.status === 'expired' || isExpired(lot?.expires_at, nowMs)) {
-    return {
-      variant: 'error',
-      labelKey: 'wms.backend.lot.distribution.status.expired',
-      labelFallback: 'Expired',
-    }
-  }
-  if (isNearExpiry(lot?.expires_at, nowMs)) {
-    return {
-      variant: 'warning',
-      labelKey: 'wms.backend.lot.distribution.status.nearExpiry',
-      labelFallback: 'Near expiry',
-    }
-  }
-  const available = row.quantity_available ?? 0
-  if (reorderPoint > 0 && available <= reorderPoint) {
-    return {
-      variant: 'warning',
-      labelKey: 'wms.backend.lot.distribution.status.lowStock',
-      labelFallback: 'Low stock',
-    }
-  }
-  const reserved = toNumber(row.quantity_reserved)
-  const onHand = toNumber(row.quantity_on_hand)
-  if (reserved > 0 && onHand > 0 && reserved >= onHand) {
-    return {
-      variant: 'info',
-      labelKey: 'wms.backend.lot.distribution.status.reserved',
-      labelFallback: 'Reserved',
-    }
-  }
-  return {
-    variant: 'success',
-    labelKey: 'wms.backend.lot.distribution.status.available',
-    labelFallback: 'Available',
-  }
-}
-
 function matchesDistributionFilter(
   row: InventoryBalanceRow,
   lot: InventoryLotRow | null | undefined,
@@ -310,8 +178,8 @@ function matchesDistributionFilter(
         PICKING_LOCATION_TYPES.has(locationType) ||
         locationCode.includes('pick') ||
         locationCode.includes('staging') ||
-        toNumber(row.quantity_reserved) > 0 ||
-        toNumber(row.quantity_allocated) > 0
+        toFiniteNumber(row.quantity_reserved) > 0 ||
+        toFiniteNumber(row.quantity_allocated) > 0
       )
     case 'nearExpiry':
       return isNearExpiry(lot?.expires_at, nowMs) || lot?.status === 'expired'
@@ -320,41 +188,13 @@ function matchesDistributionFilter(
   }
 }
 
-function movementTypeLabel(type: string, t: ReturnType<typeof useT>): string {
-  const key = `wms.backend.lot.activity.types.${type}`
-  const fallbacks: Record<string, string> = {
-    receipt: 'Receive',
-    return_receive: 'Receive',
-    adjust: 'Adjust',
-    transfer: 'Move',
-    pick: 'Allocate',
-    pack: 'Allocate',
-    cycle_count: 'Reconcile',
-    putaway: 'Putaway',
-    ship: 'Ship',
-  }
-  return t(key, fallbacks[type] ?? type)
-}
-
-const movementStatusMap: Record<string, StatusBadgeVariant> = {
-  receipt: 'success',
-  return_receive: 'success',
-  adjust: 'warning',
-  transfer: 'info',
-  pick: 'info',
-  pack: 'info',
-  cycle_count: 'neutral',
-  putaway: 'info',
-  ship: 'success',
-}
-
 function formatMovementTitle(
   row: InventoryMovementRow,
   lotLabel: string,
   t: ReturnType<typeof useT>,
 ): string {
-  const quantity = Math.abs(toNumber(row.quantity))
-  const signedQuantity = toNumber(row.quantity)
+  const quantity = Math.abs(toFiniteNumber(row.quantity))
+  const signedQuantity = toFiniteNumber(row.quantity)
   switch (row.type) {
     case 'receipt':
     case 'return_receive':
@@ -391,33 +231,6 @@ function formatMovementTitle(
   }
 }
 
-function formatMovementSubtitle(
-  row: InventoryMovementRow,
-  t: InventoryDisplayTranslator,
-): string | null {
-  const reasonLabel = inventoryMovementReasonLabel(
-    {
-      reasonCode: row.reason_code,
-      reason: row.reason,
-      movementType: row.type,
-    },
-    t,
-  )
-  if (reasonLabel) return reasonLabel
-  if (row.reference_type && row.reference_id) return `${row.reference_type} · ${row.reference_id}`
-  return null
-}
-
-function formatMovementLocation(row: InventoryMovementRow): string {
-  const warehouse = formatWarehouseLabel(row)
-  const from = formatLocationLabel(row.location_from_code, row.location_from_id)
-  const to = formatLocationLabel(row.location_to_code, row.location_to_id)
-  if (row.type === 'transfer' && from !== '—' && to !== '—') return `${from} → ${to}`
-  const location = to !== '—' ? to : from
-  if (location !== '—') return `${warehouse} · ${location}`
-  return warehouse
-}
-
 function formatLastMoveLabel(
   raw: string | undefined,
   locale: string,
@@ -439,56 +252,6 @@ function formatLastMoveLabel(
     return t('wms.backend.lot.distribution.lastMove.daysAgo', '{days} days ago', { days: diffDays })
   }
   return new Intl.DateTimeFormat(locale, { month: '2-digit', day: '2-digit' }).format(date)
-}
-
-type LotKpiCardProps = {
-  title: string
-  caption: string
-  value: string
-  badgeLabel: string | null
-  badgeVariant: StatusBadgeVariant
-  ctaLabel: string
-  ctaHref?: string
-  onCtaClick?: () => void
-}
-
-function LotKpiCard({
-  title,
-  caption,
-  value,
-  badgeLabel,
-  badgeVariant,
-  ctaLabel,
-  ctaHref,
-  onCtaClick,
-}: LotKpiCardProps) {
-  return (
-    <section className="flex min-h-52 flex-col rounded-xl border border-card-edge bg-surface shadow-sm p-5 text-card-foreground">
-      <div>
-        <p className="text-sm font-medium">{title}</p>
-        <p className="mt-3 text-xs text-muted-foreground">{caption}</p>
-      </div>
-      <div className="mt-auto pt-2">
-        <div className="flex items-end gap-3">
-          <p className="text-3xl font-semibold tracking-tight">{value}</p>
-          {badgeLabel ? (
-            <StatusBadge variant={badgeVariant} dot>
-              {badgeLabel}
-            </StatusBadge>
-          ) : null}
-        </div>
-        {onCtaClick ? (
-          <LinkButton variant="primary" size="sm" className="mt-4 w-fit" onClick={onCtaClick}>
-            {ctaLabel}
-          </LinkButton>
-        ) : ctaHref ? (
-          <LinkButton asChild variant="primary" size="sm" className="mt-4 w-fit">
-            <Link href={ctaHref}>{ctaLabel}</Link>
-          </LinkButton>
-        ) : null}
-      </div>
-    </section>
-  )
 }
 
 type WmsLotDetailPageProps = {
@@ -641,7 +404,7 @@ export default function WmsLotDetailPage({ lotId }: WmsLotDetailPageProps) {
     },
   })
 
-  const reorderPoint = toNumber(profileQuery.data?.reorder_point)
+  const reorderPoint = toFiniteNumber(profileQuery.data?.reorder_point)
   const lotData = lotQuery.data
   const lotLabel = (lotData?.lot_number ?? '').trim() || scopedLotId || '—'
   const skuLabel =
@@ -671,8 +434,8 @@ export default function WmsLotDetailPage({ lotId }: WmsLotDetailPageProps) {
     let reserved = 0
     let available = 0
     for (const row of items) {
-      onHand += toNumber(row.quantity_on_hand)
-      reserved += toNumber(row.quantity_reserved)
+      onHand += toFiniteNumber(row.quantity_on_hand)
+      reserved += toFiniteNumber(row.quantity_reserved)
       available += row.quantity_available ?? 0
     }
     return { onHand, reserved, available }
@@ -765,36 +528,11 @@ export default function WmsLotDetailPage({ lotId }: WmsLotDetailPageProps) {
     }
   }, [catalogVariantId, scopedLotId, selectedBalances, warehouseId])
 
-  const toggleBalanceSelection = React.useCallback((balanceId: string, selected: boolean) => {
-    setSelectedBalanceIds((current) => {
-      const next = new Set(current)
-      if (selected) next.add(balanceId)
-      else next.delete(balanceId)
-      return next
-    })
-  }, [])
-
-  const togglePageSelection = React.useCallback((selected: boolean) => {
-    setSelectedBalanceIds((current) => {
-      const next = new Set(current)
-      for (const row of pagedBalances) {
-        if (selected) next.add(row.id)
-        else next.delete(row.id)
-      }
-      return next
-    })
-  }, [pagedBalances])
-
-  const pageSelectionState = React.useMemo(() => {
-    if (pagedBalances.length === 0) {
-      return { checked: false, indeterminate: false }
-    }
-    const selectedOnPage = pagedBalances.filter((row) => selectedBalanceIds.has(row.id)).length
-    return {
-      checked: selectedOnPage === pagedBalances.length,
-      indeterminate: selectedOnPage > 0 && selectedOnPage < pagedBalances.length,
-    }
-  }, [pagedBalances, selectedBalanceIds])
+  const { toggleBalanceSelection, togglePageSelection, pageSelectionState } = useBalancePageSelection(
+    pagedBalances,
+    selectedBalanceIds,
+    setSelectedBalanceIds,
+  )
 
   const handleExportDistributionCsv = React.useCallback(() => {
     const columns = [
@@ -806,15 +544,15 @@ export default function WmsLotDetailPage({ lotId }: WmsLotDetailPageProps) {
       { field: 'status', header: t('wms.backend.lot.distribution.columns.status', 'Status') },
     ]
     const rows = filteredBalances.map((row) => {
-      const status = resolveBalanceStatus(row, lotData, reorderPoint, nowMs)
+      const status = resolveBalanceStatus(row, lotData, reorderPoint, nowMs, 'lot')
       return {
         warehouse: formatWarehouseLabel(row),
         location: formatLocationLabel(row.location_code, row.location_id),
         lastMove: formatLastMoveLabel(lastMoveByLocation.get(balanceLocationKey(row)), locale, t),
         // Raw numbers, not strings: the serializer exempts `number` from formula
         // neutralization, so a stringified negative would export as `'-7`.
-        onHand: toNumber(row.quantity_on_hand),
-        reserved: toNumber(row.quantity_reserved),
+        onHand: toFiniteNumber(row.quantity_on_hand),
+        reserved: toFiniteNumber(row.quantity_reserved),
         status: t(status.labelKey, status.labelFallback),
       }
     })
@@ -894,18 +632,18 @@ export default function WmsLotDetailPage({ lotId }: WmsLotDetailPageProps) {
       {
         accessorKey: 'quantity_on_hand',
         header: t('wms.backend.lot.distribution.columns.onHand', 'On hand'),
-        cell: ({ row }) => String(toNumber(row.original.quantity_on_hand)),
+        cell: ({ row }) => String(toFiniteNumber(row.original.quantity_on_hand)),
       },
       {
         accessorKey: 'quantity_reserved',
         header: t('wms.backend.lot.distribution.columns.reserved', 'Reserved'),
-        cell: ({ row }) => String(toNumber(row.original.quantity_reserved)),
+        cell: ({ row }) => String(toFiniteNumber(row.original.quantity_reserved)),
       },
       {
         id: 'status',
         header: t('wms.backend.lot.distribution.columns.status', 'Status'),
         cell: ({ row }) => {
-          const status = resolveBalanceStatus(row.original, lotData, reorderPoint, nowMs)
+          const status = resolveBalanceStatus(row.original, lotData, reorderPoint, nowMs, 'lot')
           return (
             <StatusBadge variant={status.variant} dot>
               {t(status.labelKey, status.labelFallback)}
@@ -938,7 +676,7 @@ export default function WmsLotDetailPage({ lotId }: WmsLotDetailPageProps) {
           const type = row.original.type ?? 'movement'
           return (
             <StatusBadge variant={movementStatusMap[type] ?? 'neutral'}>
-              {movementTypeLabel(type, t)}
+              {movementTypeLabel(type, t, 'lot')}
             </StatusBadge>
           )
         },
@@ -1069,7 +807,7 @@ export default function WmsLotDetailPage({ lotId }: WmsLotDetailPageProps) {
         {!isLoading && !hasError && lotQuery.data ? (
           <>
             <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-              <LotKpiCard
+              <InventoryKpiCard
                 title={t('wms.backend.lot.kpis.onHand.title', 'Total on hand')}
                 caption={t('wms.backend.lot.kpis.onHand.caption', 'Physical quantity for this lot')}
                 value={String(totals.onHand)}
@@ -1082,7 +820,7 @@ export default function WmsLotDetailPage({ lotId }: WmsLotDetailPageProps) {
                 ctaLabel={t('wms.backend.lot.kpis.onHand.cta', 'View locations')}
                 ctaHref="#lot-locations"
               />
-              <LotKpiCard
+              <InventoryKpiCard
                 title={t('wms.backend.lot.kpis.reserved.title', 'Reserved')}
                 caption={t('wms.backend.lot.kpis.reserved.caption', 'Committed from this lot')}
                 value={String(totals.reserved)}
@@ -1095,7 +833,7 @@ export default function WmsLotDetailPage({ lotId }: WmsLotDetailPageProps) {
                 ctaLabel={t('wms.backend.lot.kpis.reserved.cta', 'View reservations')}
                 ctaHref="/backend/wms/reservations"
               />
-              <LotKpiCard
+              <InventoryKpiCard
                 title={t('wms.backend.lot.kpis.daysToExpiry.title', 'Days to expiry')}
                 caption={t('wms.backend.lot.kpis.daysToExpiry.caption', 'Until expiration date')}
                 value={daysToExpiry === null ? '—' : String(daysToExpiry)}
@@ -1110,7 +848,7 @@ export default function WmsLotDetailPage({ lotId }: WmsLotDetailPageProps) {
                 ctaLabel={t('wms.backend.lot.kpis.daysToExpiry.cta', 'View SKU profile')}
                 ctaHref={skuDetailHref}
               />
-              <LotKpiCard
+              <InventoryKpiCard
                 title={t('wms.backend.lot.kpis.lotAge.title', 'Lot age')}
                 caption={t('wms.backend.lot.kpis.lotAge.caption', 'Since lot was created')}
                 value={lotAgeDays === null ? '—' : t('wms.backend.lot.kpis.lotAge.value', '{days}d', { days: lotAgeDays })}
@@ -1125,7 +863,7 @@ export default function WmsLotDetailPage({ lotId }: WmsLotDetailPageProps) {
                 ctaLabel={t('wms.backend.lot.kpis.lotAge.cta', 'View movements')}
                 ctaHref={movementsHref}
               />
-              <LotKpiCard
+              <InventoryKpiCard
                 title={t('wms.backend.lot.kpis.qualityStatus.title', 'Quality status')}
                 caption={
                   statusNotes

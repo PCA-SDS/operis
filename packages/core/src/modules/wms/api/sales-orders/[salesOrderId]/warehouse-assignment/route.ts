@@ -182,7 +182,7 @@ export async function DELETE(
       resourceId: parsedParams.salesOrderId,
     }
     // Unassigning goes through the same registry the assign direction uses via
-    // `executeWmsCustomPostRoute`. The deprecated `validateCrudMutationGuard`
+    // `executeWmsCustomPostRoute`. The removed `validateCrudMutationGuard`
     // this replaced resolved only the single DI guard service, so in a default
     // container it returned null and this route ran with no guard at all — a
     // lock or approval guard could block reassignment but not unassignment.

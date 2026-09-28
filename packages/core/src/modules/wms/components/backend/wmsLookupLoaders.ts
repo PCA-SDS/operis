@@ -1,11 +1,6 @@
 import type { CrudFieldOption } from '@open-mercato/ui/backend/CrudForm'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
-
-type PagedResponse<T> = {
-  items: T[]
-  total: number
-  totalPages: number
-}
+import type { PagedResponse } from './inventoryTypes'
 
 // Extends CrudFieldOption with an optional description shown below the label in the dropdown.
 // Used by variant comboboxes where label=SKU and description=product name for readability.

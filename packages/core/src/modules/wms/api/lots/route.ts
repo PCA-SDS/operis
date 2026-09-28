@@ -9,6 +9,7 @@ import { InventoryLot } from '../../data/entities'
 import { inventoryLotCreateSchema, inventoryLotUpdateSchema } from '../../data/validators'
 import { buildExpiryWindowDateFilter, type ExpiryWindow } from '../../lib/expiry'
 import { createPagedListResponseSchema, createWmsCrudOpenApi, defaultOkResponseSchema } from '../openapi'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 const routeMetadata = {
   GET: { requireAuth: true, requireFeatures: ['wms.view'] },
@@ -22,8 +23,7 @@ export const metadata = routeMetadata
 const rawBodySchema = z.object({}).passthrough()
 
 const listSchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(25),
+  ...paginationQuerySchema({ defaultPageSize: 25 }).shape,
   search: z.string().optional(),
   catalogVariantId: z.string().uuid().optional(),
   status: z.enum(['available', 'hold', 'quarantine', 'expired']).optional(),

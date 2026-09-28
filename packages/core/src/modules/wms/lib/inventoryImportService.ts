@@ -19,6 +19,7 @@ import type {
 } from '../data/validators'
 import { ensureOrganizationScope, ensureTenantScope } from '../commands/shared'
 import type { InventoryImportRawRow } from './inventoryImportCsv'
+import { toFiniteNumber } from '@open-mercato/shared/lib/number'
 
 type ImportScope = {
   tenantId: string
@@ -77,15 +78,6 @@ export type InventoryImportApplyResult = {
     movementId?: string
     error?: string
   }>
-}
-
-function toNumber(value: unknown): number {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string' && value.trim().length > 0) {
-    const parsed = Number(value)
-    if (Number.isFinite(parsed)) return parsed
-  }
-  return 0
 }
 
 function buildBucketKey(input: {
@@ -283,7 +275,7 @@ async function loadCurrentOnHand(
     undefined,
     scope,
   )
-  return balance ? toNumber(balance.quantityOnHand) : 0
+  return balance ? toFiniteNumber(balance.quantityOnHand) : 0
 }
 
 async function verifyApplyRowDeltas(
@@ -356,7 +348,7 @@ export async function validateInventoryImport(
     const errors: string[] = []
     const warnings: string[] = []
 
-    const quantity = toNumber(raw.quantity)
+    const quantity = toFiniteNumber(raw.quantity)
     if (raw.quantity === undefined || raw.quantity.trim().length === 0) {
       errors.push('quantity_required')
     } else if (!Number.isFinite(quantity) || quantity < 0) {

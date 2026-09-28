@@ -78,16 +78,13 @@ import {
   toNumericString,
 } from './shared'
 import { emitWmsEvent } from '../events'
+import { forkEm } from '@open-mercato/shared/lib/commands/helpers'
 
 function resolveScope(ctx: CommandRuntimeContext, fallback?: { tenantId?: string | null; organizationId?: string | null }) {
   return {
     tenantId: fallback?.tenantId ?? ctx.auth?.tenantId ?? null,
     organizationId: fallback?.organizationId ?? ctx.selectedOrganizationId ?? ctx.auth?.orgId ?? null,
   }
-}
-
-function resolveEm(ctx: CommandRuntimeContext): EntityManager {
-  return (ctx.container.resolve('em') as EntityManager).fork()
 }
 
 function toJsonValue(value: Record<string, unknown> | null | undefined): JsonValue | null | undefined {
@@ -650,7 +647,7 @@ const createWarehouseCommand: CommandHandler<
     const parsed = warehouseCreateSchema.parse(rawInput ?? {})
     ensureTenantScope(ctx, parsed.tenantId)
     ensureOrganizationScope(ctx, parsed.organizationId)
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     await ensureWarehouseCodeUnique(em, parsed.tenantId, parsed.organizationId, parsed.code)
     const isActive = parsed.isActive ?? true
     const isPrimary = parsed.isPrimary ?? false
@@ -717,7 +714,7 @@ const createWarehouseCommand: CommandHandler<
     }
   },
   captureAfter: async (_input, result, ctx) => {
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     return loadWarehouseSnapshot(em, ctx, result.warehouseId)
   },
   buildLog: async ({ input, result, ctx, snapshots }) => {
@@ -739,7 +736,7 @@ const createWarehouseCommand: CommandHandler<
     const payload = extractUndoPayload<WarehouseUndoPayload>(logEntry)
     const after = payload?.after
     if (!after) return
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     const record = await findOneWithDecryption(
       em,
       Warehouse,
@@ -766,13 +763,13 @@ const updateWarehouseCommand: CommandHandler<
   id: 'wms.warehouses.update',
   prepare: async (input, ctx) => {
     const id = requireId(input?.id, 'Warehouse')
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     const before = await loadWarehouseSnapshot(em, ctx, id)
     return before ? { before } : {}
   },
   async execute(rawInput, ctx) {
     const parsed = warehouseUpdateSchema.parse(rawInput ?? {})
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     const warehouse = await loadWarehouse(em, ctx, parsed.id)
     if (parsed.code !== undefined && parsed.code !== warehouse.code) {
       await ensureWarehouseCodeUnique(em, warehouse.tenantId, warehouse.organizationId, parsed.code, warehouse.id)
@@ -843,7 +840,7 @@ const updateWarehouseCommand: CommandHandler<
     }
   },
   captureAfter: async (_input, result, ctx) => {
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     return loadWarehouseSnapshot(em, ctx, result.warehouseId)
   },
   buildLog: async ({ input, result, ctx, snapshots }) => {
@@ -868,7 +865,7 @@ const updateWarehouseCommand: CommandHandler<
     const payload = extractUndoPayload<WarehouseUndoPayload>(logEntry)
     const before = payload?.before
     if (!before) return
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     let record = await findOneWithDecryption(
       em,
       Warehouse,
@@ -922,13 +919,13 @@ const deleteWarehouseCommand: CommandHandler<{ id?: string }, { warehouseId: str
   id: 'wms.warehouses.delete',
   prepare: async (input, ctx) => {
     const id = requireId(input?.id, 'Warehouse')
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     const before = await loadWarehouseSnapshot(em, ctx, id)
     return before ? { before } : {}
   },
   async execute(input, ctx) {
     const warehouseId = requireId(input?.id, 'Warehouse')
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     const warehouse = await loadWarehouse(em, ctx, warehouseId)
     warehouse.deletedAt = new Date()
     await em.flush()
@@ -943,7 +940,7 @@ const deleteWarehouseCommand: CommandHandler<{ id?: string }, { warehouseId: str
     const payload = extractUndoPayload<WarehouseUndoPayload>(logEntry)
     const before = payload?.before
     if (!before) return
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     let record = await findOneWithDecryption(
       em,
       Warehouse,
@@ -1026,7 +1023,7 @@ const createWarehouseZoneCommand: CommandHandler<WarehouseZoneCreateInput, { zon
     const parsed = warehouseZoneCreateSchema.parse(rawInput ?? {})
     ensureTenantScope(ctx, parsed.tenantId)
     ensureOrganizationScope(ctx, parsed.organizationId)
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     const warehouse = await loadWarehouse(em, ctx, parsed.warehouseId)
     await ensureZoneCodeUnique(em, warehouse.id, warehouse.tenantId, warehouse.organizationId, parsed.code)
     const zone = em.create(WarehouseZone, {
@@ -1049,7 +1046,7 @@ const createWarehouseZoneCommand: CommandHandler<WarehouseZoneCreateInput, { zon
     return { zoneId: zone.id }
   },
   captureAfter: async (_input, result, ctx) => {
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     return loadWarehouseZoneSnapshot(em, ctx, result.zoneId)
   },
   buildLog: async ({ input, result, ctx, snapshots }) => {
@@ -1061,7 +1058,7 @@ const createWarehouseZoneCommand: CommandHandler<WarehouseZoneCreateInput, { zon
     const payload = extractUndoPayload<WarehouseZoneUndoPayload>(logEntry)
     const after = payload?.after
     if (!after) return
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     const record = await findOneWithDecryption(
       em,
       WarehouseZone,
@@ -1081,13 +1078,13 @@ const updateWarehouseZoneCommand: CommandHandler<WarehouseZoneUpdateInput, { zon
   id: 'wms.zones.update',
   prepare: async (input, ctx) => {
     const id = requireId(input?.id, 'Zone')
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     const before = await loadWarehouseZoneSnapshot(em, ctx, id)
     return before ? { before } : {}
   },
   async execute(rawInput, ctx) {
     const parsed = warehouseZoneUpdateSchema.parse(rawInput ?? {})
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     const zone = await loadZone(em, ctx, parsed.id)
     if (parsed.warehouseId !== undefined) {
       const warehouse = await loadWarehouse(em, ctx, parsed.warehouseId)
@@ -1112,7 +1109,7 @@ const updateWarehouseZoneCommand: CommandHandler<WarehouseZoneUpdateInput, { zon
     return { zoneId: zone.id }
   },
   captureAfter: async (_input, result, ctx) => {
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     return loadWarehouseZoneSnapshot(em, ctx, result.zoneId)
   },
   buildLog: async ({ input, result, ctx, snapshots }) => {
@@ -1125,7 +1122,7 @@ const updateWarehouseZoneCommand: CommandHandler<WarehouseZoneUpdateInput, { zon
     const payload = extractUndoPayload<WarehouseZoneUndoPayload>(logEntry)
     const before = payload?.before
     if (!before) return
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     ensureTenantScope(ctx, before.tenantId)
     ensureOrganizationScope(ctx, before.organizationId)
     await restoreZoneFromSnapshot(em, before)
@@ -1137,13 +1134,13 @@ const deleteWarehouseZoneCommand: CommandHandler<{ id?: string }, { zoneId: stri
   id: 'wms.zones.delete',
   prepare: async (input, ctx) => {
     const id = requireId(input?.id, 'Zone')
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     const before = await loadWarehouseZoneSnapshot(em, ctx, id)
     return before ? { before } : {}
   },
   async execute(input, ctx) {
     const zoneId = requireId(input?.id, 'Zone')
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     const zone = await loadZone(em, ctx, zoneId)
     zone.deletedAt = new Date()
     await em.flush()
@@ -1158,7 +1155,7 @@ const deleteWarehouseZoneCommand: CommandHandler<{ id?: string }, { zoneId: stri
     const payload = extractUndoPayload<WarehouseZoneUndoPayload>(logEntry)
     const before = payload?.before
     if (!before) return
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     ensureTenantScope(ctx, before.tenantId)
     ensureOrganizationScope(ctx, before.organizationId)
     await restoreZoneFromSnapshot(em, before)
@@ -1218,7 +1215,7 @@ const createWarehouseLocationCommand: CommandHandler<WarehouseLocationCreateInpu
     const parsed = warehouseLocationCreateSchema.parse(rawInput ?? {})
     ensureTenantScope(ctx, parsed.tenantId)
     ensureOrganizationScope(ctx, parsed.organizationId)
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     const warehouse = await loadWarehouse(em, ctx, parsed.warehouseId)
     await ensureLocationCodeUnique(em, warehouse.id, warehouse.tenantId, warehouse.organizationId, parsed.code)
     const parent = await resolveParentLocation(em, ctx, warehouse.id, parsed.parentId ?? null)
@@ -1246,7 +1243,7 @@ const createWarehouseLocationCommand: CommandHandler<WarehouseLocationCreateInpu
     return { locationId: location.id }
   },
   captureAfter: async (_input, result, ctx) => {
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     return loadWarehouseLocationSnapshot(em, ctx, result.locationId)
   },
   buildLog: async ({ input, result, ctx, snapshots }) => {
@@ -1258,7 +1255,7 @@ const createWarehouseLocationCommand: CommandHandler<WarehouseLocationCreateInpu
     const payload = extractUndoPayload<WarehouseLocationUndoPayload>(logEntry)
     const after = payload?.after
     if (!after) return
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     const record = await findOneWithDecryption(
       em,
       WarehouseLocation,
@@ -1278,13 +1275,13 @@ const updateWarehouseLocationCommand: CommandHandler<WarehouseLocationUpdateInpu
   id: 'wms.locations.update',
   prepare: async (input, ctx) => {
     const id = requireId(input?.id, 'Location')
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     const before = await loadWarehouseLocationSnapshot(em, ctx, id)
     return before ? { before } : {}
   },
   async execute(rawInput, ctx) {
     const parsed = warehouseLocationUpdateSchema.parse(rawInput ?? {})
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     const location = await loadLocation(em, ctx, parsed.id)
     if (parsed.warehouseId !== undefined) {
       const warehouse = await loadWarehouse(em, ctx, parsed.warehouseId)
@@ -1315,7 +1312,7 @@ const updateWarehouseLocationCommand: CommandHandler<WarehouseLocationUpdateInpu
     return { locationId: location.id }
   },
   captureAfter: async (_input, result, ctx) => {
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     return loadWarehouseLocationSnapshot(em, ctx, result.locationId)
   },
   buildLog: async ({ input, result, ctx, snapshots }) => {
@@ -1328,7 +1325,7 @@ const updateWarehouseLocationCommand: CommandHandler<WarehouseLocationUpdateInpu
     const payload = extractUndoPayload<WarehouseLocationUndoPayload>(logEntry)
     const before = payload?.before
     if (!before) return
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     ensureTenantScope(ctx, before.tenantId)
     ensureOrganizationScope(ctx, before.organizationId)
     await restoreLocationFromSnapshot(em, before)
@@ -1340,13 +1337,13 @@ const deleteWarehouseLocationCommand: CommandHandler<{ id?: string }, { location
   id: 'wms.locations.delete',
   prepare: async (input, ctx) => {
     const id = requireId(input?.id, 'Location')
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     const before = await loadWarehouseLocationSnapshot(em, ctx, id)
     return before ? { before } : {}
   },
   async execute(input, ctx) {
     const locationId = requireId(input?.id, 'Location')
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     const location = await loadLocation(em, ctx, locationId)
     location.deletedAt = new Date()
     await em.flush()
@@ -1361,7 +1358,7 @@ const deleteWarehouseLocationCommand: CommandHandler<{ id?: string }, { location
     const payload = extractUndoPayload<WarehouseLocationUndoPayload>(logEntry)
     const before = payload?.before
     if (!before) return
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     ensureTenantScope(ctx, before.tenantId)
     ensureOrganizationScope(ctx, before.organizationId)
     await restoreLocationFromSnapshot(em, before)
@@ -1389,7 +1386,7 @@ const createProductInventoryProfileCommand: CommandHandler<ProductInventoryProfi
     const parsed = productInventoryProfileCreateSchema.parse(rawInput ?? {})
     ensureTenantScope(ctx, parsed.tenantId)
     ensureOrganizationScope(ctx, parsed.organizationId)
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     await ensureProfileUniqueness(em, parsed)
     const profile = em.create(ProductInventoryProfile, {
       organizationId: parsed.organizationId,
@@ -1417,7 +1414,7 @@ const createProductInventoryProfileCommand: CommandHandler<ProductInventoryProfi
     return { profileId: profile.id }
   },
   captureAfter: async (_input, result, ctx) => {
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     return loadInventoryProfileSnapshot(em, ctx, result.profileId)
   },
   buildLog: async ({ input, result, ctx, snapshots }) => {
@@ -1429,7 +1426,7 @@ const createProductInventoryProfileCommand: CommandHandler<ProductInventoryProfi
     const payload = extractUndoPayload<ProductInventoryProfileUndoPayload>(logEntry)
     const after = payload?.after
     if (!after) return
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     const record = await findOneWithDecryption(
       em,
       ProductInventoryProfile,
@@ -1449,13 +1446,13 @@ const updateProductInventoryProfileCommand: CommandHandler<ProductInventoryProfi
   id: 'wms.inventoryProfiles.update',
   prepare: async (input, ctx) => {
     const id = requireId(input?.id, 'Inventory profile')
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     const before = await loadInventoryProfileSnapshot(em, ctx, id)
     return before ? { before } : {}
   },
   async execute(rawInput, ctx) {
     const parsed = productInventoryProfileUpdateSchema.parse(rawInput ?? {})
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     const profile = await loadProfile(em, ctx, parsed.id)
     const next = {
       tenantId: profile.tenantId,
@@ -1491,7 +1488,7 @@ const updateProductInventoryProfileCommand: CommandHandler<ProductInventoryProfi
     return { profileId: profile.id }
   },
   captureAfter: async (_input, result, ctx) => {
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     return loadInventoryProfileSnapshot(em, ctx, result.profileId)
   },
   buildLog: async ({ input, result, ctx, snapshots }) => {
@@ -1504,7 +1501,7 @@ const updateProductInventoryProfileCommand: CommandHandler<ProductInventoryProfi
     const payload = extractUndoPayload<ProductInventoryProfileUndoPayload>(logEntry)
     const before = payload?.before
     if (!before) return
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     let record = await findOneWithDecryption(
       em,
       ProductInventoryProfile,
@@ -1544,13 +1541,13 @@ const deleteProductInventoryProfileCommand: CommandHandler<{ id?: string }, { pr
   id: 'wms.inventoryProfiles.delete',
   prepare: async (input, ctx) => {
     const id = requireId(input?.id, 'Inventory profile')
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     const before = await loadInventoryProfileSnapshot(em, ctx, id)
     return before ? { before } : {}
   },
   async execute(input, ctx) {
     const profileId = requireId(input?.id, 'Inventory profile')
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     const profile = await loadProfile(em, ctx, profileId)
     profile.deletedAt = new Date()
     await em.flush()
@@ -1565,7 +1562,7 @@ const deleteProductInventoryProfileCommand: CommandHandler<{ id?: string }, { pr
     const payload = extractUndoPayload<ProductInventoryProfileUndoPayload>(logEntry)
     const before = payload?.before
     if (!before) return
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     let record = await findOneWithDecryption(
       em,
       ProductInventoryProfile,
@@ -1620,7 +1617,7 @@ const createInventoryLotCommand: CommandHandler<InventoryLotCreateInput, { lotId
     const parsed = inventoryLotCreateSchema.parse(rawInput ?? {})
     ensureTenantScope(ctx, parsed.tenantId)
     ensureOrganizationScope(ctx, parsed.organizationId)
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     await ensureLotUniqueness(em, parsed)
     const lot = em.create(InventoryLot, {
       organizationId: parsed.organizationId,
@@ -1639,7 +1636,7 @@ const createInventoryLotCommand: CommandHandler<InventoryLotCreateInput, { lotId
     return { lotId: lot.id }
   },
   captureAfter: async (_input, result, ctx) => {
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     return loadInventoryLotSnapshot(em, ctx, result.lotId)
   },
   buildLog: async ({ input, result, ctx, snapshots }) => {
@@ -1651,7 +1648,7 @@ const createInventoryLotCommand: CommandHandler<InventoryLotCreateInput, { lotId
     const payload = extractUndoPayload<InventoryLotUndoPayload>(logEntry)
     const after = payload?.after
     if (!after) return
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     const record = await findOneWithDecryption(
       em,
       InventoryLot,
@@ -1671,13 +1668,13 @@ const updateInventoryLotCommand: CommandHandler<InventoryLotUpdateInput, { lotId
   id: 'wms.lots.update',
   prepare: async (input, ctx) => {
     const id = requireId(input?.id, 'Inventory lot')
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     const before = await loadInventoryLotSnapshot(em, ctx, id)
     return before ? { before } : {}
   },
   async execute(rawInput, ctx) {
     const parsed = inventoryLotUpdateSchema.parse(rawInput ?? {})
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     const lot = await loadLot(em, ctx, parsed.id)
     const nextVariantId = parsed.catalogVariantId ?? lot.catalogVariantId
     const nextLotNumber = parsed.lotNumber ?? lot.lotNumber
@@ -1719,7 +1716,7 @@ const updateInventoryLotCommand: CommandHandler<InventoryLotUpdateInput, { lotId
     return { lotId: lot.id }
   },
   captureAfter: async (_input, result, ctx) => {
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     return loadInventoryLotSnapshot(em, ctx, result.lotId)
   },
   buildLog: async ({ input, result, ctx, snapshots }) => {
@@ -1732,7 +1729,7 @@ const updateInventoryLotCommand: CommandHandler<InventoryLotUpdateInput, { lotId
     const payload = extractUndoPayload<InventoryLotUndoPayload>(logEntry)
     const before = payload?.before
     if (!before) return
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     let record = await findOneWithDecryption(
       em,
       InventoryLot,
@@ -1771,13 +1768,13 @@ const deleteInventoryLotCommand: CommandHandler<{ id?: string }, { lotId: string
   id: 'wms.lots.delete',
   prepare: async (input, ctx) => {
     const id = requireId(input?.id, 'Inventory lot')
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     const before = await loadInventoryLotSnapshot(em, ctx, id)
     return before ? { before } : {}
   },
   async execute(input, ctx) {
     const lotId = requireId(input?.id, 'Inventory lot')
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     const lot = await loadLot(em, ctx, lotId)
     lot.deletedAt = new Date()
     await em.flush()
@@ -1792,7 +1789,7 @@ const deleteInventoryLotCommand: CommandHandler<{ id?: string }, { lotId: string
     const payload = extractUndoPayload<InventoryLotUndoPayload>(logEntry)
     const before = payload?.before
     if (!before) return
-    const em = resolveEm(ctx)
+    const em = forkEm(ctx)
     let record = await findOneWithDecryption(
       em,
       InventoryLot,

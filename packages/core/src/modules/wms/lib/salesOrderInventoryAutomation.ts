@@ -14,6 +14,7 @@ import {
   type WarehouseAvailability,
 } from './primaryWarehousePolicy'
 import { resolveWmsIntegrationToggleEnabled } from './wmsIntegrationToggles'
+import { toFiniteNumber } from '@open-mercato/shared/lib/number'
 
 type EventContext = {
   resolve: <T = unknown>(name: string) => T
@@ -58,15 +59,6 @@ type SalesOrderLineRow = {
   product_variant_id?: string | null
   quantity?: string | number | null
   line_number?: number | null
-}
-
-function toNumber(value: unknown): number {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string' && value.trim().length > 0) {
-    const parsed = Number(value)
-    if (Number.isFinite(parsed)) return parsed
-  }
-  return 0
 }
 
 function getWarehouseId(balance: InventoryBalance): string | null {
@@ -185,7 +177,7 @@ function buildRequiredQuantityByVariant(lines: SalesOrderLineRow[]): Map<string,
   const quantities = new Map<string, number>()
   for (const line of lines) {
     if (line.kind !== 'product' || !line.product_variant_id) continue
-    const quantity = toNumber(line.quantity)
+    const quantity = toFiniteNumber(line.quantity)
     if (quantity <= 0) continue
     quantities.set(
       line.product_variant_id,
@@ -200,7 +192,7 @@ function buildReservedQuantityByVariant(reservations: InventoryReservation[]): M
   for (const reservation of reservations) {
     quantities.set(
       reservation.catalogVariantId,
-      (quantities.get(reservation.catalogVariantId) ?? 0) + toNumber(reservation.quantity),
+      (quantities.get(reservation.catalogVariantId) ?? 0) + toFiniteNumber(reservation.quantity),
     )
   }
   return quantities
@@ -214,9 +206,9 @@ function buildWarehouseAvailability(
     const warehouseId = getWarehouseId(balance)
     if (!warehouseId) continue
     const available =
-      toNumber(balance.quantityOnHand) -
-      toNumber(balance.quantityReserved) -
-      toNumber(balance.quantityAllocated)
+      toFiniteNumber(balance.quantityOnHand) -
+      toFiniteNumber(balance.quantityReserved) -
+      toFiniteNumber(balance.quantityAllocated)
     if (available <= 0) continue
 
     const warehouseMap = byVariant.get(balance.catalogVariantId) ?? new Map<string, number>()

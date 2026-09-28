@@ -53,30 +53,8 @@ import {
   useWmsInventoryScopeFromSearchParams,
   type WmsLowStockFilter,
 } from './useWmsInventoryScopeFromSearchParams'
-
-type PagedResponse<T> = {
-  items: T[]
-  total: number
-  totalPages: number
-}
-
-type InventoryBalanceRow = {
-  id: string
-  warehouse_id?: string | null
-  warehouse_name?: string | null
-  warehouse_code?: string | null
-  location_id?: string | null
-  location_code?: string | null
-  location_type?: string | null
-  catalog_variant_id?: string | null
-  variant_name?: string | null
-  variant_sku?: string | null
-  lot_id?: string | null
-  quantity_on_hand?: string | number | null
-  quantity_reserved?: string | number | null
-  quantity_allocated?: string | number | null
-  quantity_available?: number | null
-}
+import type { PagedResponse, InventoryBalanceRow, InventoryMovementRow } from './inventoryTypes'
+import { movementStatusMap } from './inventoryMovementDisplay'
 
 type InventoryReservationRow = {
   id: string
@@ -93,46 +71,12 @@ type InventoryReservationRow = {
   status?: string | null
 }
 
-type InventoryMovementRow = {
-  id: string
-  warehouse_id?: string | null
-  warehouse_name?: string | null
-  warehouse_code?: string | null
-  location_from_id?: string | null
-  location_from_code?: string | null
-  location_from_type?: string | null
-  location_to_id?: string | null
-  location_to_code?: string | null
-  location_to_type?: string | null
-  catalog_variant_id?: string | null
-  variant_name?: string | null
-  variant_sku?: string | null
-  quantity?: string | number | null
-  type?: string | null
-  reference_type?: string | null
-  reference_id?: string | null
-  performed_at?: string | null
-  received_at?: string | null
-}
-
 function formatVariantLabel(row: {
   variant_name?: string | null
   variant_sku?: string | null
   catalog_variant_id?: string | null
 }): string {
   return formatCatalogVariantLabel(row)
-}
-
-const movementStatusMap: Record<string, StatusBadgeVariant> = {
-  receipt: 'success',
-  return_receive: 'success',
-  adjust: 'warning',
-  transfer: 'info',
-  pick: 'info',
-  pack: 'info',
-  cycle_count: 'neutral',
-  putaway: 'info',
-  ship: 'success',
 }
 
 const reservationStatusMap: Record<string, StatusBadgeVariant> = {
