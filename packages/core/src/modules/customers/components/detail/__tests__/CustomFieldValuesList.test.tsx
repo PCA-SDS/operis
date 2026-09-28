@@ -2,6 +2,7 @@
 import * as React from 'react'
 import { render, screen } from '@testing-library/react'
 import { CustomFieldValuesList } from '../CustomFieldValuesList'
+import { formatDateTime } from '@open-mercato/shared/lib/time'
 
 describe('CustomFieldValuesList', () => {
   it('matches prefixed values against bare definition keys', () => {
@@ -131,7 +132,7 @@ describe('CustomFieldValuesList visibility and formatting (#4373)', () => {
 
   it('date-formats values only for date-kind fields', () => {
     render(<CustomFieldValuesList values={values} definitions={definitions} />)
-    const expected = new Date('2026-01-15T10:00:00.000Z').toLocaleString()
+    const expected = formatDateTime('2026-01-15T10:00:00.000Z') as string
     expect(screen.getByText(expected)).toBeInTheDocument()
   })
 

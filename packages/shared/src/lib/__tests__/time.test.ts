@@ -1,4 +1,4 @@
-import { formatRelativeTime, formatDateTime } from '../time'
+import { formatRelativeTime, formatDateTime, formatDate, formatShortDate, formatTime } from '../time'
 
 describe('formatRelativeTime', () => {
   const now = new Date('2026-02-18T12:00:00Z')
@@ -131,14 +131,38 @@ describe('formatRelativeTime', () => {
     expect(new Set(rendered).size).toBe(rendered.length)
   })
 })
-describe('formatDateTime', () => {
-  it('returns null for invalid or missing values', () => {
-    expect(formatDateTime(undefined)).toBeNull()
-    expect(formatDateTime(null)).toBeNull()
-    expect(formatDateTime('not-a-date')).toBeNull()
+describe('display formatters', () => {
+  const instant = new Date(2026, 5, 9, 15, 4, 5)
+  const formatters = [
+    ['formatDate', formatDate, { dateStyle: 'medium' }],
+    ['formatShortDate', formatShortDate, { month: 'short', day: 'numeric' }],
+    ['formatDateTime', formatDateTime, { dateStyle: 'medium', timeStyle: 'short' }],
+    ['formatTime', formatTime, { timeStyle: 'short' }],
+  ] as const
+
+  it.each(formatters)('%s returns the fallback, null by default, for missing or invalid values', (_name, format) => {
+    expect(format(undefined)).toBeNull()
+    expect(format(null)).toBeNull()
+    expect(format('')).toBeNull()
+    expect(format('not-a-date')).toBeNull()
+    expect(format(Number.NaN)).toBeNull()
+    expect(format(null, { fallback: '—' })).toBe('—')
+    expect(format('not-a-date', { fallback: 'Never' })).toBe('Never')
   })
-  it('returns a locale string for valid date', () => {
-    const d = new Date('2026-02-18T12:00:00Z')
-    expect(formatDateTime(d.toISOString())).toEqual(d.toLocaleString())
+
+  it.each(formatters)('%s accepts an ISO string, a timestamp or a Date and honours the locale', (_name, format, intlOptions) => {
+    const expected = new Intl.DateTimeFormat('en-US', intlOptions).format(instant)
+    expect(format(instant.toISOString(), { locale: 'en-US' })).toBe(expected)
+    expect(format(instant.getTime(), { locale: 'en-US' })).toBe(expected)
+    expect(format(instant, { locale: 'en-US' })).toBe(expected)
+    expect(format(instant, { locale: 'de-DE' })).toBe(new Intl.DateTimeFormat('de-DE', intlOptions).format(instant))
+    expect(format(instant, { locale: '' })).toBe(new Intl.DateTimeFormat(undefined, intlOptions).format(instant))
+  })
+
+  it('renders the documented en-US shapes', () => {
+    expect(formatDate(instant, { locale: 'en-US' })).toBe('Jun 9, 2026')
+    expect(formatShortDate(instant, { locale: 'en-US' })).toBe('Jun 9')
+    expect(formatDateTime(instant, { locale: 'en-US' })).toMatch(/^Jun 9, 2026(,| at) 3:04\sPM$/)
+    expect(formatTime(instant, { locale: 'en-US' })).toMatch(/^3:04\sPM$/)
   })
 })

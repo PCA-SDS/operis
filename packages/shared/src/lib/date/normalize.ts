@@ -47,3 +47,14 @@ export function toDateOnlyIso(value: Date | string | null | undefined): string |
   const iso = toIsoOrNull(value)
   return iso ? iso.slice(0, 10) : null
 }
+
+/**
+ * Parses a date string, answering `null` when it is empty or not a valid date.
+ * {@link toDateOrNull} does not check validity and can hand back an Invalid
+ * Date; use this one wherever the result is read.
+ */
+export function toValidDateOrNull(value: string | null | undefined): Date | null {
+  if (!value) return null
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? null : date
+}

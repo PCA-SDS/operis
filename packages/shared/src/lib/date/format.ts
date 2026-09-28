@@ -27,3 +27,29 @@ export function toDateInputValue(value?: string | Date | null): string | null {
 
   return null
 }
+
+/**
+ * `YYYY-MM-DD` of the date's local calendar day.
+ *
+ * Unlike {@link toDateInputValue}, which reads UTC components, this keys a
+ * `Date` by the day a viewer in the runtime's time zone sees — calendars and
+ * day buckets need that, or late-evening instants land on the next day.
+ */
+export function toLocalDateKey(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+/** Shift a `YYYY-MM-DD` date by whole days in UTC, answering another `YYYY-MM-DD`. */
+export function addDaysToIsoDate(isoDate: string, days: number): string {
+  const date = new Date(`${isoDate}T00:00:00.000Z`)
+  date.setUTCDate(date.getUTCDate() + days)
+  return date.toISOString().slice(0, 10)
+}
+
+/** Midnight UTC of the date's UTC calendar day. */
+export function startOfUtcDay(value: Date): Date {
+  return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()))
+}

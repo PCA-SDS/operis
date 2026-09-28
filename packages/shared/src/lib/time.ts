@@ -1,15 +1,59 @@
+import type { TranslateWithFallbackFn } from './i18n/translate'
 
-export function formatDateTime(value?: string | null): string | null {
-  if (!value) return null
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return null
-  return date.toLocaleString()
+export type DateInput = string | number | Date | null | undefined
+
+export type DisplayFormatOptions = {
+  /**
+   * BCP 47 locale; the runtime locale when omitted or empty. Pass `useLocale()`
+   * client-side so the text follows the application language.
+   */
+  locale?: string | string[]
+  /** Returned for an empty or unparseable value. Defaults to `null`. */
+  fallback?: string | null
 }
-export type RelativeTimeTranslator = (
-  key: string,
-  fallback?: string,
-  params?: Record<string, string | number>
-) => string
+
+type DisplayFormatter = {
+  (value: DateInput, options: DisplayFormatOptions & { fallback: string }): string
+  (value: DateInput, options?: DisplayFormatOptions): string | null
+}
+
+function toValidDate(value: DateInput): Date | null {
+  if (value === null || value === undefined || value === '') return null
+  const date = value instanceof Date ? value : new Date(value)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+function localeKey(locale: string | string[] | undefined): string {
+  return Array.isArray(locale) ? locale.join(',') : (locale ?? '')
+}
+
+function createDisplayFormatter(format: Intl.DateTimeFormatOptions): DisplayFormatter {
+  const formatters = new Map<string, Intl.DateTimeFormat>()
+  return ((value: DateInput, options?: DisplayFormatOptions) => {
+    const date = toValidDate(value)
+    if (!date) return options?.fallback ?? null
+    const locale = options?.locale || undefined
+    const key = localeKey(locale)
+    let formatter = formatters.get(key)
+    if (!formatter) {
+      formatter = new Intl.DateTimeFormat(locale, format)
+      formatters.set(key, formatter)
+    }
+    return formatter.format(date)
+  }) as DisplayFormatter
+}
+
+/** A calendar date, e.g. `Jun 9, 2026`. */
+export const formatDate = createDisplayFormatter({ dateStyle: 'medium' })
+
+/** A date without the year, for compact cards, e.g. `Jun 9`. */
+export const formatShortDate = createDisplayFormatter({ month: 'short', day: 'numeric' })
+
+/** A point in time, e.g. `Jun 9, 2026, 3:04 PM`. */
+export const formatDateTime = createDisplayFormatter({ dateStyle: 'medium', timeStyle: 'short' })
+
+/** A time of day, e.g. `3:04 PM`. */
+export const formatTime = createDisplayFormatter({ timeStyle: 'short' })
 
 export type FormatRelativeTimeOptions = {
   /**
@@ -18,7 +62,7 @@ export type FormatRelativeTimeOptions = {
    * `Intl` in `locale` — pass `useLocale()` client-side so the text follows the
    * application language rather than the runtime one.
    */
-  translate?: RelativeTimeTranslator
+  translate?: TranslateWithFallbackFn
   locale?: string | string[]
 }
 
