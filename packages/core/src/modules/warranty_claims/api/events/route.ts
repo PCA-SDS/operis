@@ -16,6 +16,8 @@ import { commentClaimInputSchema, type CommentClaimInput } from '../../data/vali
 import { requireScopedClaim, WARRANTY_CLAIM_RESOURCE_KIND, type WarrantyClaimScope } from '../../commands/shared'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { toIsoOrEcho as toIso } from '@open-mercato/shared/lib/date/normalize'
+import { toRecord } from '@open-mercato/shared/lib/guards'
+import { relationId } from '../../lib/relations'
 
 const logger = createLogger('warranty_claims')
 
@@ -35,16 +37,6 @@ type EventRouteContext = {
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['warranty_claims.claim.view'] },
   POST: { requireAuth: true, requireFeatures: ['warranty_claims.claim.manage'] },
-}
-
-function toRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
-}
-
-function relationId(value: unknown): string | null {
-  if (typeof value === 'string') return value
-  const record = toRecord(value)
-  return typeof record.id === 'string' ? record.id : null
 }
 
 function serializeEvent(event: WarrantyClaimEvent) {

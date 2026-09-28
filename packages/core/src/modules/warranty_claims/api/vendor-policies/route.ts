@@ -23,6 +23,9 @@ import {
   createWarrantyClaimsCrudOpenApi,
   defaultOkResponseSchema,
 } from '../openapi'
+import { toRecord } from '@open-mercato/shared/lib/guards'
+import { readString, readNumber, readBool } from '../rowFields'
+import { emailSchema, paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 const rawBodySchema = z.object({}).passthrough()
 const uuid = z.string().uuid()
@@ -46,8 +49,7 @@ const listSchema = z
     search: z.string().trim().max(300).optional(),
     isActive: booleanQuerySchema,
     autoGenerateRecovery: booleanQuerySchema,
-    page: z.coerce.number().int().min(1).default(1),
-    pageSize: z.coerce.number().int().min(1).max(100).default(20),
+    ...paginationQuerySchema({ defaultPageSize: 20 }).shape,
     sortField: z.enum(['vendorName', 'updatedAt', 'createdAt']).optional(),
     sortDir: z.enum(['asc', 'desc']).optional(),
   })
@@ -110,15 +112,6 @@ function parseUpdateInput(input: RawVendorPolicyInput, ctx: CrudCtx): VendorPoli
   })
 }
 
-function hasOwn(input: object, key: string): boolean {
-  return Object.prototype.hasOwnProperty.call(input, key)
-}
-
-function toNullableText(value: string | null | undefined): string | null {
-  const trimmed = value?.trim()
-  return trimmed ? trimmed : null
-}
-
 function toNullableDecimal(value: number | string | null | undefined): string | null {
   if (value === null || value === undefined) return null
   if (typeof value === 'number') return Number.isFinite(value) ? String(value) : null
@@ -140,38 +133,14 @@ function toVendorPolicyEntityData(input: VendorPolicyCreateInput): Record<string
 }
 
 function applyVendorPolicyUpdate(entity: WarrantyVendorPolicy, input: VendorPolicyUpdateInput): void {
-  if (hasOwn(input, 'vendorName') && input.vendorName) entity.vendorName = input.vendorName
-  if (hasOwn(input, 'vendorRef')) entity.vendorRef = input.vendorRef ?? null
-  if (hasOwn(input, 'coverageMonths')) entity.coverageMonths = input.coverageMonths ?? null
-  if (hasOwn(input, 'claimableReasonCodes')) entity.claimableReasonCodes = input.claimableReasonCodes ?? null
-  if (hasOwn(input, 'recoveryRatePct')) entity.recoveryRatePct = toNullableDecimal(input.recoveryRatePct)
-  if (hasOwn(input, 'contactEmail')) entity.contactEmail = input.contactEmail ?? null
-  if (hasOwn(input, 'autoGenerateRecovery')) entity.autoGenerateRecovery = input.autoGenerateRecovery === true
-  if (hasOwn(input, 'isActive')) entity.isActive = input.isActive !== false
-}
-
-function toRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
-}
-
-function readString(record: Record<string, unknown>, snakeKey: string, camelKey: string): string | null {
-  const value = record[snakeKey] ?? record[camelKey]
-  return typeof value === 'string' ? value : null
-}
-
-function readNumber(record: Record<string, unknown>, snakeKey: string, camelKey: string): number | null {
-  const value = record[snakeKey] ?? record[camelKey]
-  if (typeof value === 'number') return Number.isFinite(value) ? value : null
-  if (typeof value === 'string') {
-    const parsed = Number(value)
-    return Number.isFinite(parsed) ? parsed : null
-  }
-  return null
-}
-
-function readBool(record: Record<string, unknown>, snakeKey: string, camelKey: string): boolean {
-  const value = record[snakeKey] ?? record[camelKey]
-  return value === true
+  if (Object.hasOwn(input, 'vendorName') && input.vendorName) entity.vendorName = input.vendorName
+  if (Object.hasOwn(input, 'vendorRef')) entity.vendorRef = input.vendorRef ?? null
+  if (Object.hasOwn(input, 'coverageMonths')) entity.coverageMonths = input.coverageMonths ?? null
+  if (Object.hasOwn(input, 'claimableReasonCodes')) entity.claimableReasonCodes = input.claimableReasonCodes ?? null
+  if (Object.hasOwn(input, 'recoveryRatePct')) entity.recoveryRatePct = toNullableDecimal(input.recoveryRatePct)
+  if (Object.hasOwn(input, 'contactEmail')) entity.contactEmail = input.contactEmail ?? null
+  if (Object.hasOwn(input, 'autoGenerateRecovery')) entity.autoGenerateRecovery = input.autoGenerateRecovery === true
+  if (Object.hasOwn(input, 'isActive')) entity.isActive = input.isActive !== false
 }
 
 function readStringArray(record: Record<string, unknown>, snakeKey: string, camelKey: string): string[] | null {
@@ -209,7 +178,7 @@ function transformVendorPolicyItem(item: unknown): unknown {
     updatedAt: toIso(record.updated_at ?? record.updatedAt),
     deletedAt: toIso(record.deleted_at ?? record.deletedAt),
   }
-  if (hasOwn(record, 'contact_email') || hasOwn(record, 'contactEmail')) {
+  if (Object.hasOwn(record, 'contact_email') || Object.hasOwn(record, 'contactEmail')) {
     result.contactEmail = readString(record, 'contact_email', 'contactEmail')
   }
   return result
@@ -313,7 +282,7 @@ const vendorPolicyListItemSchema = z.object({
   coverageMonths: z.number().nullable(),
   claimableReasonCodes: z.array(z.string()).nullable(),
   recoveryRatePct: z.string().nullable(),
-  contactEmail: z.string().email().nullable().optional(),
+  contactEmail: emailSchema().nullable().optional(),
   autoGenerateRecovery: z.boolean(),
   isActive: z.boolean(),
   createdAt: z.string().nullable(),

@@ -8,7 +8,6 @@ import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/d
 import type { CommandBus, CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
 import { CrudHttpError, isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
-import { runRouteMutationGuards, type RouteMutationGuardResult } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 import { withScopedPayload } from '@open-mercato/shared/lib/api/scoped'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import type { AiChatRequestContext } from '@open-mercato/ai-assistant/modules/ai_assistant/lib/attachment-bridge-types'
@@ -22,11 +21,12 @@ import {
   isWarrantyAiUnavailableError,
 } from '../../../lib/aiAssist'
 import {
-  WARRANTY_CLAIM_LINE_RESOURCE_KIND,
   requireScopedClaim,
   type WarrantyClaimScope,
 } from '../../../commands/shared'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { toRecord } from '@open-mercato/shared/lib/guards'
+import { runClaimLineActionGuard } from '../../actionContext'
 
 const logger = createLogger('warranty_claims')
 
@@ -98,10 +98,6 @@ export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['warranty_claims.claim.manage'] },
 }
 
-function toRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
-}
-
 function isSuperAdmin(auth: CommandRuntimeContext['auth']): boolean {
   return Boolean(auth && toRecord(auth).isSuperAdmin === true)
 }
@@ -163,32 +159,6 @@ async function resolveAssessContext(req: Request): Promise<AssessRouteContext> {
 
 function toAssessInput(payload: Record<string, unknown>, context: AssessRouteContext): AssessBodyInput {
   return assessBodySchema.parse(withScopedPayload(payload, context.ctx, context.translate))
-}
-
-async function runGuard(
-  req: Request,
-  context: AssessRouteContext,
-  input: AssessBodyInput & { lineId: string },
-): Promise<RouteMutationGuardResult> {
-  const userId = context.ctx.auth?.sub
-  if (!userId) {
-    throw new CrudHttpError(401, { error: 'warranty_claims.errors.unauthorized' })
-  }
-  return runRouteMutationGuards({
-    container: context.ctx.container,
-    req,
-    auth: {
-      userId,
-      tenantId: context.tenantId,
-      organizationId: context.organizationId,
-    },
-    input: {
-      resourceKind: WARRANTY_CLAIM_LINE_RESOURCE_KIND,
-      resourceId: input.lineId,
-      operation: 'custom',
-      mutationPayload: { ...input },
-    },
-  })
 }
 
 async function loadScopedLine(
@@ -286,7 +256,7 @@ export async function POST(req: Request) {
       throw new CrudHttpError(400, { error: 'warranty_claims.errors.invalidInput' })
     }
 
-    const guarded = parsed.lineId ? await runGuard(req, context, parsed as AssessBodyInput & { lineId: string }) : null
+    const guarded = parsed.lineId ? await runClaimLineActionGuard(req, context, parsed.lineId, { ...parsed }) : null
     if (guarded && !guarded.ok) {
       return guarded.response
     }

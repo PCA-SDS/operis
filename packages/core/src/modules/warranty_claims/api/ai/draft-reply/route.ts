@@ -13,6 +13,7 @@ import { withScopedPayload } from '@open-mercato/shared/lib/api/scoped'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { buildClaimReplyDraft, isWarrantyAiNotConfiguredError, isWarrantyAiUnavailableError } from '../../../lib/aiAssist'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { toRecord } from '@open-mercato/shared/lib/guards'
 
 const logger = createLogger('warranty_claims')
 
@@ -49,10 +50,6 @@ const notConfiguredResponseSchema = z.object({
 
 export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['warranty_claims.claim.manage'] },
-}
-
-function toRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
 }
 
 async function resolveDraftReplyContext(req: Request): Promise<DraftReplyRouteContext> {

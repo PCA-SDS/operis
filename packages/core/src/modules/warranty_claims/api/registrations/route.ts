@@ -25,6 +25,9 @@ import {
   createWarrantyClaimsCrudOpenApi,
   defaultOkResponseSchema,
 } from '../openapi'
+import { toRecord } from '@open-mercato/shared/lib/guards'
+import { readString, readNumber } from '../rowFields'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 const rawBodySchema = z.object({}).passthrough()
 const uuid = z.string().uuid()
@@ -42,8 +45,7 @@ const listSchema = z
     source: registrationSourceSchema.optional(),
     expiry: expiryWindowSchema.optional(),
     search: z.string().trim().max(300).optional(),
-    page: z.coerce.number().int().min(1).default(1),
-    pageSize: z.coerce.number().int().min(1).max(100).default(20),
+    ...paginationQuerySchema({ defaultPageSize: 20 }).shape,
     sortField: z.enum(['serialNumber', 'productName', 'sku', 'warrantyExpiresAt', 'updatedAt', 'createdAt']).optional(),
     sortDir: z.enum(['asc', 'desc']).optional(),
   })
@@ -84,10 +86,6 @@ function parseUpdateInput(input: RawRegistrationInput, ctx: CrudCtx): Registrati
   })
 }
 
-function hasOwn(input: object, key: string): boolean {
-  return Object.prototype.hasOwnProperty.call(input, key)
-}
-
 async function assertRegistrationSerialUnique(
   em: EntityManager,
   scope: { organizationId: string; tenantId: string },
@@ -116,7 +114,7 @@ function parseDate(value: string | Date | null | undefined): Date | null {
 }
 
 function resolveWarrantyExpiresAt(input: RegistrationCreateInput): Date | null {
-  if (hasOwn(input, 'warrantyExpiresAt')) return parseDate(input.warrantyExpiresAt)
+  if (Object.hasOwn(input, 'warrantyExpiresAt')) return parseDate(input.warrantyExpiresAt)
   const purchaseDate = parseDate(input.purchaseDate)
   return purchaseDate && input.warrantyMonths !== null && input.warrantyMonths !== undefined
     ? addWarrantyMonths(purchaseDate, input.warrantyMonths)
@@ -127,10 +125,10 @@ function resolveUpdatedWarrantyExpiresAt(
   entity: WarrantyClaimRegistration,
   input: RegistrationUpdateInput,
 ): Date | null | undefined {
-  if (hasOwn(input, 'warrantyExpiresAt')) return parseDate(input.warrantyExpiresAt)
-  if (!hasOwn(input, 'purchaseDate') && !hasOwn(input, 'warrantyMonths')) return undefined
-  const purchaseDate = hasOwn(input, 'purchaseDate') ? parseDate(input.purchaseDate) : entity.purchaseDate ?? null
-  const warrantyMonths = hasOwn(input, 'warrantyMonths') ? input.warrantyMonths ?? null : entity.warrantyMonths ?? null
+  if (Object.hasOwn(input, 'warrantyExpiresAt')) return parseDate(input.warrantyExpiresAt)
+  if (!Object.hasOwn(input, 'purchaseDate') && !Object.hasOwn(input, 'warrantyMonths')) return undefined
+  const purchaseDate = Object.hasOwn(input, 'purchaseDate') ? parseDate(input.purchaseDate) : entity.purchaseDate ?? null
+  const warrantyMonths = Object.hasOwn(input, 'warrantyMonths') ? input.warrantyMonths ?? null : entity.warrantyMonths ?? null
   return purchaseDate && warrantyMonths !== null ? addWarrantyMonths(purchaseDate, warrantyMonths) : null
 }
 
@@ -154,25 +152,21 @@ function toRegistrationEntityData(input: RegistrationCreateInput): Record<string
 }
 
 function applyRegistrationUpdate(entity: WarrantyClaimRegistration, input: RegistrationUpdateInput): void {
-  if (hasOwn(input, 'serialNumber')) entity.serialNumber = input.serialNumber ?? null
-  if (hasOwn(input, 'productId')) entity.productId = input.productId ?? null
-  if (hasOwn(input, 'variantId')) entity.variantId = input.variantId ?? null
-  if (hasOwn(input, 'sku')) entity.sku = input.sku ?? null
-  if (hasOwn(input, 'productName')) entity.productName = input.productName ?? null
-  if (hasOwn(input, 'customerId')) entity.customerId = input.customerId ?? null
-  if (hasOwn(input, 'orderId')) entity.orderId = input.orderId ?? null
-  if (hasOwn(input, 'purchaseDate')) entity.purchaseDate = parseDate(input.purchaseDate)
-  if (hasOwn(input, 'warrantyMonths')) entity.warrantyMonths = input.warrantyMonths ?? null
+  if (Object.hasOwn(input, 'serialNumber')) entity.serialNumber = input.serialNumber ?? null
+  if (Object.hasOwn(input, 'productId')) entity.productId = input.productId ?? null
+  if (Object.hasOwn(input, 'variantId')) entity.variantId = input.variantId ?? null
+  if (Object.hasOwn(input, 'sku')) entity.sku = input.sku ?? null
+  if (Object.hasOwn(input, 'productName')) entity.productName = input.productName ?? null
+  if (Object.hasOwn(input, 'customerId')) entity.customerId = input.customerId ?? null
+  if (Object.hasOwn(input, 'orderId')) entity.orderId = input.orderId ?? null
+  if (Object.hasOwn(input, 'purchaseDate')) entity.purchaseDate = parseDate(input.purchaseDate)
+  if (Object.hasOwn(input, 'warrantyMonths')) entity.warrantyMonths = input.warrantyMonths ?? null
   const warrantyExpiresAt = resolveUpdatedWarrantyExpiresAt(entity, input)
   if (warrantyExpiresAt !== undefined) entity.warrantyExpiresAt = warrantyExpiresAt
-  if (hasOwn(input, 'coverageType')) entity.coverageType = input.coverageType ?? null
-  if (hasOwn(input, 'source')) entity.source = input.source ?? null
-  if (hasOwn(input, 'proofAttachmentId')) entity.proofAttachmentId = input.proofAttachmentId ?? null
-  if (hasOwn(input, 'notes')) entity.notes = input.notes ?? null
-}
-
-function toRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+  if (Object.hasOwn(input, 'coverageType')) entity.coverageType = input.coverageType ?? null
+  if (Object.hasOwn(input, 'source')) entity.source = input.source ?? null
+  if (Object.hasOwn(input, 'proofAttachmentId')) entity.proofAttachmentId = input.proofAttachmentId ?? null
+  if (Object.hasOwn(input, 'notes')) entity.notes = input.notes ?? null
 }
 
 export async function emitRegistrationCreatedEvent(entity: unknown): Promise<void> {
@@ -186,21 +180,6 @@ export async function emitRegistrationCreatedEvent(entity: unknown): Promise<voi
     tenantId,
     organizationId,
   }, { persistent: true, tenantId, organizationId })
-}
-
-function readString(record: Record<string, unknown>, snakeKey: string, camelKey: string): string | null {
-  const value = record[snakeKey] ?? record[camelKey]
-  return typeof value === 'string' ? value : null
-}
-
-function readNumber(record: Record<string, unknown>, snakeKey: string, camelKey: string): number | null {
-  const value = record[snakeKey] ?? record[camelKey]
-  if (typeof value === 'number') return Number.isFinite(value) ? value : null
-  if (typeof value === 'string') {
-    const parsed = Number(value)
-    return Number.isFinite(parsed) ? parsed : null
-  }
-  return null
 }
 
 function transformRegistrationItem(item: unknown): unknown {
@@ -334,10 +313,10 @@ const crud = makeCrudRoute<RawRegistrationInput, RawRegistrationInput, Registrat
         scope,
       )
       if (!existing) return
-      const effectiveCustomerId = hasOwn(parsed, 'customerId') ? (parsed.customerId ?? null) : (existing.customerId ?? null)
-      const effectiveOrderId = hasOwn(parsed, 'orderId') ? (parsed.orderId ?? null) : (existing.orderId ?? null)
+      const effectiveCustomerId = Object.hasOwn(parsed, 'customerId') ? (parsed.customerId ?? null) : (existing.customerId ?? null)
+      const effectiveOrderId = Object.hasOwn(parsed, 'orderId') ? (parsed.orderId ?? null) : (existing.orderId ?? null)
       await assertOrderBelongsToCustomer(em, scope, effectiveOrderId, effectiveCustomerId)
-      if (hasOwn(parsed, 'serialNumber') && (parsed.serialNumber ?? null) !== (existing.serialNumber ?? null)) {
+      if (Object.hasOwn(parsed, 'serialNumber') && (parsed.serialNumber ?? null) !== (existing.serialNumber ?? null)) {
         await assertRegistrationSerialUnique(em, scope, parsed.serialNumber ?? null, existing.id)
       }
     },

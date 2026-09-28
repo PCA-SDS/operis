@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server'
 import { sql } from 'kysely'
 import { z } from 'zod'
-import type { EntityManager } from '@mikro-orm/postgresql'
-import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { escapeLikePattern } from '@open-mercato/shared/lib/db/escapeLikePattern'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
-import { getCustomerAuthFromRequest, type CustomerAuthContext } from '@open-mercato/core/modules/customer_accounts/lib/customerAuth'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { toIsoOrEcho } from '@open-mercato/shared/lib/date/normalize'
+import { amountField, resolvePortalOrdersContext } from './shared'
+import { isMissingTableError } from '../../../lib/dbErrors'
+import { readStringField } from '@open-mercato/shared/lib/string'
 
 const logger = createLogger('warranty_claims')
 
@@ -39,68 +40,10 @@ const responseSchema = z.object({
   pageSize: z.number().int().min(1),
 })
 
-type PortalOrdersContext = {
-  auth: CustomerAuthContext
-  customerId: string
-  tenantId: string
-  organizationId: string
-  container: Awaited<ReturnType<typeof createRequestContainer>>
-  em: EntityManager
-}
-
 type PortalOrderItem = z.infer<typeof orderSchema>
 
 export const metadata = {
   GET: { requireAuth: false },
-}
-
-function stringField(record: Record<string, unknown>, key: string): string | null {
-  const value = record[key]
-  return typeof value === 'string' ? value : null
-}
-
-function isMissingTableError(err: unknown): boolean {
-  if (typeof err !== 'object' || err === null) return false
-  const candidate = err as { code?: unknown; message?: unknown }
-  return candidate.code === '42P01'
-    || (typeof candidate.message === 'string' && candidate.message.includes('does not exist'))
-}
-
-function amountField(record: Record<string, unknown>, key: string): string | number | null {
-  const value = record[key]
-  if (typeof value === 'string' || typeof value === 'number') return value
-  return null
-}
-
-function toIso(value: unknown): string | null {
-  if (!value) return null
-  if (value instanceof Date) return value.toISOString()
-  if (typeof value === 'string') {
-    const date = new Date(value)
-    return Number.isNaN(date.getTime()) ? value : date.toISOString()
-  }
-  return null
-}
-
-async function resolvePortalContext(req: Request): Promise<PortalOrdersContext | Response> {
-  const auth = await getCustomerAuthFromRequest(req)
-  const { translate } = await resolveTranslations()
-  if (!auth) {
-    return NextResponse.json({ ok: false, error: translate('warranty_claims.errors.unauthorized', 'Unauthorized') }, { status: 401 })
-  }
-  if (!auth.customerEntityId) {
-    return NextResponse.json({ ok: false, error: translate('warranty_claims.errors.customerAccountNotLinked', 'Customer account is not linked to a customer record') }, { status: 403 })
-  }
-  const container = await createRequestContainer()
-  const em = (container.resolve('em') as EntityManager).fork()
-  return {
-    auth,
-    customerId: auth.customerEntityId,
-    tenantId: auth.tenantId,
-    organizationId: auth.orgId,
-    container,
-    em,
-  }
 }
 
 type PortalOrdersDb = {
@@ -118,13 +61,13 @@ type PortalOrdersDb = {
 }
 
 function serializeOrder(row: Record<string, unknown>): PortalOrderItem | null {
-  const id = stringField(row, 'id')
+  const id = readStringField(row, 'id')
   if (!id) return null
   return {
     id,
-    orderNumber: stringField(row, 'order_number') ?? id,
-    placedAt: toIso(row.placed_at),
-    currencyCode: stringField(row, 'currency_code'),
+    orderNumber: readStringField(row, 'order_number') ?? id,
+    placedAt: toIsoOrEcho(row.placed_at),
+    currencyCode: readStringField(row, 'currency_code'),
     grandTotalGrossAmount: amountField(row, 'grand_total_gross_amount'),
   }
 }
@@ -133,7 +76,7 @@ export async function GET(req: Request) {
   try {
     const url = new URL(req.url)
     const query = querySchema.parse(Object.fromEntries(url.searchParams))
-    const contextOrResponse = await resolvePortalContext(req)
+    const contextOrResponse = await resolvePortalOrdersContext(req)
     if (contextOrResponse instanceof Response) return contextOrResponse
     const context = contextOrResponse
     const db = context.em.getKysely<PortalOrdersDb>()

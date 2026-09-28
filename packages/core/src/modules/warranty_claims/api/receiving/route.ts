@@ -1,12 +1,8 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
-import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
-import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
 import type { CommandBus, CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
 import { CrudHttpError, isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
-import { runRouteMutationGuards, type RouteMutationGuardResult } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 import { withScopedPayload } from '@open-mercato/shared/lib/api/scoped'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import {
@@ -16,18 +12,11 @@ import {
   type ClaimLineReceiveInput,
   type ClaimLineReleaseQuarantineInput,
 } from '../../data/validators'
-import { WARRANTY_CLAIM_LINE_RESOURCE_KIND } from '../../commands/shared'
 import { createLogger } from '@open-mercato/shared/lib/logger'
-import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
+import { toRecord } from '@open-mercato/shared/lib/guards'
+import { resolveActionContext, type ActionRouteContext, runClaimLineActionGuard } from '../actionContext'
 
 const logger = createLogger('warranty_claims')
-
-type ActionRouteContext = {
-  ctx: CommandRuntimeContext
-  tenantId: string
-  organizationId: string
-  translate: (key: string, fallback?: string) => string
-}
 
 type ReceivingAction =
   | { kind: 'receive'; input: ClaimLineReceiveInput }
@@ -59,37 +48,6 @@ export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['warranty_claims.receiving.manage'] },
 }
 
-function toRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
-}
-
-async function resolveActionContext(req: Request): Promise<ActionRouteContext> {
-  const container = await createRequestContainer()
-  const auth = await getAuthFromRequest(req)
-  const { translate } = await resolveTranslations()
-  if (!auth || !auth.tenantId) {
-    throw new CrudHttpError(401, { error: translate('warranty_claims.errors.unauthorized', 'Unauthorized') })
-  }
-  const scope = await resolveOrganizationScopeForRequest({ container, auth, request: req })
-  const organizationId = scope?.selectedId ?? auth.orgId ?? null
-  if (!organizationId) {
-    throw new CrudHttpError(400, { error: translate('warranty_claims.errors.organization_required', 'Organization context is required') })
-  }
-  return {
-    ctx: {
-      container,
-      auth,
-      organizationScope: scope,
-      selectedOrganizationId: organizationId,
-      organizationIds: scope?.filterIds ?? (auth.orgId ? [auth.orgId] : null),
-      request: req,
-    },
-    tenantId: auth.tenantId,
-    organizationId,
-    translate,
-  }
-}
-
 function toReceivingAction(payload: Record<string, unknown>, context: ActionRouteContext): ReceivingAction {
   const releaseBody = releaseBodySchema.safeParse(payload)
   if (releaseBody.success) {
@@ -114,32 +72,6 @@ function toGuardedAction(kind: ReceivingAction['kind'], payload: Record<string, 
     return { kind, input: claimLineReleaseQuarantineSchema.parse(payload) }
   }
   return { kind, input: claimLineReceiveSchema.parse(payload) }
-}
-
-async function runGuard(
-  req: Request,
-  context: ActionRouteContext,
-  action: ReceivingAction,
-): Promise<RouteMutationGuardResult> {
-  const userId = context.ctx.auth?.sub
-  if (!userId) {
-    throw new CrudHttpError(401, { error: 'warranty_claims.errors.unauthorized' })
-  }
-  return runRouteMutationGuards({
-    container: context.ctx.container,
-    req,
-    auth: {
-      userId,
-      tenantId: context.tenantId,
-      organizationId: context.organizationId,
-    },
-    input: {
-      resourceKind: WARRANTY_CLAIM_LINE_RESOURCE_KIND,
-      resourceId: action.input.id,
-      operation: 'custom',
-      mutationPayload: { ...action.input },
-    },
-  })
 }
 
 async function executeReceivingAction(
@@ -168,7 +100,7 @@ export async function POST(req: Request) {
     const context = await resolveActionContext(req)
     const payload = toRecord(await readJsonSafe(req, {}))
     const action = toReceivingAction(payload, context)
-    const guarded = await runGuard(req, context, action)
+    const guarded = await runClaimLineActionGuard(req, context, action.input.id, { ...action.input })
     if (!guarded.ok) {
       return guarded.response
     }

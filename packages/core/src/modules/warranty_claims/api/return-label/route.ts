@@ -1,13 +1,9 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import type { EntityManager } from '@mikro-orm/postgresql'
-import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
-import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
-import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
 import type { CommandBus, CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
 import { CrudHttpError, isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
-import { runRouteMutationGuards, type RouteMutationGuardResult } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 import { withScopedPayload } from '@open-mercato/shared/lib/api/scoped'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
@@ -20,16 +16,10 @@ import {
   requireScopedClaim,
 } from '../../commands/shared'
 import { createLogger } from '@open-mercato/shared/lib/logger'
-import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
+import { toRecord } from '@open-mercato/shared/lib/guards'
+import { resolveActionContext, type ActionRouteContext, runClaimActionGuard } from '../actionContext'
 
 const logger = createLogger('warranty_claims')
-
-type ActionRouteContext = {
-  ctx: CommandRuntimeContext
-  tenantId: string
-  organizationId: string
-  translate: (key: string, fallback?: string) => string
-}
 
 type ReturnLabelCreatedResponse = {
   status: 'created'
@@ -70,37 +60,6 @@ export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['warranty_claims.claim.manage'] },
 }
 
-function toRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
-}
-
-async function resolveActionContext(req: Request): Promise<ActionRouteContext> {
-  const container = await createRequestContainer()
-  const auth = await getAuthFromRequest(req)
-  const { translate } = await resolveTranslations()
-  if (!auth || !auth.tenantId) {
-    throw new CrudHttpError(401, { error: translate('warranty_claims.errors.unauthorized', 'Unauthorized') })
-  }
-  const scope = await resolveOrganizationScopeForRequest({ container, auth, request: req })
-  const organizationId = scope?.selectedId ?? auth.orgId ?? null
-  if (!organizationId) {
-    throw new CrudHttpError(400, { error: translate('warranty_claims.errors.organization_required', 'Organization context is required') })
-  }
-  return {
-    ctx: {
-      container,
-      auth,
-      organizationScope: scope,
-      selectedOrganizationId: organizationId,
-      organizationIds: scope?.filterIds ?? (auth.orgId ? [auth.orgId] : null),
-      request: req,
-    },
-    tenantId: auth.tenantId,
-    organizationId,
-    translate,
-  }
-}
-
 function toReturnLabelRequest(payload: Record<string, unknown>): ReturnLabelRequest {
   return returnLabelRequestSchema.parse({
     claimId: payload.claimId ?? payload.id,
@@ -131,32 +90,6 @@ function toSetReturnLabelInput(
     updatedAt: input.updatedAt,
   }, context.ctx, context.translate)
   return claimSetReturnLabelSchema.parse(scopedPayload)
-}
-
-async function runGuard(
-  req: Request,
-  context: ActionRouteContext,
-  input: ReturnLabelRequest,
-): Promise<RouteMutationGuardResult> {
-  const userId = context.ctx.auth?.sub
-  if (!userId) {
-    throw new CrudHttpError(401, { error: 'warranty_claims.errors.unauthorized' })
-  }
-  return runRouteMutationGuards({
-    container: context.ctx.container,
-    req,
-    auth: {
-      userId,
-      tenantId: context.tenantId,
-      organizationId: context.organizationId,
-    },
-    input: {
-      resourceKind: WARRANTY_CLAIM_RESOURCE_KIND,
-      resourceId: input.claimId,
-      operation: 'custom',
-      mutationPayload: { ...input },
-    },
-  })
 }
 
 async function loadClaimAndLines(
@@ -211,7 +144,7 @@ export async function POST(req: Request) {
   try {
     const context = await resolveActionContext(req)
     const requestInput = toReturnLabelRequest(toRecord(await readJsonSafe(req, {})))
-    const guarded = await runGuard(req, context, requestInput)
+    const guarded = await runClaimActionGuard(req, context, requestInput.claimId, { ...requestInput })
     if (!guarded.ok) {
       return guarded.response
     }

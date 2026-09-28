@@ -7,6 +7,7 @@ import { getCustomerAuthFromRequest, type CustomerAuthContext } from '@open-merc
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { WarrantyClaim, WarrantyClaimLine } from '../../../../data/entities'
 import { loadPortalOwnedClaim } from '../../../../lib/portalClaimAccess'
+import { toIsoOrEcho } from '@open-mercato/shared/lib/date/normalize'
 
 export const metadata = {
   GET: { requireAuth: false },
@@ -21,13 +22,6 @@ type PortalContext = {
   tenantId: string
   organizationId: string
   em: EntityManager
-}
-
-function toIso(value: Date | string | null | undefined): string | null {
-  if (!value) return null
-  if (value instanceof Date) return value.toISOString()
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? value : date.toISOString()
 }
 
 async function resolveClaimId(ctx: RouteContext): Promise<string | null> {
@@ -74,8 +68,8 @@ function serializeLine(line: WarrantyClaimLine) {
     disposition: line.disposition ?? null,
     lineStatus: line.lineStatus,
     creditAmount: line.creditAmount ?? null,
-    createdAt: toIso(line.createdAt),
-    updatedAt: toIso(line.updatedAt),
+    createdAt: toIsoOrEcho(line.createdAt),
+    updatedAt: toIsoOrEcho(line.updatedAt),
   }
 }
 
@@ -94,12 +88,12 @@ function serializeClaim(claim: WarrantyClaim, lines: WarrantyClaimLine[]) {
     reasonCode: claim.reasonCode ?? null,
     rejectionReasonCode: claim.rejectionReasonCode ?? null,
     resolutionSummary: claim.resolutionSummary ?? null,
-    slaDueAt: toIso(claim.slaDueAt),
-    submittedAt: toIso(claim.submittedAt),
-    resolvedAt: toIso(claim.resolvedAt),
-    closedAt: toIso(claim.closedAt),
-    createdAt: toIso(claim.createdAt),
-    updatedAt: toIso(claim.updatedAt),
+    slaDueAt: toIsoOrEcho(claim.slaDueAt),
+    submittedAt: toIsoOrEcho(claim.submittedAt),
+    resolvedAt: toIsoOrEcho(claim.resolvedAt),
+    closedAt: toIsoOrEcho(claim.closedAt),
+    createdAt: toIsoOrEcho(claim.createdAt),
+    updatedAt: toIsoOrEcho(claim.updatedAt),
     lines: lines.map(serializeLine),
   }
 }

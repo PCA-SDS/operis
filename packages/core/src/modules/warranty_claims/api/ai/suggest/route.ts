@@ -16,6 +16,7 @@ import {
   claimWarrantyStatusSchema,
 } from '../../../data/validators'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { toRecord } from '@open-mercato/shared/lib/guards'
 
 const logger = createLogger('warranty_claims')
 
@@ -92,10 +93,6 @@ type SuggestRouteContext = {
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['warranty_claims.claim.view'] },
   POST: { requireAuth: true, requireFeatures: ['warranty_claims.claim.view'] },
-}
-
-function toRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
 }
 
 async function resolveSuggestContext(req: Request): Promise<SuggestRouteContext> {

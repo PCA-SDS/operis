@@ -23,6 +23,10 @@ import {
   createWarrantyClaimsCrudOpenApi,
   defaultOkResponseSchema,
 } from '../openapi'
+import { toRecord } from '@open-mercato/shared/lib/guards'
+import { readString, readBool } from '../rowFields'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 const rawBodySchema = z.object({}).passthrough()
 const uuid = z.string().uuid()
@@ -53,8 +57,7 @@ const listSchema = z
     reasonCode: optionalReasonCodeSchema,
     isActive: booleanQuerySchema,
     search: z.string().trim().max(300).optional(),
-    page: z.coerce.number().int().min(1).default(1),
-    pageSize: z.coerce.number().int().min(1).max(100).default(20),
+    ...paginationQuerySchema({ defaultPageSize: 20 }).shape,
     sortField: z.enum(['title', 'claimType', 'reasonCode', 'updatedAt', 'createdAt']).optional(),
     sortDir: z.enum(['asc', 'desc']).optional(),
   })
@@ -110,15 +113,6 @@ function parseUpdateInput(input: RawTroubleshootingGuideInput, ctx: CrudCtx): Tr
   })
 }
 
-function hasOwn(input: object, key: string): boolean {
-  return Object.prototype.hasOwnProperty.call(input, key)
-}
-
-function toNullableText(value: string | null | undefined): string | null {
-  const trimmed = value?.trim()
-  return trimmed ? trimmed : null
-}
-
 function toEntitySteps(value: unknown): Record<string, unknown> | null {
   if (value === undefined || value === null) return null
   const parsed = parseGuideSteps(value)
@@ -131,7 +125,7 @@ function toEntitySteps(value: unknown): Record<string, unknown> | null {
 function toTroubleshootingGuideEntityData(input: TroubleshootingGuideCreateInput): Record<string, unknown> {
   return {
     claimType: input.claimType ?? null,
-    reasonCode: toNullableText(input.reasonCode),
+    reasonCode: normalizeOptionalString(input.reasonCode),
     title: input.title,
     steps: toEntitySteps(input.steps),
     isActive: input.isActive !== false,
@@ -142,25 +136,11 @@ function applyTroubleshootingGuideUpdate(
   entity: WarrantyTroubleshootingGuide,
   input: TroubleshootingGuideUpdateInput,
 ): void {
-  if (hasOwn(input, 'claimType')) entity.claimType = input.claimType ?? null
-  if (hasOwn(input, 'reasonCode')) entity.reasonCode = toNullableText(input.reasonCode)
-  if (hasOwn(input, 'title') && input.title) entity.title = input.title
-  if (hasOwn(input, 'steps')) entity.steps = toEntitySteps(input.steps)
-  if (hasOwn(input, 'isActive')) entity.isActive = input.isActive !== false
-}
-
-function toRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
-}
-
-function readString(record: Record<string, unknown>, snakeKey: string, camelKey: string): string | null {
-  const value = record[snakeKey] ?? record[camelKey]
-  return typeof value === 'string' ? value : null
-}
-
-function readBool(record: Record<string, unknown>, snakeKey: string, camelKey: string): boolean {
-  const value = record[snakeKey] ?? record[camelKey]
-  return value === true
+  if (Object.hasOwn(input, 'claimType')) entity.claimType = input.claimType ?? null
+  if (Object.hasOwn(input, 'reasonCode')) entity.reasonCode = normalizeOptionalString(input.reasonCode)
+  if (Object.hasOwn(input, 'title') && input.title) entity.title = input.title
+  if (Object.hasOwn(input, 'steps')) entity.steps = toEntitySteps(input.steps)
+  if (Object.hasOwn(input, 'isActive')) entity.isActive = input.isActive !== false
 }
 
 function isDetailQuery(query: TroubleshootingGuideListQuery): boolean {
@@ -169,7 +149,7 @@ function isDetailQuery(query: TroubleshootingGuideListQuery): boolean {
 }
 
 function readSteps(record: Record<string, unknown>): TroubleshootingNode | null {
-  if (!hasOwn(record, 'steps')) return null
+  if (!Object.hasOwn(record, 'steps')) return null
   return parseGuideSteps(record.steps)
 }
 
@@ -188,7 +168,7 @@ function transformTroubleshootingGuideItem(item: unknown): unknown {
     updatedAt: toIso(record.updated_at ?? record.updatedAt),
     deletedAt: toIso(record.deleted_at ?? record.deletedAt),
   }
-  if (hasOwn(record, 'steps')) result.steps = readSteps(record)
+  if (Object.hasOwn(record, 'steps')) result.steps = readSteps(record)
   return result
 }
 

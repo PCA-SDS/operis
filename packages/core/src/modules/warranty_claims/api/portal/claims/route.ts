@@ -1,16 +1,12 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import type { EntityManager } from '@mikro-orm/postgresql'
-import type { AuthContext } from '@open-mercato/shared/lib/auth/server'
-import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
-import type { CommandBus, CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
+import type { CommandBus } from '@open-mercato/shared/lib/commands'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { escapeLikePattern } from '@open-mercato/shared/lib/db/escapeLikePattern'
 import { runRouteMutationGuards, type RouteMutationGuardResult } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { createLogger } from '@open-mercato/shared/lib/logger'
-import { getCustomerAuthFromRequest, type CustomerAuthContext } from '@open-mercato/core/modules/customer_accounts/lib/customerAuth'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { WarrantyClaim, WarrantyClaimLine } from '../../../data/entities'
 import {
@@ -22,6 +18,10 @@ import {
 import { WARRANTY_CLAIM_RESOURCE_KIND } from '../../../commands/shared'
 import { portalClaimStatusesForStateGroup } from '../../../lib/listSegments'
 import { buildPortalOwnedClaimWhere } from '../../../lib/portalClaimAccess'
+import { toIsoOrEcho } from '@open-mercato/shared/lib/date/normalize'
+import { type PortalClaimActionContext, resolvePortalActionContext } from './[id]/shared'
+import { relationId } from '../../../lib/relations'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 export const metadata = {
   GET: { requireAuth: false },
@@ -40,22 +40,12 @@ const optionalTrimmedQueryString = (max: number) =>
   z.preprocess(emptyQueryValueToUndefined, z.string().trim().min(1).max(max).optional())
 
 const listQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  ...paginationQuerySchema({ defaultPageSize: 20 }).shape,
   search: optionalTrimmedQueryString(190),
   status: z.preprocess(emptyQueryValueToUndefined, claimStatusSchema.optional()),
   stateGroup: z.enum(['open', 'resolved']).optional(),
   serialNumber: optionalTrimmedQueryString(191),
 })
-
-type PortalContext = {
-  auth: CustomerAuthContext
-  customerId: string
-  tenantId: string
-  organizationId: string
-  em: EntityManager
-  commandCtx: CommandRuntimeContext
-}
 
 type LineSummary = {
   count: number
@@ -76,28 +66,6 @@ type PortalOrderLookup = {
 type PortalOrderLineLookup = {
   id: string
   orderId: string
-}
-
-function toRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
-}
-
-function stringField(record: Record<string, unknown>, key: string): string | null {
-  const value = record[key]
-  return typeof value === 'string' ? value : null
-}
-
-function toIso(value: Date | string | null | undefined): string | null {
-  if (!value) return null
-  if (value instanceof Date) return value.toISOString()
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? value : date.toISOString()
-}
-
-function relationId(value: unknown): string | null {
-  if (typeof value === 'string') return value
-  const record = toRecord(value)
-  return typeof record.id === 'string' ? record.id : null
 }
 
 const CREDIT_SCALE = 10_000n
@@ -146,45 +114,9 @@ function serializePortalClaim(claim: WarrantyClaim, lines: WarrantyClaimLine[]) 
     orderNumber: claim.orderNumber ?? null,
     reasonCode: claim.reasonCode ?? null,
     resolutionSummary: claim.resolutionSummary ?? null,
-    createdAt: toIso(claim.createdAt),
-    updatedAt: toIso(claim.updatedAt),
+    createdAt: toIsoOrEcho(claim.createdAt),
+    updatedAt: toIsoOrEcho(claim.updatedAt),
     lines: summarizeLines(lines),
-  }
-}
-
-async function resolvePortalContext(req: Request): Promise<PortalContext | Response> {
-  const auth = await getCustomerAuthFromRequest(req)
-  if (!auth) {
-    return NextResponse.json({ ok: false, error: 'warranty_claims.errors.unauthorized' }, { status: 401 })
-  }
-  if (!auth.customerEntityId) {
-    return NextResponse.json({ ok: false, error: 'warranty_claims.errors.customerAccountNotLinked' }, { status: 403 })
-  }
-  const container = await createRequestContainer()
-  const em = container.resolve('em') as EntityManager
-  const commandAuth: NonNullable<AuthContext> = {
-    sub: auth.sub,
-    sid: auth.sid,
-    tenantId: auth.tenantId,
-    orgId: auth.orgId,
-    email: auth.email,
-    customerEntityId: auth.customerEntityId ?? null,
-    personEntityId: auth.personEntityId ?? null,
-  }
-  return {
-    auth,
-    customerId: auth.customerEntityId,
-    tenantId: auth.tenantId,
-    organizationId: auth.orgId,
-    em,
-    commandCtx: {
-      container,
-      auth: commandAuth,
-      organizationScope: null,
-      selectedOrganizationId: auth.orgId,
-      organizationIds: [auth.orgId],
-      request: req,
-    },
   }
 }
 
@@ -216,7 +148,7 @@ function isMissingSalesTableError(err: unknown): boolean {
 }
 
 async function loadOwnedOrders(
-  context: PortalContext,
+  context: PortalClaimActionContext,
   orderIds: string[],
 ): Promise<Map<string, PortalOrderLookup>> {
   if (orderIds.length === 0) return new Map()
@@ -239,7 +171,7 @@ async function loadOwnedOrders(
 }
 
 async function loadOwnedOrderLines(
-  context: PortalContext,
+  context: PortalClaimActionContext,
   orderLineIds: string[],
 ): Promise<Map<string, PortalOrderLineLookup>> {
   if (orderLineIds.length === 0) return new Map()
@@ -261,7 +193,7 @@ async function loadOwnedOrderLines(
 }
 
 async function validatePortalOrderOwnership(
-  context: PortalContext,
+  context: PortalClaimActionContext,
   input: PortalIntakeInput,
 ): Promise<OrderValidationResult | Response> {
   const orderLineIds = Array.from(new Set(input.lines.flatMap((line) => line.orderLineId ? [line.orderLineId] : [])))
@@ -302,7 +234,7 @@ async function validatePortalOrderOwnership(
 
 async function runPortalCreateGuard(
   req: Request,
-  context: PortalContext,
+  context: PortalClaimActionContext,
   mutationPayload: Record<string, unknown>,
 ): Promise<RouteMutationGuardResult> {
   return runRouteMutationGuards({
@@ -324,7 +256,7 @@ async function runPortalCreateGuard(
 }
 
 export async function GET(req: Request) {
-  const contextOrResponse = await resolvePortalContext(req)
+  const contextOrResponse = await resolvePortalActionContext(req)
   if (contextOrResponse instanceof Response) return contextOrResponse
   const context = contextOrResponse
   const url = new URL(req.url)
@@ -412,7 +344,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const contextOrResponse = await resolvePortalContext(req)
+  const contextOrResponse = await resolvePortalActionContext(req)
   if (contextOrResponse instanceof Response) return contextOrResponse
   const context = contextOrResponse
   let body: unknown

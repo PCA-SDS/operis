@@ -28,6 +28,7 @@ import { WARRANTY_CLAIM_RESOURCE_KIND } from '../../../commands/shared'
 import { CUSTOMER_VISIBLE_ATTACHMENT_TAG, isCustomerVisibleAttachment } from '../../../lib/attachmentVisibility'
 import { loadPortalOwnedClaim } from '../../../lib/portalClaimAccess'
 import { resolvePortalAttachmentUploadService } from '../../../lib/portalAttachmentUpload'
+import { toIsoOrEcho } from '@open-mercato/shared/lib/date/normalize'
 
 const CLAIM_ATTACHMENT_ENTITY_ID = 'warranty_claims:warranty_claim'
 const logger = createLogger('warranty_claims').child({ route: 'portal-attachments' })
@@ -70,13 +71,6 @@ type PortalContext = {
   organizationId: string
   em: EntityManager
   container: Awaited<ReturnType<typeof createRequestContainer>>
-}
-
-function toIso(value: Date | string | null | undefined): string | null {
-  if (!value) return null
-  if (value instanceof Date) return value.toISOString()
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? value : date.toISOString()
 }
 
 async function resolvePortalContext(req: Request): Promise<PortalContext | Response> {
@@ -163,7 +157,7 @@ function serializeAttachment(attachment: Attachment) {
     }),
     tags: metadata.tags ?? [],
     assignments: metadata.assignments ?? [],
-    createdAt: toIso(attachment.createdAt),
+    createdAt: toIsoOrEcho(attachment.createdAt),
   }
 }
 

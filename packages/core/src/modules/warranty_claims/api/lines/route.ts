@@ -17,6 +17,9 @@ import {
   createWarrantyClaimsCrudOpenApi,
   defaultOkResponseSchema,
 } from '../openapi'
+import { toRecord } from '@open-mercato/shared/lib/guards'
+import { readString } from '../rowFields'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 const rawBodySchema = z.object({}).passthrough()
 const uuid = z.string().uuid()
@@ -24,8 +27,7 @@ const uuid = z.string().uuid()
 const listSchema = z
   .object({
     claimId: uuid,
-    page: z.coerce.number().int().min(1).default(1),
-    pageSize: z.coerce.number().int().min(1).max(100).default(50),
+    ...paginationQuerySchema().shape,
     sortField: z.enum(['lineNo', 'createdAt', 'updatedAt']).optional(),
     sortDir: z.enum(['asc', 'desc']).optional(),
   })
@@ -50,15 +52,6 @@ const routeMetadata = {
 }
 
 export const metadata = routeMetadata
-
-function toRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
-}
-
-function readString(record: Record<string, unknown>, snakeKey: string, camelKey: string): string | null {
-  const value = record[snakeKey] ?? record[camelKey]
-  return typeof value === 'string' ? value : null
-}
 
 function readNumber(record: Record<string, unknown>, snakeKey: string, camelKey: string): number | null {
   const value = record[snakeKey] ?? record[camelKey]
