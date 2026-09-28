@@ -2,14 +2,10 @@ import { NextResponse } from 'next/server'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { Tenant } from '@open-mercato/core/modules/directory/data/entities'
 import type { CommandBus } from '@open-mercato/shared/lib/commands'
-import { serializeOperationMetadata } from '@open-mercato/shared/lib/commands/operationMetadata'
+import { attachOperationMetadataHeader } from '@open-mercato/shared/lib/commands/operationMetadata'
 import { getOverrides } from '../../lib/queries'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { enforceCommandOptimisticLockWithGuards } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
-import {
-  runCrudMutationGuardAfterSuccess,
-  validateCrudMutationGuard,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
 import { logCrudAccess } from '@open-mercato/shared/lib/crud/factory'
 import { FeatureToggleOverride } from '../../data/entities'
 import { buildContext } from '../../lib/utils'
@@ -25,6 +21,7 @@ import {
 } from '../openapi'
 import type { OpenApiRouteDoc, OpenApiMethodDoc } from '@open-mercato/shared/lib/openapi'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const logger = createLogger('feature_toggles').child({ component: 'overrides' })
 
@@ -121,19 +118,19 @@ export async function PUT(req: Request) {
     }
     const guardResourceKind = 'feature_toggles.feature_toggle_override'
     const guardResourceId = existingOverride?.id ?? parsed.data.toggleId
-    const guardResult = await validateCrudMutationGuard(ctx.container, {
-      tenantId: scope.tenantId,
-      organizationId: organizationId ?? null,
-      userId: guardUserId,
-      resourceKind: guardResourceKind,
-      resourceId: guardResourceId,
-      operation: 'update',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      mutationPayload: parsed.data,
+    const guardResult = await runRouteMutationGuards({
+      container: ctx.container,
+      req,
+      auth: { userId: guardUserId, tenantId: scope.tenantId, organizationId: organizationId ?? null },
+      input: {
+        resourceKind: guardResourceKind,
+        resourceId: guardResourceId,
+        operation: 'update',
+        mutationPayload: parsed.data,
+      },
     })
-    if (guardResult && !guardResult.ok) {
-      return NextResponse.json(guardResult.body, { status: guardResult.status })
+    if (!guardResult.ok) {
+      return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
     }
 
     const commandBus = ctx.container.resolve('commandBus') as CommandBus
@@ -147,39 +144,17 @@ export async function PUT(req: Request) {
       ctx,
     })
 
-    if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-      await runCrudMutationGuardAfterSuccess(ctx.container, {
-        tenantId: scope.tenantId,
-        organizationId: organizationId ?? null,
-        userId: guardUserId,
-        resourceKind: guardResourceKind,
-        resourceId: result?.overrideToggleId ?? guardResourceId,
-        operation: 'update',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
-        metadata: guardResult.metadata ?? null,
-      })
-    }
+    await guardResult.runAfterSuccess({ resourceId: result?.overrideToggleId ?? guardResourceId })
 
     const response = NextResponse.json({
       ok: true,
       overrideToggleId: result?.overrideToggleId ?? null,
     })
 
-    if (logEntry?.undoToken && logEntry?.id && logEntry?.commandId) {
-      response.headers.set(
-        'x-om-operation',
-        serializeOperationMetadata({
-          id: logEntry.id,
-          undoToken: logEntry.undoToken,
-          commandId: logEntry.commandId,
-          actionLabel: logEntry.actionLabel ?? null,
-          resourceKind: logEntry.resourceKind ?? 'feature_toggles.override',
-          resourceId: logEntry.resourceId ?? result?.overrideToggleId ?? null,
-          executedAt: logEntry.createdAt instanceof Date ? logEntry.createdAt.toISOString() : undefined,
-        })
-      )
-    }
+    attachOperationMetadataHeader(response, logEntry, {
+      resourceKind: 'feature_toggles.override',
+      resourceId: result?.overrideToggleId,
+    })
 
     return response
   } catch (error) {
