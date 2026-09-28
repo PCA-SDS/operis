@@ -40,6 +40,7 @@ type CategoriesResponse = {
   page: number
   pageSize: number
   totalPages: number
+  totalIsCapped?: boolean
 }
 
 const PAGE_SIZE = 50
@@ -111,6 +112,7 @@ export default function CategoriesDataTable() {
   const rows = data?.items ?? []
   const total = data?.total ?? 0
   const totalPages = data?.totalPages ?? 0
+  const totalIsCapped = data?.totalIsCapped === true
 
   const columns = React.useMemo<ColumnDef<CategoryRow>[]>(() => [
     {
@@ -246,6 +248,7 @@ export default function CategoriesDataTable() {
           pageSize: PAGE_SIZE,
           total,
           totalPages,
+          totalIsCapped,
           onPageChange: setPage,
         }}
         isLoading={isLoading}

@@ -208,7 +208,13 @@ describe('module-facts BC resolve guard (T2)', () => {
     //
     // ⚠️ If a future module takes the delta up by a multiple rather than by tens of
     // kilobytes, do NOT raise this: that is the regression the assertion exists for.
-    expect(Buffer.byteLength(completeJson)).toBeLessThan(4_300_000)
+    //
+    // COMPLETE cap raised by the upstream 0.8.0 selective port
+    // (docs/architecture/upstream-ports.md), which adds ACL and scheduler commands, audit
+    // events, a payments-table extension host and count-cap facts across many modules.
+    // MEASURED 2026-09-29: complete 4,293,868 before the port and 4,325,508 after
+    // (+31,640, linear). The old limit had left 6KB of headroom. Raised to 4,400,000.
+    expect(Buffer.byteLength(completeJson)).toBeLessThan(4_400_000)
     expect(Buffer.byteLength(completeJson) - Buffer.byteLength(legacyJson)).toBeLessThan(1_900_000)
     // Markdown cap raised with the source-link contract: entities, events, ACL
     // features, DI tokens, search entities, notifications, UMES hosts and UMES

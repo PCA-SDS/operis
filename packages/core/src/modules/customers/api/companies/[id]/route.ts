@@ -51,7 +51,7 @@ import {
   withActiveCustomerPersonCompanyLinkFilter,
 } from '../../../lib/personCompanyLinkTable'
 import { normalizeCustomerDetailCustomFields } from '../../detailCustomFields'
-import { isOrganizationReadAccessAllowed } from '@open-mercato/core/modules/directory/utils/organizationScopeGuard'
+import { denyCustomerDetailReadAsNotFound } from '../../../lib/detailReadAccess'
 import { runWithCacheTenant } from '@open-mercato/cache'
 import {
   buildCollectionTags,
@@ -62,7 +62,7 @@ import {
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { toDateOnlyString } from '../../../lib/dateOnly'
 import { extractTodoTitle, readCustomField } from '../../../lib/todoCompatibility'
-import { parseDateValue, parseIncludeParams, parseNumber, forbidden, notFound } from '../../detailRouteHelpers'
+import { parseDateValue, parseIncludeParams, parseNumber, notFound } from '../../detailRouteHelpers'
 
 const logger = createLogger('customers')
 
@@ -398,9 +398,16 @@ export async function GET(_req: Request, ctx: { params?: { id?: string } }) {
   )
   if (!company) return notFound('Company not found')
 
-  if (!isOrganizationReadAccessAllowed({ scope, auth, organizationId: company.organizationId })) {
-    return forbidden('Access denied')
-  }
+  // Existence oracle (issue #5504): a caller who holds customers.companies.view
+  // but whose scope excludes the record's organization must get the SAME
+  // response as for a non-existent id, so 403-when-present / 404-when-absent
+  // collapses to a uniform 404 not-found. The dispatcher already returns a
+  // uniform 403 for callers who lack the feature entirely.
+  const organizationReadDenied = denyCustomerDetailReadAsNotFound(
+    { scope, auth, organizationId: company.organizationId },
+    'Company not found',
+  )
+  if (organizationReadDenied) return organizationReadDenied
 
   const companyScope = {
     tenantId: company.tenantId ?? auth.tenantId ?? null,
@@ -1439,8 +1446,8 @@ export const openApi: OpenApiRouteDoc = {
       errors: [
         { status: 400, description: 'Invalid identifier', schema: companyDetailErrorSchema },
         { status: 401, description: 'Unauthorized', schema: companyDetailErrorSchema },
-        { status: 403, description: 'Forbidden for tenant/organization scope', schema: companyDetailErrorSchema },
-        { status: 404, description: 'Company not found', schema: companyDetailErrorSchema },
+        { status: 403, description: 'Forbidden — caller lacks the required feature', schema: companyDetailErrorSchema },
+        { status: 404, description: 'Company not found, or its organization is not in the caller’s scope', schema: companyDetailErrorSchema },
       ],
     },
   },

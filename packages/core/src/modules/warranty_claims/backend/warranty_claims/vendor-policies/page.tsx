@@ -34,6 +34,7 @@ type VendorPoliciesResponse = {
   items?: unknown[]
   total?: number
   totalPages?: number
+  totalIsCapped?: boolean
   error?: string
 }
 
@@ -75,6 +76,7 @@ export default function WarrantyVendorPoliciesPage() {
   const [page, setPage] = React.useState(1)
   const [total, setTotal] = React.useState(0)
   const [totalPages, setTotalPages] = React.useState(1)
+  const [totalIsCapped, setTotalIsCapped] = React.useState(false)
   const [tabCounts, setTabCounts] = React.useState<Partial<Record<VendorPolicySegment, number>>>({})
   const [search, setSearch] = React.useState('')
   const [filterValues, setFilterValues] = React.useState<FilterValues>({})
@@ -161,6 +163,7 @@ export default function WarrantyVendorPoliciesPage() {
         setRows(items.map(normalizeVendorPolicy).filter((row): row is VendorPolicyRecord => row !== null))
         setTotal(typeof call.result?.total === 'number' ? call.result.total : items.length)
         setTotalPages(typeof call.result?.totalPages === 'number' ? call.result.totalPages : 1)
+        setTotalIsCapped(call.result?.totalIsCapped === true)
       } catch (error) {
         if (!cancelled) {
           const message = error instanceof Error
@@ -492,6 +495,7 @@ export default function WarrantyVendorPoliciesPage() {
             pageSize: PAGE_SIZE,
             total,
             totalPages,
+            totalIsCapped,
             onPageChange: setPage,
           }}
           />

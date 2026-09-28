@@ -44,6 +44,7 @@ type AttachmentLibraryResponse = {
   pageSize: number
   total: number
   totalPages: number
+  totalIsCapped?: boolean
   availableTags: string[]
   partitions: Array<{ code: string; title: string; description?: string | null; isPublic?: boolean }>
   error?: string
@@ -945,6 +946,7 @@ export function AttachmentLibrary() {
 
   const total = data?.total ?? 0
   const totalPages = data?.totalPages ?? 0
+  const totalIsCapped = data?.totalIsCapped === true
   return (
     <>
       <DataTable<AttachmentRow>
@@ -1044,6 +1046,7 @@ export function AttachmentLibrary() {
           pageSize: PAGE_SIZE,
           total,
           totalPages,
+          totalIsCapped,
           onPageChange: (next) => setPage(next),
         }}
       />

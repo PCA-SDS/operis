@@ -542,5 +542,6 @@ export async function GET(req: Request) {
     page: query.page,
     pageSize: query.pageSize,
     totalPages: Math.ceil(res.total / (query.pageSize || 1)),
+    ...(res.meta?.listCountCapWarning ? { totalIsCapped: true } : {}),
   })
 }

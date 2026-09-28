@@ -68,6 +68,7 @@ type ResourceAreasResponse = {
   items?: Array<Record<string, unknown>>
   total?: number
   totalPages?: number
+  totalIsCapped?: boolean
 }
 
 type ChildPageState = {
@@ -129,6 +130,7 @@ export default function ResourcesResourceAreasPage() {
   const [page, setPage] = React.useState(1)
   const [total, setTotal] = React.useState(0)
   const [totalPages, setTotalPages] = React.useState(1)
+  const [totalIsCapped, setTotalIsCapped] = React.useState(false)
   const [sorting, setSorting] = React.useState<SortingState>([{ id: 'sort_order', desc: false }])
   const [search, setSearch] = React.useState('')
   const [filterValues, setFilterValues] = React.useState<FilterValues>({})
@@ -834,6 +836,7 @@ export default function ResourcesResourceAreasPage() {
       setRows(mapped)
       setTotal(payload.total ?? 0)
       setTotalPages(payload.totalPages ?? 1)
+      setTotalIsCapped(payload.totalIsCapped === true)
       setExpandedAreaIds(new Set())
       setChildRowsByParentId(new Map())
       setChildPageByParentId(new Map())
@@ -923,7 +926,7 @@ export default function ResourcesResourceAreasPage() {
           sortable
           sorting={sorting}
           onSortingChange={setSorting}
-          pagination={{ page, pageSize: PAGE_SIZE, total, totalPages, onPageChange: setPage }}
+          pagination={{ page, pageSize: PAGE_SIZE, total, totalPages, totalIsCapped, onPageChange: setPage }}
           rowActions={(row) => (
             row.rowKind === 'area' ? (() => {
               const siblingRows = getAreaSiblingRows(row.parent_area_id)

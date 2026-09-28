@@ -27,6 +27,7 @@ type ListResponse = {
   items: TemplateRow[]
   total: number
   totalPages: number
+  totalIsCapped?: boolean
 }
 
 export default function CheckoutTemplatesPage() {
@@ -38,6 +39,7 @@ export default function CheckoutTemplatesPage() {
   const [filters, setFilters] = React.useState<FilterValues>({})
   const [total, setTotal] = React.useState(0)
   const [totalPages, setTotalPages] = React.useState(1)
+  const [totalIsCapped, setTotalIsCapped] = React.useState(false)
 
   const filterDefs = React.useMemo<FilterDef[]>(() => [
     {
@@ -64,6 +66,7 @@ export default function CheckoutTemplatesPage() {
     setRows(result.items ?? [])
     setTotal(result.total ?? 0)
     setTotalPages(result.totalPages ?? 1)
+    setTotalIsCapped(result?.totalIsCapped === true)
     setLoading(false)
   }, [filters.pricingMode, page, search])
 
@@ -116,7 +119,7 @@ export default function CheckoutTemplatesPage() {
           filterValues={filters}
           onFiltersApply={(next) => { setFilters(next); setPage(1) }}
           onFiltersClear={() => { setFilters({}); setPage(1) }}
-          pagination={{ page, pageSize: 25, total, totalPages, onPageChange: setPage }}
+          pagination={{ page, pageSize: 25, total, totalPages, totalIsCapped, onPageChange: setPage }}
           perspective={{ tableId: extensionPoints.hosts.templatesTable.tableId }}
           actions={(
             <Button asChild>

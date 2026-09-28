@@ -379,6 +379,9 @@ const linePricingSchema = z.object({
   priceMode: z.enum(['net', 'gross']).optional(),
   taxRateId: uuid().optional(),
   discountAmount: money().optional(),
+  // How to read a supplied `discountAmount`. Omitting it reproduces the meaning
+  // the API has always documented — per unit — so no existing caller changes.
+  discountAmountBasis: z.enum(['unit', 'line']).optional(),
   discountPercent: percentage().optional(),
   taxRate: percentage().optional(),
   taxAmount: money().optional(),
