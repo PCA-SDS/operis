@@ -291,7 +291,7 @@ export class AssignmentConflictService {
       )
       const resourceStartWindow = usesOfficialRuleSet || !appointmentResourceWindows || Boolean(matchingResourceWindow)
       const resourceAcceptanceWindow = !matchingResourceWindow?.latestStartAt
-        || startsAt <= matchingResourceWindow.latestStartAt
+        || anchorStartAt <= matchingResourceWindow.latestStartAt
       const resourceRuntimeWindow = usesOfficialRuleSet || !appointmentResourceWindows || Boolean(
         matchingResourceWindow && matchingResourceWindow.runtimeEnd >= endsAt,
       )

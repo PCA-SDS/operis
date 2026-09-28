@@ -285,15 +285,21 @@ function addMinutes(iso: string, minutes: number): string {
   return new Date(new Date(iso).getTime() + minutes * 60000).toISOString()
 }
 
-function resourceSupportsRange(resource: Resource | undefined, startsAt: string, endsAt: string): boolean {
+function resourceSupportsRange(
+  resource: Resource | undefined,
+  startsAt: string,
+  endsAt: string,
+  bookingStartAt = startsAt,
+): boolean {
   if (!resource || resource.availabilityWindows === null || resource.availabilityWindows === undefined) return true
   const start = new Date(startsAt).getTime()
   const end = new Date(endsAt).getTime()
+  const bookingStart = new Date(bookingStartAt).getTime()
   return resource.availabilityWindows.some((window) => {
     const windowStart = new Date(window.startsAt).getTime()
     const windowEnd = new Date(window.endsAt).getTime()
     const latestStart = window.latestStartAt ? new Date(window.latestStartAt).getTime() : Number.POSITIVE_INFINITY
-    return start >= windowStart && start <= latestStart && end <= windowEnd
+    return start >= windowStart && bookingStart <= latestStart && end <= windowEnd
   })
 }
 
@@ -317,7 +323,7 @@ function findFirstAvailablePlacement(
     for (let minutes = firstCandidate; minutes + duration <= timelineEndMinutes; minutes += SLOT_MINUTES) {
       const startsAt = buildIsoFromSlot(requestedStartAt, minutesToTime(minutes))
       const endsAt = addMinutes(startsAt, duration)
-      if (!resourceSupportsRange(resource, startsAt, endsAt)) continue
+      if (!resourceSupportsRange(resource, startsAt, endsAt, requestedStartAt)) continue
       const overlaps = allocations.some((allocation) => {
         if (allocation.resourceId !== resource.id) return false
         return new Date(allocation.startsAt).getTime() < new Date(endsAt).getTime()
@@ -1387,8 +1393,13 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
     [slots],
   )
   const canUseResourceRange = React.useCallback((resourceId: string, startsAt: string, endsAt: string) => {
-    return resourceSupportsRange(workspace?.resources.find((resource) => resource.id === resourceId), startsAt, endsAt)
-  }, [workspace?.resources])
+    return resourceSupportsRange(
+      workspace?.resources.find((resource) => resource.id === resourceId),
+      startsAt,
+      endsAt,
+      workspace?.appointment.requestedStartAt,
+    )
+  }, [workspace?.appointment.requestedStartAt, workspace?.resources])
   const activeLine = React.useMemo(() => workspace?.lines.find((line) => line.id === activeLineId) ?? null, [activeLineId, workspace?.lines])
   const earliestDate = workspace ? new Date(workspace.appointment.requestedStartAt) : null
   const earliestMinutes = earliestDate ? earliestDate.getHours() * 60 + earliestDate.getMinutes() : START_HOUR * 60
@@ -1466,7 +1477,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
       } : current)
       return assignment
     } catch (error) {
-      await loadWorkspace()
+      await loadWorkspace(undefined, false)
       throw error
     }
   }, [guardedMutation, loadWorkspace, seatColumns, staffMembers, workspace])
@@ -1642,8 +1653,12 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
       flash(t('appointments.seatPlanner.resourceBooked', 'That resource is already booked for this time.'), 'error')
       return
     }
-    await saveDraft(line, allocation.resourceId, allocation.startsAt, nextDuration, assignedMemberIdsFor(allocation))
-    setPopoverState(null)
+    try {
+      await saveDraft(line, allocation.resourceId, allocation.startsAt, nextDuration, assignedMemberIdsFor(allocation))
+      setPopoverState(null)
+    } catch (error) {
+      flash(error instanceof Error ? error.message : t('appointments.seatPlanner.saveError', 'Unable to save the assignment.'), 'error')
+    }
   }, [allocationsBySeat, flash, saveDraft, t, workspace])
 
   const handleAssignStaff = React.useCallback(async (target: StaffSheetTarget, staffId: string | null) => {

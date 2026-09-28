@@ -200,6 +200,31 @@ describe('AssignmentConflictService appointment availability', () => {
     })).resolves.toEqual({ valid: true })
   })
 
+  it('applies a resource cutoff to the booking start, not a later service in the same booking', async () => {
+    const service = serviceWithResourceCutoff('resource-a')
+
+    await expect(service.validateAssignment({
+      ...BASE_PARAMS,
+      resourceId: 'resource-a',
+      startsAt: new Date('2026-09-25T19:30:00.000Z'),
+      endsAt: new Date('2026-09-25T20:15:00.000Z'),
+      availabilityMode: 'appointment',
+      availabilityAnchorStartAt: new Date('2026-09-25T18:30:00.000Z'),
+    })).resolves.toEqual({ valid: true })
+  })
+
+  it('still enforces a resource cutoff for a new booking without an appointment anchor', async () => {
+    const service = serviceWithResourceCutoff('resource-a')
+
+    await expect(service.validateAssignment({
+      ...BASE_PARAMS,
+      resourceId: 'resource-a',
+      startsAt: new Date('2026-09-25T19:30:00.000Z'),
+      endsAt: new Date('2026-09-25T20:15:00.000Z'),
+      availabilityMode: 'appointment',
+    })).resolves.toMatchObject({ valid: false, error: { code: 'OUTSIDE_AVAILABILITY' } })
+  })
+
   it('allows an appointment assignment to finish during organization overflow', async () => {
     const { service } = serviceWithOfficialOrganizationRuleSet()
 
