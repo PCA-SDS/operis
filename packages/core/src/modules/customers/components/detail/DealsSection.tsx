@@ -16,9 +16,8 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { hasMoreFromPage } from '@open-mercato/shared/lib/pagination/load-more'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import { E } from '#generated/entities.ids.generated'
-import type { DealCustomFieldEntry, DealSummary, SectionAction, TabEmptyStateConfig, Translator } from './types'
-import { createTranslatorWithFallback } from '@open-mercato/shared/lib/i18n/translate'
-import { formatDate } from './utils'
+import type { DealCustomFieldEntry, DealSummary, SectionAction, TabEmptyStateConfig } from './types'
+import { createTranslatorWithFallback, type TranslateWithFallbackFn } from '@open-mercato/shared/lib/i18n/translate'
 import { DealDialog } from './DealDialog'
 import type { DealFormBaseValues, DealFormSubmitPayload } from './DealForm'
 import { generateTempId } from '@open-mercato/core/modules/customers/lib/detailHelpers'
@@ -27,6 +26,8 @@ import { useCustomerDictionary } from './hooks/useCustomerDictionary'
 import { CustomFieldValuesList } from './CustomFieldValuesList'
 import { useCustomFieldDisplay } from './hooks/useCustomFieldDisplay'
 import { normalizeCustomFieldKey } from './customFieldUtils'
+import { isRecord } from '@open-mercato/shared/lib/guards'
+import { formatDate } from '@open-mercato/shared/lib/time'
 
 const DEALS_PAGE_SIZE = 10
 
@@ -44,12 +45,8 @@ type PendingAction =
   | { kind: 'update'; id: string }
   | { kind: 'remove'; id: string }
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === 'object' && !Array.isArray(value)
-}
-
 function sanitizeCustomValues(input: unknown): Record<string, unknown> | null {
-  if (!isPlainObject(input)) return null
+  if (!isRecord(input)) return null
   const result: Record<string, unknown> = {}
   Object.entries(input).forEach(([key, value]) => {
     const trimmedKey = key.trim()
@@ -300,7 +297,7 @@ export type DealsSectionProps = {
   onActionChange?: (action: SectionAction | null) => void
   onLoadingChange?: (isLoading: boolean) => void
   onDataRefresh?: () => Promise<void> | void
-  translator?: Translator
+  translator?: TranslateWithFallbackFn
   runGuardedMutation?: GuardedMutationRunner
 }
 
@@ -318,8 +315,8 @@ export function DealsSection({
 }: DealsSectionProps) {
   const tHook = useT()
   const { confirm, ConfirmDialogElement } = useConfirmDialog()
-  const fallbackTranslator = React.useMemo<Translator>(() => createTranslatorWithFallback(tHook), [tHook])
-  const t: Translator = React.useMemo(() => translator ?? fallbackTranslator, [translator, fallbackTranslator])
+  const fallbackTranslator = React.useMemo<TranslateWithFallbackFn>(() => createTranslatorWithFallback(tHook), [tHook])
+  const t: TranslateWithFallbackFn = React.useMemo(() => translator ?? fallbackTranslator, [translator, fallbackTranslator])
   useCurrencyDictionary()
   const scopeVersion = useOrganizationScopeVersion()
   const statusDictionaryQuery = useCustomerDictionary('deal-statuses', scopeVersion)

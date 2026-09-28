@@ -10,7 +10,7 @@ import type { CustomFieldDefDto } from '@open-mercato/ui/backend/utils/customFie
 import { collectCustomFieldValues } from '@open-mercato/ui/backend/utils/customFieldValues'
 import { normalizeCustomFieldSubmitValue } from '../customFieldUtils'
 import type { DealCustomAttributesLoadState } from './DealCustomAttributes'
-import type { Translate } from './dealFormTypes'
+import type { TranslateWithRequiredFallbackFn } from '@open-mercato/shared/lib/i18n/translate'
 
 function isEmptyCustomFieldValue(field: CrudField, value: unknown): boolean {
   if (value === undefined || value === null) return true
@@ -39,7 +39,7 @@ export type UseDealCustomFieldsResult = {
   collectNormalizedCustomValues: (source: Record<string, unknown>) => Record<string, unknown>
 }
 
-export function useDealCustomFields(tr: Translate): UseDealCustomFieldsResult {
+export function useDealCustomFields(tr: TranslateWithRequiredFallbackFn): UseDealCustomFieldsResult {
   const [customValues, setCustomValues] = React.useState<Record<string, unknown>>({})
   const [customFields, setCustomFields] = React.useState<CrudField[]>([])
   const [customDefinitions, setCustomDefinitions] = React.useState<CustomFieldDefDto[]>([])

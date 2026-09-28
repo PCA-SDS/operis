@@ -14,6 +14,8 @@ import { formatDurationShort } from './ActivityHistoryParts'
 import type { InteractionSummary } from './types'
 import { isOpenInteractionStatus } from '../../lib/interactionStatus'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { isSameLocalDay } from '../../lib/calendar/time'
+import { formatTime } from '@open-mercato/shared/lib/time'
 
 const logger = createLogger('customers')
 
@@ -65,10 +67,6 @@ function startOfDay(date: Date): Date {
   return next
 }
 
-function isSameDay(a: Date, b: Date): boolean {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
-}
-
 function isOverdue(activity: InteractionSummary, now: Date): boolean {
   const scheduled = activity.scheduledAt ?? activity.occurredAt
   if (!scheduled) return false
@@ -80,10 +78,6 @@ function isOverdue(activity: InteractionSummary, now: Date): boolean {
 // Days loaded either side of the window's centre for the day strip and the
 // list; the centre follows the selected day (see `windowCenter`).
 const FETCH_WINDOW_DAYS = 31
-
-function formatTime(date: Date): string {
-  return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
-}
 
 export function ActivitiesCard({
   entityId,
@@ -165,7 +159,7 @@ export function ActivitiesCard({
       // Compare in the user's local timezone so a 23:30 local activity stays
       // on its local-day chip instead of bleeding into the next UTC day
       // (issue #1809 — E3).
-      return isSameDay(toLocalZonedDate(scheduled), selectedDate)
+      return isSameLocalDay(toLocalZonedDate(scheduled), selectedDate)
     })
     return items.sort((left, right) => {
       const leftTime = new Date(left.scheduledAt ?? left.occurredAt ?? left.createdAt).getTime()

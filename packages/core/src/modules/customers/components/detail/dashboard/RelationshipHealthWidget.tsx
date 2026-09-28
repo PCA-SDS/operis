@@ -5,10 +5,9 @@ import { Heart } from 'lucide-react'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { Badge } from '@open-mercato/ui/primitives/badge'
 import { HEALTH_BADGE_CLASSES, HEALTH_ICON_CLASSES, type HealthScore } from '../healthScoreUtils'
+import type { TranslateWithFallbackFn } from '@open-mercato/shared/lib/i18n/translate'
 
-type TranslateFnWithParams = (key: string, fallback?: string, params?: Record<string, string | number>) => string
-
-export function RelationshipHealthWidget({ health, t }: { health: HealthScore; t: TranslateFnWithParams }) {
+export function RelationshipHealthWidget({ health, t }: { health: HealthScore; t: TranslateWithFallbackFn }) {
   return (
     <div className="rounded-xl border border-card-edge bg-surface shadow-sm p-5">
       <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">

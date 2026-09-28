@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { EyeOff } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
-import { KpiCard, type KpiTrend } from '@open-mercato/ui/backend/charts/KpiCard'
+import { KpiCard } from '@open-mercato/ui/backend/charts/KpiCard'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import {
@@ -12,53 +12,15 @@ import {
   clearVersionedPreference,
 } from '@open-mercato/shared/lib/browser/versionedPreference'
 import { isOpenDealStatus, isWonDealStatus } from '../../lib/dealStatus'
-import type { CompanyOverview, DealSummary, InteractionSummary } from '../formConfig'
+import type { CompanyOverview, DealSummary } from '../formConfig'
 import { formatCurrency } from './utils'
+import { sumActiveDeals, computeActivityTrend, computeDealTrend } from './dashboard/helpers'
 
 const STORAGE_KEY = 'om:company-detail-kpi-hidden'
 const STORAGE_VERSION = 1
 
-function sumActiveDeals(deals: DealSummary[]): number {
-  return deals
-    .filter((d) => isOpenDealStatus(d.status))
-    .reduce((sum, d) => {
-      const amount = typeof d.valueAmount === 'number' ? d.valueAmount : parseFloat(String(d.valueAmount ?? '0'))
-      return sum + (Number.isFinite(amount) ? amount : 0)
-    }, 0)
-}
-
 function getActiveDeals(deals: DealSummary[]): DealSummary[] {
   return deals.filter((d) => isOpenDealStatus(d.status))
-}
-
-function computeActivityTrend(interactions: InteractionSummary[]): KpiTrend | undefined {
-  const now = Date.now()
-  const weekMs = 7 * 86_400_000
-  const thisWeek = interactions.filter((i) => {
-    const d = i.occurredAt ?? i.scheduledAt
-    return d && now - new Date(d).getTime() < weekMs
-  }).length
-  const lastWeek = interactions.filter((i) => {
-    const d = i.occurredAt ?? i.scheduledAt
-    if (!d) return false
-    const diff = now - new Date(d).getTime()
-    return diff >= weekMs && diff < weekMs * 2
-  }).length
-  if (lastWeek === 0 && thisWeek === 0) return undefined
-  if (lastWeek === 0) return { value: 100, direction: 'up' }
-  const pct = ((thisWeek - lastWeek) / lastWeek) * 100
-  if (Math.abs(pct) < 0.5) return { value: 0, direction: 'unchanged' }
-  return { value: Math.abs(pct), direction: pct > 0 ? 'up' : 'down' }
-}
-
-function computeDealTrend(deals: DealSummary[]): KpiTrend | undefined {
-  const active = deals.filter((d) => isOpenDealStatus(d.status))
-  if (active.length === 0) return undefined
-  const now = Date.now()
-  const monthMs = 30 * 86_400_000
-  const recentDeals = active.filter((d) => d.createdAt && now - new Date(d.createdAt).getTime() < monthMs).length
-  if (recentDeals > 0) return { value: recentDeals * 10, direction: 'up' }
-  return { value: 0, direction: 'unchanged' }
 }
 
 type CompanyKpiBarProps = {

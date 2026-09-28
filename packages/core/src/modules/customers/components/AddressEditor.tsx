@@ -26,8 +26,7 @@ import { buildCountryOptions } from '@open-mercato/shared/lib/location/countries
 import { buildHrefWithReturnTo } from '@open-mercato/shared/lib/navigation/returnTo'
 import type { AddressFormatStrategy } from '../utils/addressFormat'
 import { useAddressTypes } from './detail/hooks/useAddressTypes'
-
-type Translator = (key: string, fallback?: string, params?: Record<string, string | number>) => string
+import type { TranslateWithFallbackFn } from '@open-mercato/shared/lib/i18n/translate'
 
 export type AddressEditorDraft = {
   name: string
@@ -66,7 +65,7 @@ type AddressEditorProps = {
   value: AddressEditorDraft
   onChange: (next: AddressEditorDraft) => void
   format: AddressFormatStrategy
-  t: Translator
+  t: TranslateWithFallbackFn
   disabled?: boolean
   errors?: Partial<Record<AddressEditorField, string>>
   hidePrimaryToggle?: boolean

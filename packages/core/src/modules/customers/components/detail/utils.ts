@@ -5,13 +5,6 @@ import type { CustomerDictionaryKind } from '../../lib/dictionaries'
 import { CUSTOMER_INTERACTION_TASK_SOURCE, CUSTOMER_INTERACTION_TASK_TYPE } from '../../lib/interactionCompatibility'
 
 
-export function formatDate(value?: string | null): string | null {
-  if (!value) return null
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return null
-  return date.toLocaleDateString()
-}
-
 export function formatTemplate(template: string, params?: Record<string, string | number>): string {
   if (!template) return template
   if (!params) return template
@@ -21,16 +14,6 @@ export function formatTemplate(template: string, params?: Record<string, string 
     const value = params[key]
     return value === undefined ? match : String(value)
   })
-}
-
-export function toLocalDateTimeInput(value?: string | null): string {
-  if (!value) return ''
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  const pad = (input: number) => `${input}`.padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(
-    date.getMinutes(),
-  )}`
 }
 
 /**
@@ -169,8 +152,8 @@ export function createDictionarySelectLabels(
 
 /**
  * Whole-unit money formatter for CRM cards and KPI strips — deliberately
- * `maximumFractionDigits: 0`, which is why it does not simply call
- * `@open-mercato/ui/utils/format`'s `formatCurrency`.
+ * `maximumFractionDigits: 0`, which is why it does not simply call the exact
+ * `formatCurrency` from `@open-mercato/shared/lib/units/money`.
  *
  * With no usable currency code it formats a bare number rather than guessing
  * one. It used to default to `'PLN'`, which silently rendered every

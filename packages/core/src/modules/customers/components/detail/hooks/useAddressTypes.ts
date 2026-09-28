@@ -8,10 +8,9 @@ import {
   ensureCustomerDictionary,
   invalidateCustomerDictionary,
 } from './useCustomerDictionary'
+import type { TranslateWithFallbackFn } from '@open-mercato/shared/lib/i18n/translate'
 
 export type AddressTypeOption = { value: string; label: string }
-
-export type Translator = (key: string, fallback?: string, params?: Record<string, string | number>) => string
 
 type UseAddressTypesResult = {
   options: AddressTypeOption[]
@@ -22,7 +21,7 @@ type UseAddressTypesResult = {
   refresh: () => Promise<void>
 }
 
-export function useAddressTypes(t: Translator): UseAddressTypesResult {
+export function useAddressTypes(t: TranslateWithFallbackFn): UseAddressTypesResult {
   const queryClient = useQueryClient()
   const scopeVersion = useOrganizationScopeVersion()
   const [creating, setCreating] = React.useState(false)

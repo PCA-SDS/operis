@@ -60,6 +60,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@open-mercato/ui/primit
 import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primitives/segmented-control'
 import { Tabs, TabsList, TabsPanel, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
 import { useDialogKeyHandler } from '@open-mercato/ui/hooks/useDialogKeyHandler'
+import { humanizeCategoryKind } from './tagFormat'
+import { slugifyLabel } from '../../lib/detailHelpers'
 
 const logger = createLogger('customers')
 
@@ -244,24 +246,8 @@ function normalizeColor(value: string | null | undefined): string {
   return '#D1D5DB'
 }
 
-function slugifyLabel(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-}
-
 function sanitizeIcon(value: string | null | undefined): string {
   return typeof value === 'string' ? value.trim() : ''
-}
-
-function humanizeCategoryKind(kind: string): string {
-  return kind
-    .split(/[-_]+/)
-    .filter((part) => part.trim().length > 0)
-    .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
-    .join(' ')
 }
 
 function createCustomCategoryDef(kind: string): CategoryDef {

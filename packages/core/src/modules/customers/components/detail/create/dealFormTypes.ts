@@ -1,5 +1,3 @@
-export type Translate = (key: string, fallback: string, params?: Record<string, string | number>) => string
-
 export type BaseValues = {
   title: string
   status: string

@@ -31,10 +31,10 @@ import {
   createPersonPersonalDataGroups,
   mapCompanyOverviewToFormValues,
   mapPersonOverviewToFormValues,
-  type Translator,
 } from '../formConfig'
+import type { TranslateWithFallbackFn } from '@open-mercato/shared/lib/i18n/translate'
 
-const t: Translator = (_key, fallback) => fallback ?? _key
+const t: TranslateWithFallbackFn = (_key, fallback) => fallback ?? _key
 
 /** The Custom attributes section is withheld while it is out of the product. */
 const customAttributes = CUSTOMER_CUSTOM_ATTRIBUTES_IN_PRODUCT ? ['customFields'] : []

@@ -8,13 +8,13 @@ import {
 import { cn } from '@open-mercato/shared/lib/utils'
 import type { CustomFieldDefDto } from '@open-mercato/ui/backend/utils/customFieldDefs'
 import {
-  extractDictionaryValue,
   isEmptyCustomValue,
   normalizeCustomFieldKey,
   resolveCustomFieldLabel,
   stringifyCustomValue,
 } from './customFieldUtils'
 import type { CustomFieldDisplayResources } from './hooks/useCustomFieldDisplay'
+import { extractDictionaryValue } from '@open-mercato/ui/backend/detail/dictionaryValue'
 
 type CustomFieldEntry = {
   key: string

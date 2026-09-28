@@ -5,6 +5,8 @@ import { Avatar } from '@open-mercato/ui/primitives/avatar'
 import { Badge } from '@open-mercato/ui/primitives/badge'
 import { Settings2, SquarePen, Plus, Trash2, UserRoundPlus, ArrowRight } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { formatFieldLabel } from './changelogFormat'
+import { formatRelativeTime } from '@open-mercato/shared/lib/time'
 
 type ChangelogActionType = 'create' | 'edit' | 'delete' | 'assign' | 'system'
 type ChangelogSource = 'ui' | 'api' | 'system'
@@ -32,32 +34,6 @@ const ACTION_ICONS: Record<ChangelogActionType, React.ComponentType<{ className?
   delete: Trash2,
   assign: UserRoundPlus,
   system: Settings2,
-}
-
-function formatFieldLabel(fieldName: string): string {
-  return fieldName
-    .replace(/\./g, ' ')
-    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-    .replace(/[_-]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .replace(/^\w/, (char) => char.toUpperCase())
-}
-
-function formatRelativeTime(value: string): string {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  const diffMs = date.getTime() - Date.now()
-  const diffMinutes = Math.round(diffMs / 60000)
-  const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' })
-
-  if (Math.abs(diffMinutes) < 60) return formatter.format(diffMinutes, 'minute')
-
-  const diffHours = Math.round(diffMinutes / 60)
-  if (Math.abs(diffHours) < 24) return formatter.format(diffHours, 'hour')
-
-  const diffDays = Math.round(diffHours / 24)
-  return formatter.format(diffDays, 'day')
 }
 
 export function ChangelogEntryRow({ entry }: ChangelogEntryRowProps) {

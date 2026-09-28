@@ -14,6 +14,7 @@ import type { TranslateFn } from '@open-mercato/shared/lib/i18n/context'
 import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import type { InteractionSummary } from './types'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { isSameLocalDay } from '../../lib/calendar/time'
 
 const logger = createLogger('customers')
 
@@ -69,10 +70,6 @@ function endOfDay(date: Date): Date {
   return next
 }
 
-function isSameDay(a: Date, b: Date): boolean {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
-}
-
 function isWeekend(date: Date): boolean {
   const day = date.getDay()
   return day === 0 || day === 6
@@ -111,7 +108,7 @@ function computeDayBusyness(events: InteractionSummary[], day: Date): DayBusynes
     if (Number.isNaN(start.getTime())) continue
     // Compare in the user's local timezone so an activity at 23:30 local time
     // doesn't bleed into the next UTC day's chip (issue #1809 — E3).
-    if (!isSameDay(toLocalZonedDate(startIso), day)) continue
+    if (!isSameLocalDay(toLocalZonedDate(startIso), day)) continue
     const durationMinutes = typeof event.duration === 'number' && event.duration > 0 ? event.duration : 30
     totalMinutes += durationMinutes
     spans.push([start.getTime(), start.getTime() + durationMinutes * 60000])
@@ -289,8 +286,8 @@ export function ActivitiesDayStrip({
               weekday={formatters.weekday.format(day)}
               dayNumber={formatters.dayNumber.format(day)}
               label={busyLabel ? `${fullDate}, ${busyLabel}` : fullDate}
-              isSelected={isSameDay(day, selectedDate)}
-              isToday={isSameDay(day, todayDate)}
+              isSelected={isSameLocalDay(day, selectedDate)}
+              isToday={isSameLocalDay(day, todayDate)}
               isWeekend={isWeekend(day)}
               busy={busy}
               onSelect={() => onSelectDate(day)}

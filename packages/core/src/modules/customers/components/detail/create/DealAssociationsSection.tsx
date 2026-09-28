@@ -4,10 +4,10 @@ import * as React from 'react'
 import { DealSectionCard } from './DealSectionCard'
 import { DealFormField } from './DealFormField'
 import { DealAssociationsField } from './DealAssociationsField'
-import type { Translate } from './dealFormTypes'
+import type { TranslateWithRequiredFallbackFn } from '@open-mercato/shared/lib/i18n/translate'
 
 export type DealAssociationsSectionProps = {
-  tr: Translate
+  tr: TranslateWithRequiredFallbackFn
   personIds: string[]
   companyIds: string[]
   onPeopleChange: (next: string[]) => void

@@ -114,21 +114,6 @@ export function stringifyCustomValue(value: unknown, options?: { kind?: string }
   return ''
 }
 
-export function extractDictionaryValue(entry: unknown): string | null {
-  if (typeof entry === 'string') {
-    const trimmed = entry.trim()
-    return trimmed.length ? trimmed : null
-  }
-  if (!entry || typeof entry !== 'object') return null
-  const record = entry as Record<string, unknown>
-  const candidate = record.value ?? record.name ?? record.id ?? record.key ?? record.label
-  if (typeof candidate === 'string') {
-    const trimmed = candidate.trim()
-    return trimmed.length ? trimmed : null
-  }
-  return null
-}
-
 export function normalizeCustomFieldSubmitValue(value: unknown): unknown {
   if (Array.isArray(value)) {
     return value.filter((entry) => entry !== undefined)

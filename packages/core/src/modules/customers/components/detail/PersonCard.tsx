@@ -11,7 +11,8 @@ import { Avatar } from '@open-mercato/ui/primitives/avatar'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { Popover, PopoverContent, PopoverTrigger } from '@open-mercato/ui/primitives/popover'
 import type { CompanyPersonSummary } from './CompanyPeopleSection'
-import { formatDate, formatFallbackLabel } from './utils'
+import { formatFallbackLabel } from './utils'
+import { formatDate } from '@open-mercato/shared/lib/time'
 
 const sourceColorMap: Record<string, string> = {
   linkedin: 'border-status-info-icon text-status-info-icon',

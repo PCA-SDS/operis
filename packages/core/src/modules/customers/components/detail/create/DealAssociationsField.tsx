@@ -7,6 +7,7 @@ import { Button } from '@open-mercato/ui/primitives/button'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 import { useDealAssociationLookups } from '../DealForm'
+import { sanitizeIdList } from '../../../lib/idLists'
 
 type AssociationOption = {
   id: string
@@ -28,18 +29,6 @@ export type DealAssociationsFieldProps = {
     remove: string
     error: string
   }
-}
-
-function sanitizeIdList(input: unknown): string[] {
-  if (!Array.isArray(input)) return []
-  const set = new Set<string>()
-  input.forEach((candidate) => {
-    if (typeof candidate !== 'string') return
-    const trimmed = candidate.trim()
-    if (!trimmed.length) return
-    set.add(trimmed)
-  })
-  return Array.from(set)
 }
 
 export function DealAssociationsField({

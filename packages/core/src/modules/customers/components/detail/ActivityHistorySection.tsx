@@ -16,6 +16,7 @@ import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import type { ActivitySummary, InteractionSummary } from './types'
 import { ActivityCard } from './ActivityCard'
 import { ActivityFilterPopover, ActivityHistoryYear } from './ActivityHistoryParts'
+import { normalizeLegacyActivity } from './legacyActivity'
 
 type GuardedMutationRunner = <T,>(
   operation: () => Promise<T>,
@@ -67,34 +68,6 @@ function computeRangeStart(range: '7d' | '30d' | '90d'): Date {
 
 function toTimelineTimestamp(activity: InteractionSummary): string {
   return activity.occurredAt ?? activity.scheduledAt ?? activity.createdAt
-}
-
-function normalizeLegacyActivity(activity: ActivitySummary): InteractionSummary {
-  return {
-    id: activity.id,
-    interactionType: activity.activityType,
-    title: activity.subject ?? null,
-    body: activity.body ?? null,
-    status: 'done',
-    scheduledAt: null,
-    occurredAt: activity.occurredAt ?? null,
-    priority: null,
-    authorUserId: activity.authorUserId ?? null,
-    ownerUserId: null,
-    appearanceIcon: activity.appearanceIcon ?? null,
-    appearanceColor: activity.appearanceColor ?? null,
-    source: 'legacy-activity',
-    entityId: activity.entityId ?? null,
-    dealId: activity.dealId ?? null,
-    organizationId: null,
-    tenantId: null,
-    authorName: activity.authorName ?? null,
-    authorEmail: activity.authorEmail ?? null,
-    dealTitle: activity.dealTitle ?? null,
-    customValues: activity.customValues ?? null,
-    createdAt: activity.createdAt,
-    updatedAt: activity.createdAt,
-  }
 }
 
 function sortTimelineActivities(items: InteractionSummary[]): InteractionSummary[] {

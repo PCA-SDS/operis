@@ -15,16 +15,11 @@ import { LABEL_CLASS } from '../../calendar/editor/inputs'
 import type { ActivityType, ScheduleFieldId } from './fieldConfig'
 import { isVisible, getFieldLabel } from './fieldConfig'
 import type { LinkedEntity } from './useScheduleFormState'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
 
 const ENTITY_LINK_TYPES = ['company', 'deal', 'offer'] as const
 
 const PAGE_SIZE = 20
-
-function readLabelCandidate(value: unknown): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  return trimmed.length > 0 ? trimmed : null
-}
 
 function resolveLinkedEntityLabel(
   item: Record<string, unknown>,
@@ -32,19 +27,19 @@ function resolveLinkedEntityLabel(
 ): string {
   if (linkType === 'offer') {
     const quoteNumber =
-      readLabelCandidate(item.quoteNumber)
-      ?? readLabelCandidate(item.quote_number)
-      ?? readLabelCandidate(item.documentNumber)
-      ?? readLabelCandidate(item.document_number)
-      ?? readLabelCandidate(item.externalReference)
-      ?? readLabelCandidate(item.external_reference)
+      normalizeOptionalString(item.quoteNumber)
+      ?? normalizeOptionalString(item.quote_number)
+      ?? normalizeOptionalString(item.documentNumber)
+      ?? normalizeOptionalString(item.document_number)
+      ?? normalizeOptionalString(item.externalReference)
+      ?? normalizeOptionalString(item.external_reference)
     const customerName =
-      readLabelCandidate(item.customerName)
-      ?? readLabelCandidate(item.customer_name)
-      ?? readLabelCandidate(item.display_name)
-      ?? readLabelCandidate(item.displayName)
-      ?? readLabelCandidate(item.name)
-      ?? readLabelCandidate(item.title)
+      normalizeOptionalString(item.customerName)
+      ?? normalizeOptionalString(item.customer_name)
+      ?? normalizeOptionalString(item.display_name)
+      ?? normalizeOptionalString(item.displayName)
+      ?? normalizeOptionalString(item.name)
+      ?? normalizeOptionalString(item.title)
     if (quoteNumber && customerName) return `${quoteNumber} · ${customerName}`
     if (quoteNumber) return quoteNumber
     if (customerName) return customerName
@@ -52,18 +47,18 @@ function resolveLinkedEntityLabel(
 
   if (linkType === 'deal') {
     const dealLabel =
-      readLabelCandidate(item.title)
-      ?? readLabelCandidate(item.name)
-      ?? readLabelCandidate(item.display_name)
-      ?? readLabelCandidate(item.displayName)
+      normalizeOptionalString(item.title)
+      ?? normalizeOptionalString(item.name)
+      ?? normalizeOptionalString(item.display_name)
+      ?? normalizeOptionalString(item.displayName)
     if (dealLabel) return dealLabel
   }
 
   return (
-    readLabelCandidate(item.display_name)
-    ?? readLabelCandidate(item.displayName)
-    ?? readLabelCandidate(item.name)
-    ?? readLabelCandidate(item.title)
+    normalizeOptionalString(item.display_name)
+    ?? normalizeOptionalString(item.displayName)
+    ?? normalizeOptionalString(item.name)
+    ?? normalizeOptionalString(item.title)
     ?? String(item.id ?? '')
   )
 }
