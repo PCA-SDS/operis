@@ -12,6 +12,7 @@ import { CustomerInteraction } from '@open-mercato/core/modules/customers/data/e
 import { loadCustomerSummaries } from '@open-mercato/core/modules/customers/lib/interactionReadModel'
 import { exampleTag } from '../../../../example/api/openapi'
 import { mappingListQuerySchema } from '../../../data/validators'
+import { toIsoOrNull } from '@open-mercato/shared/lib/date/normalize'
 
 export const metadata = {
   path: '/example-customers-sync/mappings',
@@ -51,15 +52,6 @@ function decodeCursor(token: string | undefined): CursorPayload | null {
   } catch {
     return null
   }
-}
-
-function toIsoString(value: Date | string | null | undefined): string | null {
-  if (!value) return null
-  if (value instanceof Date) {
-    return Number.isNaN(value.getTime()) ? null : value.toISOString()
-  }
-  const parsed = new Date(value)
-  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString()
 }
 
 export async function GET(request: Request) {
@@ -172,11 +164,11 @@ export async function GET(request: Request) {
         interactionId: row.interaction_id,
         todoId: row.todo_id,
         syncStatus: row.sync_status,
-        lastSyncedAt: toIsoString(row.last_synced_at),
+        lastSyncedAt: toIsoOrNull(row.last_synced_at),
         lastError: row.last_error ?? null,
-        sourceUpdatedAt: toIsoString(row.source_updated_at),
-        createdAt: toIsoString(row.created_at),
-        updatedAt: toIsoString(row.updated_at),
+        sourceUpdatedAt: toIsoOrNull(row.source_updated_at),
+        createdAt: toIsoOrNull(row.created_at),
+        updatedAt: toIsoOrNull(row.updated_at),
         organizationId: row.organization_id,
         tenantId: row.tenant_id,
         exampleHref: `/backend/todos/${encodeURIComponent(row.todo_id)}/edit`,
@@ -195,7 +187,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       items,
-      ...(last ? { nextCursor: encodeCursor({ updatedAt: toIsoString(last.updated_at) ?? new Date(0).toISOString(), id: last.id }) } : {}),
+      ...(last ? { nextCursor: encodeCursor({ updatedAt: toIsoOrNull(last.updated_at) ?? new Date(0).toISOString(), id: last.id }) } : {}),
     })
   } catch (error) {
     if (error instanceof z.ZodError) {

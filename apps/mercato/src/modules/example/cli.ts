@@ -4,6 +4,7 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import { Todo } from './data/entities'
 import { installCustomEntitiesFromModules } from '@open-mercato/core/modules/entities/lib/install-from-ce'
 import type { DataEngine } from '@open-mercato/shared/lib/data/engine'
+import { parseCliArgs } from '@open-mercato/shared/lib/cli/args'
 const ENTITY_ID = 'example:todo' as const
 import type { CacheStrategy } from '@open-mercato/cache/types'
 
@@ -85,21 +86,6 @@ type TodoSeedArgs = {
   tenantId: string
 }
 
-function parseArgs(rest: string[]) {
-  const args: Record<string, string | boolean> = {}
-  for (let i = 0; i < rest.length; i++) {
-    const a = rest[i]
-    if (!a) continue
-    if (a.startsWith('--')) {
-      const [k, v] = a.replace(/^--/, '').split('=')
-      if (v !== undefined) args[k] = v
-      else if (rest[i + 1] && !rest[i + 1]!.startsWith('--')) { args[k] = rest[i + 1]!; i++ }
-      else args[k] = true
-    }
-  }
-  return args
-}
-
 export async function seedExampleTodos(
   em: EntityManager,
   container: AppContainer,
@@ -176,7 +162,7 @@ const hello: ModuleCli = {
 const seedTodos: ModuleCli = {
   command: 'seed-todos',
   async run(rest) {
-    const args = parseArgs(rest)
+    const args = parseCliArgs(rest)
     const orgIdArg = args.org || args.organizationId
     const tenantIdArg = args.tenant || args.tenantId
     if (!orgIdArg) {

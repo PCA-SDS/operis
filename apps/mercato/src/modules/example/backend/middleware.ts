@@ -24,12 +24,12 @@ import {
   CONTINUE_PAGE_MIDDLEWARE,
   type PageRouteMiddleware,
 } from '@open-mercato/shared/modules/middleware/page'
+import { UUID_SHAPE_PATTERN } from '@open-mercato/shared/lib/validation'
 
 /** Where a rejected deep link lands. Matches `RowActions` links in `components/TodosTable.tsx`. */
 export const TODOS_LIST_PATH = '/backend/todos'
 
 const TODO_EDIT_PATHNAME = /^\/backend\/todos\/([^/]+)\/edit\/?$/
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /**
  * Pure pathname decision, exported so `__tests__/backend-middleware.test.ts` can
@@ -41,7 +41,7 @@ export function resolveTodoEditRedirect(pathname: string): string | null {
   const match = TODO_EDIT_PATHNAME.exec(pathname)
   if (!match) return null
   const todoId = decodeURIComponent(match[1])
-  return UUID_PATTERN.test(todoId) ? null : TODOS_LIST_PATH
+  return UUID_SHAPE_PATTERN.test(todoId) ? null : TODOS_LIST_PATH
 }
 
 export const middleware: PageRouteMiddleware[] = [

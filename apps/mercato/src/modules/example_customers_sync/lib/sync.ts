@@ -25,7 +25,7 @@ import {
   deleteExampleCustomerInteractionMapping,
   findMappingByInteractionId,
   findMappingByTodoId,
-  upsertExampleCustomerInteractionMapping,
+  upsertExampleCustomerInteractionMapping, isDuplicateKeyError,
 } from './mappings'
 import {
   buildExampleCustomersSyncCommandContext,
@@ -127,18 +127,6 @@ function isNotFoundError(error: unknown): boolean {
   if (error instanceof CrudHttpError) return error.status === 404
   if (error instanceof Error) return /not found/i.test(error.message)
   return false
-}
-
-function isDuplicateKeyError(error: unknown): boolean {
-  return Boolean(
-    error
-    && typeof error === 'object'
-    && (
-      (typeof (error as { code?: unknown }).code === 'string' && (error as { code: string }).code === '23505')
-      || (typeof (error as { message?: unknown }).message === 'string'
-        && (error as { message: string }).message.toLowerCase().includes('duplicate key'))
-    )
-  )
 }
 
 async function emitMappingEvent(

@@ -1,3 +1,5 @@
+import { parseCommaSeparatedList } from '@open-mercato/shared/lib/string'
+
 // This file is mirrored verbatim between:
 //   - apps/mercato/src/lib/dev-origins.ts
 // Scaffolded standalone apps cannot import @open-mercato/*, so the
@@ -47,13 +49,6 @@ function readAllowedOriginHostname(raw: string | undefined): string | null {
   }
 }
 
-function readCsv(value: string | undefined): string[] {
-  return (value ?? '')
-    .split(',')
-    .map((item) => item.trim())
-    .filter((item) => item.length > 0)
-}
-
 function addOriginHostname(origins: Set<string>, hostname: string): void {
   const normalized = normalizeHostname(hostname)
   origins.add(normalized)
@@ -75,7 +70,7 @@ export function resolveAllowedDevOrigins(env: NodeJS.ProcessEnv = process.env): 
     }
   }
 
-  for (const raw of readCsv(env.APP_ALLOWED_ORIGINS)) {
+  for (const raw of parseCommaSeparatedList(env.APP_ALLOWED_ORIGINS)) {
     const hostname = readAllowedOriginHostname(raw)
     if (hostname) {
       addOriginHostname(origins, hostname)
