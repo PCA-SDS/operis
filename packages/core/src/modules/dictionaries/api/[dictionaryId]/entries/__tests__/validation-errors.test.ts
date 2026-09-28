@@ -41,9 +41,8 @@ jest.mock('@open-mercato/core/modules/dictionaries/api/context', () => ({
   resolveDictionaryActorId: jest.fn(() => userId),
 }))
 
-jest.mock('@open-mercato/shared/lib/crud/mutation-guard', () => ({
-  validateCrudMutationGuard: jest.fn(),
-  runCrudMutationGuardAfterSuccess: jest.fn(),
+jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
+  runRouteMutationGuards: jest.fn(async () => ({ ok: true, runAfterSuccess: async () => undefined })),
 }))
 
 jest.mock('@open-mercato/shared/lib/encryption/find', () => ({

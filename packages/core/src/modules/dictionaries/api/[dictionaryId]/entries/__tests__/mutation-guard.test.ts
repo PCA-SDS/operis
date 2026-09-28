@@ -12,8 +12,8 @@ const em = {
   flush: jest.fn(),
 }
 
-const validateCrudMutationGuardMock = jest.fn()
-const runCrudMutationGuardAfterSuccessMock = jest.fn()
+const runRouteMutationGuardsMock = jest.fn()
+const runAfterSuccessMock = jest.fn()
 const commandBusExecuteMock = jest.fn()
 
 const container = {
@@ -47,9 +47,8 @@ jest.mock('@open-mercato/core/modules/dictionaries/api/context', () => ({
   resolveDictionaryActorId: jest.fn(() => userId),
 }))
 
-jest.mock('@open-mercato/shared/lib/crud/mutation-guard', () => ({
-  validateCrudMutationGuard: (...args: unknown[]) => validateCrudMutationGuardMock(...args),
-  runCrudMutationGuardAfterSuccess: (...args: unknown[]) => runCrudMutationGuardAfterSuccessMock(...args),
+jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
+  runRouteMutationGuards: (...args: unknown[]) => runRouteMutationGuardsMock(...args),
 }))
 
 jest.mock('@open-mercato/shared/lib/encryption/find', () => ({
@@ -77,8 +76,8 @@ describe('dictionary entry custom write routes', () => {
     jest.clearAllMocks()
     em.fork.mockReturnValue(em)
     em.flush.mockResolvedValue(undefined)
-    validateCrudMutationGuardMock.mockResolvedValue({ ok: true, shouldRunAfterSuccess: true, metadata: { token: 'guard' } })
-    runCrudMutationGuardAfterSuccessMock.mockResolvedValue(undefined)
+    runRouteMutationGuardsMock.mockResolvedValue({ ok: true, runAfterSuccess: runAfterSuccessMock })
+    runAfterSuccessMock.mockResolvedValue(undefined)
     commandBusExecuteMock.mockResolvedValue({
       result: { dictionaryId, updatedIds: [entryId], entryId, clearedIds: [] },
       logEntry: null,
@@ -101,28 +100,18 @@ describe('dictionary entry custom write routes', () => {
     )
 
     expect(response.status).toBe(200)
-    expect(validateCrudMutationGuardMock).toHaveBeenCalledWith(
-      context.container,
+    expect(runRouteMutationGuardsMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        tenantId,
-        organizationId,
-        userId,
-        resourceKind: 'dictionaries.dictionary',
-        resourceId: dictionaryId,
-        operation: 'custom',
+        container: context.container,
+        auth: expect.objectContaining({ tenantId, organizationId, userId }),
+        input: expect.objectContaining({
+          resourceKind: 'dictionaries.dictionary',
+          resourceId: dictionaryId,
+          operation: 'custom',
+        }),
       }),
     )
-    expect(runCrudMutationGuardAfterSuccessMock).toHaveBeenCalledWith(
-      context.container,
-      expect.objectContaining({
-        tenantId,
-        organizationId,
-        userId,
-        resourceKind: 'dictionaries.dictionary',
-        resourceId: dictionaryId,
-        operation: 'custom',
-      }),
-    )
+    expect(runAfterSuccessMock).toHaveBeenCalled()
   })
 
   it('runs the mutation guard when setting a default entry', async () => {
@@ -143,27 +132,17 @@ describe('dictionary entry custom write routes', () => {
     )
 
     expect(response.status).toBe(200)
-    expect(validateCrudMutationGuardMock).toHaveBeenCalledWith(
-      context.container,
+    expect(runRouteMutationGuardsMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        tenantId,
-        organizationId,
-        userId,
-        resourceKind: 'dictionaries.dictionary',
-        resourceId: dictionaryId,
-        operation: 'custom',
+        container: context.container,
+        auth: expect.objectContaining({ tenantId, organizationId, userId }),
+        input: expect.objectContaining({
+          resourceKind: 'dictionaries.dictionary',
+          resourceId: dictionaryId,
+          operation: 'custom',
+        }),
       }),
     )
-    expect(runCrudMutationGuardAfterSuccessMock).toHaveBeenCalledWith(
-      context.container,
-      expect.objectContaining({
-        tenantId,
-        organizationId,
-        userId,
-        resourceKind: 'dictionaries.dictionary',
-        resourceId: dictionaryId,
-        operation: 'custom',
-      }),
-    )
+    expect(runAfterSuccessMock).toHaveBeenCalled()
   })
 })
