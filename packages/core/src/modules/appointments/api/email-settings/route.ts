@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
-import { runCrudMutationGuardAfterSuccess, validateCrudMutationGuard } from '@open-mercato/shared/lib/crud/mutation-guard'
 import type { ModuleConfigService } from '@open-mercato/core/modules/configs/lib/module-config-service'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { createLogger } from '@open-mercato/shared/lib/logger'
@@ -12,6 +11,7 @@ import {
   appointmentEmailSettingsSchema,
   DEFAULT_APPOINTMENT_EMAIL_SETTINGS,
 } from '../../lib/email-settings'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const logger = createLogger('appointments').child({ component: 'email-settings' })
 
@@ -54,19 +54,19 @@ export async function PUT(req: Request) {
       (typeof auth.userId === 'string' && auth.userId.trim() && auth.userId) ||
       (typeof auth.keyId === 'string' && auth.keyId.trim() && auth.keyId) ||
       'system'
-    const guardResult = await validateCrudMutationGuard(container, {
-      tenantId: auth.tenantId,
-      organizationId: auth.orgId ?? null,
-      userId: actorId,
-      resourceKind: 'appointments.email-settings',
-      resourceId: APPOINTMENT_EMAIL_SETTINGS_KEY,
-      operation: 'custom',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      mutationPayload: parsed.data,
+    const guardResult = await runRouteMutationGuards({
+      container,
+      req,
+      auth: { userId: actorId, tenantId: auth.tenantId, organizationId: auth.orgId ?? null },
+      input: {
+        resourceKind: 'appointments.email-settings',
+        resourceId: APPOINTMENT_EMAIL_SETTINGS_KEY,
+        operation: 'custom',
+        mutationPayload: parsed.data,
+      },
     })
-    if (guardResult && !guardResult.ok) {
-      return NextResponse.json(guardResult.body, { status: guardResult.status })
+    if (!guardResult.ok) {
+      return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
     }
     const configService = container.resolve('moduleConfigService') as ModuleConfigService
     await configService.setValue(
@@ -75,19 +75,7 @@ export async function PUT(req: Request) {
       parsed.data,
       { tenantId: auth.tenantId },
     )
-    if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-      await runCrudMutationGuardAfterSuccess(container, {
-        tenantId: auth.tenantId,
-        organizationId: auth.orgId ?? null,
-        userId: actorId,
-        resourceKind: 'appointments.email-settings',
-        resourceId: APPOINTMENT_EMAIL_SETTINGS_KEY,
-        operation: 'custom',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
-        metadata: guardResult.metadata ?? null,
-      })
-    }
+    await guardResult.runAfterSuccess()
     return NextResponse.json(parsed.data)
   } catch (err) {
     if (err instanceof z.ZodError) {

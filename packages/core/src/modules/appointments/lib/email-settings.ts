@@ -6,7 +6,7 @@ export const APPOINTMENT_EMAIL_SETTINGS_KEY = 'public_booking_email'
 
 const emailListSchema = z.string().trim().refine((value) => {
   if (!value) return true
-  return value.split(',').every((email) => z.string().email().safeParse(email.trim()).success)
+  return value.split(',').every((email) => emailSchema().safeParse(email.trim()).success)
 }, 'Enter valid email addresses separated by commas.')
 
 export const appointmentEmailSettingsSchema = z.object({
@@ -14,7 +14,7 @@ export const appointmentEmailSettingsSchema = z.object({
   to: emailListSchema,
   cc: emailListSchema,
   bcc: emailListSchema,
-  replyTo: z.string().trim().email().or(z.literal('')),
+  replyTo: emailSchema().or(z.literal('')),
 })
 
 export type AppointmentEmailSettings = z.infer<typeof appointmentEmailSettingsSchema>

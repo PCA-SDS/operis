@@ -1,7 +1,7 @@
 const tenantId = '11111111-1111-4111-8111-111111111111'
 const userId = '33333333-3333-4333-8333-333333333333'
-const validateCrudMutationGuardMock = jest.fn()
-const runCrudMutationGuardAfterSuccessMock = jest.fn()
+const runRouteMutationGuardsMock = jest.fn()
+const runAfterSuccessMock = jest.fn()
 const getRecordMock = jest.fn()
 const setValueMock = jest.fn()
 const container = {
@@ -14,9 +14,8 @@ let authValue: Record<string, unknown> | null = { tenantId, sub: userId }
 
 jest.mock('@open-mercato/shared/lib/di/container', () => ({ createRequestContainer: jest.fn(async () => container) }))
 jest.mock('@open-mercato/shared/lib/auth/server', () => ({ getAuthFromRequest: jest.fn(async () => authValue) }))
-jest.mock('@open-mercato/shared/lib/crud/mutation-guard', () => ({
-  validateCrudMutationGuard: (...args: unknown[]) => validateCrudMutationGuardMock(...args),
-  runCrudMutationGuardAfterSuccess: (...args: unknown[]) => runCrudMutationGuardAfterSuccessMock(...args),
+jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
+  runRouteMutationGuards: (...args: unknown[]) => runRouteMutationGuardsMock(...args),
 }))
 
 import { GET, PUT } from '../route'
@@ -33,8 +32,8 @@ describe('appointment email settings route', () => {
     authValue = { tenantId, sub: userId }
     getRecordMock.mockResolvedValue(null)
     setValueMock.mockResolvedValue(undefined)
-    validateCrudMutationGuardMock.mockResolvedValue({ ok: true, shouldRunAfterSuccess: true, metadata: { token: 'guard' } })
-    runCrudMutationGuardAfterSuccessMock.mockResolvedValue(undefined)
+    runRouteMutationGuardsMock.mockResolvedValue({ ok: true, runAfterSuccess: runAfterSuccessMock })
+    runAfterSuccessMock.mockResolvedValue(undefined)
   })
 
   it('reads settings in the authenticated tenant scope', async () => {
@@ -62,7 +61,13 @@ describe('appointment email settings route', () => {
     const response = await PUT(makePutRequest(settings))
     expect(response.status).toBe(200)
     expect(setValueMock).toHaveBeenCalledWith('appointments', 'public_booking_email', settings, { tenantId })
-    expect(validateCrudMutationGuardMock).toHaveBeenCalledWith(container, expect.objectContaining({ tenantId, userId, resourceKind: 'appointments.email-settings' }))
+    expect(runRouteMutationGuardsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        container,
+        auth: expect.objectContaining({ tenantId, userId }),
+        input: expect.objectContaining({ resourceKind: 'appointments.email-settings' }),
+      }),
+    )
     await expect(response.json()).resolves.toEqual(settings)
   })
 

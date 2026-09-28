@@ -28,6 +28,10 @@ import { BookingOverviewCreateSheet } from '../../../components/BookingOverviewC
 import { groupSeatPlannerOptions } from '../../../lib/seatPlannerOptions'
 import { useBackendChrome } from '@open-mercato/ui/backend/BackendChromeProvider'
 import { getAppointmentPermissionSet } from '../../../lib/permissions'
+import { isAbortError } from '@open-mercato/shared/lib/async'
+import { minutesToTime } from '../../../lib/timeOfDay'
+import { toLocalDateKey } from '@open-mercato/shared/lib/date/format'
+import { formatTime } from '@open-mercato/shared/lib/time'
 
 type Resource = { id: string; name: string; code: string | null; appearanceIcon: string | null; capacityUnitIcon: string | null; capacityUnitColor: string | null; typeIcon: string | null; typeColor: string | null; areaName: string | null; availabilityWindows: Array<{ startsAt: string; endsAt: string }> | null }
 type Line = { id: string; productId: string; productTitle: string; productCategory: string | null; durationMinutes: number | null; options?: Array<{ groupName: string | null; name: string }> }
@@ -112,19 +116,9 @@ function parseDate(value: string) {
   const [year, month, day] = value.split('-').map(Number)
   return new Date(year, month - 1, day)
 }
-function serializeDate(value: Date) {
-  const year = value.getFullYear()
-  const month = String(value.getMonth() + 1).padStart(2, '0')
-  const day = String(value.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-function displayTime(value: string) { return new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
 function addMinutes(value: string, minutes: number) { return new Date(new Date(value).getTime() + minutes * 60000).toISOString() }
 function flattenOrganizations(nodes: OrganizationNode[]): OrganizationNode[] {
   return nodes.flatMap((node) => [node, ...flattenOrganizations(node.children ?? [])])
-}
-function isAbortError(error: unknown) {
-  return error instanceof Error && (error.name === 'AbortError' || error.message === 'signal is aborted without reason')
 }
 
 function timeInputValue(value: string) {
@@ -142,10 +136,6 @@ function updateTimeValue(value: string, time: string) {
 function timeToMinutes(value: string) {
   const [hours = '0', minutes = '0'] = value.split(':')
   return Number(hours) * 60 + Number(minutes)
-}
-
-function minutesToTime(minutes: number) {
-  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`
 }
 
 function buildTimeSlots(startMinutes: number, endMinutes: number) {
@@ -310,7 +300,7 @@ function BookingQuickPopover({
       <div className="mt-3 grid grid-cols-3 gap-3 rounded-md bg-muted px-2.5 py-2 text-xs">
         <div className="col-span-2 min-w-0">
           <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground"><Clock className="size-3.5" />{t('appointments.overview.time', 'Time')}</div>
-          <p className="mt-1 whitespace-nowrap text-sm font-semibold tabular-nums">{displayTime(startsAt)} - {displayTime(endsAt)}</p>
+          <p className="mt-1 whitespace-nowrap text-sm font-semibold tabular-nums">{formatTime(startsAt)} - {formatTime(endsAt)}</p>
         </div>
         <div className="min-w-0">
           <div className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground"><Timer className="size-3.5" />{t('appointments.overview.duration', 'Duration')}</div>
@@ -348,7 +338,7 @@ function BookingQuickPopover({
                 {line.productCategory ? <p className="mt-0.5 text-muted-foreground">{line.productCategory}</p> : null}
                 <BookingLineOptions options={line.options ?? []} />
                 {canManage ? <button type="button" className="mt-1 flex items-center gap-1 text-left text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60" disabled={!block} onClick={() => onAssignStaff(appointment, line, block ?? null)}><Users className="size-3.5" />{assignedMemberNamesFor(block).join(', ') || t('appointments.overview.noStaff', 'No staff assigned')}</button> : <span className="mt-1 flex items-center gap-1 text-muted-foreground"><Users className="size-3.5" />{assignedMemberNamesFor(block).join(', ') || t('appointments.overview.noStaff', 'No staff assigned')}</span>}
-                {block && canManage ? <BookingScheduleEditor block={block} timelineStartMinutes={timelineStartMinutes} timelineEndMinutes={timelineEndMinutes} onSave={(startsAt, endsAt) => onScheduleChange(appointment, line, block, startsAt, endsAt)} /> : <div className="mt-2 grid grid-cols-2 gap-2 tabular-nums"><div className="rounded-md bg-input-bg px-2 py-1.5"><span className="mr-2 text-muted-foreground">{t('appointments.overview.time', 'Time')}</span>{block ? displayTime(block.startsAt) : '—'}</div><div className="rounded-md bg-input-bg px-2 py-1.5"><span className="mr-2 text-muted-foreground">{t('appointments.overview.end', 'End')}</span>{block ? displayTime(block.endsAt) : '—'}</div></div>}
+                {block && canManage ? <BookingScheduleEditor block={block} timelineStartMinutes={timelineStartMinutes} timelineEndMinutes={timelineEndMinutes} onSave={(startsAt, endsAt) => onScheduleChange(appointment, line, block, startsAt, endsAt)} /> : <div className="mt-2 grid grid-cols-2 gap-2 tabular-nums"><div className="rounded-md bg-input-bg px-2 py-1.5"><span className="mr-2 text-muted-foreground">{t('appointments.overview.time', 'Time')}</span>{block ? formatTime(block.startsAt) : '—'}</div><div className="rounded-md bg-input-bg px-2 py-1.5"><span className="mr-2 text-muted-foreground">{t('appointments.overview.end', 'End')}</span>{block ? formatTime(block.endsAt) : '—'}</div></div>}
               </div>
             )
           })}
@@ -938,7 +928,7 @@ export default function BookingOverviewPage() {
               {placementAppointment ? <Button type="button" variant="outline" disabled={isAssigning} onClick={() => setPlacementAppointment(null)}><Users className="mr-2 size-4" />{t('appointments.overview.placing', 'Placing: {{name}}').replace('{{name}}', placementAppointment.customerName)}<X className="ml-2 size-4" /></Button> : null}
               <DatePicker
                 value={parseDate(date)}
-                onChange={(value) => { if (value) setDate(serializeDate(value)) }}
+                onChange={(value) => { if (value) setDate(toLocalDateKey(value)) }}
                 footer="none"
                 className="w-52"
                 aria-label={t('appointments.overview.date', 'Date')}
@@ -1007,7 +997,7 @@ export default function BookingOverviewPage() {
                       <p className="truncate text-lg font-semibold">{appointment.customerSalutation ? `${appointment.customerSalutation}. ` : ''}{appointment.customerName}</p>
                       <p className="text-sm text-muted-foreground">{appointment.customerPhoneCountryCode ? `${appointment.customerPhoneCountryCode} ` : ''}{appointment.customerPhone ?? t('appointments.list.noValue')}</p>
                     </div>
-                    <span className="shrink-0 rounded-md bg-status-warning-bg px-2 py-1 text-sm font-semibold text-status-warning-text">{displayTime(appointment.requestedStartAt)}</span>
+                    <span className="shrink-0 rounded-md bg-status-warning-bg px-2 py-1 text-sm font-semibold text-status-warning-text">{formatTime(appointment.requestedStartAt)}</span>
                   </div>
                   <p className="mt-3 flex items-center gap-2 text-sm text-muted-foreground"><Clock className="size-4" />{duration} {t('appointments.overview.minutes', 'mins')}</p>
                   <p className="mt-3 rounded-md bg-input-bg px-3 py-2 text-sm text-muted-foreground">{appointment.lines.map((line) => line.productTitle).join(', ')}</p>

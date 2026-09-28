@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { CUSTOMER_ORIGIN_CODES } from '@open-mercato/core/modules/customers/data/constants'
 import { APPOINTMENT_BOOKING_TYPE_CODES } from './constants'
+import { emailSchema } from '@open-mercato/shared/lib/validation'
 
 const uuid = () => z.string().uuid()
 
@@ -58,7 +59,7 @@ export const appointmentPublicCreateSchema = appointmentCreateFieldsSchema.exten
 export const appointmentPublicCustomerLookupSchema = z.object({
   tenantId: uuid(),
   phone: z.string().trim().min(1).max(50),
-  email: z.string().trim().email().max(255),
+  email: emailSchema({ maxLength: 255 }),
   phoneCountryCode: clearableString(8),
   phoneCountry: clearableString(120),
 })

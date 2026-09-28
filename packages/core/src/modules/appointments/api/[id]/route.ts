@@ -21,6 +21,7 @@ import { createLogger } from '@open-mercato/shared/lib/logger'
 import { ensureSystemAppointmentStatuses } from '../../setup'
 import { getVisibleAppointmentExternalNotes, preserveAppointmentSourceMarker } from '../../lib/notes'
 import { ResourceAssignmentService } from '@open-mercato/core/modules/resources/lib/resourceAssignmentService'
+import { loadScopedAppointment } from './shared'
 
 const logger = createLogger('appointments')
 
@@ -119,20 +120,6 @@ async function loadCustomerSource(
 }
 
 export const APPOINTMENT_RESOURCE_KIND = 'appointments.appointment'
-
-async function loadScopedAppointment(
-  em: EntityManager,
-  tenantId: string,
-  id: string,
-  orgWhere: Record<string, unknown>,
-): Promise<Appointment | null> {
-  return em.findOne(Appointment, {
-    id,
-    tenantId,
-    ...orgWhere,
-    deletedAt: null,
-  })
-}
 
 export async function GET(req: Request, ctx: RouteContext) {
   const { translate } = await resolveTranslations()

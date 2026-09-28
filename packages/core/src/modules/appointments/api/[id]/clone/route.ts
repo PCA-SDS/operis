@@ -12,26 +12,13 @@ import { Appointment, AppointmentLine, AppointmentStatus } from '../../../data/e
 import { emitAppointmentEvent } from '../../../events'
 import { DEFAULT_PUBLIC_APPOINTMENT_STATUS_CODE } from '../../../data/constants'
 import { ensureSystemAppointmentStatuses } from '../../../setup'
+import { loadScopedAppointment } from '../shared'
 
 export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['appointments.create'] },
 }
 
 type RouteContext = { params: Promise<{ id: string }> }
-
-async function loadScopedAppointment(
-  em: EntityManager,
-  tenantId: string,
-  id: string,
-  orgWhere: Record<string, unknown>,
-): Promise<Appointment | null> {
-  return em.findOne(Appointment, {
-    id,
-    tenantId,
-    ...orgWhere,
-    deletedAt: null,
-  })
-}
 
 export async function POST(req: Request, ctx: RouteContext) {
   const { translate } = await resolveTranslations()

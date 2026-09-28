@@ -21,7 +21,8 @@ import { enforceCommandOptimisticLock } from '@open-mercato/shared/lib/crud/opti
 import { StaffTeamMember } from '@open-mercato/core/modules/staff/data/entities'
 import { Appointment, AppointmentLine, AppointmentLineOptionGroup, AppointmentStatus } from '../data/entities'
 import { loadLineOptionSnapshots, normalizeLineOptions } from './lineOptionSnapshot'
-import { loadResourceAvailabilityWindows, resolveResourceOrganizationIds } from './resourceAvailability'
+import { loadResourceAvailabilityWindows } from './resourceAvailability'
+import { resolveOrganizationAndAncestorIds } from '@open-mercato/core/modules/directory/lib/hierarchy'
 
 export interface SeatPlannerLine {
   id: string
@@ -202,7 +203,7 @@ export class AppointmentSeatPlannerService {
       },
       { orderBy: { sortOrder: 'asc' } },
     )
-    const resourceOrganizationIds = await resolveResourceOrganizationIds(this.em, params.tenantId, appointment.organizationId)
+    const resourceOrganizationIds = await resolveOrganizationAndAncestorIds(this.em, params.tenantId, appointment.organizationId)
 
     // Resources are maintained at the parent organization, while bookings may
     // belong to a child organization. Include the booking org and its ancestors.
@@ -504,7 +505,7 @@ export class AppointmentSeatPlannerService {
 
     line.seatPlannerClearedAt = null
 
-    const resourceOrganizationIds = await resolveResourceOrganizationIds(this.em, params.tenantId, line.organizationId)
+    const resourceOrganizationIds = await resolveOrganizationAndAncestorIds(this.em, params.tenantId, line.organizationId)
 
     const assignedMemberIds = Array.from(new Set([
       ...(params.assignedMemberIds ?? []),
@@ -684,7 +685,7 @@ export class AppointmentSeatPlannerService {
     )
 
     const allAssignments: AssignmentDTO[] = []
-    const resourceOrganizationIds = await resolveResourceOrganizationIds(this.em, params.tenantId, params.organizationId)
+    const resourceOrganizationIds = await resolveOrganizationAndAncestorIds(this.em, params.tenantId, params.organizationId)
     const allLineIds = lines.map((line) => line.id)
     const expectedByLineId = new Map(
       (params.expectedAssignments ?? []).map((assignment) => [assignment.lineId, assignment]),

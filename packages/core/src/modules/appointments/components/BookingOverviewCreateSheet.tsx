@@ -17,6 +17,7 @@ import { useOrganizationScopeDetail } from '@open-mercato/shared/lib/frontend/us
 import { AppointmentServicePicker, hasCompleteAppointmentServiceOptions, type AppointmentBookableService, type AppointmentServiceSelection } from './AppointmentServicePicker'
 import { DictionarySelectField } from '@open-mercato/core/modules/customers/components/formConfig'
 import { APPOINTMENT_BOOKING_TYPE_OPTIONS, APPOINTMENT_ORIGIN_OPTIONS } from '@open-mercato/core/modules/appointments/data/constants'
+import { isAbortError } from '@open-mercato/shared/lib/async'
 
 type CreateSheetState = { date: string; time: string; resourceId: string; resourceName: string }
 type Customer = { name?: string | null; email?: string | null; phone?: string | null; phoneCountryCode?: string | null; phoneCountry?: string | null; salutation?: string | null; origin?: 'local' | 'tourist' | 'expatriate' | null; source?: string | null }
@@ -39,10 +40,6 @@ function normalizePhoneValue(phone: string | null | undefined, phoneCountryCode:
 
 function foldSearchText(value: string) {
   return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-}
-
-function isAbortError(error: unknown) {
-  return error instanceof Error && (error.name === 'AbortError' || error.message === 'signal is aborted without reason')
 }
 
 function isDropdownOverlayTarget(target: EventTarget | null) {
