@@ -29,3 +29,25 @@ export function parseCommaSeparatedList(value: string | null | undefined): strin
     .filter(Boolean)
 }
 
+/** A non-empty string exactly as given (not trimmed); anything else is `null`. */
+export function nonEmptyStringOrNull(value: unknown): string | null {
+  return typeof value === 'string' && value.length > 0 ? value : null
+}
+
+/** The string entries of an array that are not blank, left untrimmed; a non-array yields `[]`. */
+export function toNonEmptyStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
+}
+
+/** `record[key]` trimmed, or `null` when it is not a non-blank string. */
+export function readTrimmedString(record: Record<string, unknown>, key: string): string | null {
+  return normalizeOptionalString(record[key])
+}
+
+/** `record[key]` as given when it is a string (blank included), otherwise `null`. */
+export function readStringField(record: Record<string, unknown>, key: string): string | null {
+  const value = record[key]
+  return typeof value === 'string' ? value : null
+}
+

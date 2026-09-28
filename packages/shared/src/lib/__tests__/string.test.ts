@@ -1,4 +1,11 @@
-import { parseCommaSeparatedList, trimToUndefined } from '../string'
+import {
+  nonEmptyStringOrNull,
+  parseCommaSeparatedList,
+  readStringField,
+  readTrimmedString,
+  toNonEmptyStringArray,
+  trimToUndefined,
+} from '../string'
 
 describe('parseCommaSeparatedList', () => {
   it('splits a comma-separated string into entries', () => {
@@ -45,5 +52,30 @@ describe('trimToUndefined', () => {
     expect(trimToUndefined('   ')).toBeUndefined()
     expect(trimToUndefined(null)).toBeUndefined()
     expect(trimToUndefined(42)).toBeUndefined()
+  })
+})
+
+describe('record and string readers', () => {
+  const record = { name: '  Ada ', blank: '   ', count: 3 }
+
+  it('reads a trimmed non-blank string field', () => {
+    expect(readTrimmedString(record, 'name')).toBe('Ada')
+    expect(readTrimmedString(record, 'blank')).toBeNull()
+    expect(readTrimmedString(record, 'count')).toBeNull()
+    expect(readTrimmedString(record, 'missing')).toBeNull()
+  })
+
+  it('reads a string field as given', () => {
+    expect(readStringField(record, 'name')).toBe('  Ada ')
+    expect(readStringField(record, 'blank')).toBe('   ')
+    expect(readStringField(record, 'count')).toBeNull()
+  })
+
+  it('keeps non-empty strings untrimmed and filters string arrays', () => {
+    expect(nonEmptyStringOrNull(' a ')).toBe(' a ')
+    expect(nonEmptyStringOrNull('')).toBeNull()
+    expect(nonEmptyStringOrNull(1)).toBeNull()
+    expect(toNonEmptyStringArray(['a', ' ', 2, 'b'])).toEqual(['a', 'b'])
+    expect(toNonEmptyStringArray('a')).toEqual([])
   })
 })
