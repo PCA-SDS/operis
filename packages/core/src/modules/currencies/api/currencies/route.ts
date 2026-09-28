@@ -13,6 +13,7 @@ import {
   createPagedListResponseSchema,
   defaultOkResponseSchema,
 } from '../openapi'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 const routeMetadata = {
   GET: { requireAuth: true, requireFeatures: ['currencies.view'] },
@@ -69,8 +70,7 @@ const crud = makeCrudRoute<CrudInput, CrudInput, Record<string, unknown>>({
 
 const listQuerySchema = z.object({
   id: z.uuid().optional(),
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(50),
+  ...paginationQuerySchema().shape,
   search: z.string().optional(),
   sortField: z.enum(['code', 'name', 'createdAt', 'updatedAt']).optional(),
   sortDir: z.enum(['asc', 'desc']).optional(),

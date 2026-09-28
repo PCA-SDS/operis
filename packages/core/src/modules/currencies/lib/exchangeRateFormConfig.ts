@@ -2,6 +2,7 @@ import type { CrudFormGroup, CrudFieldOption } from '@open-mercato/ui/backend/Cr
 import type { ApiCallResult } from '@open-mercato/ui/backend/utils/apiCall'
 import { createCrudFormError } from '@open-mercato/ui/backend/utils/serverErrors'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { CURRENCY_CODE_PATTERN } from '@open-mercato/shared/lib/validation'
 
 const logger = createLogger('currencies').child({ component: 'exchange-rate-form' })
 
@@ -130,13 +131,13 @@ export function validateExchangeRateForm(
   const fromCode = String(values.fromCurrencyCode || '').trim().toUpperCase()
   const toCode = String(values.toCurrencyCode || '').trim().toUpperCase()
 
-  if (!/^[A-Z]{3}$/.test(fromCode)) {
+  if (!CURRENCY_CODE_PATTERN.test(fromCode)) {
     throw createCrudFormError(t('exchangeRates.form.errors.fromCurrencyFormat'), {
       fromCurrencyCode: t('exchangeRates.form.errors.currencyCodeFormat'),
     })
   }
 
-  if (!/^[A-Z]{3}$/.test(toCode)) {
+  if (!CURRENCY_CODE_PATTERN.test(toCode)) {
     throw createCrudFormError(t('exchangeRates.form.errors.toCurrencyFormat'), {
       toCurrencyCode: t('exchangeRates.form.errors.currencyCodeFormat'),
     })
