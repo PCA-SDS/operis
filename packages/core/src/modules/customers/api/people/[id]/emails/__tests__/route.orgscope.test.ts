@@ -21,15 +21,14 @@ jest.mock('@open-mercato/core/modules/directory/utils/organizationScope', () => 
   resolveOrganizationScopeForRequest: jest.fn(),
 }))
 
-jest.mock('@open-mercato/shared/lib/crud/mutation-guard', () => ({
-  validateCrudMutationGuard: jest.fn(async () => ({ ok: true, shouldRunAfterSuccess: false })),
-  runCrudMutationGuardAfterSuccess: jest.fn(async () => {}),
+jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
+  runRouteMutationGuards: jest.fn(async () => ({ ok: true, runAfterSuccess: async () => undefined })),
 }))
 
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
-import { validateCrudMutationGuard } from '@open-mercato/shared/lib/crud/mutation-guard'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 import { POST } from '../route'
 
 const PERSON_ID = '44444444-4444-4444-8444-444444444444'
@@ -64,9 +63,8 @@ describe('POST person emails — organization scoping', () => {
     expect(personWhere).toMatchObject({ id: PERSON_ID, kind: 'person', tenantId: 'tenant-1' })
     expect(personWhere).not.toHaveProperty('organizationId')
     // Guard + outbound send are attributed to the person's real org, not null.
-    expect(validateCrudMutationGuard).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({ organizationId: 'org-9' }),
+    expect(runRouteMutationGuards).toHaveBeenCalledWith(
+      expect.objectContaining({ auth: expect.objectContaining({ organizationId: 'org-9' }) }),
     )
     expect(mockSendAsUser).toHaveBeenCalledWith(
       expect.anything(),
@@ -86,7 +84,7 @@ describe('POST person emails — organization scoping', () => {
     const response = await POST(request(), { params: { id: PERSON_ID } })
 
     expect(response.status).toBe(404)
-    expect(validateCrudMutationGuard).not.toHaveBeenCalled()
+    expect(runRouteMutationGuards).not.toHaveBeenCalled()
     expect(mockSendAsUser).not.toHaveBeenCalled()
   })
 })

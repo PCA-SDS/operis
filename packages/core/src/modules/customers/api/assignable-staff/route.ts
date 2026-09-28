@@ -2,11 +2,11 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { createPagedListResponseSchema } from '../openapi'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 const querySchema = z
   .object({
-    page: z.coerce.number().int().min(1).default(1),
-    pageSize: z.coerce.number().int().min(1).max(100).default(24),
+    ...paginationQuerySchema({ defaultPageSize: 24 }).shape,
     search: z.string().optional(),
   })
   .passthrough()

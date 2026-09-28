@@ -5,15 +5,13 @@ import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
-import {
-  validateCrudMutationGuard,
-  runCrudMutationGuardAfterSuccess,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
 import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
 import { isOrganizationReadAccessAllowed } from '@open-mercato/core/modules/directory/utils/organizationScopeGuard'
-import { resolveAuthActorId } from '../../../../lib/interactionRequestContext'
+import { resolveAuthActorId } from '@open-mercato/shared/lib/auth/actor'
 import { CustomerEntity } from '../../../../data/entities'
 import type { SendAsUserService } from '@open-mercato/core/modules/communication_channels/lib/send-as-user'
+import { emailSchema } from '@open-mercato/shared/lib/validation'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 export const metadata = {
   path: '/customers/people/[id]/emails',
@@ -26,9 +24,9 @@ export const metadata = {
 const composeSchema = z
   .object({
     userChannelId: z.string().uuid(),
-    to: z.array(z.string().email()).min(1).max(50),
-    cc: z.array(z.string().email()).max(50).optional(),
-    bcc: z.array(z.string().email()).max(50).optional(),
+    to: z.array(emailSchema()).min(1).max(50),
+    cc: z.array(emailSchema()).max(50).optional(),
+    bcc: z.array(emailSchema()).max(50).optional(),
     subject: z.string().min(1).max(500),
     body: z.string().min(1).max(200_000),
     bodyFormat: z.enum(['text', 'html']).default('html'),
@@ -95,18 +93,14 @@ export async function POST(req: Request, context: RouteContext): Promise<Respons
     return NextResponse.json({ error: 'Person not found' }, { status: 404 })
   }
 
-  const guardResult = await validateCrudMutationGuard(container, {
-    tenantId: auth.tenantId,
-    organizationId,
-    userId,
-    resourceKind: 'customers.person',
-    resourceId: personId,
-    operation: 'custom',
-    requestMethod: req.method,
-    requestHeaders: req.headers,
+  const guardResult = await runRouteMutationGuards({
+    container,
+    req,
+    auth: { userId, tenantId: auth.tenantId, organizationId },
+    input: { resourceKind: 'customers.person', resourceId: personId, operation: 'custom' },
   })
-  if (guardResult && !guardResult.ok) {
-    return NextResponse.json(guardResult.body, { status: guardResult.status })
+  if (!guardResult.ok) {
+    return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
   }
 
   // 2. Call the hub's send-as-user facade in-process (resolved via DI) so the
@@ -142,19 +136,7 @@ export async function POST(req: Request, context: RouteContext): Promise<Respons
     return NextResponse.json({ error: sendResult.error }, { status: sendResult.status })
   }
 
-  if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-    await runCrudMutationGuardAfterSuccess(container, {
-      tenantId: auth.tenantId,
-      organizationId,
-      userId,
-      resourceKind: 'customers.person',
-      resourceId: personId,
-      operation: 'custom',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      metadata: guardResult.metadata ?? null,
-    })
-  }
+  await guardResult.runAfterSuccess()
 
   // Delivery is async (handled by the outbound queue worker), so this is the
   // enqueue time — not the provider send time — and the provider's external
