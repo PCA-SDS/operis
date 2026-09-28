@@ -20,6 +20,8 @@ import type {
   DealsMapPreview,
 } from './DealsMapCanvas'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { getStageBadgeClass } from './stageBadge'
+import { formatShortDate } from '@open-mercato/shared/lib/time'
 
 const logger = createLogger('customers')
 
@@ -75,25 +77,9 @@ const PIN_TONE_CLASS: Record<FilterOptionTone, string> = {
   pink: 'bg-status-pink-icon',
 }
 
-// Stage badge surface for the preview card — mirrors `Lane.tsx` COUNT_BADGE_TONE_CLASS.
-const STAGE_BADGE_TONE_CLASS: Record<FilterOptionTone, string> = {
-  success: 'bg-status-success-bg text-status-success-text',
-  error: 'bg-status-error-bg text-status-error-text',
-  warning: 'bg-status-warning-bg text-status-warning-text',
-  info: 'bg-status-info-bg text-status-info-text',
-  neutral: 'bg-status-neutral-bg text-status-neutral-text',
-  brand: 'bg-brand-violet/14 text-brand-violet',
-  pink: 'bg-status-pink-bg text-status-pink-text',
-}
-
 function getPinToneClass(tone: FilterOptionTone | null): string {
   if (tone && tone in PIN_TONE_CLASS) return PIN_TONE_CLASS[tone]
   return 'bg-status-neutral-icon'
-}
-
-function getStageBadgeClass(tone: FilterOptionTone | null): string {
-  if (tone && tone in STAGE_BADGE_TONE_CLASS) return STAGE_BADGE_TONE_CLASS[tone]
-  return 'bg-muted text-muted-foreground'
 }
 
 // divIcon html is a raw string (no React) — only the server-issued deal id is interpolated,
@@ -118,18 +104,6 @@ function buildClusterIcon(count: number): L.DivIcon {
     iconSize: [36, 36],
     iconAnchor: [18, 18],
   })
-}
-
-const shortDateFormatter = new Intl.DateTimeFormat(undefined, {
-  month: 'short',
-  day: '2-digit',
-})
-
-function formatShortDate(value: string | null): string | null {
-  if (!value) return null
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return null
-  return shortDateFormatter.format(date)
 }
 
 type PreviewCardProps = {

@@ -38,6 +38,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@open-mercato/ui/primitives/popover'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
+import { readCount } from '@open-mercato/shared/lib/number'
 
 export const CUSTOMERS_AI_INJECT_AGENT_ID = 'customers.account_assistant'
 
@@ -80,15 +81,6 @@ function readString(value: unknown): string {
   return typeof value === 'string' ? value : ''
 }
 
-function readNumber(value: unknown): number {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string') {
-    const parsed = Number.parseInt(value, 10)
-    if (Number.isFinite(parsed)) return parsed
-  }
-  return 0
-}
-
 function resolveView(tableId: string | null | undefined): CustomersAiInjectView {
   if (typeof tableId === 'string') {
     if (tableId.includes('deals')) return 'customers.deals.list'
@@ -102,8 +94,8 @@ function buildPageContext(context: HostInjectionContext | undefined): CustomersA
   const selectedIds = selectedIdsRaw.map(readString).filter((id) => id.length > 0)
   const selectedCount = selectedIds.length > 0
     ? selectedIds.length
-    : readNumber(context?.selectedCount)
-  const totalMatching = readNumber(context?.totalMatching ?? context?.total ?? context?.rowCount)
+    : readCount(context?.selectedCount)
+  const totalMatching = readCount(context?.totalMatching ?? context?.total ?? context?.rowCount)
   const recordId = selectedIds.length > 0 ? selectedIds.join(',') : null
   return {
     view: resolveView(context?.tableId),

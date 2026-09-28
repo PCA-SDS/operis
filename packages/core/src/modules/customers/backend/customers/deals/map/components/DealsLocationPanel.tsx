@@ -13,25 +13,10 @@ import {
 } from '@open-mercato/ui/primitives/select'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { translateWithFallback } from '@open-mercato/shared/lib/i18n/translate'
-import type { FilterOptionTone } from '@open-mercato/shared/lib/query/advanced-filter'
 import { formatCurrency } from '../../../../../components/detail/utils'
 import type { MapDeal, StageMeta } from './DealsMapView'
 import type { MapCenter } from './DealsMapCanvas'
-
-const STAGE_BADGE_TONE_CLASS: Record<FilterOptionTone, string> = {
-  success: 'bg-status-success-bg text-status-success-text',
-  error: 'bg-status-error-bg text-status-error-text',
-  warning: 'bg-status-warning-bg text-status-warning-text',
-  info: 'bg-status-info-bg text-status-info-text',
-  neutral: 'bg-status-neutral-bg text-status-neutral-text',
-  brand: 'bg-brand-violet/14 text-brand-violet',
-  pink: 'bg-status-pink-bg text-status-pink-text',
-}
-
-function getStageBadgeClass(tone: FilterOptionTone | null): string {
-  if (tone && tone in STAGE_BADGE_TONE_CLASS) return STAGE_BADGE_TONE_CLASS[tone]
-  return 'bg-muted text-muted-foreground'
-}
+import { getStageBadgeClass } from './stageBadge'
 
 type PanelSort = 'proximity' | 'listOrder'
 

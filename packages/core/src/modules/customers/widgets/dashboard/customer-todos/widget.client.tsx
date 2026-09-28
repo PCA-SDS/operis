@@ -11,6 +11,7 @@ import { DEFAULT_SETTINGS, hydrateCustomerTodoSettings, type CustomerTodoWidgetS
 import { resolveExampleIntegrationHref } from '../../../lib/interactionCompatibility'
 import { resolveTodoHref } from '../../../components/detail/utils'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { formatDateTime } from '@open-mercato/shared/lib/time'
 
 const logger = createLogger('customers')
 
@@ -73,13 +74,6 @@ async function loadTodos(settings: CustomerTodoWidgetSettings): Promise<TodoLink
       }
     })
     .filter((item): item is TodoLinkSummary => !!item && !!item.id)
-}
-
-function formatDate(value: string | null, locale?: string): string {
-  if (!value) return ''
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleString(locale ?? undefined)
 }
 
 function resolveDetailHref(entity: { id: string | null; kind: string | null } | null | undefined): string | null {
@@ -167,7 +161,7 @@ const CustomerTodosWidget: React.FC<DashboardWidgetComponentProps<CustomerTodoWi
       ) : (
         <ul className="divide-y divide-border">
           {items.map((item) => {
-            const createdLabel = formatDate(item.createdAt, locale)
+            const createdLabel = formatDateTime(item.createdAt, { locale, fallback: '' })
             const href = resolveDetailHref(item.entity)
             const exampleHref = resolveExampleIntegrationHref(item)
             const taskHref = exampleHref ?? resolveTodoHref(item.todoSource, item.todoId)

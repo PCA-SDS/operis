@@ -96,6 +96,8 @@ import {
   fetchAssignableStaffMembers,
   type AssignableStaffMember,
 } from '../../../../components/detail/assignableStaff'
+import { toFiniteNumberOrNull } from '@open-mercato/shared/lib/number'
+import { mapSortOptionToApi } from '../dealSort'
 
 type PipelineRecord = { id: string; name: string; isDefault: boolean }
 
@@ -211,17 +213,8 @@ function saveLaneWidths(scopeKey: string, widths: Record<string, number>) {
   }
 }
 
-function normalizeAmount(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string' && value.trim().length) {
-    const parsed = Number(value)
-    return Number.isFinite(parsed) ? parsed : null
-  }
-  return null
-}
-
 function normalizeProbability(value: unknown): number | null {
-  const parsed = normalizeAmount(value)
+  const parsed = toFiniteNumberOrNull(value)
   if (parsed === null) return null
   return Math.min(Math.max(Math.round(parsed), 0), 100)
 }
@@ -249,7 +242,7 @@ function mapDealRecord(item: DealApiRecord, fallbackTitle: string): DealCardData
     typeof item.title === 'string' && item.title.trim().length ? item.title.trim() : fallbackTitle
   const status =
     typeof item.status === 'string' && item.status.trim().length ? item.status.trim() : null
-  const valueAmount = normalizeAmount(item.value_amount)
+  const valueAmount = toFiniteNumberOrNull(item.value_amount)
   const valueCurrency =
     typeof item.value_currency === 'string' && item.value_currency.trim().length
       ? item.value_currency.trim().toUpperCase()
@@ -335,37 +328,6 @@ function groupDealsByStageId(deals: DealCardData[], stageIdByDealId: Map<string,
     grouped.set(stageKey, bucket)
   }
   return grouped
-}
-
-/**
- * Translate the UI SortOption into the deals CRUD API's `sortField` / `sortDir` query params.
- *
- * Returns `null` for `owner_asc` because the deals table only stores `owner_user_id` (a UUID);
- * the UI displays a resolved owner name, so a UUID-alphabetical server sort would be misleading.
- * For that case the caller falls back to a sensible default sort server-side and re-sorts the
- * page client-side via `sortDeals`. All other options sort server-side over the full result set,
- * so paging (25/lane → Show more) keeps a globally correct order.
- */
-function mapSortOptionToApi(option: SortOption): { sortField: string; sortDir: 'asc' | 'desc' } | null {
-  switch (option) {
-    case 'updated_desc':
-      return { sortField: 'updatedAt', sortDir: 'desc' }
-    case 'updated_asc':
-      return { sortField: 'updatedAt', sortDir: 'asc' }
-    case 'created_desc':
-      return { sortField: 'createdAt', sortDir: 'desc' }
-    case 'value_desc':
-      return { sortField: 'value', sortDir: 'desc' }
-    case 'value_asc':
-      return { sortField: 'value', sortDir: 'asc' }
-    case 'probability_desc':
-      return { sortField: 'probability', sortDir: 'desc' }
-    case 'close_asc':
-      return { sortField: 'expectedCloseAt', sortDir: 'asc' }
-    case 'owner_asc':
-    default:
-      return null
-  }
 }
 
 function sortDeals(deals: DealCardData[], option: SortOption): DealCardData[] {

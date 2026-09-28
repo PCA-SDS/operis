@@ -24,6 +24,7 @@ import {
 } from '@open-mercato/ui/primitives/dialog'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
+import { readCount } from '@open-mercato/shared/lib/number'
 
 export const DEAL_ANALYZER_AGENT_ID = 'customers.deal_analyzer'
 
@@ -46,15 +47,6 @@ interface HostInjectionContext {
   rowCount?: number
 }
 
-function readNumber(value: unknown): number {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string') {
-    const parsed = Number.parseInt(value, 10)
-    if (Number.isFinite(parsed)) return parsed
-  }
-  return 0
-}
-
 function readString(value: unknown): string {
   return typeof value === 'string' ? value : ''
 }
@@ -64,8 +56,8 @@ export function buildDealAnalyzerPageContext(context: HostInjectionContext | und
   const selectedIds = selectedIdsRaw.map(readString).filter((id) => id.length > 0)
   const selectedCount = selectedIds.length > 0
     ? selectedIds.length
-    : readNumber(context?.selectedCount)
-  const totalMatching = readNumber(context?.totalMatching ?? context?.total ?? context?.rowCount)
+    : readCount(context?.selectedCount)
+  const totalMatching = readCount(context?.totalMatching ?? context?.total ?? context?.rowCount)
   const recordId = selectedIds.length > 0 ? selectedIds.join(',') : null
   return {
     view: 'customers.deals.list',

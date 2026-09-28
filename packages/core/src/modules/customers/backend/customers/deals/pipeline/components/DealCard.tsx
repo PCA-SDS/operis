@@ -11,6 +11,7 @@ import type { RowActionItem } from '@open-mercato/ui/backend/RowActions'
 import { DealCardMenu } from './DealCardMenu'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { translateWithFallback } from '@open-mercato/shared/lib/i18n/translate'
+import { formatShortDate } from '@open-mercato/shared/lib/time'
 
 export type DealCardPipelineState = {
   openActivitiesCount: number
@@ -96,9 +97,8 @@ function hashAccent(seed: string): string {
   return AVATAR_ACCENT_CLASSES[idx]
 }
 
-// Options are constant, so the formatter is built once — matching
-// `shortDateFormatter` below. Constructing it per call meant one
-// `Intl.NumberFormat` per card per board render.
+// Options are constant, so the formatter is built once. Constructing it per
+// call meant one `Intl.NumberFormat` per card per board render.
 const dealValueFormatter = new Intl.NumberFormat(undefined, {
   style: 'decimal',
   maximumFractionDigits: 0,
@@ -117,18 +117,6 @@ function splitCurrencyAmount(amount: number, currency: string | null): { display
 function formatProbability(value: number | null): string | null {
   if (typeof value !== 'number' || Number.isNaN(value)) return null
   return `${Math.min(Math.max(Math.round(value), 0), 100)}%`
-}
-
-const shortDateFormatter = new Intl.DateTimeFormat(undefined, {
-  month: 'short',
-  day: '2-digit',
-})
-
-function formatShortDate(value: string | null): string | null {
-  if (!value) return null
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return null
-  return shortDateFormatter.format(date)
 }
 
 function shortDealRef(id: string): string {

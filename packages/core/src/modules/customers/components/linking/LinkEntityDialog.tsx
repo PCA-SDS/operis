@@ -28,6 +28,7 @@ import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { LABEL_CLASS } from '../calendar/editor/inputs'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { sameIdSet } from '../../lib/idLists'
 
 const logger = createLogger('customers')
 
@@ -156,12 +157,6 @@ function diffSelection(initial: string[], next: string[]): { addedIds: string[];
     if (!nextSet.has(id)) removedIds.push(id)
   })
   return { addedIds, removedIds }
-}
-
-function sameIds(left: string[], right: string[]): boolean {
-  if (left.length !== right.length) return false
-  const rightSet = new Set(right)
-  return left.every((value) => rightSet.has(value))
 }
 
 function mergeOptionMaps(
@@ -412,7 +407,7 @@ export function LinkEntityDialog<TDetails = unknown, TLinkSettings = Record<stri
   )
 
   const hasChanges = React.useMemo(() => {
-    if (!sameIds(initialSelectedIds, draftIds)) return true
+    if (!sameIdSet(initialSelectedIds, draftIds)) return true
     if (primarySupported && (draftPrimaryId ?? null) !== (initialPrimaryId ?? null)) return true
     return false
   }, [draftIds, draftPrimaryId, initialPrimaryId, initialSelectedIds, primarySupported])

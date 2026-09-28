@@ -21,8 +21,6 @@ import { DEFAULT_CREATE_DURATION_MINUTES } from '../../lib/calendar/grid'
 import { getVisibleRange, shiftAnchor } from '../../lib/calendar/range'
 import { resolveJoinUrl } from '../../lib/calendar/mapItem'
 import {
-  calendarTimeZone,
-  formatCalendarDate,
   formatWallClockTime,
   taskScheduleChangeFor,
 } from '../../lib/calendar/taskItem'
@@ -50,6 +48,8 @@ import type {
   CalendarView,
   UpcomingCard,
 } from './types'
+import { resolveCalendarTimeZone } from '../../lib/calendar/time'
+import { toLocalDateKey } from '@open-mercato/shared/lib/date/format'
 
 
 
@@ -404,7 +404,7 @@ export function CalendarScreen({
       setOpenTask({
         id: null,
         projectId: null,
-        dueDate: formatCalendarDate(start),
+        dueDate: toLocalDateKey(start),
         dueTime: seed && !seed.allDay ? formatWallClockTime(start) : null,
       })
     },
@@ -518,7 +518,7 @@ export function CalendarScreen({
           // completing a task near midnight outside UTC.
           await writeTask(
             item.task.id,
-            { tz: calendarTimeZone() },
+            { tz: resolveCalendarTimeZone() },
             item.task.updatedAt ?? null,
             '/complete',
           )

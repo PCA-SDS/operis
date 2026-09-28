@@ -16,6 +16,7 @@ import { useScheduleConflicts } from '../../lib/calendar/useScheduleConflicts'
 import { RelatedToField } from './editor/RelatedToField'
 import type { EditorRelatedTo } from '../../lib/calendar/editorPayload'
 import type { DealOption } from './editor/lookups'
+import { parseWallClockMinutes } from '../../lib/calendar/taskItem'
 
 /**
  * Quick-create a meeting from a grid cell.
@@ -42,17 +43,8 @@ const CONFLICT_TYPES = ['meeting'] as const
 
 type LocationMode = 'offline' | 'online'
 
-function toMinutes(time: string): number | null {
-  const match = /^(\d{2}):(\d{2})$/.exec(time)
-  if (!match) return null
-  const hours = Number(match[1])
-  const minutes = Number(match[2])
-  if (hours > 23 || minutes > 59) return null
-  return hours * 60 + minutes
-}
-
 function addMinutes(time: string, delta: number): string {
-  const base = toMinutes(time) ?? 0
+  const base = parseWallClockMinutes(time) ?? 0
   const total = ((base + delta) % 1440 + 1440) % 1440
   return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
 }
@@ -82,8 +74,8 @@ export function CalendarMeetingQuickAdd({
   const [saving, setSaving] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
-  const startMinutes = toMinutes(start)
-  const endMinutes = toMinutes(end)
+  const startMinutes = parseWallClockMinutes(start)
+  const endMinutes = parseWallClockMinutes(end)
   const rangeIsValid = startMinutes !== null && endMinutes !== null && endMinutes > startMinutes
 
   /* Conflicts are a WARNING, never a block: double-booking is sometimes
@@ -215,8 +207,8 @@ export function CalendarMeetingQuickAdd({
                 setStart(next)
                 // Keep the end after the start rather than letting the user
                 // build an impossible range and discover it at submit.
-                const nextStart = toMinutes(next)
-                const currentEnd = toMinutes(end)
+                const nextStart = parseWallClockMinutes(next)
+                const currentEnd = parseWallClockMinutes(end)
                 if (nextStart !== null && currentEnd !== null && currentEnd <= nextStart) {
                   setEnd(addMinutes(next, DEFAULT_DURATION_MINUTES))
                 }

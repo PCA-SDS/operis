@@ -9,6 +9,7 @@ import { Spinner } from '@open-mercato/ui/primitives/spinner'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { DEFAULT_SETTINGS, hydrateNewDealsSettings, type CustomerNewDealsSettings } from './config'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { formatDateTime } from '@open-mercato/shared/lib/time'
 
 const logger = createLogger('customers')
 
@@ -52,13 +53,6 @@ async function loadNewDeals(settings: CustomerNewDealsSettings): Promise<NewDeal
 function resolveDetailHref(item: NewDealItem): string | null {
   if (!item.id) return null
   return `/backend/customers/deals/${encodeURIComponent(item.id)}`
-}
-
-function formatDate(value: string | null, locale?: string): string {
-  if (!value) return ''
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleString(locale ?? undefined, { dateStyle: 'medium', timeStyle: 'short' })
 }
 
 const CustomerNewDealsWidget: React.FC<DashboardWidgetComponentProps<CustomerNewDealsSettings>> = ({
@@ -139,7 +133,7 @@ const CustomerNewDealsWidget: React.FC<DashboardWidgetComponentProps<CustomerNew
         <ul className="divide-y divide-border">
           {items.map((item) => {
             const href = resolveDetailHref(item)
-            const createdLabel = formatDate(item.createdAt, locale)
+            const createdLabel = formatDateTime(item.createdAt, { locale, fallback: '' })
             return (
               <li key={item.id} className="py-3 first:pt-0 last:pb-0">
                 <div className="flex items-start justify-between gap-3">

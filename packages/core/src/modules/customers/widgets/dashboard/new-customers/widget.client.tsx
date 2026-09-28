@@ -20,6 +20,7 @@ import {
   type CustomerNewCustomersSettings,
 } from './config'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { formatDateTime } from '@open-mercato/shared/lib/time'
 
 const logger = createLogger('customers')
 
@@ -70,13 +71,6 @@ function resolveDetailHref(item: NewCustomerItem): string | null {
   if (item.kind === 'company') return `/backend/customers/companies-v2/${encodeURIComponent(item.id)}`
   if (item.kind === 'person') return `/backend/customers/people-v2/${encodeURIComponent(item.id)}`
   return null
-}
-
-function formatDate(value: string | null, locale?: string): string {
-  if (!value) return ''
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleString(locale ?? undefined, { dateStyle: 'medium', timeStyle: 'short' })
 }
 
 function formatKind(kind: string | null, t: (key: string) => string): string {
@@ -185,7 +179,7 @@ const CustomerNewCustomersWidget: React.FC<DashboardWidgetComponentProps<Custome
         <ul className="divide-y divide-border">
           {items.map((item) => {
             const href = resolveDetailHref(item)
-            const createdLabel = formatDate(item.createdAt, locale)
+            const createdLabel = formatDateTime(item.createdAt, { locale, fallback: '' })
             return (
               <li key={item.id} className="py-3 first:pt-0 last:pb-0">
                 <div className="flex items-start justify-between gap-3">

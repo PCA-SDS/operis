@@ -37,6 +37,9 @@ import {
   type DealsMapPreview,
   type MapCenter,
 } from './DealsMapCanvas'
+import { toFiniteNumberOrNull } from '@open-mercato/shared/lib/number'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
+import { mapSortOptionToApi } from '../../dealSort'
 
 const DEFAULT_SORT: SortOption = 'updated_desc'
 const PAGE_SIZE = 100
@@ -136,74 +139,39 @@ type DealsMapQueryResult = {
   truncated: boolean
 }
 
-function normalizeNumber(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string' && value.trim().length) {
-    const parsed = Number(value)
-    return Number.isFinite(parsed) ? parsed : null
-  }
-  return null
-}
-
-function normalizeText(value: unknown): string | null {
-  return typeof value === 'string' && value.trim().length ? value.trim() : null
-}
-
 function normalizeLocation(location: DealMapApiLocation | null | undefined): MapDealLocation | null {
   if (!location) return null
-  const latitude = normalizeNumber(location.latitude)
-  const longitude = normalizeNumber(location.longitude)
+  const latitude = toFiniteNumberOrNull(location.latitude)
+  const longitude = toFiniteNumberOrNull(location.longitude)
   if (latitude === null || longitude === null) return null
   return {
     latitude,
     longitude,
-    city: normalizeText(location.city),
-    region: normalizeText(location.region),
-    country: normalizeText(location.country),
+    city: normalizeOptionalString(location.city),
+    region: normalizeOptionalString(location.region),
+    country: normalizeOptionalString(location.country),
   }
 }
 
 function mapApiItem(item: DealMapApiItem, fallbackTitle: string): MapDeal | null {
-  const id = normalizeText(item.id)
+  const id = normalizeOptionalString(item.id)
   if (!id) return null
   const firstCompany = Array.isArray(item.companies)
-    ? item.companies.find((entry) => entry && normalizeText(entry.label))
+    ? item.companies.find((entry) => entry && normalizeOptionalString(entry.label))
     : null
   return {
     id,
-    title: normalizeText(item.title) ?? fallbackTitle,
-    status: normalizeText(item.status),
-    pipelineId: normalizeText(item.pipelineId),
-    pipelineStageId: normalizeText(item.pipelineStageId),
-    valueAmount: normalizeNumber(item.valueAmount),
-    valueCurrency: normalizeText(item.valueCurrency)?.toUpperCase() ?? null,
-    probability: normalizeNumber(item.probability),
-    expectedCloseAt: normalizeText(item.expectedCloseAt),
-    ownerUserId: normalizeText(item.ownerUserId),
-    companyLabel: firstCompany ? normalizeText(firstCompany.label) : null,
+    title: normalizeOptionalString(item.title) ?? fallbackTitle,
+    status: normalizeOptionalString(item.status),
+    pipelineId: normalizeOptionalString(item.pipelineId),
+    pipelineStageId: normalizeOptionalString(item.pipelineStageId),
+    valueAmount: toFiniteNumberOrNull(item.valueAmount),
+    valueCurrency: normalizeOptionalString(item.valueCurrency)?.toUpperCase() ?? null,
+    probability: toFiniteNumberOrNull(item.probability),
+    expectedCloseAt: normalizeOptionalString(item.expectedCloseAt),
+    ownerUserId: normalizeOptionalString(item.ownerUserId),
+    companyLabel: firstCompany ? normalizeOptionalString(firstCompany.label) : null,
     location: normalizeLocation(item.location),
-  }
-}
-
-function mapSortOptionToApi(option: SortOption): { sortField: string; sortDir: 'asc' | 'desc' } | null {
-  switch (option) {
-    case 'updated_desc':
-      return { sortField: 'updatedAt', sortDir: 'desc' }
-    case 'updated_asc':
-      return { sortField: 'updatedAt', sortDir: 'asc' }
-    case 'created_desc':
-      return { sortField: 'createdAt', sortDir: 'desc' }
-    case 'value_desc':
-      return { sortField: 'value', sortDir: 'desc' }
-    case 'value_asc':
-      return { sortField: 'value', sortDir: 'asc' }
-    case 'probability_desc':
-      return { sortField: 'probability', sortDir: 'desc' }
-    case 'close_asc':
-      return { sortField: 'expectedCloseAt', sortDir: 'asc' }
-    case 'owner_asc':
-    default:
-      return null
   }
 }
 
