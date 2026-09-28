@@ -18,10 +18,12 @@ import {
   subscribeSalesDocumentTotalsRefresh,
 } from '@open-mercato/core/modules/sales/lib/frontend/documentTotalsEvents'
 import { sumShippedQuantityByLine } from '@open-mercato/core/modules/sales/lib/returnQuantity'
-import { formatMoney, normalizeNumber } from './lineItemUtils'
 import { ReturnDialog, type ReturnOrderLine } from './ReturnDialog'
 import { ReturnEditDialog, type ReturnEditRecord } from './ReturnEditDialog'
 import { handleSectionMutationError, readRowUpdatedAt, rowOptimisticVersion } from './optimisticLock'
+import { toNumber } from '../../lib/numbers'
+import { formatCurrency } from '@open-mercato/shared/lib/units/money'
+import { formatDate } from '@open-mercato/shared/lib/time'
 
 type ReturnRow = {
   id: string
@@ -39,13 +41,6 @@ type SalesReturnsSectionProps = {
   orderId: string
   currencyCode?: string | null
   documentUpdatedAt?: string | null
-}
-
-function formatDisplayDate(value: string | null | undefined): string | null {
-  if (!value) return null
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return null
-  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(date)
 }
 
 export function SalesReturnsSection({ orderId, currencyCode, documentUpdatedAt }: SalesReturnsSectionProps) {
@@ -216,7 +211,7 @@ export function SalesReturnsSection({ orderId, currencyCode, documentUpdatedAt }
 
   const rows = React.useMemo(() => {
     return returns.map((ret) => {
-      const total = normalizeNumber(ret.totalGrossAmount ?? ret.totalNetAmount ?? 0, 0)
+      const total = toNumber(ret.totalGrossAmount ?? ret.totalNetAmount ?? 0, 0)
       return {
         ...ret,
         total,
@@ -328,10 +323,10 @@ export function SalesReturnsSection({ orderId, currencyCode, documentUpdatedAt }
                 </div>
               </div>
               <div className="whitespace-nowrap text-right text-sm text-muted-foreground">
-                {formatDisplayDate(ret.returnedAt) ?? t('sales.returns.notSet', 'Not set')}
+                {formatDate(ret.returnedAt) ?? t('sales.returns.notSet', 'Not set')}
               </div>
               <div className="whitespace-nowrap text-right text-sm font-medium">
-                {formatMoney(ret.total, currencyCode ?? null)}
+                {formatCurrency(ret.total, currencyCode ?? null, { fallback: '—' })}
               </div>
               <div className="flex justify-end">
                 <RowActions

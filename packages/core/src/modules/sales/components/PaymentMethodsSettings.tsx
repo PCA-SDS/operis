@@ -26,7 +26,7 @@ import {
   listPaymentProviders,
   type PaymentProvider,
 } from '../lib/providers'
-import { isRecord } from '@open-mercato/shared/lib/utils'
+import { isRecord } from '@open-mercato/shared/lib/guards'
 import { renderProviderFieldInput } from './ProviderFieldInput'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 

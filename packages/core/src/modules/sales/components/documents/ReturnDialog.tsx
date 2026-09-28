@@ -15,6 +15,7 @@ import { normalizeCrudServerError } from '@open-mercato/ui/backend/utils/serverE
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { computeAvailableReturnQuantity } from '@open-mercato/core/modules/sales/lib/returnQuantity'
 import { handleSectionMutationError } from './optimisticLock'
+import { toFiniteNumber } from '@open-mercato/shared/lib/number'
 
 export type ReturnOrderLine = {
   id: string
@@ -33,15 +34,6 @@ type ReturnDialogProps = {
   documentUpdatedAt?: string | null
   onClose: () => void
   onSaved: () => Promise<void>
-}
-
-const normalizeNumber = (value: unknown): number => {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string' && value.trim().length) {
-    const parsed = Number(value)
-    if (Number.isFinite(parsed)) return parsed
-  }
-  return 0
 }
 
 export function ReturnDialog({ open, orderId, lines, documentUpdatedAt, onClose, onSaved }: ReturnDialogProps) {
@@ -75,7 +67,7 @@ export function ReturnDialog({ open, orderId, lines, documentUpdatedAt, onClose,
     const linesForRequest: Array<{ orderLineId: string; quantity: string }> = []
     availableLines.forEach((line) => {
       const raw = quantities[line.id]
-      const qty = normalizeNumber(raw)
+      const qty = toFiniteNumber(raw)
       if (!Number.isFinite(qty) || qty <= 0) return
       if (!Number.isInteger(qty)) {
         hasNonInteger = true

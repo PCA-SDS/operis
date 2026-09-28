@@ -27,6 +27,7 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useOrganizationScopeDetail } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { extractCustomFieldValues } from '@open-mercato/shared/lib/crud/custom-fields-client'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { toNumber } from '../../lib/numbers'
 
 const logger = createLogger('sales')
 
@@ -50,15 +51,6 @@ const FALLBACK_ADJUSTMENT_KIND_VALUES: SalesAdjustmentKind[] = [
   'surcharge',
   'custom',
 ]
-
-function normalizeNumber(value: unknown, fallback = 0): number {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string' && value.trim().length) {
-    const parsed = Number(value)
-    if (!Number.isNaN(parsed)) return parsed
-  }
-  return fallback
-}
 
 function formatPercent(value: number | null | undefined): string {
   if (value === null || value === undefined) return '—'
@@ -182,15 +174,15 @@ export function SalesDocumentAdjustmentsSection({
         .map((item) => {
           const id = typeof item.id === 'string' ? item.id : null
           if (!id) return null
-          const amountNet = normalizeNumber(
+          const amountNet = toNumber(
             (item as any).amount_net ?? (item as any).amountNet ?? (item as any).amount_net_amount,
             NaN
           )
-          const amountGross = normalizeNumber(
+          const amountGross = toNumber(
             (item as any).amount_gross ?? (item as any).amountGross ?? (item as any).amount_gross_amount,
             NaN
           )
-          const rateRaw = normalizeNumber((item as any).rate, NaN)
+          const rateRaw = toNumber((item as any).rate, NaN)
           const kindValue =
             typeof item.kind === 'string' && item.kind.trim().length
               ? (item.kind.trim() as SalesAdjustmentKind)

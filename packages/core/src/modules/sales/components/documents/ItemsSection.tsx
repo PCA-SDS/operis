@@ -23,11 +23,8 @@ import { emitSalesDocumentTotalsRefresh } from "@open-mercato/core/modules/sales
 import { LineItemDialog } from "./LineItemDialog";
 import { handleSectionMutationError } from "./optimisticLock";
 import type { SalesLineRecord } from "./lineItemTypes";
-import {
-  formatMoney,
-  normalizeNumber,
-  resolveLineDiscountDisplay,
-} from "./lineItemUtils";
+import { resolveLineDiscountDisplay } from "./lineItemUtils";
+import { formatCurrency } from "@open-mercato/shared/lib/units/money";
 import type { SectionAction } from "@open-mercato/ui/backend/detail";
 import { extractCustomFieldValues } from '@open-mercato/shared/lib/crud/custom-fields-client';
 import { canonicalizeUnitCode } from "@open-mercato/shared/lib/units/unitCodes";
@@ -37,6 +34,8 @@ import type { InjectionColumnDefinition } from "@open-mercato/shared/modules/wid
 import { OrderItemsInjectionContext } from "../../widgets/injection/order-items-context";
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@open-mercato/ui/primitives/table'
+import { isRecord } from '@open-mercato/shared/lib/guards'
+import { toNumber } from '../../lib/numbers'
 
 const logger = createLogger('sales')
 
@@ -45,14 +44,10 @@ type ResolvedUnitPriceReference = {
   referenceUnitCode: string;
 };
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 function isSalesLineUomSnapshot(
   value: unknown,
 ): value is SalesLineUomSnapshot {
-  if (!isPlainObject(value)) return false;
+  if (!isRecord(value)) return false;
   return (
     value.version === 1 &&
     typeof value.enteredQuantity === "string" &&
@@ -76,18 +71,18 @@ function resolveUnitPriceReference(
 
   const ref = isSalesLineUomSnapshot(snapshot)
     ? snapshot.unitPriceReference
-    : isPlainObject(snapshot)
-      ? isPlainObject(snapshot.unitPriceReference)
+    : isRecord(snapshot)
+      ? isRecord(snapshot.unitPriceReference)
         ? snapshot.unitPriceReference
-        : isPlainObject(snapshot.unit_price_reference)
+        : isRecord(snapshot.unit_price_reference)
           ? snapshot.unit_price_reference
           : null
       : null;
 
-  if (!ref || !isPlainObject(ref)) return null;
+  if (!ref || !isRecord(ref)) return null;
 
   const refRecord = ref as Record<string, unknown>;
-  const grossPerReference = normalizeNumber(
+  const grossPerReference = toNumber(
     refRecord.grossPerReference ?? refRecord.gross_per_reference,
     Number.NaN,
   );
@@ -229,7 +224,7 @@ export function SalesDocumentItemsSection({
           (item) => {
             const id = typeof item.id === "string" ? item.id : null;
             if (!id) return [];
-            const taxRate = normalizeNumber(
+            const taxRate = toNumber(
               item.tax_rate ?? item.taxRate,
               0,
             );
@@ -248,21 +243,21 @@ export function SalesDocumentItemsSection({
               typeof item.description === "string" && item.description.trim()
                 ? item.description
                 : null;
-            const quantity = normalizeNumber(item.quantity, 0);
+            const quantity = toNumber(item.quantity, 0);
             const uomFields = getUomFields(item);
             const quantityUnit = canonicalizeUnitCode(uomFields.quantityUnit);
-            const normalizedQuantity = normalizeNumber(
+            const normalizedQuantity = toNumber(
               uomFields.normalizedQuantity,
               quantity,
             );
             const normalizedUnit =
               canonicalizeUnitCode(uomFields.normalizedUnit) ?? quantityUnit;
             const uomSnapshot = uomFields.uomSnapshot;
-            const unitPriceNetRaw = normalizeNumber(
+            const unitPriceNetRaw = toNumber(
               item.unit_price_net ?? item.unitPriceNet,
               Number.NaN,
             );
-            const unitPriceGrossRaw = normalizeNumber(
+            const unitPriceGrossRaw = toNumber(
               item.unit_price_gross ?? item.unitPriceGross,
               Number.NaN,
             );
@@ -276,11 +271,11 @@ export function SalesDocumentItemsSection({
               : Number.isFinite(unitPriceNetRaw)
                 ? unitPriceNetRaw * (1 + taxRate / 100)
                 : 0;
-            const totalNetRaw = normalizeNumber(
+            const totalNetRaw = toNumber(
               item.total_net_amount ?? item.totalNetAmount,
               Number.NaN,
             );
-            const totalGrossRaw = normalizeNumber(
+            const totalGrossRaw = toNumber(
               item.total_gross_amount ?? item.totalGrossAmount,
               Number.NaN,
             );
@@ -331,11 +326,11 @@ export function SalesDocumentItemsSection({
                     : null,
               unitPriceNet,
               unitPriceGross,
-              discountAmount: normalizeNumber(
+              discountAmount: toNumber(
                 item.discount_amount ?? item.discountAmount,
                 0,
               ),
-              discountPercent: normalizeNumber(
+              discountPercent: toNumber(
                 item.discount_percent ?? item.discountPercent,
                 0,
               ),
@@ -407,7 +402,7 @@ export function SalesDocumentItemsSection({
                   ? entry.order_line_id
                   : null;
             if (!lineId) return;
-            const quantity = normalizeNumber(entry.quantity, 0);
+            const quantity = toNumber(entry.quantity, 0);
             if (!Number.isFinite(quantity) || quantity <= 0) return;
             const current = totals.get(lineId) ?? 0;
             totals.set(lineId, current + quantity);
@@ -792,19 +787,13 @@ export function SalesDocumentItemsSection({
                     <TableCell align="right">
                       <div className="flex flex-col gap-0.5">
                         <span className="font-mono text-sm">
-                          {formatMoney(
-                            item.unitPriceGross,
-                            item.currencyCode ?? currencyCode ?? undefined,
-                          )}{" "}
+                          {formatCurrency(item.unitPriceGross, item.currencyCode ?? currencyCode ?? undefined, { fallback: '—' })}{" "}
                           <span className="text-xs text-muted-foreground">
                             {t("sales.documents.items.table.gross", "gross")}
                           </span>
                         </span>
                         <span className="font-mono text-xs text-muted-foreground">
-                          {formatMoney(
-                            item.unitPriceNet,
-                            item.currencyCode ?? currencyCode ?? undefined,
-                          )}{" "}
+                          {formatCurrency(item.unitPriceNet, item.currencyCode ?? currencyCode ?? undefined, { fallback: '—' })}{" "}
                           {t("sales.documents.items.table.net", "net")}
                         </span>
                         {unitPriceReference ? (
@@ -813,12 +802,9 @@ export function SalesDocumentItemsSection({
                               "sales.documents.items.table.unitPriceReference",
                               "{{value}} per 1 {{unit}}",
                               {
-                                value: formatMoney(
-                                  unitPriceReference.grossPerReference,
-                                  item.currencyCode ??
+                                value: formatCurrency(unitPriceReference.grossPerReference, item.currencyCode ??
                                     currencyCode ??
-                                    undefined,
-                                ),
+                                    undefined, { fallback: '—' }),
                                 unit: unitPriceReference.referenceUnitCode,
                               },
                             )}
@@ -836,12 +822,9 @@ export function SalesDocumentItemsSection({
                                   "sales.documents.items.table.discountAmount",
                                   "−{{value}}",
                                   {
-                                    value: formatMoney(
-                                      discount.amount,
-                                      item.currencyCode ??
+                                    value: formatCurrency(discount.amount, item.currencyCode ??
                                         currencyCode ??
-                                        undefined,
-                                    ),
+                                        undefined, { fallback: '—' }),
                                   },
                                 )}
                               </span>
@@ -868,19 +851,13 @@ export function SalesDocumentItemsSection({
                     <TableCell align="right" className="font-semibold">
                       <div className="flex flex-col gap-0.5">
                         <span>
-                          {formatMoney(
-                            item.totalGross,
-                            item.currencyCode ?? currencyCode ?? undefined,
-                          )}{" "}
+                          {formatCurrency(item.totalGross, item.currencyCode ?? currencyCode ?? undefined, { fallback: '—' })}{" "}
                           <span className="text-xs font-normal text-muted-foreground">
                             {t("sales.documents.items.table.gross", "gross")}
                           </span>
                         </span>
                         <span className="text-xs font-medium text-muted-foreground">
-                          {formatMoney(
-                            item.totalNet,
-                            item.currencyCode ?? currencyCode ?? undefined,
-                          )}{" "}
+                          {formatCurrency(item.totalNet, item.currencyCode ?? currencyCode ?? undefined, { fallback: '—' })}{" "}
                           {t("sales.documents.items.table.net", "net")}
                         </span>
                       </div>

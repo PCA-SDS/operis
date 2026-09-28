@@ -1,3 +1,5 @@
+import { isValidDateString } from '../dateValues'
+
 export type DatePeriodOption = 'last24h' | 'last7d' | 'last30d' | 'custom'
 
 export type SalesNewOrdersSettings = {
@@ -13,11 +15,6 @@ export const DEFAULT_SETTINGS: SalesNewOrdersSettings = {
 }
 
 const VALID_PERIODS: DatePeriodOption[] = ['last24h', 'last7d', 'last30d', 'custom']
-
-function isValidDateString(value: string): boolean {
-  const parsed = new Date(value)
-  return !Number.isNaN(parsed.getTime())
-}
 
 export function hydrateSalesNewOrdersSettings(raw: unknown): SalesNewOrdersSettings {
   if (!raw || typeof raw !== 'object') return { ...DEFAULT_SETTINGS }

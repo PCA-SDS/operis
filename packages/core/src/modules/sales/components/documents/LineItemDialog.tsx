@@ -48,7 +48,7 @@ import {
 import { E } from "#generated/entities.ids.generated";
 import { useT } from "@open-mercato/shared/lib/i18n/context";
 import { useOrganizationScopeDetail } from "@open-mercato/shared/lib/frontend/useOrganizationScope";
-import { formatMoney, normalizeNumber } from "./lineItemUtils";
+import { formatCurrency } from "@open-mercato/shared/lib/units/money";
 import type { SalesLineRecord } from "./lineItemTypes";
 import {
   normalizeCustomFieldSubmitValue,
@@ -56,6 +56,8 @@ import {
 } from '@open-mercato/shared/lib/crud/custom-fields-client';
 import { canonicalizeUnitCode } from "@open-mercato/shared/lib/units/unitCodes";
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { toNumber } from '../../lib/numbers'
+import { mergeTaxRateOptions } from './taxRateOptions'
 
 const logger = createLogger('sales')
 
@@ -112,7 +114,7 @@ function mapTaxRateOption(item: Record<string, unknown>): TaxRateOption | null {
         ? item.code
         : null;
   if (!id || !name) return null;
-  const rate = normalizeNumber((item as ApiTaxRateItem).rate);
+  const rate = toNumber((item as ApiTaxRateItem).rate);
   const code =
     typeof (item as ApiTaxRateItem).code === "string" &&
     (item as ApiTaxRateItem).code?.trim().length
@@ -128,15 +130,6 @@ function mapTaxRateOption(item: Record<string, unknown>): TaxRateOption | null {
     rate: Number.isFinite(rate) ? rate : null,
     isDefault,
   };
-}
-
-function mergeTaxRateOptions(
-  options: TaxRateOption[],
-  selected: TaxRateOption | null,
-): TaxRateOption[] {
-  if (!selected) return options;
-  if (options.some((option) => option.id === selected.id)) return options;
-  return [selected, ...options];
 }
 
 type StatusOption = {
@@ -327,8 +320,8 @@ function buildPriceScopeReason(
     add(t("sales.documents.items.priceScope.userGroup", "User group"));
   if (item.user_id || item.userId)
     add(t("sales.documents.items.priceScope.user", "User"));
-  const minQty = normalizeNumber((item as ApiPriceItem).min_quantity, Number.NaN);
-  const maxQty = normalizeNumber((item as ApiPriceItem).max_quantity, Number.NaN);
+  const minQty = toNumber((item as ApiPriceItem).min_quantity, Number.NaN);
+  const maxQty = toNumber((item as ApiPriceItem).max_quantity, Number.NaN);
   if (Number.isFinite(minQty) || Number.isFinite(maxQty)) {
     add(t("sales.documents.items.priceScope.quantity", "Quantity"));
   }
@@ -369,7 +362,7 @@ function getUomProductFields(item: Record<string, unknown>) {
     defaultSalesUnit: normalizeUnitCode(
       item.default_sales_unit ?? item.defaultSalesUnit,
     ),
-    defaultSalesUnitQuantity: normalizeNumber(
+    defaultSalesUnitQuantity: toNumber(
       item.default_sales_unit_quantity ?? item.defaultSalesUnitQuantity,
       Number.NaN,
     ),
@@ -380,7 +373,7 @@ function getUomConversionFields(row: Record<string, unknown>) {
   return {
     unitCode: normalizeUnitCode(row.unit_code ?? row.unitCode),
     isActive: getRecordBoolean(row, true, "is_active", "isActive"),
-    toBaseFactor: normalizeNumber(
+    toBaseFactor: toNumber(
       row.to_base_factor ?? row.toBaseFactor,
       Number.NaN,
     ),
@@ -442,7 +435,7 @@ function mapProductOption(item: Record<string, unknown>): ProductOption | null {
           metaMeta.tax_rate_id.trim().length
         ? metaMeta.tax_rate_id.trim()
         : null;
-  const taxRateValue = normalizeNumber(
+  const taxRateValue = toNumber(
     pricingMeta?.tax_rate ??
       pricingMeta?.taxRate ??
       productItem.tax_rate ??
@@ -528,7 +521,7 @@ export function LineItemDialog({
 
   const findTaxRateIdByValue = React.useCallback(
     (value: number | null | undefined): string | null => {
-      const numeric = normalizeNumber(value, Number.NaN);
+      const numeric = toNumber(value, Number.NaN);
       if (!Number.isFinite(numeric)) return null;
       const match = taxRatesRef.current.find(
         (rate) =>
@@ -549,9 +542,9 @@ export function LineItemDialog({
           ? source.taxRateId.trim()
           : null;
       const rateFromId = taxRateId
-        ? normalizeNumber(taxRateMap.get(taxRateId)?.rate, Number.NaN)
+        ? toNumber(taxRateMap.get(taxRateId)?.rate, Number.NaN)
         : Number.NaN;
-      const numericRate = normalizeNumber(source?.taxRate, Number.NaN);
+      const numericRate = toNumber(source?.taxRate, Number.NaN);
       const resolvedRateId =
         taxRateId ??
         (Number.isFinite(numericRate)
@@ -575,7 +568,7 @@ export function LineItemDialog({
       const id =
         typeof source.taxRateId === "string" ? source.taxRateId.trim() : "";
       if (id.length) return true;
-      const numericRate = normalizeNumber(source.taxRate, Number.NaN);
+      const numericRate = toNumber(source.taxRate, Number.NaN);
       return Number.isFinite(numericRate);
     },
     [],
@@ -779,7 +772,7 @@ export function LineItemDialog({
                   variantMeta.tax_rate_id.trim().length
                 ? variantMeta.tax_rate_id.trim()
                 : null;
-          const variantTaxRate = normalizeNumber(
+          const variantTaxRate = toNumber(
             variantItem.tax_rate ??
               variantItem.taxRate ??
               variantMeta?.tax_rate ??
@@ -925,7 +918,7 @@ export function LineItemDialog({
       try {
         const params = new URLSearchParams({ productId, pageSize: "20" });
         if (variantId) params.set("variantId", variantId);
-        const quantityValue = normalizeNumber(quantity, Number.NaN);
+        const quantityValue = toNumber(quantity, Number.NaN);
         if (Number.isFinite(quantityValue) && quantityValue > 0) {
           params.set("quantity", String(quantityValue));
         }
@@ -945,11 +938,11 @@ export function LineItemDialog({
           .map((item) => {
             const id = typeof item.id === "string" ? item.id : null;
             if (!id) return null;
-            const amountNetRaw = normalizeNumber(
+            const amountNetRaw = toNumber(
               (item as ApiPriceItem).unit_price_net,
               Number.NaN,
             );
-            const amountGrossRaw = normalizeNumber(
+            const amountGrossRaw = toNumber(
               (item as ApiPriceItem).unit_price_gross,
               Number.NaN,
             );
@@ -973,7 +966,7 @@ export function LineItemDialog({
                     (item as ApiPriceItem).displayMode === "excluding-tax"
                   ? (item as ApiPriceItem).displayMode
                   : null;
-            const taxRateRaw = normalizeNumber(
+            const taxRateRaw = toNumber(
               (item as ApiPriceItem).tax_rate,
               Number.NaN,
             );
@@ -1018,10 +1011,10 @@ export function LineItemDialog({
               displayMode === "including-tax" &&
               amountGross !== null &&
               currency
-                ? formatMoney(amountGross, currency)
+                ? formatCurrency(amountGross, currency, { fallback: '—' })
                 : null,
               displayMode === "excluding-tax" && amountNet !== null && currency
-                ? formatMoney(amountNet, currency)
+                ? formatCurrency(amountNet, currency, { fallback: '—' })
                 : null,
               displayMode
                 ? displayMode === "including-tax"
@@ -1037,9 +1030,9 @@ export function LineItemDialog({
               labelParts.length > 0
                 ? labelParts.join(" • ")
                 : amountGross !== null && currency
-                  ? formatMoney(amountGross, currency)
+                  ? formatCurrency(amountGross, currency, { fallback: '—' })
                   : amountNet !== null && currency
-                    ? formatMoney(amountNet, currency)
+                    ? formatCurrency(amountNet, currency, { fallback: '—' })
                     : id;
             return {
               id,
@@ -1096,7 +1089,7 @@ export function LineItemDialog({
       const normalized = normalizeUnitCode(quantityUnit);
       if (!normalized) return 1;
       const unit = unitOptions.find((entry) => entry.code === normalized) ?? null;
-      const factor = normalizeNumber(unit?.toBaseFactor, Number.NaN);
+      const factor = toNumber(unit?.toBaseFactor, Number.NaN);
       if (!Number.isFinite(factor) || factor <= 0) return 1;
       return factor;
     },
@@ -1109,7 +1102,7 @@ export function LineItemDialog({
       fromUnit: string | null | undefined,
       toUnit: string | null | undefined,
     ): string | null => {
-      const amount = normalizeNumber(rawUnitPrice, Number.NaN);
+      const amount = toNumber(rawUnitPrice, Number.NaN);
       if (!Number.isFinite(amount) || amount <= 0) return null;
       const fromCode = normalizeUnitCode(fromUnit);
       const toCode = normalizeUnitCode(toUnit);
@@ -1419,7 +1412,7 @@ export function LineItemDialog({
           : null;
       const resolvedTaxRate = Number.isFinite(values.taxRate)
         ? (values.taxRate as number)
-        : normalizeNumber(values.taxRate);
+        : toNumber(values.taxRate);
       const normalizedTaxRate = Number.isFinite(resolvedTaxRate)
         ? resolvedTaxRate
         : 0;
@@ -2105,7 +2098,7 @@ export function LineItemDialog({
           const unitFactor = (() => {
             if (!quantityUnitCode) return null;
             if (baseUnitCode && quantityUnitCode === baseUnitCode) return 1;
-            const value = normalizeNumber(selectedUnitOption?.toBaseFactor, Number.NaN);
+            const value = toNumber(selectedUnitOption?.toBaseFactor, Number.NaN);
             return Number.isFinite(value) && value > 0 ? value : null;
           })();
           const selectedBaseAmount = selectedPrice
@@ -2161,11 +2154,11 @@ export function LineItemDialog({
                       "sales.documents.items.priceBasisTemplate",
                       "Catalog price basis: {{baseAmount}} / {{baseUnit}}. Converted for {{unit}}: {{baseAmount}} × {{factor}} = {{convertedAmount}}.",
                       {
-                        baseAmount: formatMoney(selectedBaseAmount as number, selectedCurrency),
+                        baseAmount: formatCurrency(selectedBaseAmount as number, selectedCurrency, { fallback: '—' }),
                         baseUnit: baseUnitCode,
                         unit: quantityUnitCode,
                         factor: unitFactor,
-                        convertedAmount: formatMoney(convertedAmount, selectedCurrency),
+                        convertedAmount: formatCurrency(convertedAmount, selectedCurrency, { fallback: '—' }),
                       },
                     )}
                   </p>
@@ -2214,7 +2207,7 @@ export function LineItemDialog({
             const nextId = event.target.value || null;
             const option = nextId ? (taxRateMap.get(nextId) ?? null) : null;
             setValue(nextId);
-            const rate = normalizeNumber(option?.rate);
+            const rate = toNumber(option?.rate);
             setFormValue?.("taxRate", Number.isFinite(rate) ? rate : null);
           };
           return (
@@ -2440,7 +2433,7 @@ export function LineItemDialog({
         layout: "full",
         component: ({ values }: FieldRenderProps) => {
           if (isCustomLine) return null;
-          const quantity = normalizeNumber(values?.quantity, Number.NaN);
+          const quantity = toNumber(values?.quantity, Number.NaN);
           const enteredUnit = normalizeUnitCode(values?.quantityUnit);
           if (!Number.isFinite(quantity) || quantity <= 0 || !enteredUnit) {
             return (
@@ -2640,7 +2633,7 @@ export function LineItemDialog({
       const matched = taxRatesRef.current.find(
         (rate) => rate.id === nextForm.taxRateId,
       );
-      const numericRate = normalizeNumber(matched?.rate);
+      const numericRate = toNumber(matched?.rate);
       if (Number.isFinite(numericRate)) {
         nextForm.taxRate = numericRate;
       }
@@ -2730,7 +2723,7 @@ export function LineItemDialog({
           : typeof sp.thumbnail_url === "string"
             ? sp.thumbnail_url
             : null;
-      const snapshotTaxRate = normalizeNumber(sp.taxRate, Number.NaN);
+      const snapshotTaxRate = toNumber(sp.taxRate, Number.NaN);
       const option: ProductOption = {
         id: initialLine.productId,
         title: snapshotTitle,
@@ -2741,7 +2734,7 @@ export function LineItemDialog({
         defaultUnit: normalizeUnitCode(sp.defaultUnit ?? sp.default_unit),
         defaultSalesUnit: normalizeUnitCode(sp.defaultSalesUnit ?? sp.default_sales_unit),
         defaultSalesUnitQuantity: (() => {
-          const raw = normalizeNumber(sp.defaultSalesUnitQuantity ?? sp.default_sales_unit_quantity, Number.NaN);
+          const raw = toNumber(sp.defaultSalesUnitQuantity ?? sp.default_sales_unit_quantity, Number.NaN);
           return Number.isFinite(raw) ? raw : null;
         })(),
       };
@@ -2771,7 +2764,7 @@ export function LineItemDialog({
               productOptionsRef.current.get(initialLine.productId ?? "")
                 ?.thumbnailUrl ??
               null);
-      const snapshotTaxRate = normalizeNumber(sv.taxRate, Number.NaN);
+      const snapshotTaxRate = toNumber(sv.taxRate, Number.NaN);
       const option: VariantOption = {
         id: initialLine.productVariantId,
         title: snapshotTitle,

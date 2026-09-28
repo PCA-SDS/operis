@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 import type React from 'react'
-import { readString, toDateInputValue, formatAmount, openNativeDatePicker } from '../shared'
+import { readString, toDateInputValue, openNativeDatePicker } from '../shared'
 
 describe('sales dashboard shared helpers', () => {
   describe('readString', () => {
@@ -47,36 +47,6 @@ describe('sales dashboard shared helpers', () => {
 
     it('returns empty string for an invalid date string', () => {
       expect(toDateInputValue('not-a-date')).toBe('')
-    })
-  })
-
-  describe('formatAmount', () => {
-    it('returns -- for non-numeric value', () => {
-      expect(formatAmount('abc', null)).toBe('--')
-    })
-
-    it('returns -- for NaN string', () => {
-      expect(formatAmount('NaN', null)).toBe('--')
-    })
-
-    it('returns currency-formatted string when currency is provided', () => {
-      const result = formatAmount('1234.50', 'USD', 'en-US')
-      expect(result).toMatch(/1.*234.*50/)
-    })
-
-    it('returns decimal-formatted string when currency is null', () => {
-      const result = formatAmount('1234', null, 'en-US')
-      expect(result).toMatch(/1.*234/)
-    })
-
-    it('returns decimal-formatted string when currency is empty', () => {
-      const result = formatAmount('500.5', '', 'en-US')
-      expect(result).toMatch(/500/)
-    })
-
-    it('returns plain number string on Intl error', () => {
-      const result = formatAmount('100', 'INVALID_CURRENCY_CODE_THAT_DOES_NOT_EXIST', 'en-US')
-      expect(result).toBe('100')
     })
   })
 

@@ -24,6 +24,7 @@ import { handleSectionMutationError, readRowUpdatedAt } from './optimisticLock'
 import { extractCustomFieldValues } from '@open-mercato/shared/lib/crud/custom-fields-client'
 import type { OrderLine, ShipmentRow, ShipmentItem } from './shipmentTypes'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { formatDate } from '@open-mercato/shared/lib/time'
 
 const logger = createLogger('sales')
 
@@ -39,13 +40,6 @@ type SalesShipmentsSectionProps = {
   documentUpdatedAt?: string | null
   onActionChange?: (action: SectionAction | null) => void
   onAddComment?: (body: string) => Promise<void>
-}
-
-function formatDisplayDate(value: string | null | undefined): string | null {
-  if (!value) return null
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return null
-  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(date)
 }
 
 const formatShipmentAddress = (metadata?: Record<string, unknown> | null): string | null => {
@@ -486,8 +480,8 @@ export function SalesShipmentsSection({
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {shipments.map((shipment) => {
-            const shippedAt = formatDisplayDate(shipment.shippedAt)
-            const deliveredAt = formatDisplayDate(shipment.deliveredAt)
+            const shippedAt = formatDate(shipment.shippedAt)
+            const deliveredAt = formatDate(shipment.deliveredAt)
             const addressSummary = formatShipmentAddress(shipment.metadata)
             const statusLabel =
               shipment.statusLabel ??

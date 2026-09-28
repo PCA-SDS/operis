@@ -19,6 +19,8 @@ import { PaymentDialog, type PaymentFormData, type PaymentTotals } from './Payme
 import { extractCustomFieldValues } from '@open-mercato/shared/lib/crud/custom-fields-client'
 import { Plus } from 'lucide-react'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { toNumber } from '../../lib/numbers'
+import { formatCurrency } from '@open-mercato/shared/lib/units/money'
 
 const logger = createLogger('sales')
 
@@ -48,24 +50,6 @@ type SalesDocumentPaymentsSectionProps = {
   onActionChange?: (action: SectionAction | null) => void
   onTotalsChange?: () => void
   onPaymentsChange?: (payments: PaymentRow[]) => void
-}
-
-function normalizeNumber(value: unknown): number {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string' && value.trim().length) {
-    const parsed = Number(value)
-    if (!Number.isNaN(parsed)) return parsed
-  }
-  return 0
-}
-
-function formatMoney(value: number, currency: string | null | undefined): string {
-  if (!currency || currency.trim().length !== 3) return value.toFixed(2)
-  try {
-    return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(value)
-  } catch {
-    return `${currency.toUpperCase()} ${value.toFixed(2)}`
-  }
 }
 
 export function SalesDocumentPaymentsSection({
@@ -138,7 +122,7 @@ export function SalesDocumentPaymentsSection({
                 : typeof (item as any).statusLabel === 'string'
                   ? (item as any).statusLabel
                   : null,
-            amount: normalizeNumber(item.amount),
+            amount: toNumber(item.amount),
             currencyCode:
               typeof item.currency_code === 'string'
                 ? item.currency_code
@@ -282,7 +266,7 @@ export function SalesDocumentPaymentsSection({
       {
         accessorKey: 'amount',
         header: t('sales.documents.payments.amount', 'Amount'),
-        cell: ({ row }) => formatMoney(row.original.amount, row.original.currencyCode ?? currencyCode),
+        cell: ({ row }) => formatCurrency(row.original.amount, row.original.currencyCode ?? currencyCode, { fallback: '—' }),
       },
       {
         accessorKey: 'receivedAt',

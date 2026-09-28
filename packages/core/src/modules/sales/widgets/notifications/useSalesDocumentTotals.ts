@@ -79,3 +79,12 @@ export function useSalesDocumentTotals(kind: DocumentKind, documentId?: string |
 
   return { totals }
 }
+
+export function normalizeTotal(value?: string | null): string | null {
+  if (!value) return null
+  let trimmed = value.trim()
+  if (trimmed.startsWith('(') && trimmed.endsWith(')')) {
+    trimmed = trimmed.slice(1, -1).trim()
+  }
+  return trimmed.length ? trimmed : null
+}

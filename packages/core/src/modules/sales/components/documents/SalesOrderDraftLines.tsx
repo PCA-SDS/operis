@@ -10,7 +10,8 @@ import { Button } from '@open-mercato/ui/primitives/button'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { LineItemDialog } from './LineItemDialog'
 import type { SalesLineRecord } from './lineItemTypes'
-import { formatMoney, normalizeNumber } from './lineItemUtils'
+import { toNumber } from '../../lib/numbers'
+import { formatCurrency } from '@open-mercato/shared/lib/units/money'
 
 export type SalesOrderLineDraft = {
   id: string
@@ -37,12 +38,12 @@ export function createSalesOrderLineDraft(
   payload: Record<string, unknown>,
   id = draftId(),
 ): SalesOrderLineDraft {
-  const quantity = normalizeNumber(payload.quantity, 0)
-  const unitPriceNet = normalizeNumber(payload.unitPriceNet, 0)
-  const unitPriceGross = normalizeNumber(payload.unitPriceGross, unitPriceNet)
-  const taxRate = normalizeNumber(payload.taxRate, 0)
-  const totalNet = normalizeNumber(payload.totalNetAmount, unitPriceNet * quantity)
-  const totalGross = normalizeNumber(payload.totalGrossAmount, unitPriceGross * quantity)
+  const quantity = toNumber(payload.quantity, 0)
+  const unitPriceNet = toNumber(payload.unitPriceNet, 0)
+  const unitPriceGross = toNumber(payload.unitPriceGross, unitPriceNet)
+  const taxRate = toNumber(payload.taxRate, 0)
+  const totalNet = toNumber(payload.totalNetAmount, unitPriceNet * quantity)
+  const totalGross = toNumber(payload.totalGrossAmount, unitPriceGross * quantity)
   const metadata = payload.metadata && typeof payload.metadata === 'object'
     ? payload.metadata as Record<string, unknown>
     : null
@@ -60,13 +61,13 @@ export function createSalesOrderLineDraft(
       productVariantId: typeof payload.productVariantId === 'string' ? payload.productVariantId : null,
       quantity,
       quantityUnit: typeof payload.quantityUnit === 'string' ? payload.quantityUnit : null,
-      normalizedQuantity: normalizeNumber(payload.normalizedQuantity, quantity),
+      normalizedQuantity: toNumber(payload.normalizedQuantity, quantity),
       normalizedUnit: typeof payload.normalizedUnit === 'string' ? payload.normalizedUnit : null,
       currencyCode: typeof payload.currencyCode === 'string' ? payload.currencyCode : null,
       unitPriceNet,
       unitPriceGross,
-      discountAmount: normalizeNumber(payload.discountAmount, 0) * quantity,
-      discountPercent: normalizeNumber(payload.discountPercent, 0),
+      discountAmount: toNumber(payload.discountAmount, 0) * quantity,
+      discountPercent: toNumber(payload.discountPercent, 0),
       taxRate,
       totalNet,
       totalGross,
@@ -112,12 +113,12 @@ export function SalesOrderDraftLines({
     {
       id: 'unitPrice',
       header: t('sales.documents.items.table.unit', 'Unit price'),
-      cell: ({ row }) => formatMoney(row.original.record.unitPriceGross, row.original.record.currencyCode ?? currencyCode ?? undefined),
+      cell: ({ row }) => formatCurrency(row.original.record.unitPriceGross, row.original.record.currencyCode ?? currencyCode ?? undefined, { fallback: '—' }),
     },
     {
       id: 'total',
       header: t('sales.documents.items.table.total', 'Total'),
-      cell: ({ row }) => formatMoney(row.original.record.totalGross, row.original.record.currencyCode ?? currencyCode ?? undefined),
+      cell: ({ row }) => formatCurrency(row.original.record.totalGross, row.original.record.currencyCode ?? currencyCode ?? undefined, { fallback: '—' }),
     },
   ], [currencyCode, t])
 

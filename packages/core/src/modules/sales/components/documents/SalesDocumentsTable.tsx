@@ -28,6 +28,7 @@ import {
 import { SALES_DOCUMENT_NUMBER_COLUMN_META } from './salesDocumentsColumns'
 import { useSalesChannelsEnabled } from '../useSalesChannelsEnabled'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { formatCurrency } from '@open-mercato/shared/lib/units/money'
 
 const logger = createLogger('sales')
 
@@ -116,19 +117,6 @@ function toNumber(value: unknown): number | null {
     return Number.isNaN(parsed) ? null : parsed
   }
   return null
-}
-
-function formatCurrency(amount: number | null | undefined, currency: string | null | undefined, fallback = '—') {
-  if (amount == null || Number.isNaN(amount)) return fallback
-  try {
-    if (currency && currency.trim().length) {
-      const formatter = new Intl.NumberFormat(undefined, { style: 'currency', currency })
-      return formatter.format(amount)
-    }
-    return new Intl.NumberFormat(undefined, { style: 'decimal', maximumFractionDigits: 2 }).format(amount)
-  } catch {
-    return String(amount)
-  }
 }
 
 function mergeOptions(existing: FilterOption[], next: FilterOption[]): FilterOption[] {
@@ -645,7 +633,7 @@ export function SalesDocumentsTable({ kind }: { kind: SalesDocumentKind }) {
       accessorKey: 'totalNet',
       header: t('sales.documents.list.table.totalNet', 'Total (net)'),
       cell: ({ row }) => (
-        <span className="text-sm">{formatCurrency(row.original.totalNet ?? null, row.original.currency)}</span>
+        <span className="text-sm">{formatCurrency(row.original.totalNet ?? null, row.original.currency, { fallback: '—' })}</span>
       ),
     },
     {
@@ -653,7 +641,7 @@ export function SalesDocumentsTable({ kind }: { kind: SalesDocumentKind }) {
       accessorKey: 'totalGross',
       header: t('sales.documents.list.table.totalGross', 'Total (gross)'),
       cell: ({ row }) => (
-        <span className="text-sm">{formatCurrency(row.original.totalGross ?? null, row.original.currency)}</span>
+        <span className="text-sm">{formatCurrency(row.original.totalGross ?? null, row.original.currency, { fallback: '—' })}</span>
       ),
     },
     {

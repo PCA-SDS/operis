@@ -39,7 +39,7 @@ import { surfaceRecordConflict } from '@open-mercato/ui/backend/conflicts'
 import { collectCustomFieldValues } from '@open-mercato/ui/backend/utils/customFieldValues'
 import { mapCrudServerErrorToFormErrors } from '@open-mercato/ui/backend/utils/serverErrors'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
-import { LOOSE_EMAIL_PATTERN } from '@open-mercato/shared/lib/validation'
+import { LOOSE_EMAIL_PATTERN, CURRENCY_CODE_PATTERN } from '@open-mercato/shared/lib/validation'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { ContactEmailDisplay } from '@open-mercato/core/modules/sales/components/ContactEmailDisplay'
@@ -77,6 +77,8 @@ import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuarde
 import { buildRecordInjectionContext, useSetCurrentRecordInjectionContext } from '@open-mercato/ui/backend/injection/recordContext'
 import { useSalesChannelsEnabled } from '@open-mercato/core/modules/sales/components/useSalesChannelsEnabled'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { parseCustomerOptions, type CustomerOption } from '../../../../components/documents/customerOptions'
+import { normalizeCustomFieldSubmitValue } from '@open-mercato/ui/backend/utils/customFieldSubmitValue'
 
 const logger = createLogger('sales')
 
@@ -807,14 +809,6 @@ type AddressSnapshot = {
   country?: string | null
 }
 
-type CustomerOption = {
-  id: string
-  label: string
-  subtitle?: string | null
-  kind: 'person' | 'company'
-  primaryEmail?: string | null
-}
-
 type ChannelOption = {
   id: string
   label: string
@@ -932,14 +926,6 @@ type DocumentUpdateResult = {
   updatedAt?: string | null
 }
 
-const normalizeCustomFieldSubmitValue = (value: unknown): unknown => {
-  if (Array.isArray(value)) {
-    return value.filter((entry) => entry !== undefined)
-  }
-  if (value === undefined) return null
-  return value
-}
-
 export function handleDocumentMutationError(
   err: unknown,
   t: (key: string, fallback?: string) => string,
@@ -1017,28 +1003,6 @@ function resolveCustomerEmail(snapshot: CustomerSnapshot | null | undefined) {
     null
   if (primary) return primary
   return null
-}
-
-function parseCustomerOptions(items: unknown[], kind: 'person' | 'company'): CustomerOption[] {
-  const parsed: CustomerOption[] = []
-  for (const item of items) {
-    if (typeof item !== 'object' || item === null) continue
-    const record = item as Record<string, unknown>
-    const id = typeof record.id === 'string' ? record.id : null
-    if (!id) continue
-    const displayName =
-      typeof record.display_name === 'string'
-        ? record.display_name
-        : typeof record.name === 'string'
-          ? record.name
-          : null
-    const email = typeof record.primary_email === 'string' ? record.primary_email : null
-    const domain = typeof record.primary_domain === 'string' ? record.primary_domain : null
-    const label = displayName ?? (email ?? domain ?? id)
-    const subtitle = kind === 'person' ? email : domain ?? email
-    parsed.push({ id, label: `${label}`, subtitle, kind, primaryEmail: email })
-  }
-  return parsed
 }
 
 function SectionCard({
@@ -3088,7 +3052,7 @@ export default function SalesDocumentDetailPage({
         throw new Error(message)
       }
       const normalized = typeof next === 'string' ? next.trim().toUpperCase() : ''
-      if (!/^[A-Z]{3}$/.test(normalized)) {
+      if (!CURRENCY_CODE_PATTERN.test(normalized)) {
         const message = t('sales.documents.detail.currencyInvalid', 'Currency code must be 3 letters.')
         flash(message, 'error')
         throw new Error(message)

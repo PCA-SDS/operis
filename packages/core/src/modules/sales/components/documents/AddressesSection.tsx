@@ -29,10 +29,9 @@ import {
 } from '@open-mercato/core/modules/customers/utils/addressFormat'
 import { Pencil, Plus, Save, Trash2 } from 'lucide-react'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import type { TranslateWithFallbackFn } from '@open-mercato/shared/lib/i18n/translate'
 
 const logger = createLogger('sales')
-
-type Translator = (key: string, fallback?: string, params?: Record<string, string | number>) => string
 
 type AddressOption = {
   id: string
@@ -1095,7 +1094,7 @@ export function SalesDocumentAddressesSection({
               <AddressEditor
                 value={shippingDraft}
                 format={addressFormat}
-                t={t as Translator}
+                t={t as TranslateWithFallbackFn}
                 onChange={(next) => setShippingDraft(next)}
                 hidePrimaryToggle
               />
@@ -1162,7 +1161,7 @@ export function SalesDocumentAddressesSection({
                   <AddressEditor
                     value={billingDraft}
                     format={addressFormat}
-                    t={t as Translator}
+                    t={t as TranslateWithFallbackFn}
                     onChange={(next) => setBillingDraft(next)}
                     hidePrimaryToggle
                   />
@@ -1264,7 +1263,7 @@ export function SalesDocumentAddressesSection({
                     <AddressEditor
                       value={editingDraft}
                       format={addressFormat}
-                      t={t as Translator}
+                      t={t as TranslateWithFallbackFn}
                       onChange={(next) => setEditingDraft(next)}
                       hidePrimaryToggle
                     />
@@ -1380,7 +1379,7 @@ export function SalesDocumentAddressesSection({
               <AddressEditor
                 value={additionalDraft}
                 format={addressFormat}
-                t={t as Translator}
+                t={t as TranslateWithFallbackFn}
                 onChange={(next) => setAdditionalDraft(next)}
                 hidePrimaryToggle
               />

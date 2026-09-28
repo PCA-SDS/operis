@@ -18,6 +18,7 @@ import { E } from '#generated/entities.ids.generated'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { normalizeCustomFieldSubmitValue, extractCustomFieldValues } from '@open-mercato/shared/lib/crud/custom-fields-client'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { toNumber } from '../../lib/numbers'
 
 const logger = createLogger('sales')
 
@@ -64,15 +65,6 @@ type PaymentDialogProps = {
   documentUpdatedAt?: string | null
   onOpenChange: (open: boolean) => void
   onSaved?: (totals?: PaymentTotals | null) => void | Promise<void>
-}
-
-const normalizeNumber = (value: unknown): number => {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string' && value.trim().length) {
-    const parsed = Number(value)
-    if (!Number.isNaN(parsed)) return parsed
-  }
-  return 0
 }
 
 export function PaymentDialog({
@@ -493,7 +485,7 @@ export function PaymentDialog({
   const handleSubmit = React.useCallback(
     async (values: Record<string, unknown>) => {
       const resolvedCurrency = currencyCode ? currencyCode.toUpperCase() : ''
-      const amountValue = normalizeNumber(values.amount)
+      const amountValue = toNumber(values.amount)
       if (!resolvedCurrency.trim()) {
         throw createCrudFormError(t('sales.documents.payments.currencyRequired', 'Currency is required.'))
       }

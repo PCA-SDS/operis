@@ -9,7 +9,6 @@ import {
 } from '@open-mercato/ui/primitives/select'
 import { SwitchField } from '@open-mercato/ui/primitives/switch-field'
 import { Textarea } from '@open-mercato/ui/primitives/textarea'
-import { isRecord } from '@open-mercato/shared/lib/utils'
 import type { ProviderSettingField } from '../lib/providers'
 
 export function renderProviderFieldInput(opts: {
