@@ -19,6 +19,7 @@ import type { WidgetDataResponse } from '../../../services/widgetDataService'
 import { createCurrencyFormatters } from '../../../lib/formatters'
 import { UnlabelledAmountNotice } from '../../../components/UnlabelledAmountNotice'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { UUID_SHAPE_PATTERN } from '@open-mercato/shared/lib/validation'
 
 const logger = createLogger('dashboards').child({ component: 'top-products' })
 
@@ -54,7 +55,7 @@ function truncateLabel(
   if (labelStr === '0' || labelStr === 'null' || labelStr === 'undefined') {
     return t('dashboards.analytics.labels.unknownProduct', 'Unknown Product')
   }
-  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(labelStr)) {
+  if (UUID_SHAPE_PATTERN.test(labelStr)) {
     return t('dashboards.analytics.labels.unnamedProduct', 'Unnamed Product')
   }
   if (labelStr.length <= maxLength) return labelStr

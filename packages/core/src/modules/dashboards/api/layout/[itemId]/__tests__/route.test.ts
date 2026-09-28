@@ -25,8 +25,8 @@ const container = {
   }),
 }
 
-const validateCrudMutationGuardMock = jest.fn()
-const runCrudMutationGuardAfterSuccessMock = jest.fn()
+const runRouteMutationGuardsMock = jest.fn()
+const runAfterSuccessMock = jest.fn()
 
 jest.mock('@open-mercato/shared/lib/di/container', () => ({
   createRequestContainer: jest.fn(async () => container),
@@ -36,9 +36,8 @@ jest.mock('@open-mercato/shared/lib/auth/server', () => ({
   getAuthFromRequest: jest.fn(async () => ({ sub: userId, tenantId, orgId: organizationId })),
 }))
 
-jest.mock('@open-mercato/shared/lib/crud/mutation-guard', () => ({
-  validateCrudMutationGuard: (...args: unknown[]) => validateCrudMutationGuardMock(...args),
-  runCrudMutationGuardAfterSuccess: (...args: unknown[]) => runCrudMutationGuardAfterSuccessMock(...args),
+jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
+  runRouteMutationGuards: (...args: unknown[]) => runRouteMutationGuardsMock(...args),
 }))
 
 import { PATCH } from '../route'
@@ -58,24 +57,30 @@ describe('dashboards layout item route mutation guard', () => {
     rbac.loadAcl.mockResolvedValue({ isSuperAdmin: true, features: [] })
     rbac.userHasAllFeatures.mockResolvedValue(true)
     em.findOne.mockResolvedValue({ layoutJson: [{ id: layoutItemId, widgetId: 'sales-summary', size: 'md' }] })
-    validateCrudMutationGuardMock.mockResolvedValue({ ok: true, shouldRunAfterSuccess: true, metadata: { token: 'guard' } })
-    runCrudMutationGuardAfterSuccessMock.mockResolvedValue(undefined)
+    runRouteMutationGuardsMock.mockResolvedValue({ ok: true, runAfterSuccess: runAfterSuccessMock })
+    runAfterSuccessMock.mockResolvedValue(undefined)
   })
 
   it('short-circuits the write when the mutation guard blocks the request', async () => {
-    validateCrudMutationGuardMock.mockResolvedValue({ ok: false, status: 409, body: { error: 'conflict' } })
+    runRouteMutationGuardsMock.mockResolvedValue({ ok: false, errorStatus: 409, errorBody: { error: 'conflict' } })
 
     const response = await PATCH(buildRequest(), { params: { itemId: layoutItemId } })
 
     expect(response.status).toBe(409)
     expect(await response.json()).toEqual({ error: 'conflict' })
-    expect(validateCrudMutationGuardMock).toHaveBeenCalledWith(
-      container,
-      expect.objectContaining({ resourceKind: 'dashboards.layout', resourceId: layoutItemId, operation: 'update' }),
+    expect(runRouteMutationGuardsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        container,
+        input: expect.objectContaining({
+          resourceKind: 'dashboards.layout',
+          resourceId: layoutItemId,
+          operation: 'update',
+        }),
+      }),
     )
     expect(em.findOne).not.toHaveBeenCalled()
     expect(em.flush).not.toHaveBeenCalled()
-    expect(runCrudMutationGuardAfterSuccessMock).not.toHaveBeenCalled()
+    expect(runAfterSuccessMock).not.toHaveBeenCalled()
   })
 
   it('runs the after-success hook after a successful write', async () => {
@@ -83,9 +88,6 @@ describe('dashboards layout item route mutation guard', () => {
 
     expect(response.status).toBe(200)
     expect(em.flush).toHaveBeenCalled()
-    expect(runCrudMutationGuardAfterSuccessMock).toHaveBeenCalledWith(
-      container,
-      expect.objectContaining({ resourceKind: 'dashboards.layout', resourceId: layoutItemId, operation: 'update' }),
-    )
+    expect(runAfterSuccessMock).toHaveBeenCalled()
   })
 })

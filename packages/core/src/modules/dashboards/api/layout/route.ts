@@ -9,10 +9,6 @@ import { resolveAllowedWidgetIds } from '@open-mercato/core/modules/dashboards/l
 import { authorizeFeatures } from '@open-mercato/shared/security/featurePolicy'
 import { User } from '@open-mercato/core/modules/auth/data/entities'
 import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
-import {
-  runCrudMutationGuardAfterSuccess,
-  validateCrudMutationGuard,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
 import type { OpenApiMethodDoc, OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import {
   dashboardsTag,
@@ -20,6 +16,7 @@ import {
   dashboardsOkSchema,
   dashboardLayoutStateSchema,
 } from '../openapi'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const DEFAULT_SIZE = 'md'
 const RESOURCE_KIND = 'dashboards.layout'
@@ -246,19 +243,19 @@ export async function PUT(req: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const guardResult = await validateCrudMutationGuard(container, {
-    tenantId: scope.tenantId ?? '',
-    organizationId: scope.organizationId,
-    userId: scope.userId,
-    resourceKind: RESOURCE_KIND,
-    resourceId: scope.userId,
-    operation: 'update',
-    requestMethod: req.method,
-    requestHeaders: req.headers,
-    mutationPayload: { items: parsed.data.items },
+  const guardResult = await runRouteMutationGuards({
+    container,
+    req,
+    auth: { userId: scope.userId, tenantId: scope.tenantId ?? '', organizationId: scope.organizationId },
+    input: {
+      resourceKind: RESOURCE_KIND,
+      resourceId: scope.userId,
+      operation: 'update',
+      mutationPayload: { items: parsed.data.items },
+    },
   })
-  if (guardResult && !guardResult.ok) {
-    return NextResponse.json(guardResult.body, { status: guardResult.status })
+  if (!guardResult.ok) {
+    return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
   }
 
   const widgets = await loadAllWidgets()
@@ -319,19 +316,7 @@ export async function PUT(req: Request) {
   }
   await em.flush()
 
-  if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-    await runCrudMutationGuardAfterSuccess(container, {
-      tenantId: scope.tenantId ?? '',
-      organizationId: scope.organizationId,
-      userId: scope.userId,
-      resourceKind: RESOURCE_KIND,
-      resourceId: scope.userId,
-      operation: 'update',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      metadata: guardResult.metadata ?? null,
-    })
-  }
+  await guardResult.runAfterSuccess()
 
   return NextResponse.json({ ok: true })
 }

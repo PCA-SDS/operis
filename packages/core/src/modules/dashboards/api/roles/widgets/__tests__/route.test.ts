@@ -23,8 +23,8 @@ const container = {
   }),
 }
 
-const validateCrudMutationGuardMock = jest.fn()
-const runCrudMutationGuardAfterSuccessMock = jest.fn()
+const runRouteMutationGuardsMock = jest.fn()
+const runAfterSuccessMock = jest.fn()
 const getAuthFromRequestMock = jest.fn()
 
 jest.mock('@open-mercato/shared/lib/di/container', () => ({
@@ -35,9 +35,8 @@ jest.mock('@open-mercato/shared/lib/auth/server', () => ({
   getAuthFromRequest: (...args: unknown[]) => getAuthFromRequestMock(...args),
 }))
 
-jest.mock('@open-mercato/shared/lib/crud/mutation-guard', () => ({
-  validateCrudMutationGuard: (...args: unknown[]) => validateCrudMutationGuardMock(...args),
-  runCrudMutationGuardAfterSuccess: (...args: unknown[]) => runCrudMutationGuardAfterSuccessMock(...args),
+jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
+  runRouteMutationGuards: (...args: unknown[]) => runRouteMutationGuardsMock(...args),
 }))
 
 jest.mock('@open-mercato/core/modules/dashboards/lib/widgets', () => ({
@@ -70,23 +69,29 @@ describe('dashboards role widgets route mutation guard', () => {
     rbac.loadAcl.mockResolvedValue({ isSuperAdmin: true, features: [] })
     em.findOne.mockResolvedValue({ id: roleId, tenantId })
     getAuthFromRequestMock.mockResolvedValue({ sub: userId, tenantId, orgId: organizationId })
-    validateCrudMutationGuardMock.mockResolvedValue({ ok: true, shouldRunAfterSuccess: true, metadata: { token: 'guard' } })
-    runCrudMutationGuardAfterSuccessMock.mockResolvedValue(undefined)
+    runRouteMutationGuardsMock.mockResolvedValue({ ok: true, runAfterSuccess: runAfterSuccessMock })
+    runAfterSuccessMock.mockResolvedValue(undefined)
   })
 
   it('short-circuits the write when the mutation guard blocks the request', async () => {
-    validateCrudMutationGuardMock.mockResolvedValue({ ok: false, status: 409, body: { error: 'conflict' } })
+    runRouteMutationGuardsMock.mockResolvedValue({ ok: false, errorStatus: 409, errorBody: { error: 'conflict' } })
 
     const response = await PUT(buildRequest({ roleId, widgetIds: ['sales-summary'] }))
 
     expect(response.status).toBe(409)
     expect(await response.json()).toEqual({ error: 'conflict' })
-    expect(validateCrudMutationGuardMock).toHaveBeenCalledWith(
-      container,
-      expect.objectContaining({ resourceKind: 'dashboards.roleWidgets', resourceId: roleId, operation: 'update' }),
+    expect(runRouteMutationGuardsMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        container,
+        input: expect.objectContaining({
+          resourceKind: 'dashboards.roleWidgets',
+          resourceId: roleId,
+          operation: 'update',
+        }),
+      }),
     )
     expect(em.flush).not.toHaveBeenCalled()
-    expect(runCrudMutationGuardAfterSuccessMock).not.toHaveBeenCalled()
+    expect(runAfterSuccessMock).not.toHaveBeenCalled()
   })
 
   it('runs the after-success hook after a successful write', async () => {
@@ -97,10 +102,7 @@ describe('dashboards role widgets route mutation guard', () => {
 
     expect(response.status).toBe(200)
     expect(em.flush).toHaveBeenCalled()
-    expect(runCrudMutationGuardAfterSuccessMock).toHaveBeenCalledWith(
-      container,
-      expect.objectContaining({ resourceKind: 'dashboards.roleWidgets', resourceId: roleId, operation: 'update' }),
-    )
+    expect(runAfterSuccessMock).toHaveBeenCalled()
   })
 })
 
@@ -111,8 +113,8 @@ describe('dashboards role widgets route tenant ownership', () => {
     em.remove.mockReturnValue({ flush: jest.fn().mockResolvedValue(undefined) })
     em.create.mockImplementation((_entity: unknown, payload: Record<string, unknown>) => ({ id: 'rec', ...payload }))
     em.find.mockResolvedValue([])
-    validateCrudMutationGuardMock.mockResolvedValue({ ok: true, shouldRunAfterSuccess: true, metadata: { token: 'guard' } })
-    runCrudMutationGuardAfterSuccessMock.mockResolvedValue(undefined)
+    runRouteMutationGuardsMock.mockResolvedValue({ ok: true, runAfterSuccess: runAfterSuccessMock })
+    runAfterSuccessMock.mockResolvedValue(undefined)
   })
 
   it('rejects a null-tenant non-superadmin write instead of writing across tenants', async () => {
@@ -123,7 +125,7 @@ describe('dashboards role widgets route tenant ownership', () => {
     const response = await PUT(buildRequest({ roleId, widgetIds: ['sales-summary'] }))
 
     expect(response.status).toBe(403)
-    expect(validateCrudMutationGuardMock).not.toHaveBeenCalled()
+    expect(runRouteMutationGuardsMock).not.toHaveBeenCalled()
     expect(em.persist).not.toHaveBeenCalled()
     expect(em.flush).not.toHaveBeenCalled()
   })
