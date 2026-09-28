@@ -21,6 +21,7 @@ import {
 import { compensateWorkflow } from './compensation-handler'
 import { findWorkflowDefinition, findDefinitionForInstance } from './find-definition'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { normalizeWorkflowUserId } from './workflow-user-id'
 
 const logger = createLogger('workflows')
 
@@ -62,13 +63,6 @@ export interface WorkflowEventSummary {
   eventType: string
   occurredAt: Date
   data?: any
-}
-
-function normalizeWorkflowUserId(value: unknown): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  if (!trimmed || trimmed.startsWith('trigger:')) return null
-  return trimmed
 }
 
 function resolveWorkflowExecutionUserId(

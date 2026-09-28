@@ -1,15 +1,11 @@
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
+
 export type WorkflowSafeCommandDefinition = {
   commandId: string
   requiredFeatures: readonly [string, ...string[]]
 }
 
 const workflowSafeCommands = new Map<string, WorkflowSafeCommandDefinition>()
-
-function normalizeCommandId(commandId: unknown): string | null {
-  if (typeof commandId !== 'string') return null
-  const trimmed = commandId.trim()
-  return trimmed.length > 0 ? trimmed : null
-}
 
 function normalizeFeatures(features: readonly string[]): [string, ...string[]] | null {
   const normalized = features
@@ -21,7 +17,7 @@ function normalizeFeatures(features: readonly string[]): [string, ...string[]] |
 
 export function registerWorkflowSafeCommands(commands: readonly WorkflowSafeCommandDefinition[]): void {
   for (const command of commands) {
-    const commandId = normalizeCommandId(command.commandId)
+    const commandId = normalizeOptionalString(command.commandId)
     const requiredFeatures = normalizeFeatures(command.requiredFeatures)
     if (!commandId || !requiredFeatures) {
       throw new Error('[internal] Workflow-safe commands require a commandId and requiredFeatures')
@@ -31,7 +27,7 @@ export function registerWorkflowSafeCommands(commands: readonly WorkflowSafeComm
 }
 
 export function getWorkflowSafeCommand(commandId: unknown): WorkflowSafeCommandDefinition | null {
-  const normalized = normalizeCommandId(commandId)
+  const normalized = normalizeOptionalString(commandId)
   if (!normalized) return null
   return workflowSafeCommands.get(normalized) ?? null
 }

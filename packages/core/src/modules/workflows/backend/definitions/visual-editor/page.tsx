@@ -10,7 +10,7 @@ import type { Node, Edge, Connection } from '@xyflow/react'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
-import { graphToDefinition, definitionToGraph, validateWorkflowGraph, generateStepId, generateTransitionId, appendWorkflowEdge, ValidationError } from '../../../lib/graph-utils'
+import { graphToDefinition, definitionToGraph, validateWorkflowGraph, generateStepId, generateTransitionId, appendWorkflowEdge, ValidationError, getBadgeForNodeType } from '../../../lib/graph-utils'
 import { performDeleteEdgeFlow, performDeleteNodeFlow } from '../../../lib/visual-editor-delete-flow'
 import { humanizeDefinitionIssuePath } from '../../../lib/format-validation-error'
 import { workflowDefinitionDataSchema } from '../../../data/validators'
@@ -214,7 +214,7 @@ export default function VisualEditorPage() {
       data: {
         label: getDefaultLabel(nodeType),
         description: '',
-        badge: getDefaultBadge(nodeType),
+        badge: getBadgeForNodeType(nodeType),
         status: 'pending',
       },
     }
@@ -1271,18 +1271,5 @@ function getDefaultLabel(nodeType: string): string {
     waitForTimer: 'Wait for Timer',
   }
   return labels[nodeType] || 'New Step'
-}
-
-function getDefaultBadge(nodeType: string): string {
-  const badges: Record<string, string> = {
-    start: 'Start',
-    end: 'End',
-    userTask: 'User Task',
-    automated: 'Automated',
-    decision: 'Decision',
-    waitForSignal: 'Wait for Signal',
-    waitForTimer: 'Wait for Timer',
-  }
-  return badges[nodeType] || 'Task'
 }
 

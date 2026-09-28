@@ -481,7 +481,7 @@ function mapStepTypeToNodeType(stepType: string): string {
 /**
  * Get badge text for node type
  */
-function getBadgeForNodeType(nodeType: string): string {
+export function getBadgeForNodeType(nodeType: string): string {
   const badges: Record<string, string> = {
     start: 'Start',
     end: 'End',

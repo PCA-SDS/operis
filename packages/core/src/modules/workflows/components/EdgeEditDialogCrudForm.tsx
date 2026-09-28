@@ -6,24 +6,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Badge } from '@open-mercato/ui/primitives/badge'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Trash2 } from 'lucide-react'
-import { CrudForm, type CrudFormGroup, type CrudField, type CrudCustomFieldRenderProps } from '@open-mercato/ui/backend/CrudForm'
-import { JsonBuilder } from '@open-mercato/ui/backend/JsonBuilder'
+import { CrudForm, type CrudFormGroup, type CrudField } from '@open-mercato/ui/backend/CrudForm'
 import { BusinessRuleConditionsEditor } from './fields/BusinessRuleConditionsEditor'
 import { ActivityArrayEditor } from './fields/ActivityArrayEditor'
 import { edgeToFormValues, formValuesToEdgeUpdates, type EdgeFormValues } from '../lib/edgeFormTransforms'
-
-/**
- * JsonConfigEditor - Custom field wrapper for JsonBuilder
- */
-function JsonConfigEditor({ value, setValue, disabled }: CrudCustomFieldRenderProps) {
-  return (
-    <JsonBuilder
-      value={value || {}}
-      onChange={setValue}
-      disabled={disabled}
-    />
-  )
-}
+import { JsonBuilderCrudField } from '@open-mercato/ui/backend/JsonBuilderCrudField'
 
 export interface EdgeEditDialogCrudFormProps {
   edge: Edge | null
@@ -188,7 +175,7 @@ export const EdgeEditDialogCrudForm = memo(function EdgeEditDialogCrudForm({ edg
       label: 'Advanced Configuration (JSON)',
       type: 'custom',
       description: 'Additional JSON configuration merged with the transition data',
-      component: (props) => <JsonConfigEditor {...props} />,
+      component: (props) => <JsonBuilderCrudField {...props} />,
     },
   ], [])
 

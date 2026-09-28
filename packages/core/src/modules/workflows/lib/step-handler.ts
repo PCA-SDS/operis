@@ -17,12 +17,12 @@ import {
   UserTask,
   WorkflowEvent,
   type StepInstanceStatus,
-  type WorkflowStepType,
 } from '../data/entities'
 import { parseDuration } from './duration'
 import { logWorkflowEvent } from './event-logger'
 import { findDefinitionForInstance } from './find-definition'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import type { WorkflowStepType } from '@open-mercato/shared/modules/workflows/types'
 
 const logger = createLogger('workflows')
 

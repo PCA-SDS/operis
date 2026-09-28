@@ -3,7 +3,7 @@
 import { memo } from 'react'
 import { Handle, Position, NodeProps } from '@xyflow/react'
 import { WorkflowNodeCard } from '../WorkflowNodeCard'
-import { WorkflowStatus } from '../../lib/status-colors'
+import { mapStatus } from './nodeStatus'
 
 /**
  * ParallelForkNode display data.
@@ -21,13 +21,6 @@ export interface ParallelForkNodeData {
   badge?: string
   tooltip?: string
   executionStatus?: 'completed' | 'active' | 'pending' | 'failed' | 'skipped'
-}
-
-function mapStatus(status?: string): WorkflowStatus {
-  if (!status || status === 'pending') return 'not_started'
-  if (status === 'running' || status === 'in_progress') return 'in_progress'
-  if (status === 'completed') return 'completed'
-  return 'not_started'
 }
 
 /**

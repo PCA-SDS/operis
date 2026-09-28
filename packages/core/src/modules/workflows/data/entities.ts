@@ -7,21 +7,6 @@
 import { OptionalProps } from '@mikro-orm/core'
 import { Entity, Index, PrimaryKey, Property, Unique } from '@open-mercato/shared/lib/db/decorators'
 
-// ============================================================================
-// Type Definitions
-// ============================================================================
-
-export type WorkflowStepType =
-  | 'START'
-  | 'END'
-  | 'USER_TASK'
-  | 'AUTOMATED'
-  | 'PARALLEL_FORK'
-  | 'PARALLEL_JOIN'
-  | 'SUB_WORKFLOW'
-  | 'WAIT_FOR_SIGNAL'
-  | 'WAIT_FOR_TIMER'
-
 export type WorkflowInstanceStatus =
   | 'RUNNING'
   | 'PAUSED'
