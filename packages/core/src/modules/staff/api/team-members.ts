@@ -7,11 +7,12 @@ import { escapeLikePattern } from '@open-mercato/shared/lib/db/escapeLikePattern
 import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { StaffTeam, StaffTeamMember, StaffTeamRole } from '../data/entities'
 import { staffTeamMemberCreateSchema, staffTeamMemberUpdateSchema } from '../data/validators'
-import { sanitizeSearchTerm, parseBooleanFlag } from './helpers'
-import { parseBooleanFromUnknown } from '@open-mercato/shared/lib/boolean'
+import { parseBooleanFromUnknown, parseBooleanFlag } from '@open-mercato/shared/lib/boolean'
 import { User } from '@open-mercato/core/modules/auth/data/entities'
 import { E } from '#generated/entities.ids.generated'
 import { createStaffCrudOpenApi, createPagedListResponseSchema, defaultOkResponseSchema } from './openapi'
+import { sanitizeSearchTerm } from '@open-mercato/shared/lib/query/sanitizeSearchTerm'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 // Field constants for StaffTeamMember entity
 const F = {
@@ -59,8 +60,7 @@ function readDeleteForceFlag(parsed: unknown): boolean {
 
 const listSchema = z
   .object({
-    page: z.coerce.number().int().min(1).default(1),
-    pageSize: z.coerce.number().int().min(1).max(100).default(50),
+    ...paginationQuerySchema().shape,
     search: z.string().optional(),
     isActive: z.string().optional(),
     teamId: z.string().uuid().optional(),

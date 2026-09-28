@@ -4,8 +4,8 @@ const mockGetAuthFromRequest = jest.fn()
 const mockResolveOrganizationScope = jest.fn()
 const mockParseScopedCommandInput = jest.fn()
 const mockExecute = jest.fn()
-const mockRunStaffMutationGuards = jest.fn()
-const mockRunStaffMutationGuardAfterSuccess = jest.fn()
+const mockRunRouteMutationGuards = jest.fn()
+const mockRunAfterSuccess = jest.fn()
 
 const mockContainer = {
   resolve: jest.fn((token: string) => {
@@ -34,9 +34,8 @@ jest.mock('@open-mercato/shared/lib/api/scoped', () => ({
   parseScopedCommandInput: jest.fn((...args: unknown[]) => mockParseScopedCommandInput(...args)),
 }))
 
-jest.mock('../../../../guards', () => ({
-  runStaffMutationGuards: jest.fn((...args: unknown[]) => mockRunStaffMutationGuards(...args)),
-  runStaffMutationGuardAfterSuccess: jest.fn((...args: unknown[]) => mockRunStaffMutationGuardAfterSuccess(...args)),
+jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
+  runRouteMutationGuards: (...args: unknown[]) => mockRunRouteMutationGuards(...args),
 }))
 
 type RouteModule = typeof import('../route')
@@ -65,59 +64,44 @@ describe('staff team-members tags assign route mutation guard', () => {
     mockResolveOrganizationScope.mockResolvedValue({ tenantId: 'tenant-1', selectedId: 'org-1', filterIds: ['org-1'] })
     mockParseScopedCommandInput.mockReturnValue({ memberId: 'member-1', tag: 'vip' })
     mockExecute.mockResolvedValue({ result: { memberId: 'member-1' }, logEntry: null })
-    mockRunStaffMutationGuards.mockResolvedValue({ ok: true, afterSuccessCallbacks: [] })
+    mockRunRouteMutationGuards.mockResolvedValue({ ok: true, runAfterSuccess: mockRunAfterSuccess })
   })
 
   it('blocks the tag assignment when the mutation guard denies the request', async () => {
-    mockRunStaffMutationGuards.mockResolvedValueOnce({
-      ok: false,
-      errorStatus: 423,
-      errorBody: { error: 'Locked' },
-      afterSuccessCallbacks: [],
-    })
+    mockRunRouteMutationGuards.mockResolvedValueOnce({ ok: false, errorStatus: 423, errorBody: { error: 'Locked' } })
 
     const response = await postHandler(buildRequest())
 
     expect(response.status).toBe(423)
     await expect(response.json()).resolves.toEqual({ error: 'Locked' })
-    expect(mockRunStaffMutationGuards).toHaveBeenCalledWith(
-      mockContainer,
+    expect(mockRunRouteMutationGuards).toHaveBeenCalledWith(
       expect.objectContaining({
-        resourceKind: 'staff.team_member',
-        resourceId: 'member-1',
-        operation: 'create',
-        requestMethod: 'POST',
+        container: mockContainer,
+        input: expect.objectContaining({
+          resourceKind: 'staff.team_member',
+          resourceId: 'member-1',
+          operation: 'create',
+        }),
       }),
     )
     expect(mockExecute).not.toHaveBeenCalled()
-    expect(mockRunStaffMutationGuardAfterSuccess).not.toHaveBeenCalled()
+    expect(mockRunAfterSuccess).not.toHaveBeenCalled()
   })
 
-  it('runs the after-success hook when the guard requests it', async () => {
-    mockRunStaffMutationGuards.mockResolvedValueOnce({
-      ok: true,
-      afterSuccessCallbacks: [{ guard: {}, metadata: { lock: 'token' } }],
-    })
-
+  it('runs the guard after-success step once the command succeeds', async () => {
     const response = await postHandler(buildRequest())
 
     expect(response.status).toBe(201)
     expect(mockExecute).toHaveBeenCalledWith('staff.team-members.tags.assign', expect.anything())
-    expect(mockRunStaffMutationGuardAfterSuccess).toHaveBeenCalledWith(
-      [{ guard: {}, metadata: { lock: 'token' } }],
-      expect.objectContaining({
-        resourceKind: 'staff.team_member',
-        resourceId: 'member-1',
-        operation: 'create',
-      }),
-    )
+    expect(mockRunAfterSuccess).toHaveBeenCalledWith({ resourceId: 'member-1' })
   })
 
-  it('does not run the after-success hook when the guard does not request it', async () => {
+  it('does not run the guard after-success step when the command fails', async () => {
+    mockExecute.mockRejectedValueOnce(new Error('command failed'))
+
     const response = await postHandler(buildRequest())
 
-    expect(response.status).toBe(201)
-    expect(mockExecute).toHaveBeenCalled()
-    expect(mockRunStaffMutationGuardAfterSuccess).not.toHaveBeenCalled()
+    expect(response.status).toBe(400)
+    expect(mockRunAfterSuccess).not.toHaveBeenCalled()
   })
 })

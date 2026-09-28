@@ -6,6 +6,7 @@ import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { StaffTimeProjectMember } from '../../../../../data/entities'
 import { staffTimeProjectMemberAssignSchema } from '../../../../../data/validators'
 import { createStaffCrudOpenApi, createPagedListResponseSchema, defaultOkResponseSchema } from '../../../../openapi'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 function extractProjectIdFromUrl(request?: Request): string | null {
   if (!request?.url) return null
@@ -45,8 +46,7 @@ const rawBodySchema = z.object({}).passthrough()
 
 const listSchema = z
   .object({
-    page: z.coerce.number().int().min(1).default(1),
-    pageSize: z.coerce.number().int().min(1).max(100).default(50),
+    ...paginationQuerySchema().shape,
     timeProjectId: z.string().uuid().optional(),
     status: z.string().optional(),
     sortField: z.string().optional(),

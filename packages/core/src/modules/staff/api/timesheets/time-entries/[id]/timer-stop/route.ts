@@ -11,13 +11,10 @@ import { LockMode } from '@mikro-orm/core'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { StaffTimeEntry, StaffTimeEntrySegment } from '../../../../../data/entities'
 import { getStaffMemberByUserId } from '../../../../../lib/staffMemberResolver'
-import {
-  runStaffMutationGuardAfterSuccess,
-  runStaffMutationGuards,
-} from '../../../../guards'
 import { emitStaffEvent } from '../../../../../events'
 import { invalidateStaffTimeEntryCache } from '../../../../../lib/timesheets/timeEntryCacheInvalidation'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const logger = createLogger('staff')
 
@@ -74,23 +71,16 @@ export async function POST(req: Request) {
       throw new CrudHttpError(403, { error: translate('staff.timesheets.errors.notOwner', 'You can only manage your own time entries.') })
     }
 
-    const guardResult = await runStaffMutationGuards(
+    const guardResult = await runRouteMutationGuards({
       container,
-      {
-        tenantId,
-        organizationId,
-        userId: auth.sub ?? '',
-        resourceKind: 'staff.timesheets.time_entry',
-        resourceId: entry.id,
-        operation: 'update',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
-      },
-    )
+      req,
+      auth: { userId: auth.sub ?? '', tenantId, organizationId },
+      input: { resourceKind: 'staff.timesheets.time_entry', resourceId: entry.id, operation: 'update' },
+    })
     if (!guardResult.ok) {
       return NextResponse.json(
-        guardResult.errorBody ?? { error: 'Operation blocked by guard' },
-        { status: guardResult.errorStatus ?? 422 },
+        guardResult.errorBody,
+        { status: guardResult.errorStatus },
       )
     }
 
@@ -169,18 +159,7 @@ export async function POST(req: Request) {
       logger.error('staff.timesheets emit timer_stopped failed', { err })
     })
 
-    if (guardResult.afterSuccessCallbacks.length) {
-      await runStaffMutationGuardAfterSuccess(guardResult.afterSuccessCallbacks, {
-        tenantId,
-        organizationId,
-        userId: auth.sub ?? '',
-        resourceKind: 'staff.timesheets.time_entry',
-        resourceId: entry.id,
-        operation: 'update',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
-      })
-    }
+    await guardResult.runAfterSuccess()
 
     return NextResponse.json({ ok: true, durationMinutes }, { status: 200 })
   } catch (err) {

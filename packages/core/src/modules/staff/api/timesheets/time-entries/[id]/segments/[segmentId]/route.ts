@@ -12,10 +12,7 @@ import { LockMode } from '@mikro-orm/core'
 import { StaffTimeEntry, StaffTimeEntrySegment } from '../../../../../../data/entities'
 import { staffTimeEntrySegmentUpdateSchema } from '../../../../../../data/validators'
 import { getStaffMemberByUserId } from '../../../../../../lib/staffMemberResolver'
-import {
-  runStaffMutationGuardAfterSuccess,
-  runStaffMutationGuards,
-} from '../../../../../guards'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const routeMetadata = {
   PATCH: { requireAuth: true, requireFeatures: ['staff.timesheets.manage_own'] },
@@ -89,24 +86,21 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: 'Segment not found' }, { status: 404 })
   }
 
-  const guardResult = await runStaffMutationGuards(
+  const guardResult = await runRouteMutationGuards({
     container,
-    {
-      tenantId,
-      organizationId,
-      userId: auth.sub ?? '',
+    req,
+    auth: { userId: auth.sub ?? '', tenantId, organizationId },
+    input: {
       resourceKind: 'staff.timesheets.time_entry_segment',
       resourceId: segment.id,
       operation: 'update',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
       mutationPayload: parsed.data as unknown as Record<string, unknown>,
     },
-  )
+  })
   if (!guardResult.ok) {
     return NextResponse.json(
-      guardResult.errorBody ?? { error: 'Operation blocked by guard' },
-      { status: guardResult.errorStatus ?? 422 },
+      guardResult.errorBody,
+      { status: guardResult.errorStatus },
     )
   }
 
@@ -159,18 +153,7 @@ export async function PATCH(req: Request) {
     throw err
   }
 
-  if (guardResult.afterSuccessCallbacks.length) {
-    await runStaffMutationGuardAfterSuccess(guardResult.afterSuccessCallbacks, {
-      tenantId,
-      organizationId,
-      userId: auth.sub ?? '',
-      resourceKind: 'staff.timesheets.time_entry_segment',
-      resourceId: updatedSegment.id,
-      operation: 'update',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-    })
-  }
+  await guardResult.runAfterSuccess({ resourceId: updatedSegment.id })
 
   return NextResponse.json({
     ok: true,

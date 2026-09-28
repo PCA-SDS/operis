@@ -7,8 +7,10 @@ import { escapeLikePattern } from '@open-mercato/shared/lib/db/escapeLikePattern
 import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { StaffTimeProject, StaffTimeProjectMember, StaffTeamMember } from '../../../data/entities'
 import { staffTimeProjectCreateSchema, staffTimeProjectUpdateSchema } from '../../../data/validators'
-import { sanitizeSearchTerm, parseBooleanFlag } from '../../helpers'
 import { createStaffCrudOpenApi, createPagedListResponseSchema, defaultOkResponseSchema } from '../../openapi'
+import { sanitizeSearchTerm } from '@open-mercato/shared/lib/query/sanitizeSearchTerm'
+import { parseBooleanFlag } from '@open-mercato/shared/lib/boolean'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 const F = {
   id: 'id',
@@ -42,8 +44,7 @@ const rawBodySchema = z.object({}).passthrough()
 
 const listSchema = z
   .object({
-    page: z.coerce.number().int().min(1).default(1),
-    pageSize: z.coerce.number().int().min(1).max(100).default(50),
+    ...paginationQuerySchema().shape,
     q: z.string().optional(),
     ids: z.string().optional(),
     projectType: z.string().optional(),

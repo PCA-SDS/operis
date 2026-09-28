@@ -6,12 +6,7 @@ import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/d
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
-import {
-  bridgeLegacyGuard,
-  runMutationGuards,
-  type MutationGuard,
-  type MutationGuardInput,
-} from '@open-mercato/shared/lib/crud/mutation-guard-registry'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import type { ScopedAttachmentUploadService } from '@open-mercato/core/modules/attachments/lib/scoped-upload-service'
@@ -85,26 +80,23 @@ export async function POST(req: Request) {
 
     // The record writes HR data, so it goes through the same guard chain as any
     // other mutation on this member before anything is produced.
-    const legacyGuard = bridgeLegacyGuard(container)
-    const guardInput: MutationGuardInput = {
-      operation: 'update',
-      resourceKind: 'staff.teamMember',
-      resourceId: member.id,
-      tenantId,
-      organizationId,
-      userId: auth.sub ?? '',
-      requestMethod: 'POST',
-      requestHeaders: req.headers,
-      mutationPayload: parsed.data,
-    }
-    const guardResult = legacyGuard
-      ? await runMutationGuards([legacyGuard], guardInput, {
-          userFeatures: await resolveGrantedFeatures(container, auth, guardInput.organizationId),
-        })
-      : { ok: true, afterSuccessCallbacks: [] as Array<{ guard: MutationGuard; metadata: Record<string, unknown> | null }> }
-    if (!guardResult.ok) {
-      return NextResponse.json(guardResult.errorBody ?? {}, { status: guardResult.errorStatus ?? 403 })
-    }
+    const guardResult = await runRouteMutationGuards({
+      container,
+      req,
+      auth: {
+        userId: auth.sub ?? '',
+        tenantId,
+        organizationId,
+        userFeatures: await resolveGrantedFeatures(container, auth, organizationId),
+      },
+      input: {
+        resourceKind: 'staff.teamMember',
+        resourceId: member.id,
+        operation: 'update',
+        mutationPayload: parsed.data,
+      },
+    })
+    if (!guardResult.ok) return guardResult.response
 
     const [profile, team, roles] = await Promise.all([
       findOneWithDecryption(
@@ -187,27 +179,7 @@ export async function POST(req: Request) {
       tags: ['employee-record'],
     })
 
-    for (const callback of guardResult.afterSuccessCallbacks) {
-      if (!callback.guard.afterSuccess) continue
-      try {
-        // `MutationGuardAfterInput` requires a concrete resourceId and takes
-        // no payload, so it is built rather than spread from the guard input.
-        await callback.guard.afterSuccess({
-          tenantId,
-          organizationId,
-          userId: auth.sub ?? '',
-          resourceKind: 'staff.teamMember',
-          resourceId: member.id,
-          operation: 'update',
-          requestMethod: 'POST',
-          requestHeaders: req.headers,
-          metadata: callback.metadata ?? null,
-        })
-      } catch {
-        // A committed write must still report success; the callback owns its
-        // own logging.
-      }
-    }
+    await guardResult.runAfterSuccess()
 
     return NextResponse.json({ attachmentId: attachment.id, fileName: attachment.fileName })
   } catch (err) {

@@ -15,10 +15,7 @@ import { StaffTimeEntry, StaffTeamMember, StaffTimeProject } from '../../../../d
 import { staffTimeEntryBulkSaveSchema } from '../../../../data/validators'
 import { staffTimeEntryCrudEvents } from '../../../../lib/crud'
 import { invalidateStaffTimeEntryCache } from '../../../../lib/timesheets/timeEntryCacheInvalidation'
-import {
-  runStaffMutationGuardAfterSuccess,
-  runStaffMutationGuards,
-} from '../../../guards'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 
 const logger = createLogger('staff')
@@ -100,23 +97,19 @@ export async function POST(req: Request) {
       }
     }
 
-    const guardInput = {
-      tenantId,
-      organizationId,
-      userId: auth.sub ?? '',
-      resourceKind: 'staff.timesheets.time_entry',
-      resourceId: staffMemberId,
-      operation: 'update' as const,
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      mutationPayload: parsed.data as unknown as Record<string, unknown>,
-    }
-    const guardResult = await runStaffMutationGuards(container, guardInput)
+    const guardResult = await runRouteMutationGuards({
+      container,
+      req,
+      auth: { userId: auth.sub ?? '', tenantId, organizationId },
+      input: {
+        resourceKind: 'staff.timesheets.time_entry',
+        resourceId: staffMemberId,
+        operation: 'update',
+        mutationPayload: parsed.data as unknown as Record<string, unknown>,
+      },
+    })
     if (!guardResult.ok) {
-      return NextResponse.json(
-        guardResult.errorBody ?? { error: 'Operation blocked by guard' },
-        { status: guardResult.errorStatus ?? 422 },
-      )
+      return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
     }
 
     const existingIds = entries
@@ -246,18 +239,7 @@ export async function POST(req: Request) {
       )
     }
 
-    if (guardResult.afterSuccessCallbacks.length) {
-      await runStaffMutationGuardAfterSuccess(guardResult.afterSuccessCallbacks, {
-        tenantId,
-        organizationId,
-        userId: auth.sub ?? '',
-        resourceKind: 'staff.timesheets.time_entry',
-        resourceId: staffMemberId,
-        operation: 'update',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
-      })
-    }
+    await guardResult.runAfterSuccess()
 
     return NextResponse.json({ ok: true, ...counts }, { status: 200 })
   } catch (err) {

@@ -10,8 +10,8 @@ const mockGetAuthFromRequest = jest.fn()
 const mockResolveOrganizationScope = jest.fn()
 const mockFindOneWithDecryption = jest.fn()
 const mockFindWithDecryption = jest.fn()
-const mockRunStaffMutationGuards = jest.fn()
-const mockRunStaffMutationGuardAfterSuccess = jest.fn()
+const mockRunRouteMutationGuards = jest.fn()
+const mockRunAfterSuccess = jest.fn()
 const mockEmitCrudSideEffects = jest.fn()
 const mockFlushCrudSideEffects = jest.fn()
 const mockEntityManagerFind = jest.fn()
@@ -74,11 +74,8 @@ jest.mock('@open-mercato/shared/lib/commands/helpers', () => ({
   flushCrudSideEffects: jest.fn((...args: unknown[]) => mockFlushCrudSideEffects(...args)),
 }))
 
-jest.mock('../../../../guards', () => ({
-  runStaffMutationGuards: jest.fn((...args: unknown[]) => mockRunStaffMutationGuards(...args)),
-  runStaffMutationGuardAfterSuccess: jest.fn((...args: unknown[]) =>
-    mockRunStaffMutationGuardAfterSuccess(...args),
-  ),
+jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
+  runRouteMutationGuards: (...args: unknown[]) => mockRunRouteMutationGuards(...args),
 }))
 
 const ORIGINAL_ENV = { ...process.env }
@@ -111,7 +108,7 @@ describe('POST /api/staff/timesheets/time-entries/bulk cache invalidation (#4970
     mockFindOneWithDecryption.mockResolvedValue({ id: 'staff-member-1' })
     mockFindWithDecryption.mockResolvedValue([])
     mockEntityManagerFind.mockResolvedValue([{ id: timeProjectId }])
-    mockRunStaffMutationGuards.mockResolvedValue({ ok: true, afterSuccessCallbacks: [] })
+    mockRunRouteMutationGuards.mockResolvedValue({ ok: true, runAfterSuccess: mockRunAfterSuccess })
     mockTrxCreate.mockImplementation((_entity: unknown, data: Record<string, unknown>) => ({
       id: createdEntryId,
       ...data,

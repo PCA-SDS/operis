@@ -13,9 +13,10 @@ import {
   staffLeaveRequestUpdateSchema,
   staffLeaveRequestDecisionSchema,
 } from '../data/validators'
-import { sanitizeSearchTerm } from './helpers'
 import { E } from '#generated/entities.ids.generated'
 import { createStaffCrudOpenApi, createPagedListResponseSchema, defaultOkResponseSchema } from './openapi'
+import { sanitizeSearchTerm } from '@open-mercato/shared/lib/query/sanitizeSearchTerm'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 const MANAGE_FEATURE = 'staff.leave_requests.manage'
 const SEND_FEATURE = 'staff.leave_requests.send'
@@ -59,8 +60,7 @@ const rawBodySchema = z.object({}).passthrough()
 
 const listSchema = z
   .object({
-    page: z.coerce.number().int().min(1).default(1),
-    pageSize: z.coerce.number().int().min(1).max(100).default(50),
+    ...paginationQuerySchema().shape,
     search: z.string().optional(),
     status: z.enum(['pending', 'approved', 'rejected']).optional(),
     memberId: z.string().uuid().optional(),

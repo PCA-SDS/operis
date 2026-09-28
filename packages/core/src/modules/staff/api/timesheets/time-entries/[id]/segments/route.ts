@@ -14,11 +14,8 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { StaffTimeEntry, StaffTimeEntrySegment } from '../../../../../data/entities'
 import { staffTimeEntrySegmentCreateSchema } from '../../../../../data/validators'
 import { getStaffMemberByUserId } from '../../../../../lib/staffMemberResolver'
-import {
-  runStaffMutationGuardAfterSuccess,
-  runStaffMutationGuards,
-} from '../../../../guards'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const logger = createLogger('staff')
 
@@ -90,24 +87,21 @@ export async function POST(req: Request) {
       translate,
     )
 
-    const guardResult = await runStaffMutationGuards(
+    const guardResult = await runRouteMutationGuards({
       container,
-      {
-        tenantId,
-        organizationId,
-        userId: auth.sub ?? '',
+      req,
+      auth: { userId: auth.sub ?? '', tenantId, organizationId },
+      input: {
         resourceKind: 'staff.timesheets.time_entry_segment',
         resourceId: entry.id,
         operation: 'create',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
         mutationPayload: input as unknown as Record<string, unknown>,
       },
-    )
+    })
     if (!guardResult.ok) {
       return NextResponse.json(
-        guardResult.errorBody ?? { error: 'Operation blocked by guard' },
-        { status: guardResult.errorStatus ?? 422 },
+        guardResult.errorBody,
+        { status: guardResult.errorStatus },
       )
     }
 
@@ -141,18 +135,7 @@ export async function POST(req: Request) {
       return created
     })
 
-    if (guardResult.afterSuccessCallbacks.length) {
-      await runStaffMutationGuardAfterSuccess(guardResult.afterSuccessCallbacks, {
-        tenantId,
-        organizationId,
-        userId: auth.sub ?? '',
-        resourceKind: 'staff.timesheets.time_entry_segment',
-        resourceId: segment.id,
-        operation: 'create',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
-      })
-    }
+    await guardResult.runAfterSuccess({ resourceId: segment.id })
 
     return NextResponse.json(
       {

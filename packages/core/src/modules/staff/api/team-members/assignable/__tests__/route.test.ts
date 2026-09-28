@@ -19,6 +19,9 @@ jest.mock('@open-mercato/core/modules/customers/lib/interactionRequestContext', 
   resolveCustomersRequestContext: jest.fn((...args: unknown[]) =>
     mockResolveCustomersRequestContext(...args),
   ),
+}))
+
+jest.mock('@open-mercato/shared/lib/auth/actor', () => ({
   resolveAuthActorId: jest.fn((...args: unknown[]) => mockResolveAuthActorId(...args)),
 }))
 
