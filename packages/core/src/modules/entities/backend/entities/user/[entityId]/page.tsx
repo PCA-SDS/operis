@@ -27,6 +27,7 @@ import {
 } from '@open-mercato/ui/primitives/dialog'
 import { normalizeCustomFieldOptions } from '@open-mercato/shared/modules/entities/options'
 import { TranslationManager } from '@open-mercato/core/modules/translations/components/TranslationManager'
+import { nonEmptyStringOrNull } from '@open-mercato/shared/lib/string'
 
 type Def = FieldDefinition
 export type EntitySource = 'code' | 'custom'
@@ -35,10 +36,6 @@ type FieldsetGroup = { code: string; title?: string; hint?: string }
 type FieldsetDefinition = { code: string; label: string; icon?: string; description?: string; groups?: FieldsetGroup[] }
 type DefinitionsManageResponse = { items?: any[]; deletedKeys?: string[]; fieldsets?: FieldsetDefinition[]; settings?: { singleFieldsetPerRecord?: boolean }; version?: string | null }
 type DefinitionsBatchResponse = { ok?: boolean; version?: string | null }
-
-function readVersionToken(value: unknown): string | null {
-  return typeof value === 'string' && value.length > 0 ? value : null
-}
 
 type DefErrors = FieldDefinitionError
 
@@ -207,7 +204,7 @@ export default function EditDefinitionsPage({ params }: { params?: { entityId?: 
             (a, b) => Number(a.configJson?.priority ?? 0) - Number(b.configJson?.priority ?? 0)
           )
           setDefs(loaded)
-          setDefsVersion(readVersionToken(json.version))
+          setDefsVersion(nonEmptyStringOrNull(json.version))
           setDefErrors({})
           setDeletedKeys(Array.isArray(json.deletedKeys) ? json.deletedKeys : [])
           const loadedFieldsets = Array.isArray(json.fieldsets) ? json.fieldsets : []
@@ -264,7 +261,7 @@ export default function EditDefinitionsPage({ params }: { params?: { entityId?: 
         (a, b) => Number(a.configJson?.priority ?? 0) - Number(b.configJson?.priority ?? 0)
       )
       setDefs(loaded)
-      setDefsVersion(readVersionToken(j2.version))
+      setDefsVersion(nonEmptyStringOrNull(j2.version))
       setDeletedKeys(Array.isArray(j2.deletedKeys) ? j2.deletedKeys : [])
       flash(t('entities.userEntities.edit.flash.restoredField', 'Restored {{key}}', { key }), 'success')
       await invalidateCustomFieldDefs(queryClient, entityId)
@@ -302,7 +299,7 @@ export default function EditDefinitionsPage({ params }: { params?: { entityId?: 
         if (surfaceRecordConflict({ status: call.status, body: call.result }, t)) return
         await raiseCrudError(call.response, t('entities.customFields.errors.saveFailed', 'Failed to save field definitions.'))
       }
-      setDefsVersion(readVersionToken(call.result?.version))
+      setDefsVersion(nonEmptyStringOrNull(call.result?.version))
       await invalidateCustomFieldDefs(queryClient, entityId)
       router.push(`/backend/entities/user?flash=${encodeURIComponent(t('entities.customFields.flash.saved', 'Definitions saved'))}&type=success`)
     } catch (e: any) {
@@ -327,7 +324,7 @@ export default function EditDefinitionsPage({ params }: { params?: { entityId?: 
         }
         // Keep the optimistic-lock token in sync after an out-of-band delete so a
         // later Save does not falsely 409 against our own change (issue #3152).
-        setDefsVersion(readVersionToken(call.result?.version))
+        setDefsVersion(nonEmptyStringOrNull(call.result?.version))
       } catch (error) {
         const message = error instanceof Error ? error.message : t('entities.customFields.errors.deleteFailed', 'Failed to delete field.')
         flash(message, 'error')
@@ -400,7 +397,7 @@ export default function EditDefinitionsPage({ params }: { params?: { entityId?: 
         }
         await raiseCrudError(call.response, t('entities.userEntities.edit.errors.saveOrderFailed', 'Failed to save order'))
       }
-      setDefsVersion(readVersionToken(call.result?.version))
+      setDefsVersion(nonEmptyStringOrNull(call.result?.version))
       setOrderDirty(false)
       flash(t('entities.userEntities.edit.flash.orderSaved', 'Order saved'), 'success')
       await invalidateCustomFieldDefs(queryClient, entityId)
@@ -563,7 +560,7 @@ export default function EditDefinitionsPage({ params }: { params?: { entityId?: 
     if (!callDefs.ok) {
       await raiseCrudError(callDefs.response, t('entities.customFields.errors.saveFailed', 'Failed to save field definitions.'))
     }
-    setDefsVersion(readVersionToken(callDefs.result?.version))
+    setDefsVersion(nonEmptyStringOrNull(callDefs.result?.version))
     try { window.dispatchEvent(new Event('om:refresh-sidebar')) } catch {}
     await invalidateCustomFieldDefs(queryClient, entityId)
     flash(t('entities.customFields.flash.saved', 'Definitions saved'), 'success')

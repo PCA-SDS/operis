@@ -6,13 +6,10 @@ import { EncryptionMap } from '@open-mercato/core/modules/entities/data/entities
 import { upsertEncryptionMapSchema } from '@open-mercato/core/modules/entities/data/validators'
 import { CrudHttpError, isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { enforceCommandOptimisticLock } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
-import {
-  runCrudMutationGuardAfterSuccess,
-  validateCrudMutationGuard,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const ENCRYPTION_MAP_RESOURCE_KIND = 'entities.encryption_map'
 
@@ -111,19 +108,19 @@ export async function POST(req: Request) {
 
     // Mutation-guard contract for custom write routes. The resource is the
     // encryption map for this entity scoped to the tenant/organization.
-    const guardResult = await validateCrudMutationGuard(container, {
-      tenantId,
-      organizationId,
-      userId: auth.sub,
-      resourceKind: ENCRYPTION_MAP_RESOURCE_KIND,
-      resourceId: existing?.id ?? payload.entityId,
-      operation: existing ? 'update' : 'create',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      mutationPayload: payload,
+    const guardResult = await runRouteMutationGuards({
+      container,
+      req,
+      auth: { userId: auth.sub, tenantId, organizationId },
+      input: {
+        resourceKind: ENCRYPTION_MAP_RESOURCE_KIND,
+        resourceId: existing?.id ?? payload.entityId,
+        operation: existing ? 'update' : 'create',
+        mutationPayload: payload,
+      },
     })
-    if (guardResult && !guardResult.ok) {
-      return NextResponse.json(guardResult.body, { status: guardResult.status })
+    if (!guardResult.ok) {
+      return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
     }
 
     let saved: any
@@ -145,19 +142,7 @@ export async function POST(req: Request) {
       saved = map
     }
 
-    if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-      await runCrudMutationGuardAfterSuccess(container, {
-        tenantId,
-        organizationId,
-        userId: auth.sub,
-        resourceKind: ENCRYPTION_MAP_RESOURCE_KIND,
-        resourceId: saved?.id ?? payload.entityId,
-        operation: existing ? 'update' : 'create',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
-        metadata: guardResult.metadata ?? null,
-      })
-    }
+    await guardResult.runAfterSuccess({ resourceId: saved?.id ?? payload.entityId })
 
     try {
       const svc = container.resolve('tenantEncryptionService') as { invalidateMap?: (e: string, t: string | null, o: string | null) => Promise<void> }

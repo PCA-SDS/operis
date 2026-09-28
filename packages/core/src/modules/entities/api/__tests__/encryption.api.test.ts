@@ -1,6 +1,7 @@
 /** @jest-environment node */
 import { GET, POST, openApi } from '@open-mercato/core/modules/entities/api/encryption'
 import { OPTIMISTIC_LOCK_HEADER_NAME } from '@open-mercato/shared/lib/crud/optimistic-lock-headers'
+import { registerMutationGuards } from '@open-mercato/shared/lib/crud/mutation-guard-store'
 
 // Deterministic version instants. The optimistic-lock check is a pure ISO-string
 // equality compare of two version tokens (see optimistic-lock-command.ts) — it
@@ -31,17 +32,11 @@ const mockResolveOrganizationScopeForRequest = jest.fn(async () => ({
   allowedIds: ['o-1'],
 }))
 
-let mockGuardService: any = null
-
 jest.mock('@open-mercato/shared/lib/di/container', () => ({
   createRequestContainer: async () => ({
     resolve: (k: string) => {
       if (k === 'em') return mockEm
       if (k === 'tenantEncryptionService') return mockEncSvc
-      if (k === 'crudMutationGuardService') {
-        if (!mockGuardService) throw new Error('not registered')
-        return mockGuardService
-      }
       return null
     },
   }),
@@ -58,9 +53,24 @@ jest.mock('@open-mercato/core/modules/directory/utils/organizationScope', () => 
 describe('entities/encryption API', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    mockGuardService = null
     delete process.env.OM_OPTIMISTIC_LOCK
   })
+
+  afterEach(() => {
+    registerMutationGuards([])
+  })
+
+  function registerEncryptionMapGuard(guard: { validate: jest.Mock; afterSuccess: jest.Mock }) {
+    registerMutationGuards([{
+      moduleId: 'entities_test',
+      guards: [{
+        id: 'entities_test.encryption-map-guard',
+        targetEntity: 'entities.encryption_map',
+        operations: ['create', 'update'],
+        ...guard,
+      }],
+    }])
+  }
 
   it('returns empty map when none exists', async () => {
     mockMapRepo.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce(null).mockResolvedValueOnce(null)
@@ -254,10 +264,11 @@ describe('entities/encryption API', () => {
   })
 
   it('blocks the write when the mutation guard rejects it', async () => {
-    mockGuardService = {
-      validateMutation: jest.fn(async () => ({ ok: false, status: 403, body: { error: 'blocked' } })),
-      afterMutationSuccess: jest.fn(async () => {}),
+    const guard = {
+      validate: jest.fn(async () => ({ ok: false, status: 403, body: { error: 'blocked' } })),
+      afterSuccess: jest.fn(async () => {}),
     }
+    registerEncryptionMapGuard(guard)
     mockMapRepo.findOne.mockResolvedValue(null)
     const payload = { entityId: 'auth:user', fields: [{ field: 'email', hashField: null }] }
     const res = await POST(new Request('http://x/api/entities/encryption', {
@@ -268,7 +279,7 @@ describe('entities/encryption API', () => {
     expect(res.status).toBe(403)
     const json = await res.json()
     expect(json).toMatchObject({ error: 'blocked' })
-    expect(mockGuardService.validateMutation).toHaveBeenCalledWith(
+    expect(guard.validate).toHaveBeenCalledWith(
       expect.objectContaining({
         resourceKind: 'entities.encryption_map',
         operation: 'create',
@@ -281,10 +292,11 @@ describe('entities/encryption API', () => {
   })
 
   it('runs the mutation-guard after-success hook on a successful write', async () => {
-    mockGuardService = {
-      validateMutation: jest.fn(async () => ({ ok: true, shouldRunAfterSuccess: true, metadata: { trace: 'x' } })),
-      afterMutationSuccess: jest.fn(async () => {}),
+    const guard = {
+      validate: jest.fn(async () => ({ ok: true, shouldRunAfterSuccess: true, metadata: { trace: 'x' } })),
+      afterSuccess: jest.fn(async () => {}),
     }
+    registerEncryptionMapGuard(guard)
     mockMapRepo.findOne.mockResolvedValue(null)
     const payload = { entityId: 'auth:user', fields: [{ field: 'email', hashField: null }] }
     const res = await POST(new Request('http://x/api/entities/encryption', {
@@ -293,7 +305,7 @@ describe('entities/encryption API', () => {
       headers: { 'content-type': 'application/json' },
     }))
     expect(res.status).toBe(200)
-    expect(mockGuardService.afterMutationSuccess).toHaveBeenCalledWith(
+    expect(guard.afterSuccess).toHaveBeenCalledWith(
       expect.objectContaining({
         resourceKind: 'entities.encryption_map',
         operation: 'create',

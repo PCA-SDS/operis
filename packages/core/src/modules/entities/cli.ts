@@ -14,7 +14,6 @@ import { parseBooleanToken } from '@open-mercato/shared/lib/boolean'
 import { parseCommaSeparatedList } from '@open-mercato/shared/lib/string'
 import { createKmsService, type KmsService, type TenantDek } from '@open-mercato/shared/lib/encryption/kms'
 import {
-  decryptWithAesGcm,
   decryptWithAesGcmStrict,
   TenantDataEncryptionError,
   TenantDataEncryptionErrorCode,
@@ -27,26 +26,13 @@ import { resolveEntityIdFromMetadata } from '@open-mercato/shared/lib/encryption
 import { listEntityMetadata } from '@open-mercato/shared/lib/db/entityMetadata'
 import { Organization } from '../directory/data/entities'
 import crypto from 'node:crypto'
-
-function parseArgs(rest: string[]) {
-  const args: Record<string, string | boolean> = {}
-  for (let i = 0; i < rest.length; i++) {
-    const a = rest[i]
-    if (!a) continue
-    if (a.startsWith('--')) {
-      const [k, v] = a.replace(/^--/, '').split('=')
-      if (v !== undefined) args[k] = v
-      else if (rest[i + 1] && !rest[i + 1]!.startsWith('--')) { args[k] = rest[i + 1]!; i++ }
-      else args[k] = true
-    }
-  }
-  return args
-}
+import { fingerprintDek, decryptWithOldKey } from '@open-mercato/shared/lib/encryption/rotation'
+import { parseCliArgs } from '@open-mercato/shared/lib/cli/args'
 
 const seedDefs: ModuleCli = {
   command: 'install',
   async run(rest) {
-    const args = parseArgs(rest)
+    const args = parseCliArgs(rest)
     const tenantIdArg = (args.tenant as string) || (args.tenantId as string)
     const globalOnly = Boolean(args.global)
     const dry = Boolean(args['dry-run'] || args.dry)
@@ -88,7 +74,7 @@ const seedDefs: ModuleCli = {
 const reinstallDefs: ModuleCli = {
   command: 'reinstall',
   async run(rest) {
-    const args = parseArgs(rest)
+    const args = parseCliArgs(rest)
     const tenantIdArg = (args.tenant as string) || (args.tenantId as string)
     const globalOnly = Boolean(args.global)
     const dry = Boolean(args['dry-run'] || args.dry)
@@ -166,7 +152,7 @@ const reinstallDefs: ModuleCli = {
 const addField: ModuleCli = {
   command: 'add-field',
   async run(rest) {
-    const args = parseArgs(rest)
+    const args = parseCliArgs(rest)
     const rl = readline.createInterface({ input, output })
     const ask = async (q: string, d?: string) => {
       const a = (await rl.question(d ? `${q} [${d}]: ` : `${q}: `)).trim()
@@ -329,7 +315,7 @@ async function upsertEncryptionMaps(em: any, tenantId: string, organizationId: s
 const seedEncryptionMaps: ModuleCli = {
   command: 'seed-encryption',
   async run(rest) {
-    const args = parseArgs(rest)
+    const args = parseCliArgs(rest)
     const tenantId = (args.tenant as string) || (args.tenantId as string)
     const organizationId = (args.org as string) || (args.organization as string) || (args.organizationId as string) || null
 
@@ -379,19 +365,6 @@ class DerivedKeyKmsService implements KmsService {
   async createTenantDek(tenantId: string): Promise<TenantDek | null> {
     return this.getTenantDek(tenantId)
   }
-}
-
-function fingerprintDek(dek: TenantDek | null): string | null {
-  if (!dek?.key) return null
-  return crypto.createHash('sha256').update(dek.key).digest('hex').slice(0, 12)
-}
-
-function decryptWithOldKey(
-  payload: string,
-  dek: TenantDek | null,
-): string | null {
-  if (!dek?.key) return null
-  return decryptWithAesGcm(payload, dek.key)
 }
 
 function resolveProperty(meta: any, field: string): { columnName: string | null; prop: any | null } {
@@ -465,7 +438,7 @@ function formatValueForColumn(prop: any, value: unknown): unknown {
 const rotateEncryptionKey: ModuleCli = {
   command: 'rotate-encryption-key',
   async run(rest) {
-    const args = parseArgs(rest)
+    const args = parseCliArgs(rest)
     const tenantIdArg = (args.tenant as string) || (args.tenantId as string) || null
     const organizationIdArg = (args.org as string) || (args.organization as string) || (args.organizationId as string) || null
     const oldKey = (args['old-key'] as string) || (args.oldKey as string) || null
@@ -677,7 +650,7 @@ const rotateEncryptionKey: ModuleCli = {
 const decryptDatabase: ModuleCli = {
   command: 'decrypt-database',
   async run(rest) {
-    const args = parseArgs(rest)
+    const args = parseCliArgs(rest)
     const tenantIdArg = (args.tenant as string) || (args.tenantId as string) || null
     const organizationIdArg = (args.org as string) || (args.organization as string) || (args.organizationId as string) || null
     const entityIdArg = (args.entity as string) || null
@@ -1054,7 +1027,7 @@ const decryptDatabase: ModuleCli = {
 const backfillSystemEncryption: ModuleCli = {
   command: 'backfill-system-encryption',
   async run(rest) {
-    const args = parseArgs(rest)
+    const args = parseCliArgs(rest)
     const entityIdArg = (args.entity as string) || null
     const dryRun = Boolean(args['dry-run'] || args.dry)
     const batchSize = Math.max(1, parseInt(String(args['batch-size'] || args.batchSize || '500'), 10) || 500)
