@@ -17,6 +17,7 @@ import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuarde
 import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { formatInvoiceMoney } from '../../../lib/format'
+import { LOOSE_EMAIL_PATTERN } from '@open-mercato/shared/lib/validation'
 
 export type PaymentConfirmationView = {
   status: 'PENDING' | 'CONFIRMED' | 'REJECTED' | 'EXPIRED'
@@ -44,8 +45,6 @@ type Invoice = {
 }
 
 type CompanyEmail = { id: string; email: string }
-
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export function InvoicePaymentConfirmationPanel({ invoice, onChanged }: { invoice: Invoice; onChanged: () => Promise<void> }) {
   const t = useT()
@@ -85,7 +84,7 @@ export function InvoicePaymentConfirmationPanel({ invoice, onChanged }: { invoic
   const submit = React.useCallback(async () => {
     const typed = formRef.current?.querySelector<HTMLInputElement>('[role="combobox"]')?.value
     const recipientEmail = (typed ?? email).trim()
-    if (!EMAIL_PATTERN.test(recipientEmail)) {
+    if (!LOOSE_EMAIL_PATTERN.test(recipientEmail)) {
       setError(t('invoice.paymentConfirmation.invalidRecipient'))
       return
     }

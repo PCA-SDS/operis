@@ -12,6 +12,7 @@ import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
+import { responseError } from './responseError'
 
 type AutoPaidRule = { id: string; taxCode: string; updatedAt: string | null }
 type Candidate = { taxCode: string; invoiceCount: number }
@@ -19,14 +20,6 @@ type RulesResponse = { items: AutoPaidRule[] }
 type CandidatesResponse = { items: Candidate[] }
 type AddResponse = { ok: true; ruleId: string; taxCode: string; settledCount: number }
 type RemoveResponse = { ok: true; ruleId: string; taxCode: string; revertedCount: number }
-type ErrorResponse = { error?: string }
-
-function responseError(value: unknown, fallback: string): string {
-  if (value && typeof value === 'object' && 'error' in value && typeof (value as ErrorResponse).error === 'string') {
-    return (value as ErrorResponse).error || fallback
-  }
-  return fallback
-}
 
 export function AutoPaidSettings() {
   const t = useT()

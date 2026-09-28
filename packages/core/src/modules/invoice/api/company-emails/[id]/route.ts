@@ -13,8 +13,8 @@ import {
   invoiceCompanyEmailRouteErrors,
   invoiceCompanyEmailRouteMetadata,
   invoiceCompanyEmailsTag,
-  resolveInvoiceCompanyEmailRouteContext,
 } from '../shared'
+import { resolveInvoiceRouteContext } from '../../routeContext'
 
 export const metadata = {
   DELETE: invoiceCompanyEmailRouteMetadata,
@@ -33,7 +33,7 @@ export async function DELETE(req: Request, routeContext: RouteContext = {}) {
     const query = invoiceCompanyEmailDeleteQuerySchema.parse({
       companyId: url.searchParams.get('companyId') ?? undefined,
     })
-    const context = await resolveInvoiceCompanyEmailRouteContext(req)
+    const context = await resolveInvoiceRouteContext(req)
     const guarded = await runRouteMutationGuards({
       container: context.container,
       req,

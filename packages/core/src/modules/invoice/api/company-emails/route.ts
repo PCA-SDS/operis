@@ -17,9 +17,9 @@ import {
   invoiceCompanyEmailRouteMetadata,
   invoiceCompanyEmailsTag,
   readRequestRecord,
-  resolveInvoiceCompanyEmailRouteContext,
   toInvoiceCompanyEmailDto,
 } from './shared'
+import { resolveInvoiceRouteContext } from '../routeContext'
 
 export const metadata = {
   GET: invoiceCompanyEmailRouteMetadata,
@@ -28,7 +28,7 @@ export const metadata = {
 
 export async function GET(req: Request) {
   try {
-    const context = await resolveInvoiceCompanyEmailRouteContext(req)
+    const context = await resolveInvoiceRouteContext(req)
     const url = new URL(req.url)
     const query = invoiceCompanyEmailListQuerySchema.parse({
       companyId: url.searchParams.get('companyId') ?? undefined,
@@ -45,7 +45,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const parsed = invoiceCompanyEmailRecordSchema.parse(await readRequestRecord(req))
-    const context = await resolveInvoiceCompanyEmailRouteContext(req)
+    const context = await resolveInvoiceRouteContext(req)
     const guarded = await runRouteMutationGuards({
       container: context.container,
       req,

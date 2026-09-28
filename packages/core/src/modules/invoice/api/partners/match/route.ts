@@ -10,9 +10,9 @@ import {
   invoicePartnerRouteErrors,
   invoicePartnerRouteMetadata,
   invoicePartnersTag,
-  resolveInvoicePartnerRouteContext,
   toInvoicePartnerDto,
 } from '../shared'
+import { resolveInvoiceRouteContext } from '../../routeContext'
 
 export const metadata = {
   GET: invoicePartnerRouteMetadata,
@@ -20,7 +20,7 @@ export const metadata = {
 
 export async function GET(req: Request) {
   try {
-    const context = await resolveInvoicePartnerRouteContext(req)
+    const context = await resolveInvoiceRouteContext(req)
     const url = new URL(req.url)
     const query = invoicePartnerMatchQuerySchema.parse({
       taxCode: url.searchParams.get('taxCode') ?? undefined,

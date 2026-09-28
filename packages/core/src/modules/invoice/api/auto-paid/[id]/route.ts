@@ -15,8 +15,8 @@ import {
   invoiceAutoPaidRouteErrors,
   invoiceAutoPaidRouteMetadata,
   invoiceAutoPaidTag,
-  resolveInvoiceAutoPaidRouteContext,
 } from '../shared'
+import { resolveInvoiceRouteContext } from '../../routeContext'
 
 export const metadata = {
   DELETE: invoiceAutoPaidRouteMetadata,
@@ -30,7 +30,7 @@ export async function DELETE(req: Request, routeContext: RouteContext = {}) {
   try {
     const rawParams = routeContext.params ? await routeContext.params : {}
     const params = invoiceAutoPaidParamSchema.parse(rawParams)
-    const context = await resolveInvoiceAutoPaidRouteContext(req)
+    const context = await resolveInvoiceRouteContext(req)
     const guarded = await runRouteMutationGuards({
       container: context.container,
       req,

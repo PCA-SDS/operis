@@ -12,6 +12,7 @@ import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuarde
 import { apiCall, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { surfaceRecordConflict } from '@open-mercato/ui/backend/conflicts'
+import { responseError } from './responseError'
 
 const PAGE_SIZE = 20
 const MAX_DUE_DAYS = 3650
@@ -34,14 +35,6 @@ type PartnerListResponse = {
 }
 
 type PartnerUpdateResponse = { ok: true; partner: Partner }
-type ErrorResponse = { error?: string }
-
-function errorMessage(value: unknown, fallback: string): string {
-  if (value && typeof value === 'object' && 'error' in value && typeof (value as ErrorResponse).error === 'string') {
-    return (value as ErrorResponse).error || fallback
-  }
-  return fallback
-}
 
 export function PartnerTermsSettings() {
   const t = useT()
@@ -99,7 +92,7 @@ export function PartnerTermsSettings() {
             if (surfaceRecordConflict({ status: call.status, body: call.result }, t)) {
               throw new Error(t('invoice.settings.partnerTerms.conflict'))
             }
-            throw new Error(errorMessage(call.result, t('invoice.settings.partnerTerms.saveFailed')))
+            throw new Error(responseError(call.result, t('invoice.settings.partnerTerms.saveFailed')))
           }
           return call.result
         },

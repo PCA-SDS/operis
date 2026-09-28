@@ -17,8 +17,8 @@ import {
   invoiceInvoiceManageRouteMetadata,
   invoiceInvoicesTag,
   readRequestRecord,
-  resolveInvoiceInvoiceRouteContext,
 } from '../../shared'
+import { resolveInvoiceRouteContext } from '../../../routeContext'
 
 export const metadata = { POST: invoiceInvoiceManageRouteMetadata }
 
@@ -33,7 +33,7 @@ export async function POST(req: Request, routeContext: RouteContext = {}) {
     const rawParams = routeContext.params ? await routeContext.params : {}
     const params = invoiceInvoiceParamSchema.parse(rawParams)
     invoiceId = params.id
-    const context = await resolveInvoiceInvoiceRouteContext(req)
+    const context = await resolveInvoiceRouteContext(req)
     routeScope = context.scope
     const input = invoiceSendSchema.parse(await readRequestRecord(req))
     const guarded = await runRouteMutationGuards({

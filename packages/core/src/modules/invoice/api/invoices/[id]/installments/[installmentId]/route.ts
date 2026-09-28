@@ -5,14 +5,15 @@ import { invoiceIdSchema, invoiceInstallmentStatusUpdateSchema } from '../../../
 import { createInvoiceOperationId } from '../../../../openapi'
 import type { InvoiceScope } from '../../../../../data/scope'
 import type { InvoiceInstallmentStatusCommandResult } from '../../../../../commands/invoices'
-import { buildInvoiceCommandContext, handleInvoiceInvoiceRouteError, INVOICE_INVOICE_RESOURCE_KIND, invoiceInvoiceRouteErrors, invoiceInvoiceManageRouteMetadata, invoiceManualMutationResponseSchema, invoiceInvoicesTag, readRequestRecord, resolveInvoiceInvoiceRouteContext } from '../../../shared'
+import { buildInvoiceCommandContext, handleInvoiceInvoiceRouteError, INVOICE_INVOICE_RESOURCE_KIND, invoiceInvoiceRouteErrors, invoiceInvoiceManageRouteMetadata, invoiceManualMutationResponseSchema, invoiceInvoicesTag, readRequestRecord } from '../../../shared'
+import { resolveInvoiceRouteContext } from '../../../../routeContext'
 export const metadata = { PATCH: invoiceInvoiceManageRouteMetadata }
 type RouteContext = { params?: Promise<{ id?: string; installmentId?: string }> | { id?: string; installmentId?: string } }
 export async function PATCH(req: Request, routeContext: RouteContext = {}) {
   let scope: InvoiceScope | undefined
   try {
     const raw = routeContext.params ? await routeContext.params : {}; const id = invoiceIdSchema.parse(raw.id); const installmentId = invoiceIdSchema.parse(raw.installmentId)
-    const context = await resolveInvoiceInvoiceRouteContext(req); scope = context.scope
+    const context = await resolveInvoiceRouteContext(req); scope = context.scope
     const input = invoiceInstallmentStatusUpdateSchema.parse(await readRequestRecord(req))
     const guarded = await runRouteMutationGuards({ container: context.container, req, auth: { userId: context.userId, tenantId: scope.tenantId, organizationId: scope.organizationId }, input: { resourceKind: INVOICE_INVOICE_RESOURCE_KIND, resourceId: id, operation: 'update', mutationPayload: input } })
     if (!guarded.ok) return guarded.response

@@ -11,8 +11,8 @@ import {
   invoicePartnerRouteMetadata,
   invoicePartnersTag,
   toInvoicePartnerDto,
-  resolveInvoicePartnerRouteContext,
 } from './shared'
+import { resolveInvoiceRouteContext } from '../routeContext'
 
 export const metadata = {
   GET: invoicePartnerRouteMetadata,
@@ -20,7 +20,7 @@ export const metadata = {
 
 export async function GET(req: Request) {
   try {
-    const context = await resolveInvoicePartnerRouteContext(req)
+    const context = await resolveInvoiceRouteContext(req)
     const url = new URL(req.url)
     const query = invoicePartnerListQuerySchema.parse({
       page: url.searchParams.get('page') ?? undefined,

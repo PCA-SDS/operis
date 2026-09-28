@@ -62,6 +62,7 @@ import {
   InvoiceExchangeRatesUnavailableError,
   type InvoiceExchangeRatesDto,
 } from './exchange-rates-service'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
 
 export type InvoiceListResult = {
   items: InvoiceListDto[]
@@ -138,11 +139,6 @@ function moneyString(value: number): string {
  */
 function roundMoney(value: number): number {
   return Number(value.toFixed(MONEY_SCALE))
-}
-
-function normalizedSymbol(value: string | null | undefined): string | null {
-  const trimmed = value?.trim()
-  return trimmed ? trimmed : null
 }
 
 function buildInvoiceSearchText(input: {
@@ -718,9 +714,9 @@ export class InvoiceService {
         sellerName: partner.sellerName,
         buyerTaxCode: organization.taxCode?.trim() || null,
         buyerName: organization.name,
-        invoiceSymbol: normalizedSymbol(parsed.invoiceSymbol),
+        invoiceSymbol: normalizeOptionalString(parsed.invoiceSymbol),
         invoiceNumber: parsed.invoiceNumber,
-        invoiceCode: normalizedSymbol(parsed.invoiceCode),
+        invoiceCode: normalizeOptionalString(parsed.invoiceCode),
         invoiceDate: parsed.invoiceDate,
         dueDate,
         dueDateSource: parsed.dueDate ? 'explicit' : dueDate ? 'partner_terms' : null,
@@ -794,9 +790,9 @@ export class InvoiceService {
       invoice.sellerName = partner.sellerName
       invoice.buyerTaxCode = organization.taxCode?.trim() || null
       invoice.buyerName = organization.name
-      invoice.invoiceSymbol = normalizedSymbol(parsed.invoiceSymbol)
+      invoice.invoiceSymbol = normalizeOptionalString(parsed.invoiceSymbol)
       invoice.invoiceNumber = parsed.invoiceNumber
-      invoice.invoiceCode = normalizedSymbol(parsed.invoiceCode)
+      invoice.invoiceCode = normalizeOptionalString(parsed.invoiceCode)
       invoice.invoiceDate = parsed.invoiceDate
       invoice.dueDate = dueDate
       invoice.dueDateSource = parsed.dueDate ? 'explicit' : dueDate ? 'partner_terms' : null
@@ -1141,7 +1137,7 @@ export class InvoiceService {
     const where: FilterQuery<Invoice> = {
       direction: 'AP',
       sellerTaxCode,
-      invoiceSymbol: normalizedSymbol(invoiceSymbol),
+      invoiceSymbol: normalizeOptionalString(invoiceSymbol),
       invoiceNumber,
     }
     if (excludeInvoiceId) {

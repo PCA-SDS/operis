@@ -18,6 +18,7 @@ import {
   type PaymentConfirmationState,
 } from '../../components/InvoicePaymentConfirmationPanel'
 import { InvoiceSendPanel } from '../../components/InvoiceSendPanel'
+import { formatDate } from '@open-mercato/shared/lib/time'
 
 type Invoice = {
   id: string
@@ -53,10 +54,6 @@ type Invoice = {
 }
 
 type DetailState = 'loading' | 'error' | 'notFound' | 'ready'
-
-function displayDate(value: string | null) {
-  return value ? new Date(value).toLocaleDateString() : '—'
-}
 
 export default function InvoiceDetailPage() {
   const t = useT()
@@ -162,7 +159,7 @@ export default function InvoiceDetailPage() {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h1 className="text-2xl font-semibold">{t('invoice.detail.invoicePrefix')} {label}</h1>
-              <p className="text-sm text-muted-foreground">{t('invoice.detail.issuedOn')} {displayDate(invoice.invoiceDate)}</p>
+              <p className="text-sm text-muted-foreground">{t('invoice.detail.issuedOn')} {formatDate(invoice.invoiceDate, { fallback: '—' })}</p>
             </div>
             <div className="flex items-center gap-2">
               <span className="rounded-full bg-surface px-3 py-1 text-sm">{status}</span>
@@ -180,8 +177,8 @@ export default function InvoiceDetailPage() {
             </div>
             <div className="grid gap-5 border-b border-border p-6 sm:grid-cols-[220px_1fr]">
               <div className="rounded-xl bg-modal-muted p-4">
-                <p className="text-xs text-muted-foreground">{t('invoice.detail.issueDate')}</p><p>{displayDate(invoice.invoiceDate)}</p>
-                <p className="mt-4 text-xs text-muted-foreground">{t('invoice.detail.dueDate')}</p><p>{displayDate(invoice.dueDate)}</p>
+                <p className="text-xs text-muted-foreground">{t('invoice.detail.issueDate')}</p><p>{formatDate(invoice.invoiceDate, { fallback: '—' })}</p>
+                <p className="mt-4 text-xs text-muted-foreground">{t('invoice.detail.dueDate')}</p><p>{formatDate(invoice.dueDate, { fallback: '—' })}</p>
                 <p className="mt-4 text-xs text-muted-foreground">{t('invoice.detail.source')}</p><p>{invoice.origin === 'MANUAL' ? t('invoice.detail.createdInApp') : t('invoice.detail.imported')}</p>
               </div>
               <div className="pt-0"><p className="text-xs text-muted-foreground">{t('invoice.detail.billTo')}</p><p className="font-semibold">{buyerDisplayName}</p><p className="text-sm text-muted-foreground">{t('invoice.detail.taxCode', 'Tax code')}: {invoice.buyerTaxCode ?? '—'}</p></div>
@@ -200,7 +197,7 @@ export default function InvoiceDetailPage() {
             {invoice.hasInstallmentPlan && invoice.installments.length > 0 ? (
               <div className="border-t border-border p-6">
                 <h2 className="mb-3 font-semibold">{t('invoice.detail.paymentSchedule')}</h2>
-                <div className="space-y-2 text-sm">{invoice.installments.map((item) => <div key={item.id} className="flex flex-wrap justify-between gap-2 border-b border-border py-2"><span>#{item.sequence} · {displayDate(item.dueDate)}</span><span>{formatInvoiceMoney(item.totalAmount, invoice.currencyCode)} · {item.status}</span></div>)}</div>
+                <div className="space-y-2 text-sm">{invoice.installments.map((item) => <div key={item.id} className="flex flex-wrap justify-between gap-2 border-b border-border py-2"><span>#{item.sequence} · {formatDate(item.dueDate, { fallback: '—' })}</span><span>{formatInvoiceMoney(item.totalAmount, invoice.currencyCode)} · {item.status}</span></div>)}</div>
               </div>
             ) : null}
           </section>
@@ -214,7 +211,7 @@ export default function InvoiceDetailPage() {
               <div className="space-y-3 pt-4 text-sm">
                 <div className="flex justify-between"><span>{t('invoice.detail.total')}</span><span>{formatInvoiceMoney(invoice.grossAmount, invoice.currencyCode)}</span></div>
                 <div className="flex justify-between font-semibold"><span>{t('invoice.detail.remaining')}</span><span>{formatInvoiceMoney(invoice.outstandingAmount, invoice.currencyCode)}</span></div>
-                {invoice.dueDate && invoice.settlementStatus !== 'SETTLED' ? <p className="pt-3 text-muted-foreground">{t('invoice.detail.nextPayment')} {displayDate(invoice.dueDate)}</p> : null}
+                {invoice.dueDate && invoice.settlementStatus !== 'SETTLED' ? <p className="pt-3 text-muted-foreground">{t('invoice.detail.nextPayment')} {formatDate(invoice.dueDate, { fallback: '—' })}</p> : null}
               </div>
             </section>
           </aside>

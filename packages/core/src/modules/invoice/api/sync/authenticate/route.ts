@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
-import { resolveInvoiceInvoiceRouteContext, handleInvoiceInvoiceRouteError, readRequestRecord } from '../../invoices/shared'
+import { handleInvoiceInvoiceRouteError, readRequestRecord } from '../../invoices/shared'
 import { createInvoiceOperationId } from '../../openapi'
+import { resolveInvoiceRouteContext } from '../../routeContext'
 
 export const metadata = { POST: { requireAuth: true, requireFeatures: ['invoice.sync'] } } as const
 export async function POST(req: Request) {
   try {
-    const context = await resolveInvoiceInvoiceRouteContext(req)
+    const context = await resolveInvoiceRouteContext(req)
     const body = await readRequestRecord(req)
     // This path consumes a CAPTCHA attempt, sets the auth-backoff key, caches a GDT bearer
     // token and enqueues a sync job — the same class of write as `POST /sync`, which guards.

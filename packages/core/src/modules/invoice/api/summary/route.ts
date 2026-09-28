@@ -1,15 +1,11 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import type { OpenApiRouteDoc, OpenApiResponseDoc } from '@open-mercato/shared/lib/openapi'
-import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
-import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
-import { CrudHttpError, isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
-import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
+import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 
 import { translateInvoiceErrorBody } from '../../data/errors'
-import { requireInvoiceScope } from '../../data/scope'
 import { invoiceSummaryQuerySchema } from '../../data/validators'
 import type { InvoiceSummaryDto } from '../../data/mappers'
 import { InvoiceService } from '../../services/invoice-service'
@@ -20,6 +16,7 @@ import {
   invoiceErrorSchema,
   invoiceTag,
 } from '../openapi'
+import { resolveInvoiceScopeContext } from '../routeContext'
 
 const logger = createLogger('invoice').child({ component: 'summary-api' })
 
@@ -66,28 +63,9 @@ const invoiceSummaryRouteErrors: OpenApiResponseDoc[] = [
   { status: 503, description: 'Exchange rate provider unavailable and no cache exists', schema: invoiceErrorSchema },
 ]
 
-async function resolveContext(req: Request) {
-  const container = await createRequestContainer()
-  const auth = await getAuthFromRequest(req)
-  const { translate } = await resolveTranslations()
-  if (!auth?.sub || !auth.tenantId) {
-    throw new CrudHttpError(401, { error: translate('invoice.errors.unauthorized', 'Unauthorized') })
-  }
-
-  const organizationScope = await resolveOrganizationScopeForRequest({ container, auth, request: req })
-  const selectedOrganizationId = organizationScope?.selectedId ?? auth.orgId ?? null
-  const scope = requireInvoiceScope({
-    auth: { tenantId: auth.tenantId, orgId: auth.orgId },
-    selectedOrganizationId,
-    organizationScope: organizationScope ? { selectedId: organizationScope.selectedId ?? null } : null,
-  }, (key, fallback) => translate(key, fallback))
-
-  return { container, translate, scope }
-}
-
 export async function GET(req: Request) {
   try {
-    const context = await resolveContext(req)
+    const context = await resolveInvoiceScopeContext(req)
     const { searchParams } = new URL(req.url)
     const queryInput = invoiceSummaryQuerySchema.parse({
       throughDate: searchParams.get('throughDate') ?? undefined,

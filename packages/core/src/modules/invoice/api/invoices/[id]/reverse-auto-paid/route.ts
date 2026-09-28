@@ -15,8 +15,8 @@ import {
   invoiceAutoPaidRouteErrors,
   invoiceInvoicesTag,
   invoiceReverseAutoPaidRouteMetadata,
-  resolveInvoiceAutoPaidRouteContext,
 } from '../../../auto-paid/shared'
+import { resolveInvoiceRouteContext } from '../../../routeContext'
 
 export const metadata = {
   PATCH: invoiceReverseAutoPaidRouteMetadata,
@@ -30,7 +30,7 @@ export async function PATCH(req: Request, routeContext: RouteContext = {}) {
   try {
     const rawParams = routeContext.params ? await routeContext.params : {}
     const params = invoiceAutoPaidReverseParamSchema.parse(rawParams)
-    const context = await resolveInvoiceAutoPaidRouteContext(req)
+    const context = await resolveInvoiceRouteContext(req)
     const guarded = await runRouteMutationGuards({
       container: context.container,
       req,
