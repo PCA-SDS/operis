@@ -4,11 +4,9 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
-import { SIDEBAR_PREFERENCES_VERSION } from '@open-mercato/shared/modules/navigation/sidebarPreferences'
 import {
   createSidebarVariant,
   listSidebarVariants,
-  type SidebarVariantRecord,
 } from '../../../services/sidebarPreferencesService'
 import {
   createSidebarVariantInputSchema,
@@ -16,6 +14,7 @@ import {
 } from '../../../data/validators'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { serializeVariant } from './serialize'
 
 const logger = createLogger('auth').child({ component: 'sidebar-variants' })
 
@@ -35,24 +34,6 @@ const variantCreateResponseSchema = z.object({
 })
 
 const errorSchema = z.object({ error: z.string() })
-
-function serializeVariant(record: SidebarVariantRecord) {
-  return {
-    id: record.id,
-    name: record.name,
-    isActive: record.isActive,
-    settings: {
-      version: record.settings.version ?? SIDEBAR_PREFERENCES_VERSION,
-      groupOrder: record.settings.groupOrder ?? [],
-      groupLabels: record.settings.groupLabels ?? {},
-      itemLabels: record.settings.itemLabels ?? {},
-      hiddenItems: record.settings.hiddenItems ?? [],
-      itemOrder: record.settings.itemOrder ?? {},
-    },
-    createdAt: record.createdAt.toISOString(),
-    updatedAt: record.updatedAt ? record.updatedAt.toISOString() : null,
-  }
-}
 
 export async function GET(req: Request) {
   const auth = await getAuthFromRequest(req)

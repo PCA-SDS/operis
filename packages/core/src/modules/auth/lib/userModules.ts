@@ -5,20 +5,16 @@ import { getOwningModuleId } from '@open-mercato/shared/security/enabledModulesR
 import { isEntitleableModule, listEntitleableModules } from '@open-mercato/core/modules/directory/lib/tenantModules'
 import { User, UserModule } from '@open-mercato/core/modules/auth/data/entities'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { isStringArray } from '@open-mercato/shared/lib/guards'
+import { UUID_SHAPE_PATTERN } from '@open-mercato/shared/lib/validation'
 
 const logger = createLogger('auth').child({ component: 'user-modules' })
-
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export type UserModuleState = {
   moduleId: string
   title: string
   description: string | null
   isEnabled: boolean
-}
-
-function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((entry) => typeof entry === 'string')
 }
 
 /**
@@ -64,7 +60,7 @@ export class UserModuleService {
    * uuid comparison would throw and turn a restriction lookup into a 500.
    */
   private isRestrictableSubject(userId: string | null | undefined): userId is string {
-    return typeof userId === 'string' && UUID_PATTERN.test(userId)
+    return typeof userId === 'string' && UUID_SHAPE_PATTERN.test(userId)
   }
 
   /**

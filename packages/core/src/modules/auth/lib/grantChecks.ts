@@ -6,6 +6,8 @@ import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { Role, RoleAcl, User, UserAcl, UserRole } from '@open-mercato/core/modules/auth/data/entities'
 import type { RbacService } from '@open-mercato/core/modules/auth/services/rbacService'
 import type { OrganizationScope } from '@open-mercato/core/modules/directory/utils/organizationScope'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
+import { UUID_SHAPE_PATTERN } from '@open-mercato/shared/lib/validation'
 
 type ActorAcl = {
   isSuperAdmin: boolean
@@ -64,20 +66,18 @@ type SuperAdminRoleTargetInput = GrantCheckContext & {
   actorIsSuperAdmin?: boolean
 }
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
 export async function assertActorCanGrantRoleTokens(input: RoleTokenGrantCheckInput): Promise<Role[]> {
   const tokens = normalizeStringList(input.roleTokens)
   if (!tokens.length) return []
 
-  const tenantId = normalizeNullableString(input.tenantId)
+  const tenantId = normalizeOptionalString(input.tenantId)
   const roles = await resolveRolesForGrant(input.em, tokens, tenantId)
   await assertActorCanGrantRoles({ ...input, tenantId, roles })
   return roles
 }
 
 export async function resolveUserDestinationRoles(input: UserDestinationRolesInput): Promise<Role[]> {
-  const destinationTenantId = normalizeNullableString(input.destinationTenantId)
+  const destinationTenantId = normalizeOptionalString(input.destinationTenantId)
   if (Array.isArray(input.roleTokens)) {
     return resolveRolesForGrant(input.em, normalizeStringList(input.roleTokens), destinationTenantId)
   }
@@ -114,14 +114,14 @@ export async function resolveUserDestinationRoles(input: UserDestinationRolesInp
 export async function assertActorCanAssignUserDestination(
   input: UserDestinationScopeCheckInput,
 ): Promise<void> {
-  const destinationTenantId = normalizeNullableString(input.destinationTenantId)
-  const destinationOrganizationId = normalizeNullableString(input.destinationOrganizationId)
+  const destinationTenantId = normalizeOptionalString(input.destinationTenantId)
+  const destinationOrganizationId = normalizeOptionalString(input.destinationOrganizationId)
   if (!destinationTenantId || !destinationOrganizationId) {
     return throwUserDestinationOrganizationNotFound(400)
   }
 
   for (const role of input.roles) {
-    if (normalizeNullableString(role.tenantId) !== destinationTenantId) {
+    if (normalizeOptionalString(role.tenantId) !== destinationTenantId) {
       throw forbidden(await translateAuthError(
         'auth.users.errors.roleOutsideDestinationTenant',
         'Cannot retain or assign a role outside the destination tenant.',
@@ -131,7 +131,7 @@ export async function assertActorCanAssignUserDestination(
 
   if (await resolveActorIsSuperAdmin(input)) return
 
-  const actorTenantId = normalizeNullableString(input.tenantId)
+  const actorTenantId = normalizeOptionalString(input.tenantId)
   if (!actorTenantId || actorTenantId !== destinationTenantId) {
     return throwUserDestinationOrganizationNotFound(404)
   }
@@ -170,7 +170,7 @@ export async function throwUserDestinationOrganizationNotFound(status: 400 | 404
 export async function assertActorCanGrantRoles(input: RoleGrantCheckInput): Promise<void> {
   if (!input.roles.length) return
 
-  const tenantId = normalizeNullableString(input.tenantId)
+  const tenantId = normalizeOptionalString(input.tenantId)
   const actorAcl = await loadActorAcl({ ...input, tenantId })
   if (actorAcl.isSuperAdmin) return
 
@@ -179,7 +179,7 @@ export async function assertActorCanGrantRoles(input: RoleGrantCheckInput): Prom
   }
 
   for (const role of input.roles) {
-    const roleTenantId = normalizeNullableString(role.tenantId)
+    const roleTenantId = normalizeOptionalString(role.tenantId)
     if (roleTenantId !== tenantId) {
       throw forbidden('Cannot grant a role outside the target tenant.')
     }
@@ -205,7 +205,7 @@ export async function assertActorCanGrantAcl(input: FeatureGrantCheckInput): Pro
   const actorAcl = await loadActorAcl(input)
   if (actorAcl.isSuperAdmin) return
 
-  const tenantId = normalizeNullableString(input.tenantId)
+  const tenantId = normalizeOptionalString(input.tenantId)
   if (!tenantId) {
     throw forbidden('Tenant context is required to grant ACL features.')
   }
@@ -257,14 +257,14 @@ export async function assertActorCanAccessUserTarget(input: UserTargetAccessInpu
   // guard's job is to block a foreign *existing* target, below.
   if (!target) return
 
-  const actorTenantId = normalizeNullableString(input.tenantId)
-  const targetTenantId = normalizeNullableString((target as { tenantId?: string | null }).tenantId)
+  const actorTenantId = normalizeOptionalString(input.tenantId)
+  const targetTenantId = normalizeOptionalString((target as { tenantId?: string | null }).tenantId)
   if (!targetTenantId || targetTenantId !== actorTenantId) {
     throw new CrudHttpError(404, { error: 'User not found' })
   }
 
   if (input.organizationScope.allowedIds !== null) {
-    const targetOrganizationId = normalizeNullableString((target as { organizationId?: string | null }).organizationId)
+    const targetOrganizationId = normalizeOptionalString((target as { organizationId?: string | null }).organizationId)
     if (!targetOrganizationId || !input.organizationScope.allowedIds.includes(targetOrganizationId)) {
       throw forbidden('Not authorized to access this user.')
     }
@@ -285,8 +285,8 @@ export async function assertActorCanAccessRoleTarget(input: SuperAdminRoleTarget
   // Not found (incl. soft-deleted): delegate (see assertActorCanAccessUserTarget).
   if (!target) return
 
-  const actorTenantId = normalizeNullableString(input.tenantId)
-  const targetTenantId = normalizeNullableString((target as { tenantId?: string | null }).tenantId)
+  const actorTenantId = normalizeOptionalString(input.tenantId)
+  const targetTenantId = normalizeOptionalString((target as { tenantId?: string | null }).tenantId)
   if (!targetTenantId || targetTenantId !== actorTenantId) {
     throw new CrudHttpError(404, { error: 'Role not found' })
   }
@@ -388,12 +388,12 @@ export async function listSuperAdminUserIds(em: EntityManager, tenantId: string 
 }
 
 async function loadActorAcl(input: GrantCheckContext): Promise<ActorAcl> {
-  const actorUserId = normalizeNullableString(input.actorUserId)
+  const actorUserId = normalizeOptionalString(input.actorUserId)
   if (!actorUserId) throw forbidden('Not authorized to grant ACL privileges.')
 
   const acl = await input.rbacService.loadAcl(actorUserId, {
-    tenantId: normalizeNullableString(input.tenantId),
-    organizationId: normalizeNullableString(input.organizationId),
+    tenantId: normalizeOptionalString(input.tenantId),
+    organizationId: normalizeOptionalString(input.organizationId),
   })
 
   return {
@@ -433,7 +433,7 @@ async function resolveRoleForGrant(
   token: string,
   tenantId: string | null,
 ): Promise<Role | null> {
-  const where: Record<string, unknown> = UUID_RE.test(token)
+  const where: Record<string, unknown> = UUID_SHAPE_PATTERN.test(token)
     ? { id: token, deletedAt: null }
     : { name: token, deletedAt: null }
   if (tenantId) where.tenantId = tenantId
@@ -511,10 +511,6 @@ function normalizeStringList(values: unknown): string[] {
 function normalizeOrganizationList(values: unknown): string[] | null {
   if (values === null || values === undefined) return null
   return normalizeStringList(values)
-}
-
-function normalizeNullableString(value: unknown): string | null {
-  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
 }
 
 function isWildcardFeature(feature: string): boolean {

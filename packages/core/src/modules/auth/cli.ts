@@ -15,13 +15,14 @@ import { findWithDecryption, findOneWithDecryption } from '@open-mercato/shared/
 import { isTenantDataEncryptionEnabled } from '@open-mercato/shared/lib/encryption/toggles'
 import { createKmsService } from '@open-mercato/shared/lib/encryption/kms'
 import { TenantDataEncryptionService } from '@open-mercato/shared/lib/encryption/tenantDataEncryptionService'
-import { decryptWithAesGcm } from '@open-mercato/shared/lib/encryption/aes'
 import { env } from 'process'
 import type { KmsService, TenantDek } from '@open-mercato/shared/lib/encryption/kms'
 import crypto from 'node:crypto'
 import { formatPasswordRequirements, getPasswordPolicy, validatePassword } from '@open-mercato/shared/lib/auth/passwordPolicy'
 import { parseBooleanToken } from '@open-mercato/shared/lib/boolean'
 import { getCliModules } from '@open-mercato/shared/modules/registry'
+import { fingerprintDek, decryptWithOldKey } from '@open-mercato/shared/lib/encryption/rotation'
+import { parseCliArgs } from '@open-mercato/shared/lib/cli/args'
 
 async function resolveTenantScopedRole(em: any, name: string, normalizedTenantId: string | null) {
   const existing = await em.findOne(Role, { name, tenantId: normalizedTenantId })
@@ -81,21 +82,6 @@ const addUser: ModuleCli = {
     }
     console.log('User created with id', u.id)
   },
-}
-
-function parseArgs(rest: string[]) {
-  const args: Record<string, string | boolean> = {}
-  for (let i = 0; i < rest.length; i++) {
-    const a = rest[i]
-    if (!a) continue
-    if (a.startsWith('--')) {
-      const [k, v] = a.replace(/^--/, '').split('=')
-      if (v !== undefined) args[k] = v
-      else if (rest[i + 1] && !rest[i + 1]!.startsWith('--')) { args[k] = rest[i + 1]!; i++ }
-      else args[k] = true
-    }
-  }
-  return args
 }
 
 function normalizeKeyInput(value: string): string {
@@ -158,19 +144,6 @@ class DerivedKeyKmsService implements KmsService {
   }
 }
 
-function fingerprintDek(dek: TenantDek | null): string | null {
-  if (!dek?.key) return null
-  return crypto.createHash('sha256').update(dek.key).digest('hex').slice(0, 12)
-}
-
-function decryptWithOldKey(
-  payload: string,
-  dek: TenantDek | null,
-): string | null {
-  if (!dek?.key) return null
-  return decryptWithAesGcm(payload, dek.key)
-}
-
 const seedRoles: ModuleCli = {
   command: 'seed-roles',
   async run(rest) {
@@ -206,7 +179,7 @@ const seedRoles: ModuleCli = {
 const rotateEncryptionKey: ModuleCli = {
   command: 'rotate-encryption-key',
   async run(rest) {
-    const args = parseArgs(rest)
+    const args = parseCliArgs(rest)
     const tenantId = (args.tenantId as string) ?? (args.tenant as string) ?? (args.tenant_id as string) ?? null
     const organizationId = (args.organizationId as string) ?? (args.orgId as string) ?? (args.org as string) ?? null
     const oldKey = (args['old-key'] as string) ?? (args.oldKey as string) ?? null
@@ -417,7 +390,7 @@ const SETUP_USAGE = 'Usage: mercato auth setup --orgName <name> --email <email> 
 const setupApp: ModuleCli = {
   command: 'setup',
   async run(rest) {
-    const args = parseArgs(rest)
+    const args = parseCliArgs(rest)
     const orgName = typeof args.orgName === 'string'
       ? args.orgName
       : typeof args.name === 'string'
@@ -886,7 +859,7 @@ const SEED_TENANT_USAGE = 'Usage: mercato auth seed-tenant --orgName <name> --pa
 const seedTenant: ModuleCli = {
   command: 'seed-tenant',
   async run(rest) {
-    const args = parseArgs(rest)
+    const args = parseCliArgs(rest)
     const readStr = (...keys: string[]): string | undefined => {
       for (const key of keys) {
         const value = args[key]

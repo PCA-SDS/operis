@@ -14,11 +14,12 @@ import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { buildPasswordSchema } from '@open-mercato/shared/lib/auth/passwordPolicy'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
+import { emailSchema } from '@open-mercato/shared/lib/validation'
 
 const logger = createLogger('auth').child({ component: 'profile' })
 
 const profileResponseSchema = z.object({
-  email: z.string().email(),
+  email: emailSchema(),
   name: z.string().nullable().optional(),
   roles: z.array(z.string()),
 })
@@ -26,7 +27,7 @@ const profileResponseSchema = z.object({
 const passwordSchema = buildPasswordSchema()
 
 const updateSchemaBase = z.object({
-  email: z.string().email().optional(),
+  email: emailSchema().optional(),
   currentPassword: z.string().trim().min(1).optional(),
   password: passwordSchema.optional(),
 })
@@ -70,7 +71,7 @@ const updateSchema = buildUpdateSchema((_key, fallback) => fallback)
 
 const profileUpdateResponseSchema = z.object({
   ok: z.literal(true),
-  email: z.string().email(),
+  email: emailSchema(),
 })
 
 export const metadata = {

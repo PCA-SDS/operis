@@ -8,8 +8,8 @@ const mockCreate = jest.fn()
 const mockPersist = jest.fn()
 const mockFlush = jest.fn()
 const mockNativeUpdate = jest.fn()
-const mockValidateCrudMutationGuard = jest.fn()
-const mockRunCrudMutationGuardAfterSuccess = jest.fn()
+const mockRunRouteMutationGuards = jest.fn()
+const mockRunAfterSuccess = jest.fn()
 const mockCheckAuthRateLimit = jest.fn()
 
 const mockEm: any = {
@@ -70,9 +70,8 @@ jest.mock('@open-mercato/shared/lib/ratelimit/helpers', () => ({
   rateLimitErrorSchema: {},
 }))
 
-jest.mock('@open-mercato/shared/lib/crud/mutation-guard', () => ({
-  validateCrudMutationGuard: jest.fn((...args: unknown[]) => mockValidateCrudMutationGuard(...args)),
-  runCrudMutationGuardAfterSuccess: jest.fn((...args: unknown[]) => mockRunCrudMutationGuardAfterSuccess(...args)),
+jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
+  runRouteMutationGuards: (...args: unknown[]) => mockRunRouteMutationGuards(...args),
 }))
 
 const mockFindOneWithDecryption = jest.fn()
@@ -137,7 +136,7 @@ describe('POST /api/auth/users/resend-invite', () => {
     })
     mockLoadAcl.mockResolvedValue({ isSuperAdmin: false })
     mockCheckAuthRateLimit.mockResolvedValue({ error: null })
-    mockValidateCrudMutationGuard.mockResolvedValue(null)
+    mockRunRouteMutationGuards.mockResolvedValue({ ok: true, runAfterSuccess: mockRunAfterSuccess })
     mockFindOne.mockResolvedValue(makeUser())
     mockFindOneWithDecryption.mockResolvedValue(makeUser())
     mockCreate.mockReturnValue({ id: 'new-token-row' })
@@ -247,11 +246,7 @@ describe('POST /api/auth/users/resend-invite', () => {
   })
 
   test('rejects when mutation guard blocks', async () => {
-    mockValidateCrudMutationGuard.mockResolvedValueOnce({
-      ok: false,
-      status: 423,
-      body: { error: 'Record locked' },
-    })
+    mockRunRouteMutationGuards.mockResolvedValueOnce({ ok: false, errorStatus: 423, errorBody: { error: 'Record locked' } })
 
     const res = await POST(makeRequest({ id: userId }))
     expect(res.status).toBe(423)

@@ -16,6 +16,7 @@ import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/u
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import { ListEmptyState } from '@open-mercato/ui/backend/filters/ListEmptyState'
+import { isAbortError } from '@open-mercato/shared/lib/async'
 
 type Row = {
   id: string
@@ -25,13 +26,6 @@ type Row = {
   tenantIds?: string[]
   tenantName?: string | null
   updatedAt?: string | null
-}
-
-function isAbortError(error: unknown): boolean {
-  return error instanceof Error && (
-    error.name === 'AbortError' ||
-    error.message === 'signal is aborted without reason'
-  )
 }
 
 export default function RolesListPage() {

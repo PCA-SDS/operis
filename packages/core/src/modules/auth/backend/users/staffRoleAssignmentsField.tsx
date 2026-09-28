@@ -11,6 +11,7 @@ import type { CrudCustomFieldRenderProps } from '@open-mercato/ui/backend/CrudFo
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { fetchOrganizationOptions } from './organizationOptions'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
 
 export type StaffRoleAssignment = {
   organizationId: string
@@ -31,13 +32,9 @@ type RoleOption = TagsInputOption & { organizationId: string }
 type LoadStatus = 'idle' | 'loading' | 'ready' | 'unavailable'
 type BulkSummary = { matchedOrganizations: number; totalOrganizations: number; missingOrganizations: string[] }
 
-function readString(value: unknown): string | null {
-  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
-}
-
 function readIds(value: unknown): string[] {
   if (!Array.isArray(value)) return []
-  return Array.from(new Set(value.map(readString).filter((id): id is string => id !== null)))
+  return Array.from(new Set(value.map(normalizeOptionalString).filter((id): id is string => id !== null)))
 }
 
 function readAssignments(value: unknown): StaffRoleAssignment[] {
@@ -45,7 +42,7 @@ function readAssignments(value: unknown): StaffRoleAssignment[] {
   return value.flatMap((entry) => {
     if (!entry || typeof entry !== 'object') return []
     const record = entry as Record<string, unknown>
-    const organizationId = readString(record.organizationId)
+    const organizationId = normalizeOptionalString(record.organizationId)
     if (!organizationId) return []
     return [{ organizationId, roleIds: readIds(record.roleIds) }]
   })
@@ -56,15 +53,15 @@ function readRoleOptions(value: unknown, organizationId: string): RoleOption[] {
   return value.flatMap((entry) => {
     if (!entry || typeof entry !== 'object') return []
     const record = entry as Record<string, unknown>
-    const id = readString(record.id)
-    const name = readString(record.name)
+    const id = normalizeOptionalString(record.id)
+    const name = normalizeOptionalString(record.name)
     if (!id || !name) return []
     return [{ value: id, label: name, organizationId }]
   })
 }
 
 function organizationIdsFromValues(values: Record<string, unknown> | undefined): string[] {
-  const homeOrganizationId = readString(values?.organizationId)
+  const homeOrganizationId = normalizeOptionalString(values?.organizationId)
   const assignedOrganizationIds = readIds(values?.organizationIds)
   return Array.from(new Set([
     ...(homeOrganizationId ? [homeOrganizationId] : []),
@@ -80,7 +77,7 @@ export function StaffRoleAssignmentsField({
   userId,
 }: CrudCustomFieldRenderProps & { tenantId: string | null; userId?: string | null }) {
   const t = useT()
-  const homeOrganizationId = readString(values?.organizationId)
+  const homeOrganizationId = normalizeOptionalString(values?.organizationId)
   const assignedOrganizationIds = values?.organizationIds
   const organizationIds = React.useMemo(
     () => organizationIdsFromValues({ organizationId: homeOrganizationId, organizationIds: assignedOrganizationIds }),
@@ -144,7 +141,7 @@ export function StaffRoleAssignmentsField({
       }
       const existingByOrganization = new Map(currentAssignmentsRef.current.map((assignment) => [assignment.organizationId, assignment.roleIds]))
       const nextAssignments = assignmentsResponse.result.items.flatMap((item) => {
-        const organizationId = readString(item.organizationId)
+        const organizationId = normalizeOptionalString(item.organizationId)
         if (!organizationId) return []
         return [{
           organizationId,
@@ -153,7 +150,7 @@ export function StaffRoleAssignmentsField({
       })
       const nextOptions: Record<string, RoleOption[]> = {}
       for (const item of assignmentsResponse.result.items) {
-        const organizationId = readString(item.organizationId)
+        const organizationId = normalizeOptionalString(item.organizationId)
         if (organizationId) nextOptions[organizationId] = readRoleOptions(item.roles, organizationId)
       }
       const nextNames: Record<string, string> = {}

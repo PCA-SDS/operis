@@ -11,7 +11,7 @@ import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 import { rateLimitErrorSchema } from '@open-mercato/shared/lib/ratelimit/helpers'
 import { readEndpointRateLimitConfig } from '@open-mercato/shared/lib/ratelimit/config'
 import { checkAuthRateLimit } from '@open-mercato/core/modules/auth/lib/rateLimitCheck'
-import { validateCrudMutationGuard, runCrudMutationGuardAfterSuccess } from '@open-mercato/shared/lib/crud/mutation-guard'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 import { INVITE_TOKEN_TTL_MS } from '@open-mercato/core/modules/auth/lib/inviteToken'
 import { getSecurityEmailBaseUrl, mapSecurityEmailUrlError } from '@open-mercato/shared/lib/url'
 import { generateAuthToken, hashAuthToken } from '@open-mercato/core/modules/auth/lib/tokenHash'
@@ -123,18 +123,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'User already has a password' }, { status: 409 })
   }
 
-  const guardResult = await validateCrudMutationGuard(container, {
-    tenantId: user.tenantId ? String(user.tenantId) : auth.tenantId ?? '',
-    organizationId: user.organizationId ? String(user.organizationId) : null,
-    userId: auth.sub ?? '',
-    resourceKind: 'auth.user',
-    resourceId: String(user.id),
-    operation: 'custom',
-    requestMethod: 'POST',
-    requestHeaders: req.headers,
+  const guardResult = await runRouteMutationGuards({
+    container,
+    req,
+    auth: {
+      userId: auth.sub ?? '',
+      tenantId: user.tenantId ? String(user.tenantId) : auth.tenantId ?? '',
+      organizationId: user.organizationId ? String(user.organizationId) : null,
+    },
+    input: { resourceKind: 'auth.user', resourceId: String(user.id), operation: 'custom' },
   })
-  if (guardResult && !guardResult.ok) {
-    return NextResponse.json(guardResult.body, { status: guardResult.status })
+  if (!guardResult.ok) {
+    return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
   }
 
   let base: string
@@ -181,19 +181,7 @@ export async function POST(req: Request) {
     emailSent = false
   }
 
-  if (guardResult?.shouldRunAfterSuccess) {
-    await runCrudMutationGuardAfterSuccess(container, {
-      tenantId: user.tenantId ? String(user.tenantId) : auth.tenantId ?? '',
-      organizationId: user.organizationId ? String(user.organizationId) : null,
-      userId: auth.sub ?? '',
-      resourceKind: 'auth.user',
-      resourceId: String(user.id),
-      operation: 'custom',
-      requestMethod: 'POST',
-      requestHeaders: req.headers,
-      metadata: guardResult.metadata,
-    })
-  }
+  await guardResult.runAfterSuccess()
 
   if (!emailSent) {
     return NextResponse.json({ ok: true, warning: 'invite_email_failed' })
