@@ -1,4 +1,5 @@
 import { readJsonFromLocalStorage, writeJsonToLocalStorage, removeLocalStorageKey, type JsonSerializable } from './safeLocalStorage'
+import { isStringArray } from '../guards'
 
 type VersionedEnvelope<T> = { v: number; data: T }
 
@@ -24,10 +25,6 @@ export function writeVersionedPreference<T>(key: string, version: number, data: 
 
 export function clearVersionedPreference(key: string): void {
   removeLocalStorageKey(key)
-}
-
-function isStringArray(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((item) => typeof item === 'string')
 }
 
 /** Convenience pair for the common "set of ids" preference shape, with legacy bare-array migration. */

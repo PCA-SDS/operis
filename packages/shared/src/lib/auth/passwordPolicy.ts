@@ -1,3 +1,4 @@
+import type { TranslateWithRequiredFallbackFn } from '../i18n/translate'
 import { z } from 'zod'
 import { parseBooleanWithDefault } from '@open-mercato/shared/lib/boolean'
 
@@ -19,12 +20,6 @@ export type PasswordValidationResult = {
   ok: boolean
   violations: PasswordRequirementId[]
 }
-
-export type PasswordRequirementFormatter = (
-  key: string,
-  fallback: string,
-  params?: Record<string, string | number>,
-) => string
 
 const DEFAULT_POLICY: PasswordPolicy = {
   minLength: 6,
@@ -92,7 +87,7 @@ export function getPasswordRequirements(policy: PasswordPolicy = getPasswordPoli
 
 export function formatPasswordRequirements(
   policy: PasswordPolicy,
-  translate: PasswordRequirementFormatter,
+  translate: TranslateWithRequiredFallbackFn,
   keyPrefix = 'auth.password.requirements',
 ): string {
   const items = getPasswordRequirements(policy).map((requirement) => {

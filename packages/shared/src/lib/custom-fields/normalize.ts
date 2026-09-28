@@ -14,6 +14,11 @@ export function normalizeCustomFieldValues(values: Record<string, unknown>): Cus
   return result
 }
 
+/** One custom-field value normalized the way {@link normalizeCustomFieldValues} normalizes each entry. */
+export function normalizeCustomFieldValue(value: unknown): unknown {
+  return normalizeCustomFieldValues({ value }).value
+}
+
 function normalizePrimitive(value: unknown): CustomFieldValueInput[string] {
   if (
     value === null ||

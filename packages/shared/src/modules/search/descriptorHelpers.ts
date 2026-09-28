@@ -6,11 +6,13 @@
  * returns early for any non-string, so the first caller there to pass a number
  * or an array would silently drop it from the index.
  *
- * Only the helpers with no cross-dependencies live here. `buildIndexSource` and
- * `appendCustomFieldLines` deliberately stay module-local: the former calls the
- * latter, and the latter genuinely differs between modules, so hoisting them
- * would change what gets indexed.
+ * Each module keeps its own `appendCustomFieldLines`: they genuinely differ (raw
+ * `cf:` keys versus {@link friendlyFieldLabel}, and which `appendLine` variant they
+ * call), so hoisting one would change what gets indexed. What they all share —
+ * the index-source shape and its checksum inputs — is {@link toIndexSource}.
  */
+
+import type { SearchBuildContext, SearchIndexSource, SearchResultPresenter } from '../search'
 
 /** First non-blank string among the candidates, else `null`. */
 export function pickString(...candidates: Array<unknown>): string | null {
@@ -66,4 +68,39 @@ export function normalizeText(value: unknown): string | null {
   if (value instanceof Date) return value.toISOString()
   if (typeof value === 'number' || typeof value === 'boolean') return String(value)
   return null
+}
+
+/** First non-blank text among `record[key]` for the given keys, read through {@link normalizeText}. */
+export function readRecordText(record: Record<string, unknown>, ...keys: string[]): string | null {
+  for (const key of keys) {
+    const text = normalizeText(record[key])
+    if (text) return text
+  }
+  return null
+}
+
+/** Label for a custom-field key: `cf:` dropped, `snake_case` and `camelCase` split into title-cased words. */
+export function friendlyFieldLabel(input: string): string {
+  return input
+    .replace(/^cf:/, '')
+    .replace(/_/g, ' ')
+    .replace(/([a-z])([A-Z])/g, (_match, firstChar, secondChar) => `${firstChar} ${secondChar}`)
+    .replace(/\b\w/g, (character) => character.toUpperCase())
+}
+
+/**
+ * The indexed source for a record: its text lines and presenter, checksummed on
+ * the record and its custom fields. `null` when there is nothing to index.
+ */
+export function toIndexSource(
+  ctx: SearchBuildContext,
+  presenter: SearchResultPresenter,
+  lines: string[],
+): SearchIndexSource | null {
+  if (!lines.length) return null
+  return {
+    text: lines,
+    presenter,
+    checksumSource: { record: ctx.record, customFields: ctx.customFields },
+  }
 }

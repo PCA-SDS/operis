@@ -1,6 +1,7 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { type Kysely, sql } from 'kysely'
 import { createLogger } from '../logger'
+import { truncate, safeJson } from './log-format'
 
 const logger = createLogger('shared').child({ component: 'indexers' })
 
@@ -25,11 +26,6 @@ type RecordIndexerErrorDeps = {
 const MAX_MESSAGE_LENGTH = 8_192
 const MAX_STACK_LENGTH = 32_768
 
-function truncate(input: string | null | undefined, limit: number): string | null {
-  if (!input) return null
-  return input.length > limit ? `${input.slice(0, limit - 3)}...` : input
-}
-
 function normalizeError(error: unknown): { message: string; stack: string | null } {
   if (error instanceof Error) {
     return {
@@ -45,19 +41,6 @@ function normalizeError(error: unknown): { message: string; stack: string | null
     return { message: json, stack: null }
   } catch {
     return { message: String(error ?? 'Unknown error'), stack: null }
-  }
-}
-
-function safeJson(value: unknown): unknown {
-  if (value === undefined) return null
-  try {
-    return JSON.parse(JSON.stringify(value))
-  } catch {
-    if (value == null) return null
-    if (typeof value === 'object') {
-      return { note: 'unserializable', asString: String(value) }
-    }
-    return value
   }
 }
 

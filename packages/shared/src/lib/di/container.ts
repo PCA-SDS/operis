@@ -342,3 +342,9 @@ try {
 } catch {
   // allow CLI/generator usage where Next server-only is not present
 }
+
+/** The request-scoped `EntityManager` of a fresh request container, for code that has no container of its own. */
+export async function resolveRequestEm(): Promise<EntityManager> {
+  const { resolve } = await createRequestContainer()
+  return resolve('em') as EntityManager
+}

@@ -11,9 +11,9 @@ export const LOG_LEVEL_WEIGHTS: Record<LogLevel, number> = {
 
 const VALID_LEVEL_TOKENS: ReadonlySet<string> = new Set(['debug', 'info', 'warn', 'error'])
 
-type EnvSource = Record<string, string | undefined>
+export type EnvSource = Record<string, string | undefined>
 
-function readProcessEnv(): EnvSource {
+export function readProcessEnv(): EnvSource {
   return typeof process === 'undefined' ? {} : process.env
 }
 

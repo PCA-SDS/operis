@@ -2,6 +2,7 @@
 import type { FilterOperator } from './advanced-filter'
 import { isValuelessOperator } from './advanced-filter'
 import { buildIlikeTerm } from '../db/buildIlikeTerm'
+import { emptyStringToNull } from '../validation/preprocess'
 
 export type FilterCombinator = 'and' | 'or'
 
@@ -72,15 +73,9 @@ export function validateTreeLimits(tree: AdvancedFilterTree): ValidationResult {
   return { ok: true }
 }
 
-function normalizeSingleValue(value: unknown): unknown {
-  if (typeof value !== 'string') return value
-  const trimmed = value.trim()
-  return trimmed.length > 0 ? trimmed : null
-}
-
 function normalizeListValue(value: unknown): unknown[] {
   const list = Array.isArray(value) ? value : [value]
-  return list.map(normalizeSingleValue).filter((v) => v !== null)
+  return list.map(emptyStringToNull).filter((v) => v !== null)
 }
 
 function compileRule(rule: FilterRule): Record<string, unknown> | null {
@@ -89,46 +84,46 @@ function compileRule(rule: FilterRule): Record<string, unknown> | null {
   switch (rule.operator) {
     case 'is':
     case 'equals': {
-      const v = normalizeSingleValue(rule.value)
+      const v = emptyStringToNull(rule.value)
       if (v === null) return null
       filter[rule.field] = { $eq: v }; break
     }
     case 'is_not':
     case 'not_equals': {
-      const v = normalizeSingleValue(rule.value)
+      const v = emptyStringToNull(rule.value)
       if (v === null) return null
       filter[rule.field] = { $ne: v }; break
     }
     case 'contains': {
-      const v = normalizeSingleValue(rule.value)
+      const v = emptyStringToNull(rule.value)
       if (v === null) return null
       filter[rule.field] = { $ilike: buildIlikeTerm(String(v)) }; break
     }
     case 'does_not_contain': {
-      const v = normalizeSingleValue(rule.value)
+      const v = emptyStringToNull(rule.value)
       if (v === null) return null
       filter[rule.field] = { $not: { $ilike: buildIlikeTerm(String(v)) } }; break
     }
     case 'starts_with': {
-      const v = normalizeSingleValue(rule.value)
+      const v = emptyStringToNull(rule.value)
       if (v === null) return null
       filter[rule.field] = { $ilike: buildIlikeTerm(String(v), 'startsWith') }; break
     }
     case 'ends_with': {
-      const v = normalizeSingleValue(rule.value)
+      const v = emptyStringToNull(rule.value)
       if (v === null) return null
       filter[rule.field] = { $ilike: buildIlikeTerm(String(v), 'endsWith') }; break
     }
     case 'is_empty': filter[rule.field] = { $exists: false }; break
     case 'is_not_empty': filter[rule.field] = { $exists: true }; break
-    case 'greater_than': { const v = normalizeSingleValue(rule.value); if (v === null) return null; filter[rule.field] = { $gt: v }; break }
-    case 'less_than': { const v = normalizeSingleValue(rule.value); if (v === null) return null; filter[rule.field] = { $lt: v }; break }
-    case 'greater_or_equal': { const v = normalizeSingleValue(rule.value); if (v === null) return null; filter[rule.field] = { $gte: v }; break }
-    case 'less_or_equal': { const v = normalizeSingleValue(rule.value); if (v === null) return null; filter[rule.field] = { $lte: v }; break }
+    case 'greater_than': { const v = emptyStringToNull(rule.value); if (v === null) return null; filter[rule.field] = { $gt: v }; break }
+    case 'less_than': { const v = emptyStringToNull(rule.value); if (v === null) return null; filter[rule.field] = { $lt: v }; break }
+    case 'greater_or_equal': { const v = emptyStringToNull(rule.value); if (v === null) return null; filter[rule.field] = { $gte: v }; break }
+    case 'less_or_equal': { const v = emptyStringToNull(rule.value); if (v === null) return null; filter[rule.field] = { $lte: v }; break }
     case 'between': {
       if (Array.isArray(rule.value) && rule.value.length === 2) {
-        const start = normalizeSingleValue(rule.value[0])
-        const end = normalizeSingleValue(rule.value[1])
+        const start = emptyStringToNull(rule.value[0])
+        const end = emptyStringToNull(rule.value[1])
         if (start === null && end === null) return null
         if (start !== null && end !== null) filter[rule.field] = { $gte: start, $lte: end }
         else if (start !== null) filter[rule.field] = { $gte: start }
@@ -138,8 +133,8 @@ function compileRule(rule: FilterRule): Record<string, unknown> | null {
       }
       break
     }
-    case 'is_before': { const v = normalizeSingleValue(rule.value); if (v === null) return null; filter[rule.field] = { $lt: v }; break }
-    case 'is_after': { const v = normalizeSingleValue(rule.value); if (v === null) return null; filter[rule.field] = { $gt: v }; break }
+    case 'is_before': { const v = emptyStringToNull(rule.value); if (v === null) return null; filter[rule.field] = { $lt: v }; break }
+    case 'is_after': { const v = emptyStringToNull(rule.value); if (v === null) return null; filter[rule.field] = { $gt: v }; break }
     case 'is_any_of':
     case 'has_any_of': {
       const list = normalizeListValue(rule.value)

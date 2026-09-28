@@ -2,11 +2,14 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import type { CacheStrategy } from '@open-mercato/cache'
 import { decryptWithAesGcm, encryptWithAesGcm, hashForLookup } from './aes'
 import { createKmsService, type KmsService, type TenantDek } from './kms'
-import { isTenantDataEncryptionEnabled, isEncryptionDebugEnabled } from './toggles'
+import { isTenantDataEncryptionEnabled } from './toggles'
+import { createEncryptionDebugLog } from './debugLog'
 import { createLogger } from '../logger'
 import type { EncryptionKeyScope, ModuleEncryptionMap } from '../../modules/encryption'
+import { toSnakeCase } from '../string/case'
 
 const logger = createLogger('shared').child({ component: 'tenant-encryption' })
+const debug = createEncryptionDebugLog(logger)
 
 export type EncryptedFieldRule = {
   field: string
@@ -43,18 +46,6 @@ function cacheKey(key: MapCacheKey): string {
     key.organizationId ?? 'null',
   ].join(':')
 }
-
-function debug(event: string, payload: Record<string, unknown>) {
-  if (!isEncryptionDebugEnabled()) return
-  try {
-    logger.debug(event, payload)
-  } catch {
-    // ignore
-  }
-}
-
-const toSnakeCase = (value: string): string =>
-  value.replace(/([A-Z])/g, '_$1').replace(/__/g, '_').toLowerCase()
 
 const toCamelCase = (value: string): string =>
   value.replace(/_([a-z])/g, (_, c) => c.toUpperCase())

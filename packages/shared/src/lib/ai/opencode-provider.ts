@@ -1,4 +1,5 @@
 import { joinProviderModel } from './model-id'
+import { normalizeOptionalString } from '../string'
 
 type EnvLookup = Record<string, string | undefined>
 
@@ -64,18 +65,12 @@ export function resolveAiProviderIdFromEnv(
 ): OpenCodeProviderId {
   const candidates = [env.OM_AI_PROVIDER, env.OPENCODE_PROVIDER]
   for (const candidate of candidates) {
-    const normalized = normalizeToken(candidate)?.toLowerCase()
+    const normalized = normalizeOptionalString(candidate)?.toLowerCase()
     if (normalized && isOpenCodeProviderId(normalized)) {
       return normalized
     }
   }
   return fallback
-}
-
-function normalizeToken(value: string | null | undefined): string | null {
-  if (typeof value !== 'string') return null
-  const normalized = value.trim()
-  return normalized.length > 0 ? normalized : null
 }
 
 function parseModelToken(token: string): { providerPrefix: string | null; modelId: string } {
@@ -101,7 +96,7 @@ export function resolveOpenCodeProviderId(
   providerId: string | null | undefined,
   fallback: OpenCodeProviderId = 'anthropic',
 ): OpenCodeProviderId {
-  const normalized = normalizeToken(providerId)?.toLowerCase()
+  const normalized = normalizeOptionalString(providerId)?.toLowerCase()
   if (normalized && isOpenCodeProviderId(normalized)) {
     return normalized
   }
@@ -133,7 +128,7 @@ export function resolveOpenCodeProviderApiKey(
 ): string | null {
   const provider = OPEN_CODE_PROVIDERS[providerId]
   for (const key of provider.envKeys) {
-    const value = normalizeToken(env[key])
+    const value = normalizeOptionalString(env[key])
     if (value) {
       return value
     }
@@ -164,7 +159,7 @@ export function getOpenCodeProviderConfiguredEnvKey(
 ): string {
   const provider = OPEN_CODE_PROVIDERS[providerId]
   for (const key of provider.envKeys) {
-    if (normalizeToken(env[key])) {
+    if (normalizeOptionalString(env[key])) {
       return key
     }
   }
@@ -187,9 +182,9 @@ export function resolveOpenCodeModel(
   },
 ): OpenCodeModelResolution {
   const env = options?.env ?? process.env
-  const overrideModel = normalizeToken(options?.overrideModel)
-  const omAiModel = normalizeToken(env.OM_AI_MODEL)
-  const opencodeModel = normalizeToken(env.OPENCODE_MODEL)
+  const overrideModel = normalizeOptionalString(options?.overrideModel)
+  const omAiModel = normalizeOptionalString(env.OM_AI_MODEL)
+  const opencodeModel = normalizeOptionalString(env.OPENCODE_MODEL)
 
   let source: OpenCodeModelResolution['source'] = 'default'
   let selectedModel = OPEN_CODE_PROVIDERS[providerId].defaultModel
@@ -216,7 +211,7 @@ export function resolveOpenCodeModel(
     )
   }
 
-  const modelId = normalizeToken(parsed.modelId)
+  const modelId = normalizeOptionalString(parsed.modelId)
   if (!modelId) {
     throw new Error(`Model "${selectedModel}" is invalid`)
   }

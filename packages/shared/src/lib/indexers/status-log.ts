@@ -2,6 +2,7 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import { type Kysely, sql } from 'kysely'
 import type { IndexerErrorSource } from './error-log'
 import { createLogger } from '../logger'
+import { truncate, safeJson } from './log-format'
 
 const logger = createLogger('shared').child({ component: 'indexers' })
 
@@ -27,24 +28,6 @@ type RecordIndexerLogDeps = {
 const MAX_MESSAGE_LENGTH = 4_096
 const MAX_DELETE_BATCH = 5_000
 const MAX_LOGS_PER_SOURCE = 10_000
-
-function truncate(input: string | null | undefined, limit: number): string | null {
-  if (!input) return null
-  return input.length > limit ? `${input.slice(0, limit - 3)}...` : input
-}
-
-function safeJson(value: unknown): unknown {
-  if (value === undefined) return null
-  try {
-    return JSON.parse(JSON.stringify(value))
-  } catch {
-    if (value == null) return null
-    if (typeof value === 'object') {
-      return { note: 'unserializable', asString: String(value) }
-    }
-    return value
-  }
-}
 
 function pickDb(deps: RecordIndexerLogDeps): Kysely<any> | null {
   if (deps.db) return deps.db
