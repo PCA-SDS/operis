@@ -21,26 +21,9 @@ import type {
   ChatUnreadCountDto,
 } from '../data/types'
 import type { ChatDirectoryResult } from '../lib/directory'
+import { toQueryString, jsonRequestInit } from '@open-mercato/shared/lib/http/query'
 
 const BASE = '/api/chat'
-
-function query(params: Record<string, string | number | null | undefined>): string {
-  const search = new URLSearchParams()
-  for (const [key, value] of Object.entries(params)) {
-    if (value === null || value === undefined || value === '') continue
-    search.set(key, String(value))
-  }
-  const serialized = search.toString()
-  return serialized ? `?${serialized}` : ''
-}
-
-function jsonInit(method: string, body?: unknown): RequestInit {
-  return {
-    method,
-    headers: { 'content-type': 'application/json' },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  }
-}
 
 export type ChatSearchParams = {
   q: string
@@ -68,21 +51,21 @@ function searchQueryParams(params: ChatSearchParams): Record<string, string | nu
 
 export const chatApi = {
   searchDirectory: (params: { q?: string; limit?: number }, signal?: AbortSignal) =>
-    readApiResultOrThrow<ChatDirectoryResult>(`${BASE}/directory${query(params)}`, { signal }),
+    readApiResultOrThrow<ChatDirectoryResult>(`${BASE}/directory${toQueryString(params)}`, { signal }),
 
   listConversations: (params: { limit?: number }, signal?: AbortSignal) =>
-    readApiResultOrThrow<ChatConversationListDto>(`${BASE}/conversations${query(params)}`, { signal }),
+    readApiResultOrThrow<ChatConversationListDto>(`${BASE}/conversations${toQueryString(params)}`, { signal }),
 
   getConversation: (id: string, signal?: AbortSignal) =>
     readApiResultOrThrow<ChatConversationDto>(`${BASE}/conversations/${id}`, { signal }),
 
   openConversation: async (userId: string) =>
-    (await apiCallOrThrow<ChatConversationDto>(`${BASE}/conversations`, jsonInit('POST', { userId }))).result!,
+    (await apiCallOrThrow<ChatConversationDto>(`${BASE}/conversations`, jsonRequestInit('POST', { userId }))).result!,
 
   createSpace: async (input: { title: string; memberIds: string[] }) =>
     (await apiCallOrThrow<ChatConversationDto>(
       `${BASE}/conversations`,
-      jsonInit('POST', {
+      jsonRequestInit('POST', {
         kind: 'space',
         title: input.title,
         // Omitted rather than sent empty: the schema treats an empty array as a
@@ -92,36 +75,36 @@ export const chatApi = {
     )).result!,
 
   renameSpace: async (id: string, title: string) =>
-    (await apiCallOrThrow<ChatConversationDto>(`${BASE}/conversations/${id}`, jsonInit('PATCH', { title })))
+    (await apiCallOrThrow<ChatConversationDto>(`${BASE}/conversations/${id}`, jsonRequestInit('PATCH', { title })))
       .result!,
 
   setMuted: async (id: string, muted: boolean) =>
-    (await apiCallOrThrow<{ muted: boolean }>(`${BASE}/conversations/${id}/mute`, jsonInit('POST', { muted })))
+    (await apiCallOrThrow<{ muted: boolean }>(`${BASE}/conversations/${id}/mute`, jsonRequestInit('POST', { muted })))
       .result!,
 
   listMembers: (id: string, params: { q?: string; limit?: number; offset?: number }, signal?: AbortSignal) =>
-    readApiResultOrThrow<ChatMemberListDto>(`${BASE}/conversations/${id}/members${query(params)}`, { signal }),
+    readApiResultOrThrow<ChatMemberListDto>(`${BASE}/conversations/${id}/members${toQueryString(params)}`, { signal }),
 
   addMembers: async (id: string, memberIds: string[]) =>
     (await apiCallOrThrow<{ added: string[] }>(
       `${BASE}/conversations/${id}/members`,
-      jsonInit('POST', { memberIds }),
+      jsonRequestInit('POST', { memberIds }),
     )).result!,
 
   removeMember: async (id: string, userId: string) =>
     (await apiCallOrThrow<{ removed: string; spaceDeleted: boolean }>(
       `${BASE}/conversations/${id}/members/${userId}`,
-      jsonInit('DELETE'),
+      jsonRequestInit('DELETE'),
     )).result!,
 
   setMemberRole: async (id: string, userId: string, role: ChatParticipantRole) =>
     (await apiCallOrThrow<{ userId: string; role: ChatParticipantRole }>(
       `${BASE}/conversations/${id}/members/${userId}`,
-      jsonInit('PATCH', { role }),
+      jsonRequestInit('PATCH', { role }),
     )).result!,
 
   listMessages: (id: string, params: { cursor?: string; limit?: number }, signal?: AbortSignal) =>
-    readApiResultOrThrow<ChatMessagePageDto>(`${BASE}/conversations/${id}/messages${query(params)}`, { signal }),
+    readApiResultOrThrow<ChatMessagePageDto>(`${BASE}/conversations/${id}/messages${toQueryString(params)}`, { signal }),
 
   /**
    * Search one conversation. Scoped server-side; the id in the path is the
@@ -133,14 +116,14 @@ export const chatApi = {
     signal?: AbortSignal,
   ) =>
     readApiResultOrThrow<ChatSearchResultDto>(
-      `${BASE}/conversations/${id}/search${query(searchQueryParams(params))}`,
+      `${BASE}/conversations/${id}/search${toQueryString(searchQueryParams(params))}`,
       { signal },
     ),
 
   /** Search every conversation the caller currently belongs to. */
   searchAllChats: (params: ChatSearchParams, signal?: AbortSignal) =>
     readApiResultOrThrow<ChatSearchResultDto>(
-      `${BASE}/search${query(searchQueryParams(params))}`,
+      `${BASE}/search${toQueryString(searchQueryParams(params))}`,
       { signal },
     ),
 
@@ -158,14 +141,14 @@ export const chatApi = {
   ) =>
     readApiResultOrThrow<ChatDirectUploadTicketDto>(
       `${BASE}/conversations/${id}/attachments/direct`,
-      { ...jsonInit('POST', body), signal },
+      { ...jsonRequestInit('POST', body), signal },
     ),
 
   /** Tell the server the direct upload finished, so it can verify and record it. */
   finalizeDirectUpload: (id: string, body: { uploadId: string }, signal?: AbortSignal) =>
     readApiResultOrThrow<{ item: ChatAttachmentDto }>(
       `${BASE}/conversations/${id}/attachments/direct`,
-      { ...jsonInit('PUT', body), signal },
+      { ...jsonRequestInit('PUT', body), signal },
     ),
 
   /** Files, media or links shared in a conversation, one page at a time. */
@@ -175,14 +158,14 @@ export const chatApi = {
     signal?: AbortSignal,
   ) =>
     readApiResultOrThrow<ChatSharedResourcesDto>(
-      `${BASE}/conversations/${id}/shared${query(params)}`,
+      `${BASE}/conversations/${id}/shared${toQueryString(params)}`,
       { signal },
     ),
 
   /** A window centred on one message — how pin navigation reaches history. */
   listMessagesAround: (id: string, around: string, signal?: AbortSignal) =>
     readApiResultOrThrow<ChatMessagePageDto>(
-      `${BASE}/conversations/${id}/messages${query({ around })}`,
+      `${BASE}/conversations/${id}/messages${toQueryString({ around })}`,
       { signal },
     ),
 
@@ -192,31 +175,31 @@ export const chatApi = {
   toggleReaction: async (conversationId: string, messageId: string, emoji: string) =>
     (await apiCallOrThrow<{ emoji: string; reacted: boolean }>(
       `${BASE}/conversations/${conversationId}/messages/${messageId}/reactions`,
-      jsonInit('POST', { emoji }),
+      jsonRequestInit('POST', { emoji }),
     )).result!,
 
   editMessage: async (conversationId: string, messageId: string, body: string) =>
     (await apiCallOrThrow<{ messageId: string; body: string; editedAt: string }>(
       `${BASE}/conversations/${conversationId}/messages/${messageId}`,
-      jsonInit('PATCH', { body }),
+      jsonRequestInit('PATCH', { body }),
     )).result!,
 
   deleteMessage: async (conversationId: string, messageId: string) =>
     (await apiCallOrThrow<{ messageId: string; deletedAt: string }>(
       `${BASE}/conversations/${conversationId}/messages/${messageId}`,
-      jsonInit('DELETE'),
+      jsonRequestInit('DELETE'),
     )).result!,
 
   setPinned: async (conversationId: string, messageId: string, pinned: boolean) =>
     (await apiCallOrThrow<{ pinned: boolean }>(
       `${BASE}/conversations/${conversationId}/messages/${messageId}/pin`,
-      jsonInit(pinned ? 'POST' : 'DELETE'),
+      jsonRequestInit(pinned ? 'POST' : 'DELETE'),
     )).result!,
 
   translateMessages: async (conversationId: string, messageIds: string[], targetLocale: string) =>
     (await apiCallOrThrow<ChatTranslationListDto>(
       `${BASE}/conversations/${conversationId}/translate`,
-      jsonInit('POST', { messageIds, targetLocale }),
+      jsonRequestInit('POST', { messageIds, targetLocale }),
     )).result!,
 
   getChatSettings: (signal?: AbortSignal) =>
@@ -225,7 +208,7 @@ export const chatApi = {
   setChatLocale: async (translationLocale: string | null) =>
     (await apiCallOrThrow<ChatSettingsDto>(
       `${BASE}/settings`,
-      jsonInit('PUT', { translationLocale }),
+      jsonRequestInit('PUT', { translationLocale }),
     )).result!,
 
   sendMessage: async (
@@ -240,19 +223,19 @@ export const chatApi = {
   ) =>
     (await apiCallOrThrow<ChatSendMessageResultDto>(
       `${BASE}/conversations/${id}/messages`,
-      jsonInit('POST', body),
+      jsonRequestInit('POST', body),
     )).result!,
 
   markRead: async (id: string, readAt?: string) =>
     (await apiCallOrThrow<{ lastReadAt: string }>(
       `${BASE}/conversations/${id}/read`,
-      jsonInit('POST', readAt ? { readAt } : {}),
+      jsonRequestInit('POST', readAt ? { readAt } : {}),
     )).result!,
 
   markAllRead: async () =>
     (await apiCallOrThrow<{ conversationIds: string[]; lastReadAt: string }>(
       `${BASE}/read-all`,
-      jsonInit('POST'),
+      jsonRequestInit('POST'),
     )).result!,
 
   unreadCount: (signal?: AbortSignal) =>

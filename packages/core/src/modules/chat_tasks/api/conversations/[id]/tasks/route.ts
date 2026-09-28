@@ -9,7 +9,6 @@ import {
   readContext,
   resolveChatTasksRequest,
   runChatTasksCommand,
-  searchParamsToObject,
   toChatTasksErrorResponse,
 } from '../../../shared'
 import { chatTaskCreateRequestSchema, chatTaskLinkListQuerySchema } from '../../../../data/validators'
@@ -22,6 +21,7 @@ import {
   cardListSchema,
   createResultSchema,
 } from '../../../openapi'
+import { searchParamsToObject } from '@open-mercato/shared/lib/http/query'
 
 /**
  * Reading the panel needs both read grants; creating needs the task create grant

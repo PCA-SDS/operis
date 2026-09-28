@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto'
 import type { ModuleSetupConfig } from '@open-mercato/shared/modules/setup'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { resolveChatTransportId } from '@open-mercato/core/modules/chat/lib/transport'
@@ -7,6 +6,7 @@ import {
   DRIFT_CHECK_INTERVAL_SECONDS,
   SYNC_INTERVAL_SECONDS,
 } from './lib/queue'
+import { stableUuidFromKey } from '@open-mercato/shared/lib/ids'
 
 const logger = createLogger('chat_matrix')
 
@@ -28,15 +28,6 @@ type SchedulerServiceLike = {
     isEnabled?: boolean
     description?: string
   }) => Promise<void>
-}
-
-/**
- * Deterministic so `register()` is an idempotent upsert across re-runs, and a
- * uuid because that is what the schedule primary key is.
- */
-function stableScheduleUuid(stableKey: string): string {
-  const hex = createHash('sha256').update(stableKey).digest('hex')
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`
 }
 
 /**
@@ -75,7 +66,7 @@ export const setup: ModuleSetupConfig = {
     const schedulerService = container.resolve('schedulerService') as SchedulerServiceLike
     try {
       await schedulerService.register({
-        id: stableScheduleUuid(`chat_matrix:drift-check:${organizationId}`),
+        id: stableUuidFromKey(`chat_matrix:drift-check:${organizationId}`),
         name: 'Chat Matrix drift check',
         description:
           'Reports messages that were committed to Postgres but never reached the homeserver. Read-only; repair is `yarn mercato chat_matrix backfill`.',
@@ -101,7 +92,7 @@ export const setup: ModuleSetupConfig = {
        * the others had not projected.
        */
       await schedulerService.register({
-        id: stableScheduleUuid('chat_matrix:sync'),
+        id: stableUuidFromKey('chat_matrix:sync'),
         name: 'Chat Matrix sync',
         description:
           'Reads the appservice /sync stream and projects events Operis does not already know about into chat messages.',

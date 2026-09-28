@@ -5,11 +5,11 @@ import {
   jsonOk,
   readContext,
   resolveChatTasksRequest,
-  searchParamsToObject,
   toChatTasksErrorResponse,
 } from '../../../shared'
 import { chatTaskCardBatchQuerySchema } from '../../../../data/validators'
 import { CHAT_TASKS_TAG, COMMON_ERRORS, cardBatchSchema } from '../../../openapi'
+import { searchParamsToObject } from '@open-mercato/shared/lib/http/query'
 
 /**
  * `chat.view` alone, and that is deliberate.

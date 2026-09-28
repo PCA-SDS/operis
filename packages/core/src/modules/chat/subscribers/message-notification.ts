@@ -4,6 +4,7 @@ import { resolveNotificationService } from '../../notifications/lib/notification
 import { buildNotificationFromType } from '../../notifications/lib/notificationBuilder'
 import { ChatConversation, ChatMessage, ChatMessageMention, ChatParticipant } from '../data/entities'
 import { notificationTypes } from '../notifications'
+import { readTrimmedString } from '@open-mercato/shared/lib/string'
 
 const logger = createLogger('chat').child({ component: 'message-notification' })
 
@@ -18,11 +19,6 @@ type SubscriberContext = {
   container?: { resolve<T = unknown>(name: string): T }
   tenantId?: string | null
   organizationId?: string | null
-}
-
-const readString = (record: Record<string, unknown>, key: string): string | null => {
-  const value = record[key]
-  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
 }
 
 /**
@@ -49,9 +45,9 @@ const readString = (record: Record<string, unknown>, key: string): string | null
  */
 export default async function handle(payload: unknown, ctx: SubscriberContext): Promise<void> {
   const record = payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {}
-  const conversationId = readString(record, 'conversationId')
-  const messageId = readString(record, 'messageId')
-  const senderUserId = readString(record, 'senderUserId')
+  const conversationId = readTrimmedString(record, 'conversationId')
+  const messageId = readTrimmedString(record, 'messageId')
+  const senderUserId = readTrimmedString(record, 'senderUserId')
   const tenantId = ctx.tenantId ?? null
   const organizationId = ctx.organizationId ?? null
   if (!conversationId || !messageId || !senderUserId || !tenantId || !organizationId) return
