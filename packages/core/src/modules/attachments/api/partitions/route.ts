@@ -2,12 +2,11 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
-import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
+import { resolveRequestEm } from '@open-mercato/shared/lib/di/container'
 import { findOneWithDecryption, findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { Attachment, AttachmentPartition } from '../../data/entities'
 import { ensureDefaultPartitions, DEFAULT_ATTACHMENT_PARTITIONS, sanitizePartitionCode, isPartitionSettingsLocked } from '../../lib/partitions'
 import { resolvePartitionEnvKey } from '../../lib/partitionEnv'
-import type { EntityManager } from '@mikro-orm/postgresql'
 import { resolveDefaultAttachmentOcrEnabled } from '../../lib/ocrConfig'
 import {
   attachmentsTag,
@@ -66,17 +65,12 @@ export const metadata = {
   DELETE: { requireAuth: true, requireFeatures: ['attachments.manage'] },
 } as const
 
-async function resolveEm() {
-  const { resolve } = await createRequestContainer()
-  return resolve('em') as EntityManager
-}
-
 export async function GET(req: Request) {
   const auth = await getAuthFromRequest(req)
   if (!auth?.sub || !auth.tenantId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
-  const em = await resolveEm()
+  const em = await resolveRequestEm()
   await ensureDefaultPartitions(em)
   const rows = await findWithDecryption<AttachmentPartition>(
     em,
@@ -113,7 +107,7 @@ export async function POST(req: Request) {
   if (!code) {
     return NextResponse.json({ error: 'Partition code is required.' }, { status: 400 })
   }
-  const em = await resolveEm()
+  const em = await resolveRequestEm()
   await ensureDefaultPartitions(em)
   const exists = await findOneWithDecryption(
     em,
@@ -165,7 +159,7 @@ export async function PUT(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
   }
-  const em = await resolveEm()
+  const em = await resolveRequestEm()
   const entry = await findOneWithDecryption(
     em,
     AttachmentPartition,
@@ -215,7 +209,7 @@ export async function DELETE(req: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: 'Partition id is required' }, { status: 400 })
   }
-  const em = await resolveEm()
+  const em = await resolveRequestEm()
   const entry = await findOneWithDecryption(
     em,
     AttachmentPartition,

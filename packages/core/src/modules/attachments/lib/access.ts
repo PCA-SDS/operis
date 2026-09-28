@@ -1,15 +1,10 @@
 import type { AuthContext } from '@open-mercato/shared/lib/auth/server'
 import type { Attachment, AttachmentPartition } from '../data/entities'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
 
 export type AttachmentScope = {
   tenantId?: string | null
   organizationId?: string | null
-}
-
-function normalizeScopeValue(value: string | null | undefined): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  return trimmed.length > 0 ? trimmed : null
 }
 
 /**
@@ -24,8 +19,8 @@ function normalizeScopeValue(value: string | null | undefined): string | null {
  * re-emerging (#2109). Call this before persisting any `Attachment`.
  */
 export function assertAttachmentScopeInvariant(scope: AttachmentScope): void {
-  const tenantId = normalizeScopeValue(scope.tenantId)
-  const organizationId = normalizeScopeValue(scope.organizationId)
+  const tenantId = normalizeOptionalString(scope.tenantId)
+  const organizationId = normalizeOptionalString(scope.organizationId)
   const tenantSet = tenantId !== null
   const organizationSet = organizationId !== null
   if (tenantSet !== organizationSet) {

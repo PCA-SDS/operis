@@ -6,6 +6,8 @@ import { DEALS_IN_PRODUCT } from '@open-mercato/shared/lib/product-scope'
 import { getModules } from '@open-mercato/shared/lib/i18n/server'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { isEntitleableModule } from '@open-mercato/core/modules/directory/lib/tenantModules'
+import { camelToSnake, snakeToCamel } from '@open-mercato/shared/lib/string/case'
+import { RFC4122_UUID_PATTERN } from '@open-mercato/shared/lib/validation'
 
 const logger = createLogger('attachments')
 
@@ -137,17 +139,6 @@ export type AssignmentEnrichment = {
 
 export type AssignmentEnrichmentMap = Map<string, AssignmentEnrichment>
 
-function camelToSnake(value: string): string {
-  return value
-    .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
-    .replace(/[\s-]+/g, '_')
-    .toLowerCase()
-}
-
-function snakeToCamel(value: string): string {
-  return value.replace(/[_-](\w)/g, (_, c: string) => c.toUpperCase())
-}
-
 function normalizeValue(value: unknown): string | null {
   if (value === undefined || value === null) return null
   if (typeof value === 'string') {
@@ -177,7 +168,7 @@ function buildSimpleHref(base: string, idValue: unknown, suffix: string = ''): s
 }
 
 function isUuid(value: string | null | undefined): boolean {
-  return typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.trim())
+  return typeof value === 'string' && RFC4122_UUID_PATTERN.test(value.trim())
 }
 
 function filterIdsForEntity(entityId: string, ids: string[]): string[] {

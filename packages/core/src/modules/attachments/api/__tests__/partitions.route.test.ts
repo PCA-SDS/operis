@@ -147,6 +147,7 @@ jest.mock('@open-mercato/shared/lib/di/container', () => ({
   createRequestContainer: async () => ({
     resolve: (k: string) => (k === 'em' ? mockEm : null),
   }),
+  resolveRequestEm: async () => mockEm,
 }))
 
 function buildRequest(method: string, body: any, search: string = ''): Request {

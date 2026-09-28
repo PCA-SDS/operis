@@ -21,12 +21,13 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { hasFeature } from '@open-mercato/shared/security/features'
 import { z } from 'zod'
 import { E } from '#generated/entities.ids.generated'
-import type { LucideIcon } from 'lucide-react'
-import { Download, Plus, Upload, Trash2, File, FileText, FileSpreadsheet, FileArchive, FileAudio, FileVideo, FileCode } from 'lucide-react'
+import { Download, Plus, Upload, Trash2, File } from 'lucide-react'
 import { buildAttachmentFileUrl, buildAttachmentImageUrl, slugifyAttachmentFileName } from '@open-mercato/core/modules/attachments/lib/imageUrls'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { AttachmentDeleteDialog, AttachmentMetadataDialog, type AttachmentItem, type AttachmentMetadataSavePayload, type AssignmentDraft } from '@open-mercato/ui/backend/detail'
 import { formatFileSize } from '@open-mercato/shared/lib/units/fileSize'
+import { resolveAttachmentPlaceholder, resolveAbsoluteUrl } from '@open-mercato/ui/backend/detail/attachmentFiles'
+import { normalizeCustomFieldSubmitValue } from '@open-mercato/ui/backend/utils/customFieldSubmitValue'
 
 type AttachmentAssignment = {
   type: string
@@ -49,7 +50,6 @@ type AttachmentLibraryResponse = {
 }
 
 const PAGE_SIZE = 25
-const ENV_APP_URL = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '')
 const LIBRARY_ENTITY_ID = 'attachments:library'
 
 function filterLibraryAssignments(assignments?: AttachmentAssignment[] | null): AttachmentAssignment[] {
@@ -65,104 +65,6 @@ function humanDate(value: string, locale?: string): string {
 
 function buildFilterSignature(values: FilterValues): string {
   return JSON.stringify(values, Object.keys(values).sort((a, b) => a.localeCompare(b)))
-}
-
-function resolveAbsoluteUrl(path: string): string {
-  if (!path) return path
-  if (/^https?:\/\//i.test(path)) return path
-  const base =
-    ENV_APP_URL ||
-    (typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '')
-  if (!base) return path
-  const normalizedBase = base.replace(/\/$/, '')
-  return `${normalizedBase}${path.startsWith('/') ? path : `/${path}`}`
-}
-
-function resolveFileExtension(fileName?: string | null): string {
-  if (!fileName) return ''
-  const normalized = fileName.trim()
-  if (!normalized) return ''
-  const lastDot = normalized.lastIndexOf('.')
-  if (lastDot === -1 || lastDot === normalized.length - 1) return ''
-  return normalized.slice(lastDot + 1).toLowerCase()
-}
-
-const EXTENSION_ICON_MAP: Record<string, LucideIcon> = {
-  pdf: FileText,
-  doc: FileText,
-  docx: FileText,
-  txt: FileText,
-  md: FileText,
-  rtf: FileText,
-  xls: FileSpreadsheet,
-  xlsx: FileSpreadsheet,
-  csv: FileSpreadsheet,
-  ods: FileSpreadsheet,
-  ppt: FileText,
-  pptx: FileText,
-  zip: FileArchive,
-  gz: FileArchive,
-  rar: FileArchive,
-  tgz: FileArchive,
-  '7z': FileArchive,
-  tar: FileArchive,
-  json: FileCode,
-  js: FileCode,
-  ts: FileCode,
-  jsx: FileCode,
-  tsx: FileCode,
-  html: FileCode,
-  css: FileCode,
-  xml: FileCode,
-  yaml: FileCode,
-  yml: FileCode,
-  mp3: FileAudio,
-  wav: FileAudio,
-  flac: FileAudio,
-  ogg: FileAudio,
-  mp4: FileVideo,
-  mov: FileVideo,
-  avi: FileVideo,
-  webm: FileVideo,
-}
-
-const MIME_FALLBACK_ICONS: Record<string, LucideIcon> = {
-  audio: FileAudio,
-  video: FileVideo,
-  text: FileText,
-  application: FileText,
-}
-
-function resolveAttachmentPlaceholder(mimeType?: string | null, fileName?: string | null): { icon: LucideIcon; label: string } {
-  const extension = resolveFileExtension(fileName)
-  const normalizedMime = typeof mimeType === 'string' ? mimeType.toLowerCase() : ''
-  if (extension && EXTENSION_ICON_MAP[extension]) {
-    return { icon: EXTENSION_ICON_MAP[extension], label: extension.toUpperCase() }
-  }
-  if (!extension && normalizedMime.includes('pdf')) {
-    return { icon: FileText, label: 'PDF' }
-  }
-  if (!extension && normalizedMime.includes('zip')) {
-    return { icon: FileArchive, label: 'ZIP' }
-  }
-  if (!extension && normalizedMime.includes('json')) {
-    return { icon: FileCode, label: 'JSON' }
-  }
-  const mimeRoot = normalizedMime.split('/')[0] || ''
-  if (mimeRoot && MIME_FALLBACK_ICONS[mimeRoot]) {
-    return { icon: MIME_FALLBACK_ICONS[mimeRoot], label: mimeRoot.toUpperCase() }
-  }
-  const fallbackSource = extension || mimeRoot || 'file'
-  const fallbackLabel = fallbackSource.slice(0, 6).toUpperCase()
-  return { icon: File, label: fallbackLabel }
-}
-
-function normalizeCustomFieldSubmitValue(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    return value.filter((entry) => entry !== undefined)
-  }
-  if (value === undefined) return null
-  return value
 }
 
 

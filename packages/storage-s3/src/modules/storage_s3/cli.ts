@@ -8,11 +8,11 @@ import type { IntegrationScope } from '@open-mercato/shared/modules/integrations
 import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import {
   mapOrganizationsToScopes,
-  parseCliArgs,
   resolveCliMode,
   runConfigureFromEnv,
   runConfigureFromEnvForScopes,
 } from './lib/configure-from-env'
+import { parseCliArgs } from '@open-mercato/shared/lib/cli/args'
 
 function printHelp(): void {
   console.log('Usage: yarn mercato storage_s3 configure-from-env [--tenant <tenantId> --org <organizationId> | --all-tenants] [--force]')

@@ -21,6 +21,7 @@ import { S3StorageDriver } from '../../../../lib/s3-driver'
 import type { AttachmentQuotaService } from '@open-mercato/core/modules/attachments/lib/quota-service'
 import { reconcileTenantS3Objects } from '../../../../lib/quota-accounting'
 import { randomUUID } from 'crypto'
+import { resolveDriver } from '../../../../lib/resolveDriver'
 
 export const metadata = {
   path: '/storage-providers/s3/upload',
@@ -36,19 +37,6 @@ const responseSchema = z.object({
 
 function sanitizeFileName(name: string): string {
   return name.replace(/[^a-zA-Z0-9._-]/g, '_') || 'upload'
-}
-
-async function resolveDriver(
-  tenantId: string,
-  orgId: string,
-): Promise<S3StorageDriver | null> {
-  const { resolve } = await createRequestContainer()
-  const credentialsService = resolve('integrationCredentialsService') as {
-    resolve(integrationId: string, scope: { tenantId: string; organizationId: string }): Promise<Record<string, unknown> | null>
-  }
-  const creds = await credentialsService.resolve('storage_s3', { tenantId, organizationId: orgId })
-  if (!creds) return null
-  return new S3StorageDriver({ ...creds, organizationId: orgId, tenantId })
 }
 
 async function readTenantStorageUsageBytes(
