@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
+import { defaultValueFormatter } from './ChartUtils'
 
 export type KpiTrend = {
   value: number
@@ -22,16 +23,6 @@ export type KpiCardProps = {
   headerAction?: React.ReactNode
   footer?: React.ReactNode
   titleClassName?: string
-}
-
-function defaultFormatValue(value: number): string {
-  if (Math.abs(value) >= 1_000_000) {
-    return `${(value / 1_000_000).toFixed(1)}M`
-  }
-  if (Math.abs(value) >= 1_000) {
-    return `${(value / 1_000).toFixed(1)}K`
-  }
-  return value.toLocaleString(undefined, { maximumFractionDigits: 2 })
 }
 
 function formatPercentageChange(value: number, unit: string = '%'): string {
@@ -95,7 +86,7 @@ export function KpiCard({
   comparisonLabel,
   loading,
   error,
-  formatValue = defaultFormatValue,
+  formatValue = defaultValueFormatter,
   prefix = '',
   suffix = '',
   className = '',

@@ -4,8 +4,8 @@ import * as React from 'react'
 import type { InjectionMenuItem } from '@open-mercato/shared/modules/widgets/injection'
 import { hasAllFeatures } from '@open-mercato/shared/security/features'
 import { useInjectionDataWidgets } from '../../backend/injection/useInjectionDataWidgets'
-import { apiCall } from '../../backend/utils/apiCall'
 import { usePortalContext } from '../PortalContext'
+import { readPortalGrantedFeatures } from './portalGrantedFeatures'
 
 function useOptionalOrgSlug(): string {
   try {
@@ -22,11 +22,6 @@ export type PortalMenuSurfaceId =
   | 'menu:portal:user-dropdown'
   | `menu:portal:${string}`
 
-type PortalFeatureCheckResponse = {
-  ok: boolean
-  granted?: string[]
-}
-
 function collectRequiredFeatures(items: InjectionMenuItem[]): string[] {
   const set = new Set<string>()
   for (const item of items) {
@@ -36,21 +31,6 @@ function collectRequiredFeatures(items: InjectionMenuItem[]): string[] {
     }
   }
   return Array.from(set)
-}
-
-async function readPortalGrantedFeatures(features: string[]): Promise<Set<string>> {
-  if (features.length === 0) return new Set()
-  try {
-    const { ok, result: data } = await apiCall<PortalFeatureCheckResponse>('/api/customer_accounts/portal/feature-check', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ features }),
-    })
-    if (!ok || !data?.ok) return new Set()
-    return new Set(data.granted ?? [])
-  } catch {
-    return new Set()
-  }
 }
 
 /**

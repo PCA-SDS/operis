@@ -1,5 +1,6 @@
 "use client"
 import * as React from 'react'
+import { now } from '../utils/now'
 
 export type PartialIndexNotice = {
   entity: string
@@ -22,12 +23,6 @@ const TTL_MS = 120_000
 
 let current: PartialIndexNotice | null = null
 const emitter = new EventTarget()
-
-function now(): number {
-  return typeof performance !== 'undefined' && performance.now
-    ? Math.round(performance.timeOrigin + performance.now())
-    : Date.now()
-}
 
 function subscribe(listener: () => void) {
   const wrapped = () => listener()

@@ -4,15 +4,10 @@ import * as React from 'react'
 import type { InjectionSpotId } from '@open-mercato/shared/modules/widgets/injection'
 import { loadInjectionWidgetsForSpot, type LoadedInjectionWidget } from '@open-mercato/shared/modules/widgets/injection-loader'
 import { hasAllFeatures } from '@open-mercato/shared/security/features'
-import { apiCall } from '../../backend/utils/apiCall'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { readPortalGrantedFeatures } from './portalGrantedFeatures'
 
 const logger = createLogger('ui').child({ component: 'usePortalDashboardWidgets' })
-
-type PortalFeatureCheckResponse = {
-  ok: boolean
-  granted?: string[]
-}
 
 function collectRequiredFeatures(widgets: LoadedInjectionWidget[]): string[] {
   const set = new Set<string>()
@@ -23,21 +18,6 @@ function collectRequiredFeatures(widgets: LoadedInjectionWidget[]): string[] {
     }
   }
   return Array.from(set)
-}
-
-async function readPortalGrantedFeatures(features: string[]): Promise<Set<string>> {
-  if (features.length === 0) return new Set()
-  try {
-    const { ok, result: data } = await apiCall<PortalFeatureCheckResponse>('/api/customer_accounts/portal/feature-check', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ features }),
-    })
-    if (!ok || !data?.ok) return new Set()
-    return new Set(data.granted ?? [])
-  } catch {
-    return new Set()
-  }
 }
 
 /**

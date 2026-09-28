@@ -6,6 +6,7 @@ import type {
   MessageTypeItem,
 } from './message-composer.types'
 import type { MessagePriority } from './message-priority'
+import { isEmailAddress } from '@open-mercato/shared/lib/validation'
 
 type Translator = ReturnType<typeof useT>
 
@@ -70,32 +71,6 @@ type ForwardOperationParams = {
 type DraftOperationParams = Omit<ComposeOperationParams, 'createableMessageTypes'>
   & { messageId?: string }
 
-function isValidEmailAddress(value: string): boolean {
-  const email = value.trim()
-  if (!email || email.length > 254) return false
-
-  const atIndex = email.indexOf('@')
-  if (atIndex <= 0 || atIndex !== email.lastIndexOf('@') || atIndex === email.length - 1) return false
-
-  for (const char of email) {
-    if (char === ' ' || char === '\t' || char === '\n' || char === '\r') return false
-  }
-
-  const localPart = email.slice(0, atIndex)
-  const domainPart = email.slice(atIndex + 1)
-  if (!localPart || !domainPart || localPart.length > 64) return false
-  if (domainPart.length > 253 || !domainPart.includes('.')) return false
-  if (domainPart.startsWith('.') || domainPart.endsWith('.') || domainPart.includes('..')) return false
-
-  const domainLabels = domainPart.split('.')
-  for (const label of domainLabels) {
-    if (!label) return false
-    if (label.startsWith('-') || label.endsWith('-')) return false
-  }
-
-  return true
-}
-
 function mapRecipients(recipientIds: string[]): MessageRecipient[] {
   return recipientIds.map((userId) => ({ userId, type: 'to' }))
 }
@@ -153,7 +128,7 @@ export function useComposeSendOperation(params: ComposeOperationParams): BaseOpe
       if (params.visibility !== 'public' && params.recipientIds.length === 0) {
         return params.t('messages.errors.noRecipients', 'Please add at least one recipient.')
       }
-      if (params.visibility === 'public' && !isValidEmailAddress(params.externalEmail.trim())) {
+      if (params.visibility === 'public' && !isEmailAddress(params.externalEmail.trim())) {
         return params.t('messages.errors.noExternalEmail', 'Please enter a valid external email.')
       }
       if (!params.subject.trim()) {
@@ -283,7 +258,7 @@ export function useSendDraftOperation(params: SendDraftOperationParams): BaseOpe
       if (params.visibility !== 'public' && params.recipientIds.length === 0) {
         return params.t('messages.errors.noRecipients', 'Please add at least one recipient.')
       }
-      if (params.visibility === 'public' && !isValidEmailAddress(params.externalEmail.trim())) {
+      if (params.visibility === 'public' && !isEmailAddress(params.externalEmail.trim())) {
         return params.t('messages.errors.noExternalEmail', 'Please enter a valid external email.')
       }
       if (!params.subject.trim()) {

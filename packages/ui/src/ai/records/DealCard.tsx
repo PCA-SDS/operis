@@ -5,7 +5,8 @@ import { Briefcase, Building2, CalendarDays, CircleDollarSign, User } from 'luci
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { KeyValueList, RecordCardShell, TagRow, statusToTagVariant } from './RecordCardShell'
 import type { DealRecordPayload } from './types'
-import { formatCurrency, formatDate } from '../../utils/format'
+import { formatDate } from '@open-mercato/shared/lib/time'
+import { formatCurrency } from '@open-mercato/shared/lib/units/money'
 
 export interface DealCardProps extends DealRecordPayload {}
 

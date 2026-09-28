@@ -11,6 +11,7 @@ import type {
 } from '@open-mercato/shared/modules/notifications/handler'
 import type { NotificationDto } from '@open-mercato/shared/modules/notifications/types'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { matchesType } from './matchesType'
 
 const logger = createLogger('ui').child({ component: 'notifications' })
 
@@ -41,15 +42,6 @@ function toFlashKind(value: NotificationHandlerToastOptions['severity'] | Notifi
   if (value === 'warning') return 'warning'
   if (value === 'error') return 'error'
   return 'info'
-}
-
-function matchesType(pattern: string | string[], type: string): boolean {
-  const patterns = Array.isArray(pattern) ? pattern : [pattern]
-  return patterns.some((current) => {
-    if (current === '*') return true
-    if (current.endsWith('.*')) return type.startsWith(current.slice(0, -1))
-    return current === type
-  })
 }
 
 function matchesFeatures(required: string[] | undefined, current: string[]): boolean {

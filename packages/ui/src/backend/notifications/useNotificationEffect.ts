@@ -5,18 +5,10 @@ import type { NotificationDto } from '@open-mercato/shared/modules/notifications
 import type { AppEventPayload } from '@open-mercato/shared/modules/widgets/injection'
 import { useAppEvent } from '../injection/useAppEvent'
 import { subscribeNotificationEffects } from './NotificationDispatcher'
+import { matchesType } from './matchesType'
 
 const NOTIFICATION_CREATED_EVENT = 'notifications.notification.created'
 const MAX_SEEN_IDS = 200
-
-function matchesType(pattern: string | string[], type: string): boolean {
-  const patterns = Array.isArray(pattern) ? pattern : [pattern]
-  return patterns.some((current) => {
-    if (current === '*') return true
-    if (current.endsWith('.*')) return type.startsWith(current.slice(0, -1))
-    return current === type
-  })
-}
 
 function readNotificationFromEvent(event: AppEventPayload): NotificationDto | null {
   const payload = event.payload

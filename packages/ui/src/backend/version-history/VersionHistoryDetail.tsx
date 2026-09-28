@@ -8,8 +8,8 @@ import {
   ChangedFieldsTable,
   CollapsibleJsonSection,
   extractChangeRows,
-  formatDate,
 } from '@open-mercato/core/modules/audit_logs/lib/display-helpers'
+import { formatDateTime } from '@open-mercato/shared/lib/time'
 
 export type VersionHistoryDetailProps = {
   entry: VersionHistoryEntry
@@ -50,7 +50,7 @@ export function VersionHistoryDetail({ entry, t }: VersionHistoryDetailProps) {
             <dt className="text-xs uppercase tracking-wide text-muted-foreground">
               {t('audit_logs.version_history.detail.date')}
             </dt>
-            <dd className="break-words text-sm">{formatDate(entry.createdAt)}</dd>
+            <dd className="break-words text-sm">{formatDateTime(entry.createdAt, { fallback: entry.createdAt })}</dd>
           </div>
           <div>
             <dt className="text-xs uppercase tracking-wide text-muted-foreground">

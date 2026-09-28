@@ -9,7 +9,7 @@ const isTestEnv =
 
 let markdownPluginsPromise: Promise<PluggableList> | null = null
 
-async function loadMarkdownPlugins(): Promise<PluggableList> {
+export async function loadMarkdownPlugins(): Promise<PluggableList> {
   if (isTestEnv) return []
   if (!markdownPluginsPromise) {
     markdownPluginsPromise = import('remark-gfm')

@@ -6,7 +6,7 @@ import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { Alert, AlertDescription, AlertTitle } from '@open-mercato/ui/primitives/alert'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { getDashboardWidgets, loadDashboardWidgetModule } from './widgetRegistry'
-import type { DashboardWidgetModule } from '@open-mercato/shared/modules/dashboard/widgets'
+import type { DashboardWidgetModule, DashboardLayoutItem } from '@open-mercato/shared/modules/dashboard/widgets'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { GripVertical, Plus, RefreshCw, Settings2, Trash2, X, Loader2 } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
@@ -20,15 +20,6 @@ import { createLogger } from '@open-mercato/shared/lib/logger'
 const logger = createLogger('ui').child({ component: 'DashboardScreen' })
 
 type DashboardWidgetSize = 'sm' | 'md' | 'lg'
-
-type LayoutItem = {
-  id: string
-  widgetId: string
-  order: number
-  priority?: number
-  size?: DashboardWidgetSize
-  settings?: unknown
-}
 
 type WidgetMeta = {
   id: string
@@ -54,7 +45,7 @@ type LayoutContext = {
 }
 
 type LayoutResponse = {
-  layout: { items: LayoutItem[] }
+  layout: { items: DashboardLayoutItem[] }
   widgets: WidgetMeta[]
   allowedWidgetIds: string[]
   canConfigure: boolean
@@ -75,7 +66,7 @@ function sizeClass(size: DashboardWidgetSize | undefined) {
   }
 }
 
-function sortLayout(items: LayoutItem[]): LayoutItem[] {
+function sortLayout(items: DashboardLayoutItem[]): DashboardLayoutItem[] {
   return [...items]
     .sort((a, b) => {
       const aOrder = a.order ?? a.priority ?? 0
@@ -104,7 +95,7 @@ export function DashboardScreen() {
   const [error, setError] = React.useState<string | null>(null)
   const [hasRegisteredWidgets, setHasRegisteredWidgets] = React.useState(true)
   const [saving, setSaving] = React.useState(false)
-  const [layout, setLayout] = React.useState<LayoutItem[]>([])
+  const [layout, setLayout] = React.useState<DashboardLayoutItem[]>([])
   const [widgetCatalog, setWidgetCatalog] = React.useState<WidgetMeta[]>([])
   const [allowedWidgetIds, setAllowedWidgetIds] = React.useState<string[]>([])
   const [canConfigure, setCanConfigure] = React.useState(false)
@@ -231,7 +222,7 @@ export function DashboardScreen() {
     return meta.description
   }, [t])
 
-  const queueLayoutSave = React.useCallback((items: LayoutItem[]) => {
+  const queueLayoutSave = React.useCallback((items: DashboardLayoutItem[]) => {
     const layoutRevision = ++layoutRevisionRef.current
     pendingLayoutRevisionsRef.current.add(layoutRevision)
     saveQueueRef.current = saveQueueRef.current.then(async () => {
@@ -291,7 +282,7 @@ export function DashboardScreen() {
     const meta = metaById.get(widgetId)
     if (!meta) return
     setLayout((prev) => {
-      const next: LayoutItem[] = sortLayout([
+      const next: DashboardLayoutItem[] = sortLayout([
         ...prev,
         {
           id: generateId(),
@@ -559,7 +550,7 @@ export function DashboardScreen() {
 }
 
 type DashboardWidgetCardProps = {
-  item: LayoutItem
+  item: DashboardLayoutItem
   meta: WidgetMeta
   title: string
   description: string | null

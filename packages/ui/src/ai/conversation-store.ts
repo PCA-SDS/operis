@@ -1,6 +1,7 @@
 "use client"
 
 import type { AiChatMessage, AiChatMessageUiPart } from './useAiChat'
+import { nonEmptyStringOrNull } from '@open-mercato/shared/lib/string'
 
 const CONVERSATIONS_ENDPOINT = '/api/ai_assistant/ai/conversations'
 
@@ -64,10 +65,6 @@ export type LoadTranscriptResult =
   | { ok: true; data: AiServerTranscriptResponse }
   | { ok: false; notFound: true }
   | { ok: false; notFound: false }
-
-function readString(value: unknown): string | null {
-  return typeof value === 'string' && value.length > 0 ? value : null
-}
 
 function buildAttachmentImagePreviewUrl(attachmentId: string): string {
   const params = new URLSearchParams({
@@ -236,7 +233,7 @@ export function serverMessageToChatMessage(message: AiServerMessage): AiChatMess
     content: message.content,
     files: message.files
       .map((file, index) => {
-        const name = readString(file.name)
+        const name = nonEmptyStringOrNull(file.name)
         if (!name) return null
         const type =
           typeof file.mimeType === 'string'
@@ -244,11 +241,11 @@ export function serverMessageToChatMessage(message: AiServerMessage): AiChatMess
             : typeof file.type === 'string'
               ? file.type
               : 'application/octet-stream'
-        const id = readString(file.id) ?? readString(message.attachmentIds[index])
+        const id = nonEmptyStringOrNull(file.id) ?? nonEmptyStringOrNull(message.attachmentIds[index])
         const rawPreviewUrl =
-          readString(file.previewUrl) ??
-          readString(file.thumbnailUrl) ??
-          readString(file.url)
+          nonEmptyStringOrNull(file.previewUrl) ??
+          nonEmptyStringOrNull(file.thumbnailUrl) ??
+          nonEmptyStringOrNull(file.url)
         const previewUrl = type.startsWith('image/')
           ? rawPreviewUrl ?? (id ? buildAttachmentImagePreviewUrl(id) : undefined)
           : undefined

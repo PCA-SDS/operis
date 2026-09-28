@@ -1,4 +1,5 @@
 import type { ScheduleItem, ScheduleRange } from './types'
+import { toLocalDateKey } from '@open-mercato/shared/lib/date/format'
 
 type RuleMetadata = {
   rrule?: string
@@ -7,15 +8,8 @@ type RuleMetadata = {
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
-function startOfDay(value: Date): Date {
+export function startOfDay(value: Date): Date {
   return new Date(value.getFullYear(), value.getMonth(), value.getDate())
-}
-
-function toDateKey(value: Date): string {
-  const year = value.getFullYear()
-  const month = String(value.getMonth() + 1).padStart(2, '0')
-  const day = String(value.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
 }
 
 function parseRepeat(rrule: string): 'once' | 'daily' | 'weekly' {
@@ -47,7 +41,7 @@ function normalizeExdates(exdates: unknown): Set<string> {
       if (typeof value !== 'string') return null
       const parsed = new Date(value)
       if (Number.isNaN(parsed.getTime())) return null
-      return toDateKey(parsed)
+      return toLocalDateKey(parsed)
     })
     .filter((value): value is string => value !== null)
   return new Set(keys)
@@ -82,7 +76,7 @@ export function expandRecurringItems(items: ScheduleItem[], range: ScheduleRange
     for (let cursor = new Date(rangeStart); cursor <= rangeEnd; cursor = new Date(cursor.getTime() + DAY_MS)) {
       if (cursor < itemStartDay) continue
       if (repeat === 'weekly' && cursor.getDay() !== item.startsAt.getDay()) continue
-      const dateKey = toDateKey(cursor)
+      const dateKey = toLocalDateKey(cursor)
       if (exdates.has(dateKey)) continue
       const start = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate(), startHours, startMinutes, startSeconds, startMs)
       const end = new Date(start.getTime() + durationMs)

@@ -9,7 +9,6 @@ import { DIALOG_TITLE_CLASS } from '../../primitives/dialog'
 import { SIDE_PANEL_MOTION, SIDE_PANEL_SCRIM_MOTION, useSidePanelPresence } from '../../primitives/side-panel-motion'
 import type { VersionHistoryEntry } from './types'
 import { VersionHistoryDetail } from './VersionHistoryDetail'
-import { formatDate } from '@open-mercato/core/modules/audit_logs/lib/display-helpers'
 import { apiCallOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { markRedoConsumed, markUndoSuccess } from '@open-mercato/ui/backend/operations/store'
 import { getVersionHistoryActionLabel, getVersionHistoryStatusLabel } from './labels'
@@ -17,6 +16,7 @@ import { useAuditPermissions, canUndoEntry, canRedoEntry } from './useAuditPermi
 import { Alert, AlertDescription } from '@open-mercato/ui/primitives/alert'
 import { humanizeResourceKind } from './labels'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { formatDateTime } from '@open-mercato/shared/lib/time'
 
 const logger = createLogger('ui')
 
@@ -262,7 +262,7 @@ export function VersionHistoryPanel({
                             <div className="flex min-w-0 flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
                               <span>{entry.actorUserName || entry.actorUserId || t('audit_logs.common.none')}</span>
                               <span>•</span>
-                              <span>{formatDate(entry.createdAt)}</span>
+                              <span>{formatDateTime(entry.createdAt, { fallback: entry.createdAt })}</span>
                               <span>•</span>
                               <span>{statusLabel}</span>
                             </div>
