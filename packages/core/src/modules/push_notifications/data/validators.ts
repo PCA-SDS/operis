@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { pushOptionsSchema } from '@open-mercato/core/modules/notifications/data/validators'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 export const PUSH_DELIVERY_STATUSES = ['pending', 'sending', 'sent', 'failed', 'skipped', 'expired'] as const
 
@@ -39,8 +40,7 @@ export const customSendResponseSchema = z.object({
 // only `token_snapshot` (last 8 chars) and the `provider` snapshot.
 export const deliveryListSchema = z
   .object({
-    page: z.coerce.number().int().min(1).default(1),
-    pageSize: z.coerce.number().int().min(1).max(100).default(50),
+    ...paginationQuerySchema().shape,
     status: z.enum(PUSH_DELIVERY_STATUSES).optional(),
     userId: z.string().uuid().optional(),
     from: rangeDateFilter.optional(),

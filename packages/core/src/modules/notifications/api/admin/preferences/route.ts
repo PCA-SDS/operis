@@ -26,15 +26,11 @@ import {
   notificationPreferenceItemSchema,
 } from '../../../data/validators'
 import { errorResponseSchema } from '../../openapi'
+import { unauthorizedResponse } from '@open-mercato/shared/lib/http/responses'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['notifications.manage_user_preferences'] },
   PUT: { requireAuth: true, requireFeatures: ['notifications.manage_user_preferences'] },
-}
-
-const unauthorized = async () => {
-  const { t } = await resolveTranslations()
-  return NextResponse.json({ error: t('api.errors.unauthorized', 'Unauthorized') }, { status: 401 })
 }
 
 /**
@@ -89,7 +85,7 @@ async function authorizeTargetUser(
 
 export async function GET(req: Request) {
   const auth = await getAuthFromRequest(req)
-  if (!auth?.sub || !auth.tenantId) return await unauthorized()
+  if (!auth?.sub || !auth.tenantId) return await unauthorizedResponse()
 
   const url = new URL(req.url)
   const parsed = adminPreferencesQuerySchema.safeParse({ userId: url.searchParams.get('userId') ?? undefined })
@@ -117,7 +113,7 @@ export async function GET(req: Request) {
 
 export async function PUT(req: Request) {
   const auth = await getAuthFromRequest(req)
-  if (!auth?.sub || !auth.tenantId) return await unauthorized()
+  if (!auth?.sub || !auth.tenantId) return await unauthorizedResponse()
 
   const parsed = adminUpdatePreferencesSchema.safeParse(await readJsonSafe(req, {}))
   if (!parsed.success) return notificationValidationErrorResponse(parsed.error)

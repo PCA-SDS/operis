@@ -1,14 +1,11 @@
-import { type ZodTypeAny } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import {
   createCrudOpenApiFactory,
-  createPagedListResponseSchema as createSharedPagedListResponseSchema,
+  createOptionalMetaPagedListResponseSchema,
   type CrudOpenApiOptions,
 } from '@open-mercato/shared/lib/openapi/crud'
 
-export function createPagedListResponseSchema(itemSchema: ZodTypeAny) {
-  return createSharedPagedListResponseSchema(itemSchema, { paginationMetaOptional: true })
-}
+export const createPagedListResponseSchema = createOptionalMetaPagedListResponseSchema
 
 // createCrudOpenApiFactory already falls back to the shared default create/ok response schemas
 // when omitted, so there is nothing module-specific to re-pass or re-export here.

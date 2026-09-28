@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
-import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 import { resolveNotificationPreferenceService, type NotificationPreferenceScope } from '../../lib/notificationPreferenceService'
 import {
@@ -13,20 +12,16 @@ import {
 import { PREFERENCE_UPDATED_EVENT, emitNotificationEvent } from '../../events'
 import { updatePreferencesSchema, notificationPreferenceItemSchema } from '../../data/validators'
 import { errorResponseSchema } from '../openapi'
+import { unauthorizedResponse } from '@open-mercato/shared/lib/http/responses'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['notifications.manage_preferences'] },
   PUT: { requireAuth: true, requireFeatures: ['notifications.manage_preferences'] },
 }
 
-const unauthorized = async () => {
-  const { t } = await resolveTranslations()
-  return NextResponse.json({ error: t('api.errors.unauthorized', 'Unauthorized') }, { status: 401 })
-}
-
 export async function GET(req: Request) {
   const auth = await getAuthFromRequest(req)
-  if (!auth?.sub || !auth.tenantId) return await unauthorized()
+  if (!auth?.sub || !auth.tenantId) return await unauthorizedResponse()
 
   const container = await createRequestContainer()
   try {
@@ -47,7 +42,7 @@ export async function GET(req: Request) {
 
 export async function PUT(req: Request) {
   const auth = await getAuthFromRequest(req)
-  if (!auth?.sub || !auth.tenantId) return await unauthorized()
+  if (!auth?.sub || !auth.tenantId) return await unauthorizedResponse()
 
   const parsed = updatePreferencesSchema.safeParse(await readJsonSafe(req, {}))
   if (!parsed.success) return notificationValidationErrorResponse(parsed.error)

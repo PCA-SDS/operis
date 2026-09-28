@@ -1,7 +1,7 @@
-import { createHash } from 'node:crypto'
 import type { ModuleSetupConfig } from '@open-mercato/shared/modules/setup'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { PUSH_STUCK_RECLAIM_QUEUE } from './lib/queue'
+import { stableUuidFromKey } from '@open-mercato/shared/lib/ids'
 
 const logger = createLogger('push_notifications')
 
@@ -34,18 +34,6 @@ const RECLAIM_TICK_INTERVAL_SECONDS = Math.max(
   Number.parseInt(process.env.OM_PUSH_RECLAIM_TICK_SECONDS ?? '120', 10) || 120,
 )
 
-/**
- * `scheduled_jobs.id` is a uuid column, so a module-owned schedule's stable
- * registration key must be hashed into a uuid rather than used verbatim — this
- * keeps `schedulerService.register()` an idempotent upsert across re-runs of
- * seedDefaults instead of trying to insert a raw string into the uuid PK.
- * Mirrors the communication_channels poll-tick registration.
- */
-function stableScheduleUuid(stableKey: string): string {
-  const hex = createHash('sha256').update(stableKey).digest('hex')
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`
-}
-
 export const setup: ModuleSetupConfig = {
   defaultRoleFeatures: {
     superadmin: ['push_notifications.*'],
@@ -67,7 +55,7 @@ export const setup: ModuleSetupConfig = {
     const schedulerService = container.resolve('schedulerService') as SchedulerServiceLike
     try {
       await schedulerService.register({
-        id: stableScheduleUuid(`push_notifications:reclaim-stuck:${tenantId}`),
+        id: stableUuidFromKey(`push_notifications:reclaim-stuck:${tenantId}`),
         name: 'Push delivery stuck-row reclaim',
         description:
           `Every ${RECLAIM_TICK_INTERVAL_SECONDS}s, recover push deliveries stranded in 'sending' by a crashed worker (re-enqueue if attempts remain, else expire) and poll async provider receipts (Expo) to soft-delete unregistered devices.`,

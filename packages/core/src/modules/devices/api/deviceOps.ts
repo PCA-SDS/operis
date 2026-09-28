@@ -2,10 +2,7 @@ import { NextResponse } from 'next/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import type { AuthContext } from '@open-mercato/shared/lib/auth/server'
 import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
-import {
-  runCrudMutationGuardAfterSuccess,
-  validateCrudMutationGuard,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 import { enforceCommandOptimisticLock } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
 import type { CommandBus } from '@open-mercato/shared/lib/commands'
 import type { UserDevice } from '../data/entities'
@@ -14,7 +11,7 @@ import type {
   UpdateDeviceCommandInput,
   DeactivateDeviceCommandInput,
 } from '../data/validators'
-import { attachOperationMetadataHeader } from '../lib/operationMetadata'
+import { attachOperationMetadataHeader } from '@open-mercato/shared/lib/commands/operationMetadata'
 
 const RESOURCE_KIND = 'devices.user_device'
 
@@ -59,38 +56,12 @@ async function runGuards(
   resourceId: string,
   mutationPayload?: Record<string, unknown>,
 ) {
-  return validateCrudMutationGuard(mctx.container, {
-    tenantId: mctx.auth.tenantId!,
-    organizationId: mctx.organizationId,
-    userId: mctx.actorUserId,
-    resourceKind: RESOURCE_KIND,
-    resourceId,
-    operation,
-    requestMethod: mctx.request.method,
-    requestHeaders: mctx.request.headers,
-    mutationPayload,
+  return runRouteMutationGuards({
+    container: mctx.container,
+    req: mctx.request,
+    auth: { userId: mctx.actorUserId, tenantId: mctx.auth.tenantId!, organizationId: mctx.organizationId },
+    input: { resourceKind: RESOURCE_KIND, resourceId, operation, mutationPayload },
   })
-}
-
-async function runAfter(
-  mctx: DeviceMutationContext,
-  guardResult: Awaited<ReturnType<typeof validateCrudMutationGuard>>,
-  operation: 'create' | 'update' | 'delete',
-  resourceId: string,
-) {
-  if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-    await runCrudMutationGuardAfterSuccess(mctx.container, {
-      tenantId: mctx.auth.tenantId!,
-      organizationId: mctx.organizationId,
-      userId: mctx.actorUserId,
-      resourceKind: RESOURCE_KIND,
-      resourceId,
-      operation,
-      requestMethod: mctx.request.method,
-      requestHeaders: mctx.request.headers,
-      metadata: (guardResult.metadata as Record<string, unknown> | null | undefined) ?? null,
-    })
-  }
 }
 
 export async function executeRegister(
@@ -102,7 +73,7 @@ export async function executeRegister(
   // keyed by resourceId); deviceId alone is not unique across users.
   const guardResourceId = `${commandInput.userId}:${commandInput.deviceId}`
   const guardResult = await runGuards(mctx, 'create', guardResourceId, redactMutationPayload(commandInput))
-  if (guardResult && !guardResult.ok) return NextResponse.json(guardResult.body, { status: guardResult.status })
+  if (!guardResult.ok) return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
 
   const commandBus = mctx.container.resolve('commandBus') as CommandBus
   const { result, logEntry } = await commandBus.execute<
@@ -110,7 +81,7 @@ export async function executeRegister(
     { id: string; deviceId: string; revived: boolean }
   >('devices.user_devices.register', { input: commandInput, ctx: commandCtx(mctx) })
 
-  await runAfter(mctx, guardResult, 'create', guardResourceId)
+  await guardResult.runAfterSuccess()
 
   const response = NextResponse.json(
     { id: result.id, deviceId: result.deviceId, revived: result.revived },
@@ -136,7 +107,7 @@ export async function executeUpdate(
   })
 
   const guardResult = await runGuards(mctx, 'update', device.id, redactMutationPayload(body))
-  if (guardResult && !guardResult.ok) return NextResponse.json(guardResult.body, { status: guardResult.status })
+  if (!guardResult.ok) return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
 
   const commandBus = mctx.container.resolve('commandBus') as CommandBus
   const { logEntry } = await commandBus.execute<UpdateDeviceCommandInput, { id: string }>('devices.user_devices.update', {
@@ -150,7 +121,7 @@ export async function executeUpdate(
     ctx: commandCtx(mctx),
   })
 
-  await runAfter(mctx, guardResult, 'update', device.id)
+  await guardResult.runAfterSuccess()
 
   const response = NextResponse.json({ ok: true, id: device.id })
   attachOperationMetadataHeader(response, logEntry, { resourceKind: RESOURCE_KIND, resourceId: device.id })
@@ -162,7 +133,7 @@ export async function executeDeactivate(
   device: UserDevice,
 ): Promise<NextResponse> {
   const guardResult = await runGuards(mctx, 'delete', device.id)
-  if (guardResult && !guardResult.ok) return NextResponse.json(guardResult.body, { status: guardResult.status })
+  if (!guardResult.ok) return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
 
   const commandBus = mctx.container.resolve('commandBus') as CommandBus
   const { logEntry } = await commandBus.execute<DeactivateDeviceCommandInput, { id: string }>(
@@ -178,7 +149,7 @@ export async function executeDeactivate(
     },
   )
 
-  await runAfter(mctx, guardResult, 'delete', device.id)
+  await guardResult.runAfterSuccess()
 
   const response = NextResponse.json({ ok: true })
   attachOperationMetadataHeader(response, logEntry, { resourceKind: RESOURCE_KIND, resourceId: device.id })
