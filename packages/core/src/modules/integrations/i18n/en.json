@@ -29,6 +29,7 @@
   "integrations.detail.credentials.test.hint": "Tests the values in this form with the provider. Nothing is saved until you save the credentials.",
   "integrations.detail.credentials.test.label": "Connection test",
   "integrations.detail.credentials.test.rateLimited": "Too many tests. Wait a minute and try again.",
+  "integrations.detail.credentials.test.secretReentryRequired": "You changed the connection settings. Enter the secret again to test them.",
   "integrations.detail.credentials.test.testing": "Testing...",
   "integrations.detail.credentials.validation.boolean": "Select a valid value.",
   "integrations.detail.credentials.validation.option": "Select one of the available options.",

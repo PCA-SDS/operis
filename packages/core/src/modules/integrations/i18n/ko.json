@@ -29,6 +29,7 @@
   "integrations.detail.credentials.test.hint": "이 양식의 값으로 공급자 연결을 테스트합니다. 자격 증명을 저장하기 전에는 아무것도 저장되지 않습니다.",
   "integrations.detail.credentials.test.label": "연결 테스트",
   "integrations.detail.credentials.test.rateLimited": "테스트 요청이 너무 많습니다. 1분 후에 다시 시도하세요.",
+  "integrations.detail.credentials.test.secretReentryRequired": "연결 설정을 변경했습니다. 테스트하려면 비밀 값을 다시 입력하세요.",
   "integrations.detail.credentials.test.testing": "테스트 중...",
   "integrations.detail.credentials.validation.boolean": "유효한 값을 선택하세요.",
   "integrations.detail.credentials.validation.option": "사용 가능한 옵션 중 하나를 선택하세요.",

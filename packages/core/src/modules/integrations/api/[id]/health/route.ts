@@ -12,7 +12,7 @@ import { isRecord } from '@open-mercato/shared/lib/guards'
 import type { RbacService } from '@open-mercato/core/modules/auth/services/rbacService'
 import type { CredentialsService } from '../../../lib/credentials-service'
 import { isCredentialsEncryptionUnavailableError } from '../../../lib/credentials-service'
-import { mergeMaskedSecretCredentials } from '../../../lib/credentials-masking'
+import { findMaskedSecretsWithChangedSettings, mergeMaskedSecretCredentials } from '../../../lib/credentials-masking'
 import { collectCredentialUrlValidationErrors } from '../../../lib/credentials-field-validation'
 import { saveCredentialsSchema } from '../../../data/validators'
 
@@ -27,6 +27,7 @@ export const metadata = {
 }
 
 const CREDENTIALS_MANAGE_FEATURE = 'integrations.credentials.manage'
+const SECRET_REENTRY_REQUIRED_CODE = 'credentials.secret_reentry_required'
 
 export const openApi = {
   tags: ['Integrations'],
@@ -126,8 +127,15 @@ async function testSubmittedCredentials(input: {
   }
   let credentials: Record<string, unknown>
   try {
-    const existing = await credentialsService.resolve(input.integrationId, input.scope)
-    credentials = mergeMaskedSecretCredentials(schema, parsed.data.credentials, existing ?? {})
+    const existing = (await credentialsService.resolve(input.integrationId, input.scope)) ?? {}
+    const secretsToReenter = findMaskedSecretsWithChangedSettings(schema, parsed.data.credentials, existing)
+    if (secretsToReenter.length > 0) {
+      return NextResponse.json(
+        { error: 'Re-enter secret fields to test changed connection settings', code: SECRET_REENTRY_REQUIRED_CODE, fields: secretsToReenter },
+        { status: 422 },
+      )
+    }
+    credentials = mergeMaskedSecretCredentials(schema, parsed.data.credentials, existing)
   } catch (error) {
     if (isCredentialsEncryptionUnavailableError(error)) {
       return NextResponse.json({ error: 'Integration credentials encryption is unavailable' }, { status: 503 })

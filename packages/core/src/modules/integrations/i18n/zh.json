@@ -29,6 +29,7 @@
   "integrations.detail.credentials.test.hint": "使用此表单中的值向提供商测试连接。在保存凭据之前不会保存任何内容。",
   "integrations.detail.credentials.test.label": "连接测试",
   "integrations.detail.credentials.test.rateLimited": "测试次数过多。请等待一分钟后重试。",
+  "integrations.detail.credentials.test.secretReentryRequired": "您已更改连接设置。请重新输入密钥后再测试。",
   "integrations.detail.credentials.test.testing": "正在测试...",
   "integrations.detail.credentials.validation.boolean": "Select a valid value.",
   "integrations.detail.credentials.validation.option": "Select one of the available options.",

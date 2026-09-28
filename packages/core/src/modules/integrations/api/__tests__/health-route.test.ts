@@ -178,17 +178,30 @@ describe('integrations health POST route — testing unsaved credentials', () =>
     expect(body).not.toContain('re_stored_secret')
   })
 
-  it('keeps the stored secret when the form sends the masked placeholder', async () => {
+  it('keeps the stored secret when the form sends the masked placeholder with unchanged settings', async () => {
     await POST(
-      buildTestRequest({ credentials: { apiKey: '__om_secret_unchanged__', fromEmail: 'Billing <billing@acme.test>' } }),
+      buildTestRequest({ credentials: { apiKey: '__om_secret_unchanged__', fromEmail: 'Ops <ops@acme.test>' } }),
       { params: { id: 'resend' } },
     )
 
     expect(testCredentialsMock).toHaveBeenCalledWith(
       'resend',
-      { apiKey: 're_stored_secret', fromEmail: 'Billing <billing@acme.test>' },
+      { apiKey: 're_stored_secret', fromEmail: 'Ops <ops@acme.test>' },
       { organizationId: 'o1', tenantId: 't1' },
     )
+  })
+
+  it('does not reuse the stored secret when other settings changed', async () => {
+    const response = await POST(
+      buildTestRequest({ credentials: { apiKey: '__om_secret_unchanged__', fromEmail: 'Billing <billing@acme.test>' } }),
+      { params: { id: 'resend' } },
+    )
+
+    expect(response.status).toBe(422)
+    const body = await response.json()
+    expect(body).toMatchObject({ code: 'credentials.secret_reentry_required', fields: ['apiKey'] })
+    expect(JSON.stringify(body)).not.toContain('re_stored_secret')
+    expect(testCredentialsMock).not.toHaveBeenCalled()
   })
 
   it('rejects a malformed credentials payload', async () => {

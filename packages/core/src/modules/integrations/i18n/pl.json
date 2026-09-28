@@ -29,6 +29,7 @@
   "integrations.detail.credentials.test.hint": "Testuje wartości z tego formularza u dostawcy. Nic nie zostanie zapisane, dopóki nie zapiszesz danych uwierzytelniających.",
   "integrations.detail.credentials.test.label": "Test połączenia",
   "integrations.detail.credentials.test.rateLimited": "Zbyt wiele testów. Odczekaj minutę i spróbuj ponownie.",
+  "integrations.detail.credentials.test.secretReentryRequired": "Zmieniono ustawienia połączenia. Wprowadź ponownie sekret, aby je przetestować.",
   "integrations.detail.credentials.test.testing": "Testowanie...",
   "integrations.detail.credentials.validation.boolean": "Select a valid value.",
   "integrations.detail.credentials.validation.option": "Select one of the available options.",

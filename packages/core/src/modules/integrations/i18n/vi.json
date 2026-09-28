@@ -29,6 +29,7 @@
   "integrations.detail.credentials.test.hint": "Kiểm tra các giá trị trong biểu mẫu này với nhà cung cấp. Không có gì được lưu cho đến khi bạn lưu thông tin xác thực.",
   "integrations.detail.credentials.test.label": "Kiểm tra kết nối",
   "integrations.detail.credentials.test.rateLimited": "Quá nhiều lần kiểm tra. Hãy đợi một phút rồi thử lại.",
+  "integrations.detail.credentials.test.secretReentryRequired": "Bạn đã thay đổi cài đặt kết nối. Hãy nhập lại khóa bí mật để kiểm tra.",
   "integrations.detail.credentials.test.testing": "Đang kiểm tra...",
   "integrations.detail.credentials.validation.boolean": "Select a valid value.",
   "integrations.detail.credentials.validation.option": "Select one of the available options.",

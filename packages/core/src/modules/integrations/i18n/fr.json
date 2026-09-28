@@ -29,6 +29,7 @@
   "integrations.detail.credentials.test.hint": "Teste les valeurs de ce formulaire auprès du fournisseur. Rien n'est enregistré tant que vous n'enregistrez pas les identifiants.",
   "integrations.detail.credentials.test.label": "Test de connexion",
   "integrations.detail.credentials.test.rateLimited": "Trop de tests. Patientez une minute puis réessayez.",
+  "integrations.detail.credentials.test.secretReentryRequired": "Vous avez modifié les paramètres de connexion. Saisissez à nouveau le secret pour les tester.",
   "integrations.detail.credentials.test.testing": "Test en cours...",
   "integrations.detail.credentials.validation.boolean": "Select a valid value.",
   "integrations.detail.credentials.validation.option": "Select one of the available options.",

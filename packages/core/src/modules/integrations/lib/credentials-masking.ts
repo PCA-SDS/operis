@@ -83,6 +83,34 @@ export function maskSecretCredentials(
   return { credentials, secretFieldsConfigured }
 }
 
+function normalizeComparable(value: unknown): unknown {
+  return value === undefined || value === null || value === '' || value === false ? null : value
+}
+
+/**
+ * Secret fields submitted as the mask sentinel while a non-secret field (host,
+ * URL, user, option) differs from the stored value. Restoring the stored secret
+ * in that case would send it to a destination the caller just chose, so callers
+ * MUST require the secret to be re-entered instead.
+ */
+export function findMaskedSecretsWithChangedSettings(
+  schema: IntegrationCredentialsSchema | undefined,
+  incoming: Record<string, unknown>,
+  existing: Record<string, unknown>,
+): string[] {
+  const fields = schema?.fields ?? []
+  const maskedSecretKeys = fields
+    .filter((field) => isSecretField(field.type) && incoming[field.key] === MASKED_SECRET_VALUE)
+    .map((field) => field.key)
+  if (maskedSecretKeys.length === 0) return []
+  const shownExisting = maskSecretCredentials(schema, existing).credentials
+  const settingsChanged = fields.some((field) => {
+    if (isSecretField(field.type)) return false
+    return JSON.stringify(normalizeComparable(incoming[field.key])) !== JSON.stringify(normalizeComparable(shownExisting[field.key]))
+  })
+  return settingsChanged ? maskedSecretKeys : []
+}
+
 /**
  * Reverse of {@link maskSecretCredentials} for the save path. When the client
  * submits the mask sentinel for a secret field it means "leave it unchanged":

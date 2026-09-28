@@ -29,6 +29,7 @@
   "integrations.detail.credentials.test.hint": "Prueba los valores de este formulario con el proveedor. No se guarda nada hasta que guarde las credenciales.",
   "integrations.detail.credentials.test.label": "Prueba de conexión",
   "integrations.detail.credentials.test.rateLimited": "Demasiadas pruebas. Espere un minuto e inténtelo de nuevo.",
+  "integrations.detail.credentials.test.secretReentryRequired": "Ha cambiado la configuración de conexión. Vuelva a introducir el secreto para probarla.",
   "integrations.detail.credentials.test.testing": "Probando...",
   "integrations.detail.credentials.validation.boolean": "Select a valid value.",
   "integrations.detail.credentials.validation.option": "Select one of the available options.",

@@ -29,6 +29,7 @@
   "integrations.detail.credentials.test.hint": "Testet die Werte in diesem Formular beim Anbieter. Es wird nichts gespeichert, bis Sie die Zugangsdaten speichern.",
   "integrations.detail.credentials.test.label": "Verbindungstest",
   "integrations.detail.credentials.test.rateLimited": "Zu viele Tests. Warten Sie eine Minute und versuchen Sie es erneut.",
+  "integrations.detail.credentials.test.secretReentryRequired": "Sie haben die Verbindungseinstellungen geändert. Geben Sie das Geheimnis erneut ein, um sie zu testen.",
   "integrations.detail.credentials.test.testing": "Wird getestet...",
   "integrations.detail.credentials.validation.boolean": "Select a valid value.",
   "integrations.detail.credentials.validation.option": "Select one of the available options.",
