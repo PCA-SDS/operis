@@ -1,4 +1,4 @@
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+import { UUID_SHAPE_PATTERN } from '@open-mercato/shared/lib/validation'
 
 export type StatementSeedingParams =
   | { mode: 'duplicate'; id: string; ignoredOrder?: boolean }
@@ -33,7 +33,7 @@ export type StatementSeedValues = {
 function validUuid(value: string | null): string | null {
   if (!value) return null
   const trimmed = value.trim()
-  return UUID_PATTERN.test(trimmed) ? trimmed : null
+  return UUID_SHAPE_PATTERN.test(trimmed) ? trimmed : null
 }
 
 function textValue(value: string | null | undefined): string {

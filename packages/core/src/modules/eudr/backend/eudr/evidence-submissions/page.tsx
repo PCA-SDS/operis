@@ -27,6 +27,8 @@ import { resolveCountryName } from '@open-mercato/shared/lib/location/countries'
 import { hasFeature } from '@open-mercato/shared/security/features'
 import type { EudrCommodity, EudrSubmissionStatus } from '../../../data/validators'
 import { commodityOptions, statusBadgeVariant, submissionStatusOptions, type CompanySnapshot } from '../../../components/formConfig'
+import { formatQuantityKg } from '../../../lib/format'
+import { formatDateTime } from '@open-mercato/shared/lib/time'
 
 type EvidenceSubmissionRow = {
   id: string
@@ -56,24 +58,11 @@ type EvidenceSubmissionsResponse = {
   totalPages: number
 }
 
-function formatDateTime(value: string | null | undefined, emptyLabel: string, locale: string): string {
-  if (!value) return emptyLabel
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return emptyLabel
-  return date.toLocaleString(locale || undefined)
-}
-
 function formatSupplier(row: EvidenceSubmissionRow, unavailableLabel: string): string {
   const displayName = typeof row.supplierSnapshot?.displayName === 'string' && row.supplierSnapshot.displayName.trim().length
     ? row.supplierSnapshot.displayName.trim()
     : null
   return displayName ?? unavailableLabel
-}
-
-function formatQuantityKg(value: number | string | null, emptyLabel: string): string {
-  if (value === null || value === undefined) return emptyLabel
-  if (typeof value === 'string' && !value.trim()) return emptyLabel
-  return String(value)
 }
 
 export default function EudrEvidenceSubmissionsPage() {
@@ -265,7 +254,7 @@ export default function EudrEvidenceSubmissionsPage() {
     {
       accessorKey: 'updatedAt',
       header: translate('eudr.evidenceSubmissions.list.columns.updatedAt'),
-      cell: ({ row }) => formatDateTime(row.original.updatedAt, translate('eudr.common.empty'), locale),
+      cell: ({ row }) => formatDateTime(row.original.updatedAt, { fallback: translate('eudr.common.empty'), locale }),
     },
   ], [locale, translate])
 

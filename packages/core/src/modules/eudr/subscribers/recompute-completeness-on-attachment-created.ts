@@ -4,6 +4,7 @@ import { createLogger } from '@open-mercato/shared/lib/logger'
 import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { EudrEvidenceSubmission, EudrPlot } from '../data/entities'
 import { computeSubmissionCompleteness } from '../lib/completeness'
+import { parseCountValue } from '../lib/counts'
 
 const logger = createLogger('eudr').child({ component: 'attachment-created-completeness' })
 
@@ -60,16 +61,6 @@ function parsePayload(payload: AttachmentEventPayload): ScopedAttachmentPayload 
     tenantId: payload.tenantId,
     organizationId: payload.organizationId,
   }
-}
-
-function parseCountValue(value: string | number | bigint | null | undefined): number | undefined {
-  if (typeof value === 'number') return Number.isFinite(value) ? value : undefined
-  if (typeof value === 'bigint') return Number(value)
-  if (typeof value === 'string') {
-    const parsed = Number(value)
-    return Number.isFinite(parsed) ? parsed : undefined
-  }
-  return undefined
 }
 
 async function countLinkedAttachments(

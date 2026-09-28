@@ -24,6 +24,8 @@ import {
 import { Download } from 'lucide-react'
 import type { AnnualReport } from '../../lib/annual-report'
 import { translatePlural } from '../../lib/plural'
+import { formatDeadlineDate } from '../../lib/format'
+import { formatDate, formatDateTime } from '@open-mercato/shared/lib/time'
 
 type StatusCounts = Record<string, number>
 
@@ -68,24 +70,6 @@ type ComplianceOverview = {
 const STATEMENT_STATUSES = ['draft', 'submitted', 'available', 'withdrawn', 'archived'] as const
 const CURRENT_REPORT_YEAR = new Date().getUTCFullYear()
 const REPORT_YEARS = Array.from({ length: 6 }, (_, index) => CURRENT_REPORT_YEAR - index)
-
-function formatDeadlineDate(value: string, locale: string): string {
-  const date = new Date(`${value}T00:00:00.000Z`)
-  if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleDateString(locale || undefined)
-}
-
-function formatDate(value: string, locale: string): string {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleDateString(locale || undefined)
-}
-
-function formatDateTime(value: string, locale: string): string {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleString(locale || undefined)
-}
 
 function isPastDue(value: string): boolean {
   const date = new Date(value)
@@ -432,7 +416,7 @@ export default function EudrOverviewPage() {
                     key={item.id}
                     href={item.url}
                     label={item.label ?? recordUnavailableLabel}
-                    meta={formatDate(item.dueAt, locale)}
+                    meta={formatDate(item.dueAt, { locale, fallback: item.dueAt })}
                     metaClassName={isPastDue(item.dueAt) ? 'text-status-warning-text' : undefined}
                   />
                 ))}
@@ -449,7 +433,7 @@ export default function EudrOverviewPage() {
                     key={item.id}
                     href={item.url}
                     label={item.label}
-                    meta={translate('eudr.overview.queues.amendWindow.expires', { date: formatDateTime(item.expiresAt, locale) })}
+                    meta={translate('eudr.overview.queues.amendWindow.expires', { date: formatDateTime(item.expiresAt, { locale, fallback: item.expiresAt }) })}
                   />
                 ))}
               </QueueCard>

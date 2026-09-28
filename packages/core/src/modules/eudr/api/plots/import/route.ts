@@ -1,25 +1,20 @@
 import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
-import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
-import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
-import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
 import type { CommandBus, CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
 import { CrudHttpError, isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
-import { getAllMutationGuardInstances } from '@open-mercato/shared/lib/crud/mutation-guard-store'
-import {
-  bridgeLegacyGuard,
-  runMutationGuards,
-  type MutationGuard,
-  type MutationGuardInput,
-} from '@open-mercato/shared/lib/crud/mutation-guard-registry'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 import type { QueryEngine } from '@open-mercato/shared/lib/query/types'
 import { E } from '#generated/entities.ids.generated'
 import { collectFeatures } from '../../../lib/geometry'
 import { plotCreateSchema } from '../../../data/validators'
 import { resolveGrantedFeatures } from '@open-mercato/shared/lib/auth/grantedFeatures'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
+import { isRecord } from '@open-mercato/shared/lib/guards'
+import { finiteNumberOrNull } from '@open-mercato/shared/lib/number'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
+import { resolveRequestContext } from '../../requestContext'
 
 const logger = createLogger('eudr').child({ component: 'api/plots/import' })
 
@@ -35,94 +30,7 @@ const importSchema = z.object({
 
 type PlotImportInput = z.infer<typeof importSchema>
 type PlotImportFailure = { index: number; name: string; errorKey: string }
-type RequestContext = { ctx: CommandRuntimeContext; organizationId: string; tenantId: string }
 type CommandCreateResult = { entityId?: string; id?: string }
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
-
-function optionalString(value: unknown): string | null {
-  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
-}
-
-function optionalNumber(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null
-}
-
-async function runGuards(
-  ctx: CommandRuntimeContext,
-  input: MutationGuardInput,
-): Promise<{
-  ok: boolean
-  errorBody?: Record<string, unknown>
-  errorStatus?: number
-  modifiedPayload?: Record<string, unknown>
-  afterSuccessCallbacks: Array<{ guard: MutationGuard; metadata: Record<string, unknown> | null }>
-}> {
-  const legacyGuard = bridgeLegacyGuard(ctx.container)
-  const guards = [...getAllMutationGuardInstances(), ...(legacyGuard ? [legacyGuard] : [])]
-  return runMutationGuards(guards, input, {
-    userFeatures: await resolveGrantedFeatures(ctx.container, ctx.auth, input.organizationId),
-  })
-}
-
-async function runGuardAfterSuccessCallbacks(
-  callbacks: Array<{ guard: MutationGuard; metadata: Record<string, unknown> | null }>,
-  input: {
-    tenantId: string
-    organizationId: string
-    userId: string
-    resourceKind: string
-    resourceId: string
-    operation: 'create'
-    requestMethod: string
-    requestHeaders: Headers
-  },
-): Promise<void> {
-  for (const callback of callbacks) {
-    if (!callback.guard.afterSuccess) continue
-    try {
-      await callback.guard.afterSuccess({
-        ...input,
-        metadata: callback.metadata ?? null,
-      })
-    } catch (err) {
-      logger.warn('Mutation guard afterSuccess callback failed', { err })
-    }
-  }
-}
-
-async function resolveRequestContext(req: Request): Promise<RequestContext> {
-  const container = await createRequestContainer()
-  const auth = await getAuthFromRequest(req)
-  const { translate } = await resolveTranslations()
-
-  if (!auth || !auth.tenantId) {
-    throw new CrudHttpError(401, { error: translate('eudr.errors.unauthorized', 'Unauthorized') })
-  }
-
-  const scope = await resolveOrganizationScopeForRequest({ container, auth, request: req })
-  const organizationId = scope?.selectedId ?? auth.orgId ?? null
-  if (!organizationId) {
-    throw new CrudHttpError(400, {
-      error: translate('eudr.errors.organization_required', 'Organization context is required'),
-    })
-  }
-
-  return {
-    tenantId: auth.tenantId,
-    organizationId,
-    ctx: {
-      container,
-      auth,
-      organizationScope: scope,
-      selectedOrganizationId: organizationId,
-      organizationIds: scope?.filterIds ?? (auth.orgId ? [auth.orgId] : null),
-      request: req,
-    },
-  }
-}
 
 function featureProperties(feature: unknown): Record<string, unknown> {
   if (!isRecord(feature)) return {}
@@ -139,8 +47,8 @@ function featureGeometryType(feature: unknown): string | null {
 }
 
 function resolveFeatureName(properties: Record<string, unknown>, index: number): string {
-  return optionalString(properties.name)
-    ?? optionalString(properties.ProductionPlace)
+  return normalizeOptionalString(properties.name)
+    ?? normalizeOptionalString(properties.ProductionPlace)
     ?? `Plot ${index + 1}`
 }
 
@@ -192,16 +100,16 @@ async function createPlotFromFeature(args: {
 }): Promise<{ id: string | null }> {
   const properties = featureProperties(args.feature)
   const name = resolveFeatureName(properties, args.index)
-  const originCountry = optionalString(properties.ProducerCountry) ?? args.input.defaultCountry ?? null
+  const originCountry = normalizeOptionalString(properties.ProducerCountry) ?? args.input.defaultCountry ?? null
   if (!originCountry) throw new CrudHttpError(400, { error: 'eudr.errors.importCountryMissing' })
 
-  const area = optionalNumber(properties.Area)
+  const area = finiteNumberOrNull(properties.Area)
   const base = {
     supplierEntityId: args.input.supplierEntityId,
     name,
     originCountry,
     geometry: args.feature,
-    producerName: optionalString(properties.ProducerName),
+    producerName: normalizeOptionalString(properties.ProducerName),
     areaHa: featureGeometryType(args.feature) === 'Point' && area !== null ? area : undefined,
     supplierSnapshot: args.supplierDisplayName ? { displayName: args.supplierDisplayName } : undefined,
   }
@@ -232,26 +140,26 @@ export async function POST(req: Request) {
     const { translate } = await resolveTranslations()
     const payload = await readJsonSafe(req, {})
     const input = importSchema.parse(payload)
-    const guardResult = await runGuards(requestContext.ctx, {
-      tenantId: requestContext.tenantId,
-      organizationId: requestContext.organizationId,
-      userId: requestContext.ctx.auth?.sub ?? '',
-      resourceKind: 'eudr.plot',
-      resourceId: null,
-      operation: 'create',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      mutationPayload: {
-        supplierEntityId: input.supplierEntityId,
-        defaultCountry: input.defaultCountry ?? null,
+    const guardResult = await runRouteMutationGuards({
+      container: requestContext.ctx.container,
+      req,
+      auth: {
+        userId: requestContext.ctx.auth?.sub ?? '',
+        tenantId: requestContext.tenantId,
+        organizationId: requestContext.organizationId,
+        userFeatures: await resolveGrantedFeatures(requestContext.ctx.container, requestContext.ctx.auth, requestContext.organizationId),
+      },
+      input: {
+        resourceKind: 'eudr.plot',
+        resourceId: null,
+        operation: 'create',
+        mutationPayload: {
+          supplierEntityId: input.supplierEntityId,
+          defaultCountry: input.defaultCountry ?? null,
+        },
       },
     })
-    if (!guardResult.ok) {
-      return Response.json(
-        guardResult.errorBody ?? { error: translate('eudr.errors.operation_blocked', 'Operation blocked by guard') },
-        { status: guardResult.errorStatus ?? 422 },
-      )
-    }
+    if (!guardResult.ok) return guardResult.response
     const guardPatch = guardResult.modifiedPayload ?? null
     const effectiveSupplierEntityId = typeof guardPatch?.supplierEntityId === 'string' && guardPatch.supplierEntityId.length
       ? guardPatch.supplierEntityId
@@ -299,19 +207,8 @@ export async function POST(req: Request) {
       }
     }
 
-    if (guardResult.afterSuccessCallbacks.length) {
-      for (const id of createdIds) {
-        await runGuardAfterSuccessCallbacks(guardResult.afterSuccessCallbacks, {
-          tenantId: requestContext.tenantId,
-          organizationId: requestContext.organizationId,
-          userId: requestContext.ctx.auth?.sub ?? '',
-          resourceKind: 'eudr.plot',
-          resourceId: id,
-          operation: 'create',
-          requestMethod: req.method,
-          requestHeaders: req.headers,
-        })
-      }
+    for (const id of createdIds) {
+      await guardResult.runAfterSuccess({ resourceId: id })
     }
 
     return Response.json({ created: createdIds.length, failed })

@@ -14,6 +14,8 @@ import {
   EUDR_CRITERIA_ANSWERS,
   type EudrCriteriaAnswer,
 } from '../data/validators'
+import { isRecord } from '@open-mercato/shared/lib/guards'
+import { isCriteriaAnswer } from './riskAssessmentForm'
 
 export type RiskCriteriaEntry = {
   answer: EudrCriteriaAnswer
@@ -32,14 +34,6 @@ export type RiskCriteriaFieldProps = {
 const criteriaKeys = new Set<string>(
   EUDR_RISK_CRITERIA_GROUPS.flatMap((group) => [...group.criteria]),
 )
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
-
-function isCriteriaAnswer(value: unknown): value is EudrCriteriaAnswer {
-  return typeof value === 'string' && EUDR_CRITERIA_ANSWERS.some((answer) => answer === value)
-}
 
 function normalizeCriteriaValue(value: unknown): RiskCriteriaValue {
   if (!isRecord(value)) return {}

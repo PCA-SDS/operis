@@ -23,14 +23,16 @@ import {
   createPagedListResponseSchema,
   defaultOkResponseSchema,
 } from '../openapi'
+import { toFiniteNumber } from '@open-mercato/shared/lib/number'
+import { stringArray } from '../../lib/values'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 type TranslateFn = (key: string, fallback?: string) => string
 
 const rawBodySchema = z.object({}).passthrough()
 
 const listSchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(50),
+  ...paginationQuerySchema().shape,
   search: z.string().optional(),
   commodity: z.enum(EUDR_COMMODITIES).optional(),
   status: z.enum(EUDR_SUBMISSION_STATUSES).optional(),
@@ -83,20 +85,6 @@ const allFields = [
 
 function asStringOrNull(value: unknown): string | null {
   return typeof value === 'string' ? value : null
-}
-
-function asNumber(value: unknown): number {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string' && value.trim().length > 0) {
-    const parsed = Number(value)
-    if (Number.isFinite(parsed)) return parsed
-  }
-  return 0
-}
-
-function stringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return []
-  return value.filter((entry): entry is string => typeof entry === 'string')
 }
 
 function resolveDeleteInput(parsed: unknown, ctx: { request?: Request }, translate: TranslateFn) {
@@ -152,7 +140,7 @@ function transformEvidenceSubmissionItem(item: unknown) {
     attachmentIds: stringArray(record.attachment_ids),
     plotIds: stringArray(record.plot_ids),
     status: record.status ?? null,
-    completenessScore: asNumber(record.completeness_score),
+    completenessScore: toFiniteNumber(record.completeness_score),
     missingFields: stringArray(record.missing_fields),
     warnings: cutoffWarning ? [cutoffWarning] : [],
     notes: record.notes ?? null,

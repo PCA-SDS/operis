@@ -24,6 +24,9 @@ import { Button } from '@open-mercato/ui/primitives/button'
 import { Badge } from '@open-mercato/ui/primitives/badge'
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { PlotImportDialog } from '../../../components/PlotImportDialog'
+import { isRecord } from '@open-mercato/shared/lib/guards'
+import { readString } from '../../../components/recordFields'
+import { formatDateTime } from '@open-mercato/shared/lib/time'
 
 type PlotRow = {
   id: string
@@ -50,31 +53,10 @@ type CompanyOptionResponse = {
   items?: unknown[]
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
-
-function readString(record: Record<string, unknown>, keys: string[]): string | null {
-  for (const key of keys) {
-    const value = record[key]
-    if (typeof value !== 'string') continue
-    const trimmed = value.trim()
-    if (trimmed.length > 0) return trimmed
-  }
-  return null
-}
-
 function supplierName(row: PlotRow, unavailableLabel: string): string {
   const displayName = row.supplierSnapshot?.displayName?.trim()
   if (displayName) return displayName
   return row.supplierEntityId ? unavailableLabel : ''
-}
-
-function formatDateTime(value: string | null | undefined, emptyLabel: string, locale: string): string {
-  if (!value) return emptyLabel
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return emptyLabel
-  return date.toLocaleString(locale || undefined)
 }
 
 function formatArea(value: number | string | null | undefined, emptyLabel: string): string {
@@ -305,7 +287,7 @@ export default function EudrPlotsPage() {
     {
       accessorKey: 'updatedAt',
       header: translate('eudr.plots.list.columns.updatedAt'),
-      cell: ({ row }) => formatDateTime(row.original.updatedAt, translate('eudr.common.empty'), locale),
+      cell: ({ row }) => formatDateTime(row.original.updatedAt, { fallback: translate('eudr.common.empty'), locale }),
     },
   ], [locale, translate])
 

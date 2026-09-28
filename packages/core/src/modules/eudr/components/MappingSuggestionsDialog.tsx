@@ -23,6 +23,7 @@ import {
   EUDR_COMMODITIES,
   type EudrCommodity,
 } from '../data/validators'
+import { isRecord } from '@open-mercato/shared/lib/guards'
 
 type MappingSuggestion = {
   productId: string
@@ -54,10 +55,6 @@ type MappingSuggestionsDialogProps = {
 }
 
 const commoditySet = new Set<string>(EUDR_COMMODITIES)
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
 
 function isEudrCommodity(value: unknown): value is EudrCommodity {
   return typeof value === 'string' && commoditySet.has(value)

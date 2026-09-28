@@ -32,6 +32,9 @@ import {
 import { hasMissingSpecies } from '../../../../lib/species'
 import { EUDR_AMEND_WINDOW_MS } from '../../../../lib/statement-lifecycle'
 import { toIsoOrEcho as toIsoString } from '@open-mercato/shared/lib/date/normalize'
+import { isRecord } from '@open-mercato/shared/lib/guards'
+import { toFiniteNumber } from '@open-mercato/shared/lib/number'
+import { stringArray } from '../../../../lib/values'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['eudr.statements.view', 'eudr.submissions.view', 'eudr.mappings.view', 'eudr.plots.view', 'eudr.risk.view'] },
@@ -55,20 +58,6 @@ function hasPrivilegedStatementExportAccess(auth: AuthenticatedContext): boolean
   return auth.isSuperAdmin === true
 }
 
-function stringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return []
-  return value.filter((entry): entry is string => typeof entry === 'string')
-}
-
-function asNumber(value: unknown): number {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string' && value.trim().length > 0) {
-    const parsed = Number(value)
-    if (Number.isFinite(parsed)) return parsed
-  }
-  return 0
-}
-
 function addMilliseconds(value: Date | null | undefined, milliseconds: number): string | null {
   if (!value) return null
   const time = value.getTime()
@@ -83,10 +72,6 @@ function addYears(value: Date | null | undefined, years: number): string | null 
   const date = new Date(time)
   date.setUTCFullYear(date.getUTCFullYear() + years)
   return date.toISOString()
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
 
 function normalizeGeometry(value: unknown): GeoJsonGeometry | null {
@@ -142,7 +127,7 @@ function submissionPayload(submission: EudrEvidenceSubmission) {
     attachmentIds: stringArray(submission.attachmentIds),
     plotIds: stringArray(submission.plotIds),
     status: submission.status,
-    completenessScore: asNumber(submission.completenessScore),
+    completenessScore: toFiniteNumber(submission.completenessScore),
     missingFields: stringArray(submission.missingFields),
     notes: submission.notes ?? null,
     createdAt: toIsoString(submission.createdAt),

@@ -1,3 +1,5 @@
+import { isRecord } from '@open-mercato/shared/lib/guards'
+
 export type EudrPlotGeometryType = 'point' | 'polygon'
 
 type GeoJsonPosition = [number, number]
@@ -26,10 +28,6 @@ const MAX_FEATURE_COLLECTION_FEATURES = 500
 const EARTH_RADIUS_METERS = 6_371_008.8
 
 export const POINT_MAX_AREA_HA = 4
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
 
 function serializedLength(value: unknown): number | null {
   try {

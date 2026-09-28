@@ -6,27 +6,8 @@
  * attachments, and meta tools.
  */
 import type { AiAgentDefinition } from '@open-mercato/ai-assistant/modules/ai_assistant/lib/ai-agent-definition'
-
-type PromptSectionName =
-  | 'role'
-  | 'scope'
-  | 'data'
-  | 'tools'
-  | 'attachments'
-  | 'mutationPolicy'
-  | 'responseStyle'
-  | 'overrides'
-
-interface PromptSection {
-  name: PromptSectionName
-  content: string
-  order?: number
-}
-
-interface PromptTemplate {
-  id: string
-  sections: PromptSection[]
-}
+import { latestUserTextFromPrepareStepState, isMetaHelpPrompt, compilePromptTemplate } from '@open-mercato/ai-assistant/modules/ai_assistant/lib/agent-prompt-helpers'
+import type { PromptSection, PromptTemplate } from '@open-mercato/ai-assistant/modules/ai_assistant/lib/prompt-composition-types'
 
 const AGENT_ID = 'eudr.compliance_assistant'
 const MODULE_ID = 'eudr'
@@ -160,62 +141,10 @@ export const promptTemplate: PromptTemplate = {
   sections: PROMPT_SECTIONS,
 }
 
-function compilePromptTemplate(template: PromptTemplate): string {
-  return template.sections
-    .slice()
-    .sort((a: PromptSection, b: PromptSection) => (a.order ?? 0) - (b.order ?? 0))
-    .map((section: PromptSection) => section.content.trim())
-    .join('\n\n')
-}
-
-function textFromMessageContent(content: unknown): string {
-  if (typeof content === 'string') return content
-  if (!Array.isArray(content)) return ''
-  return content
-    .map((part) => {
-      if (typeof part === 'string') return part
-      if (!part || typeof part !== 'object') return ''
-      const record = part as Record<string, unknown>
-      return typeof record.text === 'string' ? record.text : ''
-    })
-    .join(' ')
-}
-
-function latestUserTextFromPrepareStepState(state: unknown): string {
-  const messages = (state as { messages?: unknown })?.messages
-  if (!Array.isArray(messages)) return ''
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index]
-    if (!message || typeof message !== 'object') continue
-    const record = message as Record<string, unknown>
-    if (record.role !== 'user') continue
-    return textFromMessageContent(record.content)
-  }
-  return ''
-}
-
-function isEudrMetaHelpPrompt(text: string): boolean {
-  const normalized = text.toLowerCase()
-  if (!normalized.trim()) return false
-  const asksForQuestionIdeas =
-    (normalized.includes('question') || normalized.includes('questions')) &&
-    (normalized.includes('could ask') ||
-      normalized.includes('can ask') ||
-      normalized.includes('ask you') ||
-      normalized.includes('suggest') ||
-      normalized.includes('examples'))
-  const asksForCapabilities =
-    normalized.includes('what can you do') ||
-    normalized.includes('how can you help') ||
-    normalized.includes('what should i ask') ||
-    normalized.includes('what can i ask')
-  return asksForQuestionIdeas || asksForCapabilities
-}
-
 function buildEudrAssistantPrepareStep() {
   return async function eudrAssistantPrepareStep(state: unknown) {
     const latestUserText = latestUserTextFromPrepareStepState(state)
-    if (isEudrMetaHelpPrompt(latestUserText)) {
+    if (isMetaHelpPrompt(latestUserText)) {
       return { activeTools: [] }
     }
     return undefined

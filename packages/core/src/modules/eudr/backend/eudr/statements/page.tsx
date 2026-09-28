@@ -28,6 +28,8 @@ import {
   riskConclusionBadgeVariant,
   riskTierBadgeVariant,
 } from '../../../components/StatementRiskSection'
+import { formatQuantityKg } from '../../../lib/format'
+import { formatDateTime } from '@open-mercato/shared/lib/time'
 
 type StatementRow = {
   id: string
@@ -53,19 +55,6 @@ type StatementsResponse = {
   items: StatementRow[]
   total: number
   totalPages: number
-}
-
-function formatDateTime(value: string | null | undefined, emptyLabel: string, locale: string): string {
-  if (!value) return emptyLabel
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return emptyLabel
-  return date.toLocaleString(locale || undefined)
-}
-
-function formatQuantityKg(value: number | string | null, emptyLabel: string): string {
-  if (value === null || value === undefined) return emptyLabel
-  if (typeof value === 'string' && !value.trim()) return emptyLabel
-  return String(value)
 }
 
 export default function EudrStatementsPage() {
@@ -260,7 +249,7 @@ export default function EudrStatementsPage() {
     {
       accessorKey: 'updatedAt',
       header: translate('eudr.statements.list.columns.updatedAt'),
-      cell: ({ row }) => formatDateTime(row.original.updatedAt, translate('eudr.common.empty'), locale),
+      cell: ({ row }) => formatDateTime(row.original.updatedAt, { fallback: translate('eudr.common.empty'), locale }),
     },
   ], [locale, translate])
 

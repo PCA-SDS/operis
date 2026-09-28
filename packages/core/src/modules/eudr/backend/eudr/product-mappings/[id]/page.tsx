@@ -17,6 +17,8 @@ import {
   translateEudrCrudError,
 } from '../../../../components/formConfig'
 import type { EudrCommodity } from '../../../../data/validators'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
+import { getRouteId } from '../../../../components/routeParams'
 
 type ProductMappingRecord = {
   id: string
@@ -49,19 +51,8 @@ type ProductMappingFormValues = {
   updatedAt: string
 } & Record<string, unknown>
 
-function optionalText(value: unknown): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  return trimmed.length ? trimmed : null
-}
-
 function isProductSnapshot(value: unknown): value is ProductSnapshot {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
-
-function getRouteId(params?: { id?: string }): string | null {
-  const rawId = params?.id
-  return typeof rawId === 'string' && rawId.trim().length ? rawId : null
 }
 
 export default function EditEudrProductMappingPage({ params }: { params?: { id?: string } }) {
@@ -271,12 +262,12 @@ export default function EditEudrProductMappingPage({ params }: { params?: { id?:
           groups={groups}
           initialValues={initialValues}
           onSubmit={async (values) => {
-            const productId = optionalText(values.productId)
+            const productId = normalizeOptionalString(values.productId)
             if (!productId) {
               const message = translate('eudr.productMappings.form.productRequired')
               throw createCrudFormError(message, { productId: message })
             }
-            const commodity = optionalText(values.commodity)
+            const commodity = normalizeOptionalString(values.commodity)
             if (!commodity) {
               const message = translate('eudr.productMappings.form.commodityRequired')
               throw createCrudFormError(message, { commodity: message })
@@ -285,11 +276,11 @@ export default function EditEudrProductMappingPage({ params }: { params?: { id?:
               id: record.id,
               productId,
               commodity,
-              hsCode: optionalText(values.hsCode),
-              speciesScientificName: commodity === 'wood' ? optionalText(values.speciesScientificName) : null,
-              speciesCommonName: commodity === 'wood' ? optionalText(values.speciesCommonName) : null,
+              hsCode: normalizeOptionalString(values.hsCode),
+              speciesScientificName: commodity === 'wood' ? normalizeOptionalString(values.speciesScientificName) : null,
+              speciesCommonName: commodity === 'wood' ? normalizeOptionalString(values.speciesCommonName) : null,
               isInScope: values.isInScope !== false,
-              notes: optionalText(values.notes),
+              notes: normalizeOptionalString(values.notes),
               productSnapshot: isProductSnapshot(values.productSnapshot) ? values.productSnapshot : null,
             }, {
               errorMessage: translate('eudr.productMappings.form.updateError'),

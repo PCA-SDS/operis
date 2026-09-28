@@ -10,6 +10,8 @@ import {
   type PickerOption,
   type Translator,
 } from './formConfig'
+import { isRecord } from '@open-mercato/shared/lib/guards'
+import { readString } from './recordFields'
 
 type PickerPayload = {
   items?: unknown[]
@@ -24,20 +26,6 @@ type OrderSelectFieldProps = {
   emptyLabel?: string
   loadError: string
   disabled?: boolean
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
-
-function readString(record: Record<string, unknown>, keys: string[]): string | null {
-  for (const key of keys) {
-    const value = record[key]
-    if (typeof value !== 'string') continue
-    const trimmed = value.trim()
-    if (trimmed.length > 0) return trimmed
-  }
-  return null
 }
 
 function normalizeOrderOption(raw: unknown, translate: Translator): PickerOption<OrderSnapshot> | null {

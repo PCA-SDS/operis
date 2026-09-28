@@ -4,11 +4,9 @@ import * as React from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { CrudForm, type CrudField, type CrudFormGroup } from '@open-mercato/ui/backend/CrudForm'
-import { CollapsibleSection } from '@open-mercato/ui/backend/SectionHeader'
 import { createCrud } from '@open-mercato/ui/backend/utils/crud'
 import { createCrudFormError } from '@open-mercato/ui/backend/utils/serverErrors'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
-import { Textarea } from '@open-mercato/ui/primitives/textarea'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import {
   CompanySelectField,
@@ -22,6 +20,9 @@ import {
   type CompanySnapshot,
   translateEudrCrudError,
 } from '../../../../components/formConfig'
+import { normalizeOptionalString, toNonEmptyStringArray } from '@open-mercato/shared/lib/string'
+import { EvidenceAdvancedFields } from '../../../../components/EvidenceAdvancedFields'
+import { optionalNumber, optionalUpperText } from '../../../../components/evidenceFormValues'
 
 type EvidenceSubmissionFormValues = {
   supplierEntityId: string
@@ -41,65 +42,8 @@ type EvidenceSubmissionFormValues = {
   notes: string
 } & Record<string, unknown>
 
-function optionalText(value: unknown): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  return trimmed.length ? trimmed : null
-}
-
-function optionalUpperText(value: unknown): string | null {
-  const text = optionalText(value)
-  return text ? text.toUpperCase() : null
-}
-
-function optionalNumber(value: unknown, translate: ReturnType<typeof useT>): number | null {
-  const text = optionalText(value)
-  if (!text) return null
-  const parsedNumber = Number(text)
-  if (!Number.isFinite(parsedNumber)) {
-    const message = translate('eudr.evidenceSubmissions.form.quantityKgInvalid')
-    throw createCrudFormError(message, { quantityKg: message })
-  }
-  return parsedNumber
-}
-
 function isCompanySnapshot(value: unknown): value is CompanySnapshot {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
-
-function stringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return []
-  return value.filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
-}
-
-function EvidenceAdvancedFields({
-  values,
-  setValue,
-  translate,
-}: {
-  values: Record<string, unknown>
-  setValue: (id: string, value: unknown) => void
-  translate: ReturnType<typeof useT>
-}) {
-  return (
-    <CollapsibleSection
-      title={translate('eudr.evidenceSubmissions.form.legacyGeolocation')}
-      defaultCollapsed
-      contentClassName="space-y-4"
-    >
-      <div className="space-y-2" data-crud-field-id="geolocation">
-        <label className="text-sm font-medium" htmlFor="eudr-evidence-geolocation">
-          {translate('eudr.evidenceSubmissions.form.geolocation')}
-        </label>
-        <Textarea
-          id="eudr-evidence-geolocation"
-          rows={8}
-          value={typeof values.geolocation === 'string' ? values.geolocation : ''}
-          onChange={(event) => setValue('geolocation', event.target.value)}
-        />
-      </div>
-    </CollapsibleSection>
-  )
 }
 
 export default function CreateEudrEvidenceSubmissionPage() {
@@ -173,7 +117,7 @@ export default function CreateEudrEvidenceSubmissionPage() {
       component: ({ id, value, setValue, values }) => (
         <PlotMultiSelectField
           id={id}
-          value={stringArray(value)}
+          value={toNonEmptyStringArray(value)}
           onChange={(nextValue) => setValue(nextValue)}
           supplierEntityId={typeof values?.supplierEntityId === 'string' ? values.supplierEntityId : null}
         />
@@ -336,12 +280,12 @@ export default function CreateEudrEvidenceSubmissionPage() {
             notes: '',
           }}
           onSubmit={async (values) => {
-            const supplierEntityId = optionalText(values.supplierEntityId)
+            const supplierEntityId = normalizeOptionalString(values.supplierEntityId)
             if (!supplierEntityId) {
               const message = translate('eudr.evidenceSubmissions.form.supplierRequired')
               throw createCrudFormError(message, { supplierEntityId: message })
             }
-            const commodity = optionalText(values.commodity)
+            const commodity = normalizeOptionalString(values.commodity)
             if (!commodity) {
               const message = translate('eudr.evidenceSubmissions.form.commodityRequired')
               throw createCrudFormError(message, { commodity: message })
@@ -350,24 +294,24 @@ export default function CreateEudrEvidenceSubmissionPage() {
               supplierEntityId,
               supplierSnapshot: isCompanySnapshot(values.supplierSnapshot) ? values.supplierSnapshot : null,
               commodity,
-              productMappingId: optionalText(values.productMappingId),
-              statementId: optionalText(values.statementId),
-              plotIds: stringArray(values.plotIds),
+              productMappingId: normalizeOptionalString(values.productMappingId),
+              statementId: normalizeOptionalString(values.statementId),
+              plotIds: toNonEmptyStringArray(values.plotIds),
               originCountry: optionalUpperText(values.originCountry),
               geolocation: parseGeolocationInput(typeof values.geolocation === 'string' ? values.geolocation : '', translate),
               quantityKg: optionalNumber(values.quantityKg, translate),
-              batchNumber: optionalText(values.batchNumber),
-              harvestFrom: optionalText(values.harvestFrom),
-              harvestTo: optionalText(values.harvestTo),
-              producerName: optionalText(values.producerName),
-              status: optionalText(values.status) ?? 'draft',
-              notes: optionalText(values.notes),
+              batchNumber: normalizeOptionalString(values.batchNumber),
+              harvestFrom: normalizeOptionalString(values.harvestFrom),
+              harvestTo: normalizeOptionalString(values.harvestTo),
+              producerName: normalizeOptionalString(values.producerName),
+              status: normalizeOptionalString(values.status) ?? 'draft',
+              notes: normalizeOptionalString(values.notes),
             }, {
               errorMessage: translate('eudr.evidenceSubmissions.form.createError'),
             }).catch((err) => {
               throw translateEudrCrudError(err, translate)
             })
-            const createdId = optionalText(call.result?.id)
+            const createdId = normalizeOptionalString(call.result?.id)
             if (createdId) {
               flash(translate('eudr.evidence.attachAfterCreateHint'), 'success')
               router.push(`/backend/eudr/evidence-submissions/${createdId}`)

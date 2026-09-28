@@ -26,11 +26,13 @@ import {
   riskTierBadgeVariant,
 } from '../../../components/StatementRiskSection'
 import {
-  EUDR_RISK_CONCLUSIONS,
   EUDR_RISK_TIERS,
   type EudrRiskConclusion,
   type EudrRiskTier,
 } from '../../../data/validators'
+import { conclusionOptions } from '../../../components/riskAssessmentForm'
+import { isOverdue } from '../../../lib/dates'
+import { formatDateTime, formatDate } from '@open-mercato/shared/lib/time'
 
 type RiskAssessmentRow = {
   id: string
@@ -56,35 +58,8 @@ type MutationContext = {
   retryLastMutation: () => Promise<boolean>
 }
 
-function formatDateTime(value: string | null | undefined, emptyLabel: string, locale: string): string {
-  if (!value) return emptyLabel
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return emptyLabel
-  return date.toLocaleString(locale || undefined)
-}
-
-function formatDate(value: string | null | undefined, emptyLabel: string, locale: string): string {
-  if (!value) return emptyLabel
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return emptyLabel
-  return date.toLocaleDateString(locale || undefined)
-}
-
-function isOverdue(value: string | null | undefined): boolean {
-  if (!value) return false
-  const date = new Date(value)
-  return !Number.isNaN(date.getTime()) && date.getTime() < Date.now()
-}
-
 function isDateRangeValue(value: unknown): value is { to?: string } {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
-
-function conclusionOptions(translate: ReturnType<typeof useT>) {
-  return EUDR_RISK_CONCLUSIONS.map((conclusion) => ({
-    value: conclusion,
-    label: translate(`eudr.conclusion.${conclusion}`),
-  }))
 }
 
 function tierOptions(translate: ReturnType<typeof useT>) {
@@ -252,21 +227,21 @@ export default function EudrRiskAssessmentsPage() {
     {
       accessorKey: 'assessedAt',
       header: translate('eudr.riskAssessments.list.columns.assessedAt'),
-      cell: ({ row }) => formatDateTime(row.original.assessedAt, translate('eudr.common.empty'), locale),
+      cell: ({ row }) => formatDateTime(row.original.assessedAt, { fallback: translate('eudr.common.empty'), locale }),
     },
     {
       accessorKey: 'reviewDueAt',
       header: translate('eudr.riskAssessments.list.columns.reviewDueAt'),
       cell: ({ row }) => (
         <span className={isOverdue(row.original.reviewDueAt) ? 'text-status-warning-text' : undefined}>
-          {formatDate(row.original.reviewDueAt, translate('eudr.common.empty'), locale)}
+          {formatDate(row.original.reviewDueAt, { fallback: translate('eudr.common.empty'), locale })}
         </span>
       ),
     },
     {
       accessorKey: 'updatedAt',
       header: translate('eudr.riskAssessments.list.columns.updatedAt'),
-      cell: ({ row }) => formatDateTime(row.original.updatedAt, translate('eudr.common.empty'), locale),
+      cell: ({ row }) => formatDateTime(row.original.updatedAt, { fallback: translate('eudr.common.empty'), locale }),
     },
   ], [locale, translate])
 

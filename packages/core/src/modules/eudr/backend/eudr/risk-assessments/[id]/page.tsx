@@ -16,7 +16,6 @@ import { StatementSelectField, translateEudrCrudError } from '../../../../compon
 import {
   RiskConclusionCriteriaWarning,
   RiskCriteriaField,
-  type RiskCriteriaEntry,
   type RiskCriteriaValue,
 } from '../../../../components/RiskCriteriaField'
 import { MitigationActionsSection } from '../../../../components/MitigationActionsSection'
@@ -26,12 +25,12 @@ import {
   type CountryRiskView,
 } from '../../../../components/StatementRiskSection'
 import {
-  EUDR_CRITERIA_ANSWERS,
-  EUDR_RISK_CONCLUSIONS,
-  type EudrCriteriaAnswer,
   type EudrRiskConclusion,
   type EudrRiskTier,
 } from '../../../../data/validators'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
+import { normalizeCriteria, conclusionOptions, toIsoDateTime } from '../../../../components/riskAssessmentForm'
+import { getRouteId } from '../../../../components/routeParams'
 
 type RiskAssessmentRecord = {
   id: string
@@ -62,37 +61,6 @@ type RiskAssessmentFormValues = {
   updatedAt: string
 } & Record<string, unknown>
 
-function optionalText(value: unknown): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  return trimmed.length ? trimmed : null
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
-
-function isCriteriaAnswer(value: unknown): value is EudrCriteriaAnswer {
-  return typeof value === 'string' && EUDR_CRITERIA_ANSWERS.some((answer) => answer === value)
-}
-
-function normalizeCriteria(value: unknown): RiskCriteriaValue {
-  if (!isRecord(value)) return {}
-  const normalized: RiskCriteriaValue = {}
-  for (const [key, entry] of Object.entries(value)) {
-    if (!isRecord(entry) || !isCriteriaAnswer(entry.answer)) continue
-    const note = optionalText(entry.note)
-    const nextEntry: RiskCriteriaEntry = note ? { answer: entry.answer, note } : { answer: entry.answer }
-    normalized[key] = nextEntry
-  }
-  return normalized
-}
-
-function getRouteId(params?: { id?: string }): string | null {
-  const rawId = params?.id
-  return typeof rawId === 'string' && rawId.trim().length ? rawId : null
-}
-
 function toDateTimeLocalInput(value: string | null): string {
   if (!value) return ''
   const date = new Date(value)
@@ -104,20 +72,6 @@ function toDateTimeLocalInput(value: string | null): string {
 function formatDateInput(value: string | null): string {
   if (!value) return ''
   return value.slice(0, 10)
-}
-
-function toIsoDateTime(value: string | null): string | undefined {
-  if (!value) return undefined
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return undefined
-  return date.toISOString()
-}
-
-function conclusionOptions(translate: ReturnType<typeof useT>) {
-  return EUDR_RISK_CONCLUSIONS.map((conclusion) => ({
-    value: conclusion,
-    label: translate(`eudr.conclusion.${conclusion}`),
-  }))
 }
 
 export default function EditEudrRiskAssessmentPage({ params }: { params?: { id?: string } }) {
@@ -333,17 +287,17 @@ export default function EditEudrRiskAssessmentPage({ params }: { params?: { id?:
           groups={groups}
           initialValues={initialValues}
           onSubmit={async (values) => {
-            const statementId = optionalText(values.statementId)
+            const statementId = normalizeOptionalString(values.statementId)
             if (!statementId) {
               const message = translate('eudr.riskAssessments.form.statementRequired')
               throw createCrudFormError(message, { statementId: message })
             }
-            const conclusion = optionalText(values.conclusion)
+            const conclusion = normalizeOptionalString(values.conclusion)
             if (!conclusion) {
               const message = translate('eudr.riskAssessments.form.conclusionRequired')
               throw createCrudFormError(message, { conclusion: message })
             }
-            const assessedAt = toIsoDateTime(optionalText(values.assessedAt))
+            const assessedAt = toIsoDateTime(normalizeOptionalString(values.assessedAt))
             if (!assessedAt) {
               const message = translate('eudr.riskAssessments.form.assessedAtInvalid')
               throw createCrudFormError(message, { assessedAt: message })
@@ -354,8 +308,8 @@ export default function EditEudrRiskAssessmentPage({ params }: { params?: { id?:
               criteria: normalizeCriteria(values.criteria),
               conclusion,
               assessedAt,
-              reviewDueAt: optionalText(values.reviewDueAt),
-              notes: optionalText(values.notes),
+              reviewDueAt: normalizeOptionalString(values.reviewDueAt),
+              notes: normalizeOptionalString(values.notes),
             }, {
               errorMessage: translate('eudr.riskAssessments.form.updateError'),
             }).catch((err) => {

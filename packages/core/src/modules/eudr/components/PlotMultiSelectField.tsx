@@ -12,6 +12,8 @@ import { Button } from '@open-mercato/ui/primitives/button'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { PICKER_PAGE_SIZE } from './formConfig'
 import { translatePlural } from '../lib/plural'
+import { isRecord } from '@open-mercato/shared/lib/guards'
+import { readTrimmedString } from '@open-mercato/shared/lib/string'
 
 type PlotOption = {
   id: string
@@ -33,26 +35,17 @@ export type PlotMultiSelectFieldProps = {
   disabled?: boolean
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
-
-function readString(record: Record<string, unknown>, key: string): string | null {
-  const value = record[key]
-  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
-}
-
 function normalizePlotOption(raw: unknown): PlotOption | null {
   if (!isRecord(raw)) return null
-  const id = readString(raw, 'id')
-  const name = readString(raw, 'name')
+  const id = readTrimmedString(raw, 'id')
+  const name = readTrimmedString(raw, 'name')
   if (!id || !name) return null
   const areaHa = raw.areaHa
   return {
     id,
     name,
-    originCountry: readString(raw, 'originCountry'),
-    plotType: readString(raw, 'plotType'),
+    originCountry: readTrimmedString(raw, 'originCountry'),
+    plotType: readTrimmedString(raw, 'plotType'),
     areaHa: typeof areaHa === 'number' || typeof areaHa === 'string' ? areaHa : null,
   }
 }

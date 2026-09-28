@@ -14,6 +14,7 @@ import {
   type ProductSnapshot,
   translateEudrCrudError,
 } from '../../../../components/formConfig'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
 
 type ProductMappingFormValues = {
   productId: string
@@ -25,12 +26,6 @@ type ProductMappingFormValues = {
   isInScope: boolean
   notes: string
 } & Record<string, unknown>
-
-function optionalText(value: unknown): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  return trimmed.length ? trimmed : null
-}
 
 function isProductSnapshot(value: unknown): value is ProductSnapshot {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -154,12 +149,12 @@ export default function CreateEudrProductMappingPage() {
             notes: '',
           }}
           onSubmit={async (values) => {
-            const productId = optionalText(values.productId)
+            const productId = normalizeOptionalString(values.productId)
             if (!productId) {
               const message = translate('eudr.productMappings.form.productRequired')
               throw createCrudFormError(message, { productId: message })
             }
-            const commodity = optionalText(values.commodity)
+            const commodity = normalizeOptionalString(values.commodity)
             if (!commodity) {
               const message = translate('eudr.productMappings.form.commodityRequired')
               throw createCrudFormError(message, { commodity: message })
@@ -167,13 +162,13 @@ export default function CreateEudrProductMappingPage() {
             await createCrud('eudr/product-mappings', {
               productId,
               commodity,
-              hsCode: optionalText(values.hsCode),
+              hsCode: normalizeOptionalString(values.hsCode),
               ...(commodity === 'wood' ? {
-                speciesScientificName: optionalText(values.speciesScientificName),
-                speciesCommonName: optionalText(values.speciesCommonName),
+                speciesScientificName: normalizeOptionalString(values.speciesScientificName),
+                speciesCommonName: normalizeOptionalString(values.speciesCommonName),
               } : {}),
               isInScope: values.isInScope !== false,
-              notes: optionalText(values.notes),
+              notes: normalizeOptionalString(values.notes),
               productSnapshot: isProductSnapshot(values.productSnapshot) ? values.productSnapshot : null,
             }, {
               errorMessage: translate('eudr.productMappings.form.createError'),

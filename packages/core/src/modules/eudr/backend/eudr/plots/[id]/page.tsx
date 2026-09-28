@@ -25,6 +25,8 @@ import {
   parsePlotGeometryForSubmit,
 } from '../../../../components/plotForm'
 import { GeometryInput } from '../../../../components/GeometryInput'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
+import { getRouteId } from '../../../../components/routeParams'
 
 type PlotRecord = {
   id: string
@@ -61,12 +63,6 @@ type PlotFormValues = {
   updatedAt: string
 } & Record<string, unknown>
 
-function optionalText(value: unknown): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  return trimmed.length ? trimmed : null
-}
-
 function isCompanySnapshot(value: unknown): value is CompanySnapshot {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
 }
@@ -78,11 +74,6 @@ function formatGeometry(value: unknown): string {
   } catch {
     return ''
   }
-}
-
-function getRouteId(params?: { id?: string }): string | null {
-  const rawId = params?.id
-  return typeof rawId === 'string' && rawId.trim().length ? rawId : null
 }
 
 export default function EditEudrPlotPage({ params }: { params?: { id?: string } }) {
@@ -356,17 +347,17 @@ export default function EditEudrPlotPage({ params }: { params?: { id?: string } 
           groups={groups}
           initialValues={initialValues}
           onSubmit={async (values) => {
-            const supplierEntityId = optionalText(values.supplierEntityId)
+            const supplierEntityId = normalizeOptionalString(values.supplierEntityId)
             if (!supplierEntityId) {
               const message = translate('eudr.plots.form.supplierRequired')
               throw createCrudFormError(message, { supplierEntityId: message })
             }
-            const name = optionalText(values.name)
+            const name = normalizeOptionalString(values.name)
             if (!name) {
               const message = translate('eudr.plots.form.nameRequired')
               throw createCrudFormError(message, { name: message })
             }
-            const originCountry = optionalText(values.originCountry)
+            const originCountry = normalizeOptionalString(values.originCountry)
             if (!originCountry) {
               const message = translate('eudr.plots.form.originCountryRequired')
               throw createCrudFormError(message, { originCountry: message })
@@ -379,14 +370,14 @@ export default function EditEudrPlotPage({ params }: { params?: { id?: string } 
               supplierEntityId,
               supplierSnapshot: isCompanySnapshot(values.supplierSnapshot) ? values.supplierSnapshot : null,
               name,
-              externalId: optionalText(values.externalId),
+              externalId: normalizeOptionalString(values.externalId),
               originCountry: originCountry.toUpperCase(),
               geometry,
               areaHa,
-              producerName: optionalText(values.producerName),
+              producerName: normalizeOptionalString(values.producerName),
               isActive: values.isActive !== false,
             }
-            const nextDescription = optionalText(values.description)
+            const nextDescription = normalizeOptionalString(values.description)
             if (nextDescription || Object.prototype.hasOwnProperty.call(record, 'description')) {
               payload.description = nextDescription
             }
