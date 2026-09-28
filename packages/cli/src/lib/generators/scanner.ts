@@ -241,3 +241,11 @@ export function resolveFirstModuleFile(
   }
   return null
 }
+
+export function resolveConventionFile(baseDir: string, basename: string): string | null {
+  for (const extension of MODULE_CODE_EXTENSIONS) {
+    const candidate = path.join(baseDir, `${basename}${extension}`)
+    if (fs.existsSync(candidate)) return candidate
+  }
+  return null
+}

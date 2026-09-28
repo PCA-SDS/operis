@@ -22,7 +22,7 @@ import {
   type ModuleExtensionContributionFact,
   type ModuleExtensionHostFact,
   type ModuleExtensionSurfaceFacts,
-  type ModuleExtensionTargetRef,
+  type ModuleExtensionTargetRef, type ModuleFactSourceRef,
 } from '@open-mercato/shared/modules/widgets/extension-points'
 import { toSnake } from '../utils'
 import { extractCommandIdsFromSource } from './module-registry'
@@ -48,7 +48,7 @@ import {
   type ModuleOverrideTarget,
   type ModuleOverrideTargetDiagnostic,
 } from './module-override-targets'
-import { buildFactSourceLookup, type FactSourceLookup } from './module-fact-sources'
+import { buildFactSourceLookup, type FactSourceLookup, compareSourceRefs } from './module-fact-sources'
 import { appendLocalReferenceModuleSource } from './module-facts-discovery'
 
 export interface ModuleEntityFact {
@@ -126,12 +126,6 @@ export interface ModuleEventFact {
 export interface ModuleHostTokens {
   entityIds: string[]
   tableIds: string[]
-}
-
-export type ModuleFactSourceRef = {
-  sourcePath: string
-  exportName?: string
-  line?: number
 }
 
 export type ModuleFactRef = {
@@ -1931,14 +1925,6 @@ function extractGeneratorPluginContracts(
     index += 1
   }
   return { facts: dedupeOwnedContractFacts(facts), unresolved }
-}
-
-function compareSourceRefs(left: ModuleFactSourceRef, right: ModuleFactSourceRef): number {
-  return (
-    left.sourcePath.localeCompare(right.sourcePath) ||
-    (left.line ?? 0) - (right.line ?? 0) ||
-    (left.exportName ?? '').localeCompare(right.exportName ?? '')
-  )
 }
 
 function sameSourceRef(left: ModuleFactSourceRef, right: ModuleFactSourceRef): boolean {

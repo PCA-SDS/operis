@@ -11,6 +11,7 @@ import {
 import { ensureModuleRegistration } from './modules-config'
 import type { PackageResolver } from './resolver'
 import { resolveSpawnCommand } from './spawn'
+import { resolveYarnBinary } from './yarn'
 
 type ModuleCommandResult = {
   moduleId: string
@@ -28,10 +29,6 @@ const OFFICIAL_PACKAGE_SCOPE = '@open-mercato/'
 const SAFE_PACKAGE_SPEC_PATTERN = /^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*(?:@.+)?$/i
 const SAFE_PACKAGE_TAG_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*$/
 const SAFE_PACKAGE_FILE_LOCATOR_PATTERN = /^file:[A-Za-z0-9_./: \\-]+$/
-
-function resolveYarnBinary(): string {
-  return process.platform === 'win32' ? 'yarn.cmd' : 'yarn'
-}
 
 function readAppPackageName(appDir: string): string {
   const packageJsonPath = path.join(appDir, 'package.json')

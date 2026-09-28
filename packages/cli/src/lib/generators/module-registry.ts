@@ -79,6 +79,7 @@ import {
   routeManifestShardFilePattern,
   type RouteManifestShardEntry,
 } from './route-manifest-shards'
+import { unwrapObjectLiteralExpression } from './object-literal'
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
@@ -426,20 +427,6 @@ function reconcileGeneratorPluginOutputs(options: {
     fs.writeFileSync(manifestPath, manifestContent)
     options.result.filesWritten.push(manifestPath)
   }
-}
-
-function unwrapObjectLiteralExpression(
-  expression: ts.Expression | undefined,
-): ts.ObjectLiteralExpression | undefined {
-  if (!expression) return undefined
-  if (ts.isObjectLiteralExpression(expression)) return expression
-  if (ts.isAsExpression(expression) || ts.isTypeAssertionExpression(expression)) {
-    return unwrapObjectLiteralExpression(expression.expression)
-  }
-  if (ts.isParenthesizedExpression(expression)) {
-    return unwrapObjectLiteralExpression(expression.expression)
-  }
-  return undefined
 }
 
 function extractNamedObjectLiteralSource(sourceFile: string, exportName: string): string | null {

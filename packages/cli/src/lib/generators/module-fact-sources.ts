@@ -1,8 +1,8 @@
 import type {
   ModuleFactSourceKind,
-  ModuleFactSourceRef,
   ModuleFactsJsonEntry,
 } from './module-facts'
+import type { ModuleFactSourceRef, ModuleExtensionContributionFact } from '@open-mercato/shared/modules/widgets/extension-points'
 
 /**
  * The subset of a module's facts needed to resolve the provenance index. Both
@@ -105,4 +105,19 @@ export function buildFactSourceLookup(facts: FactSourceLookupInput): FactSourceL
   }
 
   return (kind, id) => resolve(kind, id, 0)
+}
+
+export function compareSourceRefs(left: ModuleFactSourceRef, right: ModuleFactSourceRef): number {
+  return (
+    left.sourcePath.localeCompare(right.sourcePath) ||
+    (left.line ?? 0) - (right.line ?? 0) ||
+    (left.exportName ?? '').localeCompare(right.exportName ?? '')
+  )
+}
+
+export function contributionSourceRef(contribution: ModuleExtensionContributionFact): ModuleFactSourceRef {
+  return {
+    sourcePath: contribution.source.path,
+    ...(contribution.source.symbol ? { exportName: contribution.source.symbol } : {}),
+  }
 }

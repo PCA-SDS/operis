@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { StructureKind, VariableDeclarationKind } from 'ts-morph'
 import type { PackageResolver } from '../resolver'
-import { MODULE_CODE_EXTENSIONS } from './scanner'
+import { MODULE_CODE_EXTENSIONS, resolveConventionFile } from './scanner'
 import {
   toVar,
   type GeneratorResult,
@@ -49,14 +49,14 @@ export async function generateModuleDi(options: ModuleDiOptions): Promise<Genera
     const importName = `D_${toVar(modId)}_${i++}`
 
     if (useApp) {
-      warnIfDiMissingRegisterExport(findModuleConventionFilePath(roots.appBase, 'di'), quiet)
+      warnIfDiMissingRegisterExport(resolveConventionFile(roots.appBase, 'di'), quiet)
       // For @app modules, use relative path to work in both Next.js and Node.js CLI context
       // From .mercato/generated/, go up two levels (../..) to reach the app root, then into src/modules/
       const importPath = isAppModule ? `../../src/modules/${modId}/di` : `${imp.appBase}/di`
       imports.push({ name: importName, moduleSpecifier: importPath })
       registrars.push(`${importName}.register`)
     } else if (usePkg) {
-      warnIfDiMissingRegisterExport(findModuleConventionFilePath(roots.pkgBase, 'di'), quiet)
+      warnIfDiMissingRegisterExport(resolveConventionFile(roots.pkgBase, 'di'), quiet)
       imports.push({ name: importName, moduleSpecifier: `${imp.pkgBase}/di` })
       registrars.push(`${importName}.register`)
     }
@@ -108,14 +108,6 @@ export async function generateModuleDi(options: ModuleDiOptions): Promise<Genera
 
 function resolveModuleConventionFile(baseDir: string, basename: string): boolean {
   return MODULE_CODE_EXTENSIONS.some((extension) => fs.existsSync(path.join(baseDir, `${basename}${extension}`)))
-}
-
-function findModuleConventionFilePath(baseDir: string, basename: string): string | null {
-  for (const extension of MODULE_CODE_EXTENSIONS) {
-    const candidate = path.join(baseDir, `${basename}${extension}`)
-    if (fs.existsSync(candidate)) return candidate
-  }
-  return null
 }
 
 /**

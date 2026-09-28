@@ -1,5 +1,4 @@
 import type { ChildProcess, StdioOptions } from 'node:child_process'
-import { createServer } from 'node:net'
 import { existsSync, readFileSync } from 'node:fs'
 import { mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
@@ -11,7 +10,9 @@ import { fetchWithTimeout, type FetchWithTimeoutInit } from '@open-mercato/share
 import { resolveEnvironment } from '../resolver'
 import { resolveSpawnCommand } from '../spawn'
 import { discoverIntegrationSpecFiles as discoverIntegrationSpecFilesShared } from './integration-discovery'
-import { resolveDockerHostFromContext, runCommandAndCapture } from './runtime-utils'
+import { resolveDockerHostFromContext, runCommandAndCapture, getFreePort, isPortAvailable } from './runtime-utils'
+import { resolveYarnBinary } from '../yarn'
+import { readStringField } from '@open-mercato/shared/lib/string'
 
 type EphemeralRuntimeOptions = {
   verbose: boolean
@@ -422,10 +423,6 @@ type PlaywrightFailureHealthCheckOptions = {
 type TimedStepOptions = {
   expectedSeconds: number
   updateIntervalSeconds?: number
-}
-
-function resolveYarnBinary(): string {
-  return process.platform === 'win32' ? 'yarn.cmd' : 'yarn'
 }
 
 function buildEnvironment(overrides: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
@@ -1180,69 +1177,6 @@ export async function shouldRebuildBuildArtifacts(
   options: BuildCacheOptions = {},
 ): Promise<boolean> {
   return !(await shouldReuseBuildArtifacts(ttlSeconds, logPrefix, options))
-}
-
-async function getFreePort(): Promise<number> {
-  const tryListen = (host: string): Promise<number | null> => new Promise((resolve, reject) => {
-    const server = createServer()
-    server.on('error', (error) => {
-      const errorCode = (error as NodeJS.ErrnoException).code
-      if (errorCode === 'EAFNOSUPPORT') {
-        resolve(null)
-        return
-      }
-      reject(error)
-    })
-    server.listen(0, host, () => {
-      const address = server.address()
-      if (!address || typeof address === 'string') {
-        server.close()
-        reject(new Error('Unable to allocate free port'))
-        return
-      }
-      const port = address.port
-      server.close((closeError) => {
-        if (closeError) {
-          reject(closeError)
-          return
-        }
-        resolve(port)
-      })
-    })
-  })
-
-  return (await tryListen('::')) ?? await tryListen('127.0.0.1') ?? Promise.reject(new Error('Unable to allocate free port'))
-}
-
-async function isPortAvailable(port: number): Promise<boolean> {
-  const canBind = (host: string): Promise<boolean | null> => new Promise((resolve) => {
-    const server = createServer()
-    server.once('error', (error) => {
-      const errorCode = (error as NodeJS.ErrnoException).code
-      if (errorCode === 'EAFNOSUPPORT') {
-        resolve(null)
-        return
-      }
-      resolve(false)
-    })
-    server.listen(port, host, () => {
-      server.close(() => {
-        resolve(true)
-      })
-    })
-  })
-
-  const wildcardIpv6Availability = await canBind('::')
-  if (wildcardIpv6Availability === false) {
-    return false
-  }
-
-  const ipv4Availability = await canBind('127.0.0.1')
-  if (ipv4Availability === false) {
-    return false
-  }
-
-  return wildcardIpv6Availability === true || ipv4Availability === true
 }
 
 async function getPreferredPort(preferredPort: number): Promise<number> {
@@ -2857,11 +2791,6 @@ function readOptionalNumber(record: Record<string, unknown>, key: string): numbe
   return value
 }
 
-function readOptionalString(record: Record<string, unknown>, key: string): string | null {
-  const value = record[key]
-  return typeof value === 'string' ? value : null
-}
-
 async function readIntegrationTestRunSummary(): Promise<IntegrationTestRunSummary | null> {
   let resultsRaw: string
   try {
@@ -2898,7 +2827,7 @@ async function readIntegrationTestRunSummary(): Promise<IntegrationTestRunSummar
     flaky,
     skipped,
     durationMs: readOptionalNumber(statsValue, 'duration'),
-    startTime: readOptionalString(statsValue, 'startTime'),
+    startTime: readStringField(statsValue, 'startTime'),
   }
 }
 
