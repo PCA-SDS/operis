@@ -20,6 +20,8 @@ import { AttachmentContentPreview } from '@open-mercato/core/modules/attachments
 import { buildAttachmentFileUrl, buildAttachmentImageUrl, slugifyAttachmentFileName } from '@open-mercato/core/modules/attachments/lib/imageUrls'
 import { E } from '@open-mercato/core/generated-shims/entities.ids.generated'
 import { formatFileSize } from '@open-mercato/shared/lib/units/fileSize'
+import { resolveAbsoluteUrl } from './attachmentFiles'
+import { normalizeCustomFieldSubmitValue } from '../utils/customFieldSubmitValue'
 
 export type AttachmentAssignment = {
   type: string
@@ -97,27 +99,6 @@ type AttachmentMetadataDialogProps = {
   onSave: (id: string, payload: AttachmentMetadataSavePayload) => Promise<void>
 }
 
-
-const ENV_APP_URL = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '')
-
-function resolveAbsoluteUrl(path: string): string {
-  if (!path) return path
-  if (/^https?:\/\//i.test(path)) return path
-  const base =
-    ENV_APP_URL ||
-    (typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '')
-  if (!base) return path
-  const normalizedBase = base.replace(/\/$/, '')
-  return `${normalizedBase}${path.startsWith('/') ? path : `/${path}`}`
-}
-
-function normalizeCustomFieldSubmitValue(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    return value.filter((entry) => entry !== undefined)
-  }
-  if (value === undefined) return null
-  return value
-}
 
 function prepareAssignmentsForForm(assignments?: AttachmentAssignment[] | null): AssignmentDraft[] {
   return (assignments ?? []).map((assignment) => ({

@@ -23,7 +23,7 @@ export type {
 export { AddressesSection } from './AddressesSection'
 export type { AddressesSectionProps, AddressDataAdapter, AddressSummary } from './AddressesSection'
 export { default as AddressTiles } from './AddressTiles'
-export type { AddressInput, AddressValue as AddressTileValue, Translator as AddressTilesTranslator } from './AddressTiles'
+export type { AddressInput, AddressValue as AddressTileValue } from './AddressTiles'
 export { default as AddressEditor } from './AddressEditor'
 export type {
   AddressTypeOption,

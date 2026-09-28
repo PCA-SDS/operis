@@ -4,15 +4,14 @@ import * as React from 'react'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { surfaceRecordConflict } from '../conflicts'
 import { LoadingMessage } from '@open-mercato/ui/backend/detail'
-import { createTranslatorWithFallback } from '@open-mercato/shared/lib/i18n/translate'
+import { createTranslatorWithFallback, type TranslateWithFallbackFn } from '@open-mercato/shared/lib/i18n/translate'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import AddressTiles, { type AddressInput, type AddressValue } from './AddressTiles'
 import type { AddressTypesAdapter } from './AddressEditor'
 import type { AddressFormatStrategy } from './addressFormat'
 import { ComponentReplacementHandles } from '@open-mercato/shared/modules/widgets/component-registry'
 import { useRegisteredComponent } from '../injection/useRegisteredComponent'
-
-type Translator = (key: string, fallback?: string, params?: Record<string, string | number>) => string
+import { generateTempId } from './tempId'
 
 export type SectionAction = {
   label: React.ReactNode
@@ -59,7 +58,7 @@ export type AddressesSectionProps<C = unknown> = {
   addActionLabel: string
   emptyState: TabEmptyStateConfig
   onActionChange?: (action: SectionAction | null) => void
-  translator?: Translator
+  translator?: TranslateWithFallbackFn
   onLoadingChange?: (isLoading: boolean) => void
   dataAdapter: AddressDataAdapter<C>
   dataContext?: C
@@ -71,11 +70,6 @@ export type AddressesSectionProps<C = unknown> = {
   showCoordinateFields?: boolean
   /** Chrome for the section's own add buttons; see `AddressTiles`. */
   actionVariant?: 'outline' | 'soft'
-}
-
-function generateTempId() {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID()
-  return `tmp_${Math.random().toString(36).slice(2)}`
 }
 
 function AddressesSectionImpl<C = unknown>({
@@ -97,7 +91,7 @@ function AddressesSectionImpl<C = unknown>({
   actionVariant = 'outline',
 }: AddressesSectionProps<C>) {
   const tHook = useT()
-  const fallbackTranslator = React.useMemo<Translator>(() => createTranslatorWithFallback(tHook), [tHook])
+  const fallbackTranslator = React.useMemo<TranslateWithFallbackFn>(() => createTranslatorWithFallback(tHook), [tHook])
   const t = translator ?? fallbackTranslator
 
   const label = React.useCallback(
