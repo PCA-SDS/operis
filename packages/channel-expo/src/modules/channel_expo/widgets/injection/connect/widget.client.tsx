@@ -19,8 +19,8 @@ import {
   DialogTitle,
 } from '@open-mercato/ui/primitives/dialog'
 import { Input } from '@open-mercato/ui/primitives/input'
-import { Label } from '@open-mercato/ui/primitives/label'
 import { PasswordInput } from '@open-mercato/ui/primitives/password-input'
+import { FormField } from '@open-mercato/ui/primitives/form-field'
 
 type WidgetContext = Record<string, unknown> & {
   reload?: () => void
@@ -142,7 +142,7 @@ export default function ConnectExpoWidget({
                 "This is a shared, tenant-wide channel — every user's devices in this workspace are served by it.",
               )}
             </p>
-            <Field
+            <FormField
               label={t('communication_channels.push.connect.displayName', 'Display name')}
               error={fieldErrors.displayName}
             >
@@ -151,8 +151,8 @@ export default function ConnectExpoWidget({
                 onChange={(event) => update('displayName', event.target.value)}
                 aria-invalid={Boolean(fieldErrors.displayName)}
               />
-            </Field>
-            <Field
+            </FormField>
+            <FormField
               label={t('communication_channels.push.connect.fields.expo.accessToken', 'Access token (optional)')}
               error={fieldErrors.accessToken}
             >
@@ -161,7 +161,7 @@ export default function ConnectExpoWidget({
                 onChange={(event) => update('accessToken', event.target.value)}
                 aria-invalid={Boolean(fieldErrors.accessToken)}
               />
-            </Field>
+            </FormField>
           </div>
 
           <DialogFooter>
@@ -177,17 +177,5 @@ export default function ConnectExpoWidget({
         </DialogContent>
       </Dialog>
     </>
-  )
-}
-
-function Field(props: { label: string; error?: string; children: React.ReactNode }) {
-  return (
-    <label className="grid gap-1.5">
-      <Label asChild>
-        <span>{props.label}</span>
-      </Label>
-      {props.children}
-      {props.error ? <span className="text-xs text-destructive">{props.error}</span> : null}
-    </label>
   )
 }

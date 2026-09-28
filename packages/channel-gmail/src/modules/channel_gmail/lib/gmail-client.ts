@@ -15,6 +15,7 @@
  */
 
 import { fetchWithTimeout, FetchTimeoutError } from '@open-mercato/shared/lib/http/fetchWithTimeout'
+import { sleep } from '@open-mercato/shared/lib/async'
 
 const GMAIL_API_BASE = 'https://gmail.googleapis.com/gmail/v1'
 
@@ -288,10 +289,6 @@ function computeBackoff(attempt: number): number {
   const raw = GMAIL_BACKOFF_BASE_MS * Math.pow(2, attempt)
   const jitter = Math.floor(Math.random() * 100)
   return Math.min(raw + jitter, GMAIL_BACKOFF_CAP_MS)
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 export class GmailApiError extends Error {

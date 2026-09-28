@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { emailSchema } from '@open-mercato/shared/lib/validation'
 
 /**
  * Tenant-level OAuth client configuration. Stored on `IntegrationCredentials`
@@ -37,7 +38,7 @@ export const gmailUserCredentialsSchema = z
     /** Scopes that were actually granted (we may have requested a subset). */
     scopes: z.array(z.string()).optional(),
     /** Email address from the linked Google account. */
-    email: z.string().email().optional(),
+    email: emailSchema().optional(),
   })
   .passthrough()
 
