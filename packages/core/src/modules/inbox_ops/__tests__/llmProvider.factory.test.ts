@@ -1,28 +1,29 @@
 /** @jest-environment node */
 
 /**
- * Regression suite for the Step 5.1 factory-delegation shim in
- * `packages/core/src/modules/inbox_ops/lib/llmProvider.ts`.
+ * Regression suite for `packages/core/src/modules/inbox_ops/lib/llmProvider.ts`.
  *
- * Asserts that:
- *   1. The public export surface (`resolveExtractionProviderId`,
- *      `createStructuredModel`, `withTimeout`,
- *      `runExtractionWithConfiguredProvider`) is unchanged.
- *   2. `runExtractionWithConfiguredProvider` delegates to
- *      `createModelFactory` for model resolution (via the in-module
- *      `__inboxOpsLlmProviderInternal` seam) and calls
- *      `factory.resolveModel({ moduleId: 'inbox_ops', callerOverride })`.
- *   3. Existing consumers importing from the shim continue to receive the
- *      same model instance the factory produces.
+ * Asserts that extraction, translation and categorization resolve their model through
+ * `resolveScopedAiModel` for the organization in scope (so organization keys and the AI fallback
+ * policy apply), and that the legacy OpenCode env path only runs under the platform policy.
  */
 
 import { generateObject } from 'ai'
 import { AiModelFactoryError } from '@open-mercato/ai-assistant/modules/ai_assistant/lib/model-factory'
+import { IntegrationCredentialError } from '@open-mercato/shared/modules/integrations/credential-resolution'
 import * as llmProvider from '../lib/llmProvider'
 import { extractionOutputSchema } from '../data/validators'
 
+const resolveScopedAiModelMock = jest.fn()
+const resolveAiCredentialContextMock = jest.fn()
+
 jest.mock('ai', () => ({
   generateObject: jest.fn(),
+}))
+
+jest.mock('@open-mercato/ai-assistant/modules/ai_assistant/lib/ai-credentials', () => ({
+  resolveScopedAiModel: (...args: unknown[]) => resolveScopedAiModelMock(...args),
+  resolveAiCredentialContext: (...args: unknown[]) => resolveAiCredentialContextMock(...args),
 }))
 
 type ExtractionObject = ReturnType<typeof extractionOutputSchema.parse>
@@ -38,10 +39,22 @@ const FAKE_EXTRACTION_OBJECT = {
   summary: 'fake',
 } as unknown as ExtractionObject
 
-describe('inbox_ops llmProvider shim', () => {
-  const originalFactory = llmProvider.__inboxOpsLlmProviderInternal.createModelFactory
-  const originalContainer = llmProvider.__inboxOpsLlmProviderInternal.createContainer
+const scope = { tenantId: '11111111-1111-4111-8111-111111111111', organizationId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa' }
+const container = { resolve: jest.fn() }
 
+function resolution(overrides: Record<string, unknown> = {}) {
+  return {
+    model: { __kind: 'fake-model-from-factory' },
+    modelId: 'claude-haiku-fake',
+    providerId: 'anthropic',
+    source: 'module_env' as const,
+    credentialSource: 'customer' as const,
+    resolveProviderApiKey: () => null,
+    ...overrides,
+  }
+}
+
+describe('inbox_ops llmProvider', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     ;(generateObject as jest.Mock).mockResolvedValue({
@@ -50,52 +63,35 @@ describe('inbox_ops llmProvider shim', () => {
     })
   })
 
-  afterEach(() => {
-    llmProvider.__inboxOpsLlmProviderInternal.createModelFactory = originalFactory
-    llmProvider.__inboxOpsLlmProviderInternal.createContainer = originalContainer
-  })
-
-  it('preserves the pre-Step-5.1 public API shape', () => {
+  it('keeps the public API shape', () => {
     expect(typeof llmProvider.resolveExtractionProviderId).toBe('function')
     expect(typeof llmProvider.createStructuredModel).toBe('function')
     expect(typeof llmProvider.withTimeout).toBe('function')
     expect(typeof llmProvider.runExtractionWithConfiguredProvider).toBe('function')
+    expect(typeof llmProvider.resolveConfiguredStructuredModel).toBe('function')
   })
 
-  it('delegates runExtractionWithConfiguredProvider to createModelFactory', async () => {
-    const fakeModel = { __kind: 'fake-model-from-factory' }
-    const resolveModel = jest.fn(() => ({
-      model: fakeModel,
-      modelId: 'claude-haiku-fake',
-      providerId: 'anthropic',
-      source: 'module_env' as const,
-    }))
-    const createModelFactoryMock = jest.fn(() => ({ resolveModel }))
-    const fakeContainer = { __fake: true }
-    const createContainerMock = jest.fn(() => fakeContainer)
-
-    llmProvider.__inboxOpsLlmProviderInternal.createModelFactory =
-      createModelFactoryMock as unknown as typeof originalFactory
-    llmProvider.__inboxOpsLlmProviderInternal.createContainer =
-      createContainerMock as unknown as typeof originalContainer
+  it('resolves the extraction model for the email organization through the credential resolver', async () => {
+    const resolved = resolution()
+    resolveScopedAiModelMock.mockResolvedValue(resolved)
 
     const result = await llmProvider.runExtractionWithConfiguredProvider({
+      container,
+      scope,
+      correlationId: 'email-1',
       systemPrompt: 'system prompt',
       userPrompt: 'user prompt',
       modelOverride: 'caller-pinned',
       timeoutMs: 1000,
     })
 
-    expect(createContainerMock).toHaveBeenCalledTimes(1)
-    expect(createModelFactoryMock).toHaveBeenCalledTimes(1)
-    expect(createModelFactoryMock).toHaveBeenCalledWith(fakeContainer)
-    expect(resolveModel).toHaveBeenCalledWith({
-      moduleId: 'inbox_ops',
-      callerOverride: 'caller-pinned',
+    expect(resolveScopedAiModelMock).toHaveBeenCalledWith({
+      container,
+      request: { scope, operation: 'inbox_ops.email.extraction', correlationId: 'email-1' },
+      model: { moduleId: 'inbox_ops', callerOverride: 'caller-pinned' },
     })
-    expect(generateObject).toHaveBeenCalledTimes(1)
     const generateCall = (generateObject as jest.Mock).mock.calls[0][0]
-    expect(generateCall.model).toBe(fakeModel)
+    expect(generateCall.model).toBe(resolved.model)
     expect(generateCall.schema).toBe(extractionOutputSchema)
     expect(generateCall.system).toBe('system prompt')
     expect(generateCall.prompt).toBe('user prompt')
@@ -104,110 +100,88 @@ describe('inbox_ops llmProvider shim', () => {
     expect(result.modelWithProvider).toBe('anthropic/claude-haiku-fake')
   })
 
-  it('forwards the same model instance the factory produces', async () => {
-    const uniqueModel = { __kind: 'identity-marker', nonce: Math.random() }
-    const resolveModel = jest.fn(() => ({
-      model: uniqueModel,
-      modelId: 'identity-model',
-      providerId: 'anthropic',
-      source: 'agent_default' as const,
-    }))
-    llmProvider.__inboxOpsLlmProviderInternal.createModelFactory = (() => ({
-      resolveModel,
-    })) as unknown as typeof originalFactory
-    llmProvider.__inboxOpsLlmProviderInternal.createContainer =
-      (() => ({})) as unknown as typeof originalContainer
+  it('passes an undefined callerOverride through when no override is set', async () => {
+    resolveScopedAiModelMock.mockResolvedValue(resolution())
 
-    await llmProvider.runExtractionWithConfiguredProvider({
-      systemPrompt: 'x',
-      userPrompt: 'y',
-      timeoutMs: 1000,
-    })
-    const generateCall = (generateObject as jest.Mock).mock.calls[0][0]
-    expect(generateCall.model).toBe(uniqueModel)
-  })
+    await llmProvider.runExtractionWithConfiguredProvider({ container, scope, systemPrompt: 's', userPrompt: 'u', timeoutMs: 1000 })
 
-  it('passes undefined callerOverride through when modelOverride is absent', async () => {
-    const resolveModel = jest.fn(() => ({
-      model: { __kind: 'm' },
-      modelId: 'provider-default',
-      providerId: 'openai',
-      source: 'provider_default' as const,
-    }))
-    llmProvider.__inboxOpsLlmProviderInternal.createModelFactory = (() => ({
-      resolveModel,
-    })) as unknown as typeof originalFactory
-    llmProvider.__inboxOpsLlmProviderInternal.createContainer =
-      (() => ({})) as unknown as typeof originalContainer
-
-    await llmProvider.runExtractionWithConfiguredProvider({
-      systemPrompt: 's',
-      userPrompt: 'u',
-      timeoutMs: 1000,
-    })
-    expect(resolveModel).toHaveBeenCalledWith({
-      moduleId: 'inbox_ops',
-      callerOverride: undefined,
-    })
+    expect(resolveScopedAiModelMock.mock.calls[0][0].model).toEqual({ moduleId: 'inbox_ops', callerOverride: undefined })
   })
 
   it('builds a single-prefixed modelWithProvider for a gateway resolution', async () => {
-    const resolveModel = jest.fn(() => ({
-      model: { __kind: 'gw' },
-      modelId: 'anthropic/claude-sonnet-4.5',
-      providerId: 'openrouter',
-      source: 'env_default' as const,
-    }))
-    llmProvider.__inboxOpsLlmProviderInternal.createModelFactory = (() => ({
-      resolveModel,
-    })) as unknown as typeof originalFactory
-    llmProvider.__inboxOpsLlmProviderInternal.createContainer =
-      (() => ({})) as unknown as typeof originalContainer
+    resolveScopedAiModelMock.mockResolvedValue(resolution({ modelId: 'anthropic/claude-sonnet-4.5', providerId: 'openrouter' }))
 
-    const result = await llmProvider.runExtractionWithConfiguredProvider({
-      systemPrompt: 's',
-      userPrompt: 'u',
-      timeoutMs: 1000,
-    })
+    const result = await llmProvider.runExtractionWithConfiguredProvider({ container, scope, systemPrompt: 's', userPrompt: 'u', timeoutMs: 1000 })
+
     expect(result.modelWithProvider).toBe('openrouter/anthropic/claude-sonnet-4.5')
   })
 
-  it('exposes resolveConfiguredStructuredModel that routes through the factory (shared by categorize/translation)', async () => {
-    expect(typeof llmProvider.resolveConfiguredStructuredModel).toBe('function')
-    const model = { __kind: 'shared-model' }
-    const resolveModel = jest.fn(() => ({
-      model,
-      modelId: 'anthropic/claude-sonnet-4.5',
-      providerId: 'openrouter',
-      source: 'module_env' as const,
-    }))
-    llmProvider.__inboxOpsLlmProviderInternal.createModelFactory = (() => ({
-      resolveModel,
-    })) as unknown as typeof originalFactory
-    llmProvider.__inboxOpsLlmProviderInternal.createContainer =
-      (() => ({})) as unknown as typeof originalContainer
+  it('routes categorize/translation through the same resolution with their own operation', async () => {
+    const resolved = resolution({ modelId: 'anthropic/claude-sonnet-4.5', providerId: 'openrouter' })
+    resolveScopedAiModelMock.mockResolvedValue(resolved)
 
-    const res = await llmProvider.resolveConfiguredStructuredModel({ moduleId: 'inbox_ops' })
-    expect(res.model).toBe(model)
+    const res = await llmProvider.resolveConfiguredStructuredModel({
+      container,
+      scope,
+      operation: 'inbox_ops.proposal.translate',
+      moduleId: 'inbox_ops',
+    })
+
+    expect(res.model).toBe(resolved.model)
     expect(res.modelWithProvider).toBe('openrouter/anthropic/claude-sonnet-4.5')
-    expect(resolveModel).toHaveBeenCalledWith({ moduleId: 'inbox_ops', callerOverride: undefined })
+    expect(resolveScopedAiModelMock.mock.calls[0][0].request).toEqual({
+      scope,
+      operation: 'inbox_ops.proposal.translate',
+      correlationId: null,
+    })
+  })
+
+  it('propagates credential errors without trying the legacy env path', async () => {
+    resolveScopedAiModelMock.mockRejectedValue(new IntegrationCredentialError('integration_not_configured', { service: 'ai' }))
+
+    await expect(
+      llmProvider.resolveConfiguredStructuredModel({ container, scope, operation: 'x', moduleId: 'inbox_ops' }),
+    ).rejects.toMatchObject({ code: 'integration_not_configured' })
+    expect(resolveAiCredentialContextMock).not.toHaveBeenCalled()
+  })
+
+  it('never uses the legacy env path for an organization running on its own keys', async () => {
+    resolveScopedAiModelMock.mockRejectedValue(new AiModelFactoryError('no_provider_configured', 'none configured'))
+    resolveAiCredentialContextMock.mockResolvedValue({ source: 'customer', markModelUsed: jest.fn() })
+
+    await expect(
+      llmProvider.resolveConfiguredStructuredModel({ container, scope, operation: 'x', moduleId: 'inbox_ops' }),
+    ).rejects.toMatchObject({ code: 'integration_not_configured' })
+  })
+
+  it('records the legacy env fallback as platform credential use', async () => {
+    const saved = { provider: process.env.OM_AI_PROVIDER, key: process.env.ANTHROPIC_API_KEY }
+    process.env.OM_AI_PROVIDER = 'anthropic'
+    process.env.ANTHROPIC_API_KEY = 'sk-platform-anthropic'
+    const markModelUsed = jest.fn()
+    resolveScopedAiModelMock.mockRejectedValue(new AiModelFactoryError('no_provider_configured', 'none configured'))
+    resolveAiCredentialContextMock.mockResolvedValue({ source: 'platform', markModelUsed })
+    try {
+      const res = await llmProvider.resolveConfiguredStructuredModel({ container, scope, operation: 'x', moduleId: 'inbox_ops' })
+      expect(res.modelWithProvider).toMatch(/^anthropic\//)
+      expect(markModelUsed).toHaveBeenCalledWith('anthropic')
+    } finally {
+      if (saved.provider === undefined) delete process.env.OM_AI_PROVIDER
+      else process.env.OM_AI_PROVIDER = saved.provider
+      if (saved.key === undefined) delete process.env.ANTHROPIC_API_KEY
+      else process.env.ANTHROPIC_API_KEY = saved.key
+    }
   })
 
   it('fails loudly (never silently openai) when a non-native OM_AI_PROVIDER reaches the legacy fallback', async () => {
     const prev = process.env.OM_AI_PROVIDER
     process.env.OM_AI_PROVIDER = 'openrouter'
-    const resolveModel = jest.fn(() => {
-      throw new AiModelFactoryError('no_provider_configured', 'none configured')
-    })
-    llmProvider.__inboxOpsLlmProviderInternal.createModelFactory = (() => ({
-      resolveModel,
-    })) as unknown as typeof originalFactory
-    llmProvider.__inboxOpsLlmProviderInternal.createContainer =
-      (() => ({})) as unknown as typeof originalContainer
+    resolveScopedAiModelMock.mockRejectedValue(new AiModelFactoryError('no_provider_configured', 'none configured'))
+    resolveAiCredentialContextMock.mockResolvedValue({ source: 'platform', markModelUsed: jest.fn() })
 
     try {
       await expect(
-        llmProvider.resolveConfiguredStructuredModel({ moduleId: 'inbox_ops' }),
+        llmProvider.resolveConfiguredStructuredModel({ container, scope, operation: 'x', moduleId: 'inbox_ops' }),
       ).rejects.toThrow(/OM_AI_PROVIDER="openrouter"/)
     } finally {
       if (prev === undefined) delete process.env.OM_AI_PROVIDER

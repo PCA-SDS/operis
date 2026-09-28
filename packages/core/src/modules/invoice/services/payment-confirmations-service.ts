@@ -2,7 +2,8 @@ import { randomBytes } from 'node:crypto'
 import { UniqueConstraintViolationException } from '@mikro-orm/core'
 import type { EntityManager, FilterQuery } from '@mikro-orm/postgresql'
 import { badRequest, conflict, notFound, CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
-import { sendEmail } from '@open-mercato/shared/lib/email/send'
+import { deliverCustomerEmail, resolveCustomerEmailCredentialWith } from '@open-mercato/shared/lib/email/customer-send'
+import type { IntegrationCredentialResolver } from '@open-mercato/shared/modules/integrations/credential-resolution'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { getSecurityEmailBaseUrl } from '@open-mercato/shared/lib/url'
@@ -109,6 +110,7 @@ export class InvoicePaymentConfirmationsService {
     private readonly em: EntityManager,
     private readonly companyEmailsService: InvoiceCompanyEmailsService,
     private readonly invoiceService?: InvoiceService,
+    private readonly credentialResolver?: IntegrationCredentialResolver,
   ) {}
 
   private async findByPublicToken(rawToken: string) {
@@ -451,6 +453,11 @@ export class InvoicePaymentConfirmationsService {
     const { translate } = await resolveTranslations()
     let supersededCount = 0
     let companyId = ''
+    const emailCredential = await resolveCustomerEmailCredentialWith(this.credentialResolver, {
+      scope: { tenantId: scope.tenantId, organizationId: scope.organizationId },
+      operation: 'invoice.payment_confirmation.request',
+      correlationId: input.invoiceId,
+    })
 
     const result = await this.em.transactional(async (tx) => {
       const scopedPersistence = new InvoiceScopedPersistenceService(tx)
@@ -528,7 +535,7 @@ export class InvoicePaymentConfirmationsService {
         translate,
       })
       try {
-        await sendEmail({ to: input.recipientEmail, subject: email.subject, react: email.react })
+        await deliverCustomerEmail(emailCredential, { to: input.recipientEmail, subject: email.subject, react: email.react })
       } catch {
         logger.error('Payment confirmation email delivery failed', {
           confirmationId: confirmation.id,
@@ -587,6 +594,7 @@ export function createInvoicePaymentConfirmationsService(
   em: EntityManager,
   companyEmailsService: InvoiceCompanyEmailsService,
   invoiceService?: InvoiceService,
+  credentialResolver?: IntegrationCredentialResolver,
 ): InvoicePaymentConfirmationsService {
-  return new InvoicePaymentConfirmationsService(em, companyEmailsService, invoiceService)
+  return new InvoicePaymentConfirmationsService(em, companyEmailsService, invoiceService, credentialResolver)
 }

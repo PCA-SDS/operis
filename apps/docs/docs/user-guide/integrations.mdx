@@ -39,9 +39,15 @@ Each provider declares which credentials it requires (API keys, secrets, tokens)
 - Required fields are marked with an asterisk.
 - Secret fields (passwords, API keys) are masked after saving — they are stored encrypted.
 - Click **Save Credentials** in the top-right to persist changes.
+- Saved secrets are never shown again. To replace one, type the new value; a masked field you leave untouched keeps the stored secret.
+- When the provider supports it, **Test connection** checks the values in the form with the provider. A test saves nothing. Testing needs the same permission as saving credentials.
 
 :::tip
 Credentials are scoped per tenant and organization. Each tenant configures its own keys independently.
+:::
+
+:::info Email and AI keys
+Customer-facing email (quotes, invoices, portal invitations and similar) uses your organization's **Resend** integration. AI features use your organization's key from the **AI** category (OpenAI, Anthropic, Google, DeepInfra, Groq, Together AI or Fireworks AI). Until you save a key, those features report that they are not configured, unless your platform operator allows platform keys.
 :::
 
 ## Version management

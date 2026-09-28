@@ -17,6 +17,7 @@ The `integrations` module is the foundation layer for all external connectors (p
 - **All user-facing strings** via i18n keys in `i18n/en.json`
 - **Keep ACL default export shape** consistent: `export const features = [...]; export default features`
 - **Registry/type contracts** live in `@open-mercato/shared/modules/integrations/types`
+- **Resolve tenant service keys through `integrationCredentialResolver`** (see Organization Credentials below); never read a provider key from `process.env` for tenant work
 
 ## Ask First
 
@@ -30,6 +31,8 @@ The `integrations` module is the foundation layer for all external connectors (p
 - Never log credential values — log service strips secret fields from payload.
 - Never special-case provider env presets, credentials, mappings, or enabled state in core.
 - Never remove legacy `integrations.detail:tabs` fallback without a compatibility plan.
+- Never fall back to platform credentials after a read, decryption, database or configuration error. Only a missing credential under the `platform` policy may use them.
+- Never return, log, or queue a resolved secret. Keep it in the `IntegrationSecret` wrapper and call `reveal()` only at the provider call.
 
 ## Validation Commands
 
@@ -95,6 +98,7 @@ packages/core/src/modules/integrations/
 | `integrationCredentialsService` | `createCredentialsService(em)` | Encrypted credential CRUD with bundle fallthrough |
 | `integrationStateService` | `createIntegrationStateService(em)` | Upsert integration state (enabled, version, health, reauth) |
 | `integrationLogService` | `createIntegrationLogService(em)` | Structured logging: write, query, prune, scoped logger |
+| `integrationCredentialResolver` | `createIntegrationCredentialResolver(deps)` | Organization credentials for a service (email, AI) with the fallback policy and usage logging. See Organization Credentials below |
 | `integrationHealthService` | `createHealthService(container, stateService, logService)` | Resolves named health check service from DI, runs check with **10s timeout**, returns `unconfigured` when no checker/credentials, persists latency, updates state |
 
 Scheduled **integration-health-probe** jobs (15m interval) are registered from `setup.seedDefaults` when `schedulerService` is available; target payload is `{ scope: { organizationId, tenantId } }`.
@@ -132,6 +136,41 @@ For platform connectors with multiple integrations (e.g., MedusaJS):
 1. Direct credentials for the integration ID
 2. If `bundleId` is set, fallback to bundle's credentials
 3. Return `null` if neither exists
+
+`readForResolution` / `readManyForResolution` follow the same order for the resolver, pin `user_id IS NULL`, and throw `credential_unreadable` instead of returning `null` when a stored row cannot be decrypted or parsed.
+
+## Organization Credentials (email, AI)
+
+Spec: `.ai/specs/2026-09-29-customer-integration-credentials.md`. Contract: `@open-mercato/shared/modules/integrations/credential-resolution`. Implementation: `lib/credential-resolver.ts`, registered as `integrationCredentialResolver`.
+
+A provider opts in by declaring `credentialResolution: { service, secretField, platformEnv }` on its `IntegrationDefinition` (Resend is `email`; the `ai_<provider>` definitions from ai-assistant are `ai`). The resolver offers:
+
+- `resolve({ integrationId, scope, operation, correlationId })`: the organization's credential for one integration. Scope needs UUID `tenantId` and `organizationId`.
+- `resolveService({ service, ... })`: every enabled organization credential for a service, so AI can pick a provider.
+- `authorizePlatformUse(...)`: gate for work that can only run on platform keys (the OpenCode chat).
+- `getServiceStatus(...)`: "configured" flags for settings screens, without secrets.
+
+Fallback policy per service: `OM_EMAIL_CREDENTIAL_FALLBACK` and `OM_AI_CREDENTIAL_FALLBACK`, each `disabled` (default) or `platform`; any other value is `disabled`. Under `platform`, a missing organization credential resolves from `platformEnv` after writing a `credentials.platform_fallback` integration log entry. If that write fails, the call fails.
+
+Errors are `IntegrationCredentialError` with a `code` and HTTP `status`. Detect them with `isIntegrationCredentialError` (structural, safe across chunks) and answer with `integrationCredentialErrorResponse`. A background job stops without retrying on a permanent code (`isPermanentIntegrationCredentialError`, status below 500) and retries on a 5xx code.
+
+| Code | Status | Meaning |
+|---|---|---|
+| `tenant_context_missing` | 400 | Scope lacks a tenant or organization id |
+| `provider_unsupported` | 400 | The integration has no `credentialResolution` |
+| `integration_disabled` | 409 | The organization disabled the integration |
+| `integration_not_configured` | 409 | No organization key and fallback is disabled |
+| `platform_fallback_prohibited` | 409 | Platform-only work while fallback is disabled |
+| `credential_unreadable` | 503 | A stored key could not be read or decrypted; never falls back |
+| `platform_credential_unavailable` | 503 | `platform` policy but the platform key is unset |
+| `usage_recording_failed` | 503 | The fallback log entry could not be written |
+| `resolver_unavailable` | 503 | The DI service is not registered |
+
+Rules:
+
+- Background jobs carry only tenant, organization and record ids, and resolve at execution time.
+- Resolve before any side effect you cannot undo (for example, before marking a quote as sent).
+- `POST /api/integrations/:id/health` with `{ credentials }` tests unsaved values: it runs the provider health check, saves nothing, needs `integrations.credentials.manage`, and redacts submitted values from the probe message.
 
 ## Per-User Credential Scoping
 

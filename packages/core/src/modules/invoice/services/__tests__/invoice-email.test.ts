@@ -1,4 +1,5 @@
 import { sendEmail } from '@open-mercato/shared/lib/email/send'
+import { createTestCredentialResolver } from '@open-mercato/shared/lib/testing/integrationCredentials'
 
 import { Invoice, InvoiceLineItem } from '../../data/entities'
 import type { InvoiceScope } from '../../data/scope'
@@ -51,7 +52,13 @@ function buildInvoice(overrides: Partial<Invoice> = {}): Invoice {
   } as unknown as Invoice
 }
 
-function buildService(invoice: Invoice, companyEmailsService = { record: jest.fn().mockResolvedValue(null) }) {
+const organizationResend = { secret: 're_org_invoice_key', settings: { fromEmail: 'Billing <billing@org.test>' } }
+
+function buildService(
+  invoice: Invoice,
+  companyEmailsService = { record: jest.fn().mockResolvedValue(null) },
+  resolver = createTestCredentialResolver({ resend: organizationResend }),
+) {
   const em = {
     findOne: jest.fn().mockResolvedValue(invoice),
     flush: jest.fn().mockResolvedValue(undefined),
@@ -63,8 +70,9 @@ function buildService(invoice: Invoice, companyEmailsService = { record: jest.fn
     scopedPersistence,
     {} as never,
     companyEmailsService as never,
+    resolver,
   )
-  return { em, service, companyEmailsService }
+  return { em, service, companyEmailsService, resolver }
 }
 
 describe('InvoiceService.sendInvoice', () => {
@@ -97,6 +105,11 @@ describe('InvoiceService.sendInvoice', () => {
     const result = await service.sendInvoice(scope, invoiceId, { email: 'customer@example.com' })
 
     expect(callOrder).toEqual(['email', 'flush'])
+    expect(jest.mocked(sendEmail).mock.calls[0]?.[0]).toMatchObject({
+      apiKey: 're_org_invoice_key',
+      from: 'Billing <billing@org.test>',
+      to: 'customer@example.com',
+    })
     expect(invoice.emailTrackingTokenHash).toMatch(/^[0-9a-f]{64}$/)
     expect(invoice.lastSentAt).toBeInstanceOf(Date)
     expect(invoice.openedAt).toBeNull()
@@ -170,5 +183,33 @@ describe('InvoiceService.sendInvoice', () => {
       invoice: { id: invoiceId },
     })
     expect(companyEmailsService.record).toHaveBeenCalledWith(scope, { companyId, email: 'customer@example.com' })
+  })
+
+  it('resolves the credential for the invoice organization, not a caller-chosen one', async () => {
+    const invoice = buildInvoice()
+    const { service, resolver } = buildService(invoice)
+    jest.mocked(sendEmail).mockResolvedValue(undefined)
+
+    await service.sendInvoice(scope, invoiceId, { email: 'customer@example.com' })
+
+    expect(resolver.requests).toEqual([
+      expect.objectContaining({
+        integrationId: 'resend',
+        scope: { tenantId: scope.tenantId, organizationId: scope.organizationId },
+        operation: 'invoice.invoice.send',
+      }),
+    ])
+  })
+
+  it('refuses to send without an organization credential and leaves invoice state untouched', async () => {
+    const invoice = buildInvoice({ emailTrackingTokenHash: 'a'.repeat(64) } as Partial<Invoice>)
+    const { em, service } = buildService(invoice, undefined, createTestCredentialResolver({}))
+
+    await expect(service.sendInvoice(scope, invoiceId, { email: 'customer@example.com' })).rejects.toMatchObject({
+      code: 'integration_not_configured',
+    })
+    expect(sendEmail).not.toHaveBeenCalled()
+    expect(invoice.emailTrackingTokenHash).toBe('a'.repeat(64))
+    expect(em.flush).not.toHaveBeenCalled()
   })
 })

@@ -69,6 +69,8 @@ import {
 import { toolRegistry, registerMcpTool } from '../tool-registry'
 import { runAiAgentText, composeSystemPrompt } from '../agent-runtime'
 
+jest.mock('../ai-credentials', () => require('./helpers/platformAiCredentialsMock').platformAiCredentialsMock())
+
 function makeAgent(
   overrides: Partial<AiAgentDefinition> & Pick<AiAgentDefinition, 'id' | 'moduleId'>,
 ): AiAgentDefinition {

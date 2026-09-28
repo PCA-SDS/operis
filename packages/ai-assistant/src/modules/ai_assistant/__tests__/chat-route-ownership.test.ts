@@ -87,6 +87,7 @@ jest.mock('../lib/opencode-client', () => ({
 }))
 
 import { POST } from '../api/chat/route'
+import { createTestCredentialResolver } from '@open-mercato/shared/lib/testing/integrationCredentials'
 
 function buildRequest(body: Record<string, unknown>): any {
   return {
@@ -126,8 +127,10 @@ function aliceOwnerRow() {
 beforeEach(() => {
   jest.clearAllMocks()
   mockGetAuthFromRequest.mockResolvedValue(mockAuth)
+  const platformAiResolver = createTestCredentialResolver({}, { platformFallbackAllowed: true, defaultService: 'ai' })
   mockCreateRequestContainer.mockResolvedValue({
-    resolve: () => ({ identityCacheKey: 'em' }),
+    resolve: (name: string) => (name === 'integrationCredentialResolver' ? platformAiResolver : { identityCacheKey: 'em' }),
+    hasRegistration: (name: string) => name === 'integrationCredentialResolver',
   })
   mockFindWithDecryption.mockResolvedValue([])
   mockGenerateSessionToken.mockReturnValue('sess_alice_token')
@@ -317,5 +320,51 @@ describe('chat route — post-`done` binding wiring', () => {
 
     expect(mockGenerateSessionToken).not.toHaveBeenCalled()
     expect(mockBindOpencodeSessionToApiKey).not.toHaveBeenCalled()
+  })
+})
+
+describe('chat route — AI credential policy gate', () => {
+  const savedProvider = process.env.OM_AI_PROVIDER
+
+  afterEach(() => {
+    if (savedProvider === undefined) delete process.env.OM_AI_PROVIDER
+    else process.env.OM_AI_PROVIDER = savedProvider
+  })
+
+  function useResolver(resolver: ReturnType<typeof createTestCredentialResolver>) {
+    mockCreateRequestContainer.mockResolvedValue({
+      resolve: (name: string) => (name === 'integrationCredentialResolver' ? resolver : { identityCacheKey: 'em' }),
+      hasRegistration: (name: string) => name === 'integrationCredentialResolver',
+    })
+  }
+
+  it('refuses the OpenCode chat before minting a session when platform AI credentials are disabled', async () => {
+    useResolver(createTestCredentialResolver({}, { defaultService: 'ai' }))
+
+    const res = await POST(buildRequest({ messages: [{ role: 'user', content: 'hello' }] }))
+
+    expect(res.status).toBe(409)
+    expect(await res.json()).toMatchObject({ code: 'platform_fallback_prohibited' })
+    expect(mockGenerateSessionToken).not.toHaveBeenCalled()
+    expect(mockCreateSessionApiKey).not.toHaveBeenCalled()
+    expect(mockHandleOpenCodeMessageStreaming).not.toHaveBeenCalled()
+  })
+
+  it('records platform use against the provider the OpenCode server runs', async () => {
+    process.env.OM_AI_PROVIDER = 'google'
+    const resolver = createTestCredentialResolver({}, { platformFallbackAllowed: true, defaultService: 'ai' })
+    useResolver(resolver)
+    mockHandleOpenCodeMessageStreaming.mockImplementation(async () => undefined)
+
+    const res = await POST(buildRequest({ messages: [{ role: 'user', content: 'hello' }], sessionId: 'ses_alice' }))
+    await drainSseResponse(res)
+
+    expect(resolver.requests[0]).toMatchObject({
+      integrationId: 'ai_google',
+      scope: { tenantId: mockAuth.tenantId, organizationId: mockAuth.orgId },
+      operation: 'ai_assistant.opencode_chat',
+      correlationId: 'ses_alice',
+    })
+    expect(resolver.used).toEqual(['ai_google'])
   })
 })

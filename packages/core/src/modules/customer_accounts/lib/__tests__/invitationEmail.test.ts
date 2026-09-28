@@ -1,6 +1,7 @@
 /** @jest-environment node */
 
 import * as React from 'react'
+import { createTestCredentialResolver } from '@open-mercato/shared/lib/testing/integrationCredentials'
 
 const mockResolveTranslations = jest.fn()
 const mockSendEmail = jest.fn()
@@ -35,10 +36,15 @@ describe('sendCustomerInvitationEmail', () => {
 
   it('builds a portal invite link with the raw one-time token and sends the invite email', async () => {
     const { sendCustomerInvitationEmail } = await import('../invitationEmail')
-    const container = { resolve: jest.fn() }
+    const resolver = createTestCredentialResolver({ resend: { secret: 'org-portal-key' } })
+    const container = {
+      resolve: jest.fn((name: string) => (name === 'integrationCredentialResolver' ? resolver : undefined)),
+      hasRegistration: (name: string) => name === 'integrationCredentialResolver',
+    }
 
     await sendCustomerInvitationEmail({
-      container,
+      container: container as never,
+      tenantId: 'tenant-1',
       organizationId: 'org-1',
       email: 'buyer@example.com',
       rawToken: 'raw token+/=',
@@ -49,7 +55,13 @@ describe('sendCustomerInvitationEmail', () => {
       '/invite?token=raw%20token%2B%2F%3D',
       { container },
     )
+    expect(resolver.requests[0]).toMatchObject({
+      integrationId: 'resend',
+      scope: { tenantId: 'tenant-1', organizationId: 'org-1' },
+      operation: 'customer_accounts.invitation.send',
+    })
     expect(mockSendEmail).toHaveBeenCalledWith({
+      apiKey: 'org-portal-key',
       to: 'buyer@example.com',
       subject: expect.stringContaining('customer_accounts.invitation.email.subject'),
       react: expect.objectContaining({

@@ -10,6 +10,7 @@ export const INTEGRATION_MARKETPLACE_CATEGORIES = [
   'notification',
   'storage',
   'webhook',
+  'ai',
 ] as const
 
 export const INTEGRATION_MARKETPLACE_HEALTH_STATUSES = ['healthy', 'degraded', 'unhealthy', 'unconfigured'] as const

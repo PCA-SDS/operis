@@ -366,6 +366,13 @@ export interface CreateModelFactoryDependencies {
   registry?: AiModelFactoryRegistry
   /** Env lookup for `OM_AI_<MODULE>_MODEL` + provider credentials. */
   env?: EnvLookup
+  /**
+   * Providers usable in this context, set when an organization runs on its own keys. Module
+   * env, global env and agent-default provider/model preferences that name any other provider
+   * are ignored (the provider default model is used instead), because they express platform
+   * preferences, not requirements. Request, caller and tenant overrides still pin providers.
+   */
+  preferredProviderIds?: ReadonlySet<string>
 }
 
 function normalizeOverride(value: string | undefined): string | null {
@@ -639,13 +646,13 @@ export function createModelFactory(
       const agentDefaultProviderRaw = normalizeOverride(input.agentDefaultProvider)
       // OM_AI_PROVIDER is canonical; the legacy OPENCODE_PROVIDER is read as
       // a backward-compatibility fallback through readGlobalProviderFromEnv.
-      const globalProviderRaw = readGlobalProviderFromEnv(env, registry)
+      let globalProviderRaw = readGlobalProviderFromEnv(env, registry)
 
       const requestProviderHint = normalizeProviderHint(requestProviderRaw, registry)
       const providerOverrideHint = normalizeProviderHint(providerOverrideRaw, registry)
       const tenantProviderHint = normalizeProviderHint(tenantProviderRaw, registry)
-      const moduleProviderHint = normalizeProviderHint(moduleProviderRaw, registry)
-      const agentDefaultProviderHint = normalizeProviderHint(agentDefaultProviderRaw, registry)
+      let moduleProviderHint = normalizeProviderHint(moduleProviderRaw, registry)
+      let agentDefaultProviderHint = normalizeProviderHint(agentDefaultProviderRaw, registry)
 
       // Parse each model-axis source with its same-tier provider hint so a
       // configured vendor-prefix gateway (OpenRouter, Requesty, LiteLLM) keeps
@@ -653,9 +660,19 @@ export function createModelFactory(
       const requestModelParsed = requestModelRaw ? parseTierModel(requestModelRaw, requestProviderHint, registry, env) : null
       const callerParsed = callerRaw ? parseTierModel(callerRaw, providerOverrideHint, registry, env) : null
       const tenantModelParsed = tenantModelRaw ? parseTierModel(tenantModelRaw, tenantProviderHint, registry, env) : null
-      const moduleModelParsed = moduleModelRaw ? parseTierModel(moduleModelRaw, moduleProviderHint, registry, env) : null
-      const agentModelParsed = agentModelRaw ? parseTierModel(agentModelRaw, agentDefaultProviderHint, registry, env) : null
-      const globalModelParsed = globalModelRaw ? parseTierModel(globalModelRaw, globalProviderRaw, registry, env) : null
+      let moduleModelParsed = moduleModelRaw ? parseTierModel(moduleModelRaw, moduleProviderHint, registry, env) : null
+      let agentModelParsed = agentModelRaw ? parseTierModel(agentModelRaw, agentDefaultProviderHint, registry, env) : null
+      let globalModelParsed = globalModelRaw ? parseTierModel(globalModelRaw, globalProviderRaw, registry, env) : null
+      const preferredProviderIds = deps.preferredProviderIds
+      if (preferredProviderIds) {
+        const isPreferred = (providerId: string | null): boolean => providerId !== null && preferredProviderIds.has(providerId)
+        if (moduleModelParsed && !isPreferred(moduleModelParsed.providerHint ?? moduleProviderHint)) moduleModelParsed = null
+        if (agentModelParsed && !isPreferred(agentModelParsed.providerHint ?? agentDefaultProviderHint)) agentModelParsed = null
+        if (globalModelParsed && !isPreferred(globalModelParsed.providerHint ?? globalProviderRaw)) globalModelParsed = null
+        if (!isPreferred(moduleProviderHint)) moduleProviderHint = null
+        if (!isPreferred(agentDefaultProviderHint)) agentDefaultProviderHint = null
+        if (!isPreferred(globalProviderRaw)) globalProviderRaw = null
+      }
 
       // Walk the provider-axis seed list: slash hint beats plain provider at
       // the same step. We keep only the first (highest-priority) non-null hint.

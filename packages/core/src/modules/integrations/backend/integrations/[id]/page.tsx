@@ -36,7 +36,7 @@ import {
 } from '@open-mercato/shared/modules/integrations/types'
 import { LoadingMessage, ErrorMessage, RecordNotFoundState } from '@open-mercato/ui/backend/detail'
 import { LogList, type LogListEntry } from '@open-mercato/ui/backend/LogList'
-import { Activity, AlertTriangle, Bell, Calendar, CheckCircle2, CreditCard, FileText, FileX, HardDrive, Key, MessageSquare, RefreshCw, Settings, Truck, Webhook, XCircle, Zap } from 'lucide-react'
+import { Activity, AlertTriangle, Bell, Calendar, CheckCircle2, CreditCard, FileText, FileX, HardDrive, Key, MessageSquare, RefreshCw, Settings, Sparkles, Truck, Webhook, XCircle, Zap } from 'lucide-react'
 import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
 import { IntegrationScheduleTab } from '../../../../data_sync/components/IntegrationScheduleTab'
 import {
@@ -52,6 +52,7 @@ import {
 } from '../detail-page-refresh'
 import { isValidCredentialUrl } from '../../../lib/credentials-field-validation'
 import { isEditableCredentialField, type CredentialField } from '../credentialFields'
+import { CREDENTIAL_TEST_FIELD_ID, CredentialTestField } from '../../../components/CredentialTestField'
 import { splitLogPayload, formatLogDetailLabel } from '../../../lib/logPayload'
 import { resolveRouteId } from '@open-mercato/ui/backend/utils/routeParams'
 
@@ -103,6 +104,7 @@ type IntegrationDetail = {
     updatedAt: string | null
   }
   hasCredentials: boolean
+  hasHealthCheck?: boolean
   credentialsUpdatedAt?: string | null
   healthStatus: 'healthy' | 'degraded' | 'unhealthy' | 'unconfigured'
   analytics: IntegrationLogAnalytics
@@ -265,6 +267,7 @@ function DetailLogSparkline({ counts, className }: { counts: number[]; className
 }
 
 const CATEGORY_ICONS: Record<string, React.ElementType> = {
+  ai: Sparkles,
   payment: CreditCard,
   shipping: Truck,
   data_sync: RefreshCw,
@@ -802,10 +805,20 @@ export default function IntegrationDetailPage({ params }: IntegrationDetailPageP
     () => (detail?.integration.credentials?.fields ?? detail?.bundle?.credentials?.fields ?? []).filter(isEditableCredentialField),
     [detail?.bundle?.credentials?.fields, detail?.integration.credentials?.fields],
   )
-  const credentialFormFields = React.useMemo(
-    () => buildCredentialFields(editableCredentialFields),
-    [editableCredentialFields],
-  )
+  const credentialTestIntegrationId = detail?.hasHealthCheck ? detail.integration.id : null
+  const credentialFormFields = React.useMemo(() => {
+    const fields = buildCredentialFields(editableCredentialFields)
+    if (!credentialTestIntegrationId || fields.length === 0) return fields
+    const testField: CrudField = {
+      id: CREDENTIAL_TEST_FIELD_ID,
+      label: t('integrations.detail.credentials.test.label', 'Connection test'),
+      type: 'custom',
+      component: ({ values, disabled }) => (
+        <CredentialTestField integrationId={credentialTestIntegrationId} values={values ?? {}} disabled={disabled} />
+      ),
+    }
+    return [...fields, testField]
+  }, [credentialTestIntegrationId, editableCredentialFields, t])
   const credentialSchema = React.useMemo(() => (
     z.object({}).passthrough().superRefine((rawValues, ctx) => {
       const values = rawValues as Record<string, unknown>

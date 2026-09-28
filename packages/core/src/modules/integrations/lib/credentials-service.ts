@@ -1,13 +1,16 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
-import { decryptWithAesGcm, encryptWithAesGcm } from '@open-mercato/shared/lib/encryption/aes'
-import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
+import { decryptWithAesGcm, decryptWithAesGcmStrict, encryptWithAesGcm } from '@open-mercato/shared/lib/encryption/aes'
+import { findOneWithDecryption, findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { createKmsService } from '@open-mercato/shared/lib/encryption/kms'
+import { parseDecryptedFieldValue } from '@open-mercato/shared/lib/encryption/tenantDataEncryptionService'
+import { isRecord } from '@open-mercato/shared/lib/guards'
 import {
   getBundle,
   getIntegration,
   resolveIntegrationCredentialsSchema,
   type IntegrationScope,
 } from '@open-mercato/shared/modules/integrations/types'
+import { IntegrationCredentialError } from '@open-mercato/shared/modules/integrations/credential-resolution'
 import { EncryptionMap } from '../../entities/data/entities'
 import { IntegrationCredentials } from '../data/entities'
 import { parseDecryptedRecord } from '@open-mercato/shared/lib/encryption/decryptedRecord'
@@ -64,6 +67,10 @@ export function buildCredentialsFilter(integrationId: string, scope: Integration
   }
   return base
 }
+
+export type CredentialsReadResult =
+  | { status: 'missing' }
+  | { status: 'present'; values: Record<string, unknown> }
 
 export function createCredentialsService(em: EntityManager) {
   const credentialsEncryptionSpec = [{ field: 'credentials' }]
@@ -142,7 +149,124 @@ export function createCredentialsService(em: EntityManager) {
     }
   }
 
+  function unreadable(integrationId: string, cause?: unknown): IntegrationCredentialError {
+    return new IntegrationCredentialError('credential_unreadable', { integrationId, cause })
+  }
+
+  function parseStoredRecordStrict(value: unknown, integrationId: string): Record<string, unknown> {
+    if (isRecord(value)) return value
+    if (typeof value === 'string') {
+      const parsed = parseDecryptedFieldValue(value)
+      if (isRecord(parsed)) return parsed
+    }
+    throw unreadable(integrationId)
+  }
+
+  async function decryptCredentialsBlobStrict(
+    credentialsInput: unknown,
+    integrationId: string,
+    scope: IntegrationScope,
+  ): Promise<Record<string, unknown>> {
+    const credentials = parseStoredRecordStrict(credentialsInput, integrationId)
+    if (!(ENCRYPTED_CREDENTIALS_BLOB_KEY in credentials)) return credentials
+    const encrypted = credentials[ENCRYPTED_CREDENTIALS_BLOB_KEY]
+    if (typeof encrypted !== 'string' || !encrypted) throw unreadable(integrationId)
+    let decryptedRaw: string
+    try {
+      const dek = await resolveCredentialsDek(scope)
+      decryptedRaw = decryptWithAesGcmStrict(encrypted, dek)
+    } catch (error) {
+      throw unreadable(integrationId, error)
+    }
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(decryptedRaw)
+    } catch (error) {
+      throw unreadable(integrationId, error)
+    }
+    if (!isRecord(parsed)) throw unreadable(integrationId)
+    return parsed
+  }
+
   return {
+    /**
+     * Strict read used by `integrationCredentialResolver`. Unlike {@link getRaw}, a row that
+     * cannot be decrypted or parsed throws `credential_unreadable` instead of reading as empty,
+     * so corrupted storage can never look like "not configured" and trigger a platform fallback.
+     */
+    async readForResolution(integrationId: string, scope: IntegrationScope): Promise<CredentialsReadResult> {
+      const tenantWideScope: IntegrationScope = { tenantId: scope.tenantId, organizationId: scope.organizationId, userId: null }
+      let row = await findOneWithDecryption(
+        em,
+        IntegrationCredentials,
+        buildCredentialsFilter(integrationId, tenantWideScope),
+        undefined,
+        tenantWideScope,
+      )
+      let rowIntegrationId = integrationId
+      if (!row) {
+        const bundleId = getIntegration(integrationId)?.bundleId
+        if (bundleId) {
+          row = await findOneWithDecryption(
+            em,
+            IntegrationCredentials,
+            buildCredentialsFilter(bundleId, tenantWideScope),
+            undefined,
+            tenantWideScope,
+          )
+          rowIntegrationId = bundleId
+        }
+      }
+      if (!row) return { status: 'missing' }
+      const values = await decryptCredentialsBlobStrict(row.credentials, rowIntegrationId, tenantWideScope)
+      return { status: 'present', values }
+    },
+
+    /**
+     * Batch form of {@link readForResolution} (one query for all ids, bundle fallthrough
+     * included). Any unreadable row throws `credential_unreadable` for the whole batch.
+     */
+    async readManyForResolution(
+      integrationIds: readonly string[],
+      scope: IntegrationScope,
+    ): Promise<Map<string, CredentialsReadResult>> {
+      const tenantWideScope: IntegrationScope = { tenantId: scope.tenantId, organizationId: scope.organizationId, userId: null }
+      const bundleByIntegration = new Map<string, string>()
+      for (const integrationId of integrationIds) {
+        const bundleId = getIntegration(integrationId)?.bundleId
+        if (bundleId) bundleByIntegration.set(integrationId, bundleId)
+      }
+      const lookupIds = Array.from(new Set([...integrationIds, ...bundleByIntegration.values()]))
+      const results = new Map<string, CredentialsReadResult>()
+      if (lookupIds.length === 0) return results
+      const rows = await findWithDecryption(
+        em,
+        IntegrationCredentials,
+        {
+          integrationId: { $in: lookupIds },
+          organizationId: tenantWideScope.organizationId,
+          tenantId: tenantWideScope.tenantId,
+          userId: null,
+          deletedAt: null,
+        },
+        undefined,
+        tenantWideScope,
+      )
+      const rowsById = new Map(rows.map((row) => [row.integrationId, row]))
+      for (const integrationId of integrationIds) {
+        const bundleId = bundleByIntegration.get(integrationId)
+        const row = rowsById.get(integrationId) ?? (bundleId ? rowsById.get(bundleId) : undefined)
+        if (!row) {
+          results.set(integrationId, { status: 'missing' })
+          continue
+        }
+        const values = await decryptCredentialsBlobStrict(row.credentials, row.integrationId, tenantWideScope)
+        results.set(integrationId, { status: 'present', values })
+      }
+      return results
+    },
+
+
     async getRaw(integrationId: string, scope: IntegrationScope): Promise<Record<string, unknown> | null> {
       let row = await findOneWithDecryption(
         em,

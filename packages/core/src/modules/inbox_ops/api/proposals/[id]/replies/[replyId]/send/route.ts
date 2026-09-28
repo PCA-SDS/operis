@@ -1,8 +1,15 @@
 import { NextResponse } from 'next/server'
 import { raw } from '@mikro-orm/core'
 import { Resend } from 'resend'
-import { parseBooleanWithDefault } from '@open-mercato/shared/lib/boolean'
 import { resolveDefaultEmailFromAddress } from '@open-mercato/shared/lib/email/config'
+import { isEmailDeliveryDisabled } from '@open-mercato/shared/lib/email/delivery'
+import { RESEND_INTEGRATION_ID } from '@open-mercato/shared/lib/email/customer-send'
+import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
+import {
+  integrationCredentialErrorResponse,
+  isIntegrationCredentialError,
+  requireIntegrationCredentialResolver,
+} from '@open-mercato/shared/modules/integrations/credential-resolution'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { InboxProposalAction, InboxEmail } from '../../../../../../data/entities'
@@ -85,20 +92,19 @@ export async function POST(req: Request) {
     }
     const { to: toAddress, toName, subject, body } = payloadResult.data
 
-    const apiKey = process.env.RESEND_API_KEY
-    if (!apiKey) {
-      return NextResponse.json({ error: 'Email service not configured' }, { status: 503 })
-    }
-
-    const emailDisabled =
-      parseBooleanWithDefault(process.env.OM_DISABLE_EMAIL_DELIVERY, false) ||
-      parseBooleanWithDefault(process.env.OM_TEST_MODE, false)
-    if (emailDisabled) {
+    if (isEmailDeliveryDisabled()) {
       return NextResponse.json({ error: 'Email delivery is disabled' }, { status: 503 })
     }
 
+    const credential = await requireIntegrationCredentialResolver(ctx.container).resolve({
+      integrationId: RESEND_INTEGRATION_ID,
+      scope: { tenantId: ctx.tenantId, organizationId: ctx.organizationId },
+      operation: 'inbox_ops.reply.send',
+      correlationId: action.id,
+    })
+
     const { inReplyToMessageId, references: payloadReferences } = payloadResult.data
-    const fromAddress = resolveDefaultEmailFromAddress()
+    const fromAddress = credential.settings.fromEmail ?? resolveDefaultEmailFromAddress()
     if (!fromAddress) {
       return NextResponse.json({
         error: 'Email sender is not configured. Set NOTIFICATIONS_EMAIL_FROM, EMAIL_FROM, or ADMIN_EMAIL.',
@@ -166,7 +172,7 @@ export async function POST(req: Request) {
       }
     }
 
-    const resend = new Resend(apiKey)
+    const resend = new Resend(credential.secret.reveal())
     const { data: sendData, error: sendError } = await resend.emails.send({
       to: toAddress,
       from: fromAddress,
@@ -223,6 +229,10 @@ export async function POST(req: Request) {
       ...(messagesResult ? { messageRecordId: messagesResult.messageId } : {}),
     })
   } catch (err) {
+    if (isIntegrationCredentialError(err)) {
+      const { translate } = await resolveTranslations()
+      return integrationCredentialErrorResponse(err, translate)
+    }
     return handleRouteError(err, 'send reply')
   }
 }

@@ -1,8 +1,16 @@
+import { createTestCredentialResolver } from '@open-mercato/shared/lib/testing/integrationCredentials'
 import {
   createMessageAccessToken,
   sendMessageEmailToExternal,
   sendMessageEmailToRecipient,
 } from '../email-sender'
+
+function containerWith(resolver: ReturnType<typeof createTestCredentialResolver>) {
+  return {
+    resolve: <T,>(name: string) => (name === 'integrationCredentialResolver' ? resolver : undefined) as T,
+    hasRegistration: (name: string) => name === 'integrationCredentialResolver',
+  }
+}
 
 const sendEmailMock = jest.fn(async () => {})
 const loadDictionaryMock = jest.fn(async () => ({}))
@@ -42,6 +50,15 @@ const baseMessage = {
   subject: 'Subject',
   body: 'Body',
   sentAt: new Date('2026-02-15T10:00:00.000Z'),
+} as never
+
+const scopedMessage = {
+  id: 'message-1',
+  subject: 'Subject',
+  body: 'Body',
+  sentAt: new Date('2026-02-15T10:00:00.000Z'),
+  tenantId: '11111111-1111-4111-8111-111111111111',
+  organizationId: '22222222-2222-4222-8222-222222222222',
 } as never
 
 describe('messages email sender', () => {
@@ -120,8 +137,10 @@ describe('messages email sender', () => {
   })
 
   it('sends external email without view url', async () => {
+    const resolver = createTestCredentialResolver({ resend: { secret: 're_org_messages_key' } })
     await sendMessageEmailToExternal({
-      message: baseMessage,
+      container: containerWith(resolver),
+      message: scopedMessage,
       email: 'external@example.com',
       sender: { name: null, email: 'sender@example.com' },
       objects: [],
@@ -132,13 +151,32 @@ describe('messages email sender', () => {
       expect.objectContaining({
         to: 'external@example.com',
         subject: 'Subject',
+        apiKey: 're_org_messages_key',
       }),
     )
+    expect(resolver.requests[0]).toMatchObject({
+      integrationId: 'resend',
+      scope: { tenantId: '11111111-1111-4111-8111-111111111111', organizationId: '22222222-2222-4222-8222-222222222222' },
+      operation: 'messages.message.email_external',
+    })
     expect(messageEmailMock).toHaveBeenCalledWith(
       expect.objectContaining({
         senderName: 'sender@example.com',
         viewUrl: null,
       }),
     )
+  })
+
+  it('does not send external email when the organization has no email credential', async () => {
+    await expect(sendMessageEmailToExternal({
+      container: containerWith(createTestCredentialResolver({})),
+      message: scopedMessage,
+      email: 'external@example.com',
+      sender: { name: null, email: 'sender@example.com' },
+      objects: [],
+      attachments: [],
+    })).rejects.toMatchObject({ code: 'integration_not_configured' })
+
+    expect(sendEmailMock).not.toHaveBeenCalled()
   })
 })

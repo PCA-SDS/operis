@@ -11,6 +11,7 @@ import {
 import { aiTools } from '../ai-tools'
 import { setClaimLineAssessmentCommand } from '../commands/claim-lines'
 import { POST } from '../api/ai/assess/route'
+import { createTestCredentialResolver } from '@open-mercato/shared/lib/testing/integrationCredentials'
 
 const TENANT_ID = '11111111-1111-4111-8111-111111111111'
 const ORG_ID = '22222222-2222-4222-8222-222222222222'
@@ -267,6 +268,8 @@ function makeEm(): EntityManager {
   return carrier as unknown as EntityManager
 }
 
+const platformAiResolver = createTestCredentialResolver({}, { platformFallbackAllowed: true, defaultService: 'ai' })
+
 function makeContainer(em: EntityManager): AwilixContainer {
   const commandBus = { execute: commandExecuteMock }
   const container = {
@@ -277,6 +280,7 @@ function makeContainer(em: EntityManager): AwilixContainer {
       if (name === 'attachmentTargetAccessService') {
         return { canAccessLinkedTarget: attachmentTargetAccessMock } as T
       }
+      if (name === 'integrationCredentialResolver') return platformAiResolver as T
       throw new Error(`Unexpected container service: ${name}`)
     },
   }
@@ -352,9 +356,12 @@ describe('warranty claim AI assessment packet', () => {
     attachmentTargetAccessMock.mockResolvedValue(true)
     findOneWithDecryptionMock.mockImplementation((_em: unknown, entity: unknown) => mockFindOne(entity))
     findWithDecryptionMock.mockResolvedValue([])
-    createModelFactoryMock.mockImplementation(() => {
-      throw new Error('No AI provider configured')
-    })
+    createModelFactoryMock.mockImplementation(() => ({
+      resolveModel: () => {
+        const { AiModelFactoryError } = jest.requireMock('@open-mercato/ai-assistant/modules/ai_assistant/lib/model-factory')
+        throw new AiModelFactoryError('no_provider_configured', 'No AI provider configured')
+      },
+    }))
   })
 
   test('vision helpers map missing model configuration to WarrantyAiNotConfiguredError', async () => {

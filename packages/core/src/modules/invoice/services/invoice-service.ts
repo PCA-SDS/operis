@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import type { EntityManager, FilterQuery } from '@mikro-orm/postgresql'
 import type { QueryEngine } from '@open-mercato/shared/lib/query/types'
-import { sendEmail } from '@open-mercato/shared/lib/email/send'
+import { deliverCustomerEmail, resolveCustomerEmailCredentialWith } from '@open-mercato/shared/lib/email/customer-send'
+import type { IntegrationCredentialResolver } from '@open-mercato/shared/modules/integrations/credential-resolution'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { detectLocale, resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { E } from '#generated/entities.ids.generated'
@@ -292,6 +293,7 @@ export class InvoiceService {
     private readonly scopedPersistence: InvoiceScopedPersistenceService,
     private readonly exchangeRatesService: InvoiceExchangeRatesService = createInvoiceExchangeRatesService(),
     private readonly companyEmailsService?: InvoiceCompanyEmailsService,
+    private readonly credentialResolver?: IntegrationCredentialResolver,
   ) {}
 
   forTransaction(em: EntityManager): InvoiceService {
@@ -301,6 +303,7 @@ export class InvoiceService {
       new InvoiceScopedPersistenceService(em),
       this.exchangeRatesService,
       this.companyEmailsService,
+      this.credentialResolver,
     )
   }
 
@@ -638,8 +641,13 @@ export class InvoiceService {
       translate,
     })
 
+    const emailCredential = await resolveCustomerEmailCredentialWith(this.credentialResolver, {
+      scope: { tenantId: scope.tenantId, organizationId: scope.organizationId },
+      operation: 'invoice.invoice.send',
+      correlationId: invoice.id,
+    })
     try {
-      await sendEmail({ to: input.email, subject: email.subject, react: email.react })
+      await deliverCustomerEmail(emailCredential, { to: input.email, subject: email.subject, react: email.react })
     } catch (err) {
       logger.error('Invoice email delivery failed', {
         invoiceId: invoice.id,
@@ -1178,6 +1186,7 @@ export function createInvoiceService(
   scopedPersistence: InvoiceScopedPersistenceService,
   exchangeRatesService: InvoiceExchangeRatesService = createInvoiceExchangeRatesService(),
   companyEmailsService?: InvoiceCompanyEmailsService,
+  credentialResolver?: IntegrationCredentialResolver,
 ): InvoiceService {
-  return new InvoiceService(em, queryEngine, scopedPersistence, exchangeRatesService, companyEmailsService)
+  return new InvoiceService(em, queryEngine, scopedPersistence, exchangeRatesService, companyEmailsService, credentialResolver)
 }

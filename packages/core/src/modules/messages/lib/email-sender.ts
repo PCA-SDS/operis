@@ -13,6 +13,9 @@ import { generateAuthToken, hashAuthToken } from '../../auth/lib/tokenHash'
 import type { MessageEmailAttachment } from './attachments'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { renderMarkdownEmailBody } from '../../../lib/email/markdownBody'
+import { sendCustomerEmail } from '@open-mercato/shared/lib/email/customer-send'
+
+type CustomerEmailContainer = Parameters<typeof sendCustomerEmail>[0]
 
 const logger = createLogger('messages').child({ component: 'email-sender' })
 
@@ -192,13 +195,14 @@ export async function sendMessageEmailToRecipient(params: {
 }
 
 export async function sendMessageEmailToExternal(params: {
+  container: CustomerEmailContainer
   message: Message
   email: string
   sender: SenderIdentity
   objects: MessageObject[]
   attachments: MessageEmailAttachment[]
 }): Promise<void> {
-  const { message, email, sender, objects, attachments } = params
+  const { container, message, email, sender, objects, attachments } = params
   const copy = await buildEmailCopy(message.sentAt ?? new Date())
   const bodyHtml = await buildEmailBodyHtml(message)
   const resendAttachments = await mapAttachmentsForEmail(message.id, attachments)
@@ -206,11 +210,12 @@ export async function sendMessageEmailToExternal(params: {
     messageId: message.id,
     email,
     attachmentsCount: resendAttachments.length,
-    hasApiKey: Boolean(process.env.RESEND_API_KEY),
-    from: resolveDefaultEmailFromAddress() ?? null,
   })
 
-  await sendEmail({
+  const { source } = await sendCustomerEmail(container, {
+    scope: { tenantId: message.tenantId, organizationId: message.organizationId ?? null },
+    operation: 'messages.message.email_external',
+    correlationId: message.id,
     to: email,
     subject: message.subject,
     react: MessageEmail({
@@ -229,5 +234,6 @@ export async function sendMessageEmailToExternal(params: {
   logDebug('External email sent via Resend', {
     messageId: message.id,
     email,
+    credentialSource: source,
   })
 }

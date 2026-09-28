@@ -98,3 +98,103 @@ describe('integrations health POST route — mutation guard contract', () => {
     expect(runAfterSuccessMock).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('integrations health POST route — testing unsaved credentials', () => {
+  const testCredentialsMock = jest.fn()
+  const runHealthCheckMock = jest.fn()
+  const userHasAllFeaturesMock = jest.fn()
+  const saveMock = jest.fn()
+  const schema = {
+    fields: [
+      { key: 'apiKey', label: 'API key', type: 'secret', required: true },
+      { key: 'fromEmail', label: 'Sender', type: 'text' },
+    ],
+  }
+
+  function buildTestRequest(body: unknown): Request {
+    return new Request('http://localhost/api/integrations/resend/health', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    ;(getAuthFromRequest as jest.Mock).mockResolvedValue({ tenantId: 't1', orgId: 'o1', sub: 'u1' })
+    ;(getIntegration as jest.Mock).mockReturnValue({ id: 'resend', title: 'Resend' })
+    userHasAllFeaturesMock.mockResolvedValue(true)
+    testCredentialsMock.mockResolvedValue({
+      status: 'unhealthy',
+      message: 'Resend rejected the API key with HTTP 401',
+      details: { provider: 'resend', httpStatus: 401 },
+      latencyMs: 40,
+      checkedAt: '2026-09-29T00:00:00.000Z',
+    })
+    ;(createRequestContainer as jest.Mock).mockResolvedValue({
+      resolve: (key: string) => {
+        if (key === 'rbacService') return { userHasAllFeatures: userHasAllFeaturesMock }
+        if (key === 'integrationHealthService') return { testCredentials: testCredentialsMock, runHealthCheck: runHealthCheckMock }
+        if (key === 'integrationCredentialsService') {
+          return {
+            getSchema: () => schema,
+            resolve: async () => ({ apiKey: 're_stored_secret', fromEmail: 'Ops <ops@acme.test>' }),
+            save: saveMock,
+          }
+        }
+        throw new Error(`unexpected resolve(${key})`)
+      },
+    })
+  })
+
+  it('requires the credentials permission on top of integrations.manage', async () => {
+    userHasAllFeaturesMock.mockResolvedValue(false)
+
+    const response = await POST(buildTestRequest({ credentials: { apiKey: 're_new' } }), { params: { id: 'resend' } })
+
+    expect(response.status).toBe(403)
+    expect(userHasAllFeaturesMock).toHaveBeenCalledWith('u1', ['integrations.credentials.manage'], { organizationId: 'o1', tenantId: 't1' })
+    expect(testCredentialsMock).not.toHaveBeenCalled()
+    expect(runRouteMutationGuards).not.toHaveBeenCalled()
+  })
+
+  it('tests the submitted key without saving it or touching health state', async () => {
+    const response = await POST(
+      buildTestRequest({ credentials: { apiKey: 're_submitted_key', fromEmail: 'Billing <billing@acme.test>' } }),
+      { params: { id: 'resend' } },
+    )
+
+    expect(response.status).toBe(200)
+    expect(testCredentialsMock).toHaveBeenCalledWith(
+      'resend',
+      { apiKey: 're_submitted_key', fromEmail: 'Billing <billing@acme.test>' },
+      { organizationId: 'o1', tenantId: 't1' },
+    )
+    expect(saveMock).not.toHaveBeenCalled()
+    expect(runHealthCheckMock).not.toHaveBeenCalled()
+    expect(runRouteMutationGuards).not.toHaveBeenCalled()
+    const body = await response.text()
+    expect(body).not.toContain('re_submitted_key')
+    expect(body).not.toContain('re_stored_secret')
+  })
+
+  it('keeps the stored secret when the form sends the masked placeholder', async () => {
+    await POST(
+      buildTestRequest({ credentials: { apiKey: '__om_secret_unchanged__', fromEmail: 'Billing <billing@acme.test>' } }),
+      { params: { id: 'resend' } },
+    )
+
+    expect(testCredentialsMock).toHaveBeenCalledWith(
+      'resend',
+      { apiKey: 're_stored_secret', fromEmail: 'Billing <billing@acme.test>' },
+      { organizationId: 'o1', tenantId: 't1' },
+    )
+  })
+
+  it('rejects a malformed credentials payload', async () => {
+    const response = await POST(buildTestRequest({ credentials: 'not-an-object' }), { params: { id: 'resend' } })
+
+    expect(response.status).toBe(422)
+    expect(testCredentialsMock).not.toHaveBeenCalled()
+  })
+})

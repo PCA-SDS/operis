@@ -71,6 +71,7 @@ jest.mock('../../../../data/repositories/AiAgentRuntimeOverrideRepository', () =
 }))
 
 import { POST } from '../route'
+import { createTestCredentialResolver } from '@open-mercato/shared/lib/testing/integrationCredentials'
 
 function makeAgent(
   overrides: Partial<AiAgentDefinition> & Pick<AiAgentDefinition, 'id' | 'moduleId'>,
@@ -128,12 +129,15 @@ describe('POST /api/ai/chat', () => {
       orgId: 'org-1',
     })
     loadAclMock.mockResolvedValue({ features: ['ai_assistant.view'], isSuperAdmin: false })
+    const platformAiResolver = createTestCredentialResolver({}, { platformFallbackAllowed: true, defaultService: 'ai' })
     createRequestContainerMock.mockResolvedValue({
       resolve: (name: string) => {
         if (name === 'rbacService') return { loadAcl: loadAclMock }
         if (name === 'em') return {}
+        if (name === 'integrationCredentialResolver') return platformAiResolver
         return null
       },
+      hasRegistration: (name: string) => name === 'integrationCredentialResolver',
     })
     tenantAllowlistGetSnapshotMock.mockResolvedValue(null)
     agentRuntimeOverrideGetExactMock.mockResolvedValue(null)

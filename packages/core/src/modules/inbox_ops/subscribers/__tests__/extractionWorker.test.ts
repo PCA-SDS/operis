@@ -2,6 +2,7 @@
 
 import handle from '../extractionWorker'
 import { InboxEmail, InboxProposal, InboxProposalAction, InboxDiscrepancy, InboxSettings } from '../../data/entities'
+import { IntegrationCredentialError } from '@open-mercato/shared/modules/integrations/credential-resolution'
 
 jest.mock('@open-mercato/shared/lib/logger', () => {
   const mocked = {
@@ -277,6 +278,12 @@ describe('extractionWorker', () => {
 
       await handle(basePayload, mockCtx as any)
 
+      expect(mockRunExtraction).toHaveBeenCalledWith(expect.objectContaining({
+        container: mockCtx,
+        scope: { tenantId: 'tenant-1', organizationId: 'org-1' },
+        correlationId: 'email-1',
+      }))
+
       expect(mockCreate).toHaveBeenCalledWith(
         InboxProposal,
         expect.objectContaining({
@@ -333,6 +340,21 @@ describe('extractionWorker', () => {
           error: expect.stringContaining('API rate limit exceeded'),
         }),
       )
+    })
+
+    it('fails with an actionable message when the organization has no AI credential', async () => {
+      mockNativeUpdate.mockResolvedValue(1)
+      const email = makeEmail()
+      mockFindOneWithDecryption.mockResolvedValueOnce(email)
+      mockRunExtraction.mockRejectedValueOnce(
+        new IntegrationCredentialError('integration_not_configured', { service: 'ai' }),
+      )
+
+      await handle(basePayload, mockCtx as any)
+
+      expect(email.status).toBe('failed')
+      expect(email.processingError).toContain('AI provider')
+      expect(email.processingError).toContain('Integrations')
     })
   })
 

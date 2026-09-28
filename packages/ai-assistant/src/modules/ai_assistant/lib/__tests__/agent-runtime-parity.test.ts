@@ -62,6 +62,8 @@ import * as agentToolsModule from '../agent-tools'
 import { AgentPolicyError } from '../agent-tools'
 import { runAiAgentObject, runAiAgentText } from '../agent-runtime'
 
+jest.mock('../ai-credentials', () => require('./helpers/platformAiCredentialsMock').platformAiCredentialsMock())
+
 jest.mock('@open-mercato/shared/lib/logger', () => {
   const mocked = {
     debug: jest.fn(),

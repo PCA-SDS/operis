@@ -1,5 +1,9 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
-import { sendEmail } from '@open-mercato/shared/lib/email/send'
+import { deliverCustomerEmail, RESEND_INTEGRATION_ID, resolveCustomerEmailCredential } from '@open-mercato/shared/lib/email/customer-send'
+import {
+  isPermanentIntegrationCredentialError,
+  type ResolvedIntegrationCredential,
+} from '@open-mercato/shared/modules/integrations/credential-resolution'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { Appointment, AppointmentLine, AppointmentLineOption } from '../data/entities'
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
@@ -7,9 +11,7 @@ import AppointmentNoti from '../emails/AppointmentNoti'
 import AppointmentConfirmationEmail from '../emails/AppointmentConfirmationEmail'
 import type { AppointmentEmailData, EmailOptionDetail, EmailServiceSelection, Price } from '../emails/appointment-email'
 import type { ModuleConfigService } from '@open-mercato/core/modules/configs/lib/module-config-service'
-import type { CredentialsService } from '@open-mercato/core/modules/integrations/lib/credentials-service'
 import type { IntegrationLogService } from '@open-mercato/core/modules/integrations/lib/log-service'
-import type { IntegrationStateService } from '@open-mercato/core/modules/integrations/lib/state-service'
 import {
   APPOINTMENT_EMAIL_SETTINGS_KEY,
   APPOINTMENT_EMAIL_SETTINGS_MODULE_ID,
@@ -17,7 +19,6 @@ import {
   DEFAULT_APPOINTMENT_EMAIL_SETTINGS,
 } from '../lib/email-settings'
 
-const RESEND_INTEGRATION_ID = 'resend'
 
 const logger = createLogger('appointments').child({ component: 'created-email' })
 
@@ -140,40 +141,32 @@ export default async function handle(payload: AppointmentCreatedPayload, ctx: Re
     }
   }
 
-  const stateService = ctx.resolve<IntegrationStateService>('integrationStateService')
-  if (!await stateService.isEnabled(RESEND_INTEGRATION_ID, scope)) {
-    logger.info('Appointment email skipped because the Resend integration is disabled', {
+  let credential: ResolvedIntegrationCredential | null
+  try {
+    credential = await resolveCustomerEmailCredential(ctx, {
+      scope,
+      operation: 'appointments.appointment.created_email',
+      correlationId: appointment.id,
+    })
+  } catch (error) {
+    if (!isPermanentIntegrationCredentialError(error)) throw error
+    const disabled = error.code === 'integration_disabled'
+    const message = disabled
+      ? 'Appointment email skipped because the Resend integration is disabled'
+      : 'Appointment email skipped because the organization has no usable Resend credentials'
+    logger.info(message, {
       appointmentId: appointment.id,
       tenantId: payload.tenantId,
       organizationId: payload.organizationId,
+      code: error.code,
     })
     await writeIntegrationLog({
       level: 'info',
-      message: 'Appointment email skipped because the Resend integration is disabled',
-      code: 'resend.disabled',
+      message,
+      code: disabled ? 'resend.disabled' : `resend.${error.code}`,
       payload: { appointmentId: appointment.id },
     })
     return
-  }
-
-  const credentialsService = ctx.resolve<CredentialsService>('integrationCredentialsService')
-  const credentials = await credentialsService.resolve(RESEND_INTEGRATION_ID, scope)
-  const apiKey = typeof credentials?.apiKey === 'string' && credentials.apiKey.trim().length > 0
-    ? credentials.apiKey.trim()
-    : undefined
-  const defaultSender = typeof credentials?.fromEmail === 'string' ? credentials.fromEmail.trim() : ''
-  if (!apiKey) {
-    logger.info('Appointment email is using the global Resend API key because scoped credentials are not configured', {
-      appointmentId: appointment.id,
-      tenantId: payload.tenantId,
-      organizationId: payload.organizationId,
-    })
-    await writeIntegrationLog({
-      level: 'info',
-      message: 'Appointment email is using the global Resend API key because scoped credentials are not configured',
-      code: 'resend.scoped_credentials_missing',
-      payload: { appointmentId: appointment.id },
-    })
   }
 
   const configService = ctx.resolve<ModuleConfigService>('moduleConfigService')
@@ -185,15 +178,14 @@ export default async function handle(payload: AppointmentCreatedPayload, ctx: Re
   const rawSettings = settingsRecord?.source === 'tenant' ? settingsRecord.value : null
   const parsedSettings = appointmentEmailSettingsSchema.safeParse(rawSettings)
   const settings = parsedSettings.success ? parsedSettings.data : DEFAULT_APPOINTMENT_EMAIL_SETTINGS
-  const sender = settings.from || defaultSender || undefined
+  const sender = settings.from || undefined
 
   const sends: Array<{ recipientType: 'internal' | 'customer'; task: Promise<unknown> }> = []
   const internalRecipients = parseEmailList(settings.to)
   if (internalRecipients?.length) {
     sends.push({
       recipientType: 'internal',
-      task: sendEmail({
-        apiKey,
+      task: deliverCustomerEmail(credential, {
         to: internalRecipients,
         cc: parseEmailList(settings.cc),
         bcc: parseEmailList(settings.bcc),
@@ -219,8 +211,7 @@ export default async function handle(payload: AppointmentCreatedPayload, ctx: Re
   if (emailData.customerEmail.trim()) {
     sends.push({
       recipientType: 'customer',
-      task: sendEmail({
-        apiKey,
+      task: deliverCustomerEmail(credential, {
         to: emailData.customerEmail,
         from: sender,
         replyTo: settings.replyTo || undefined,

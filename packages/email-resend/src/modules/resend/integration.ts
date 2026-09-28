@@ -13,6 +13,14 @@ export const integration: IntegrationDefinition = {
   tags: ['email', 'resend', 'transactional'],
   defaultState: { isEnabled: true },
   healthCheck: { service: 'resendHealthCheck' },
+  credentialResolution: {
+    service: 'email',
+    secretField: 'apiKey',
+    platformEnv: {
+      apiKey: ['RESEND_API_KEY'],
+      fromEmail: ['NOTIFICATIONS_EMAIL_FROM', 'EMAIL_FROM', 'ADMIN_EMAIL'],
+    },
+  },
   credentials: {
     fields: [
       {

@@ -21,6 +21,9 @@ import {
 } from '../../../../../lib/model-allowlist'
 import { AiTenantModelAllowlistRepository } from '../../../../../data/repositories/AiTenantModelAllowlistRepository'
 import { AiAgentRuntimeOverrideRepository } from '../../../../../data/repositories/AiAgentRuntimeOverrideRepository'
+import { resolveAiCredentialContext } from '../../../../../lib/ai-credentials'
+import { integrationCredentialErrorResponse, isIntegrationCredentialError } from '@open-mercato/shared/modules/integrations/credential-resolution'
+import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 
 const logger = createLogger('ai_assistant')
 
@@ -193,7 +196,14 @@ export async function GET(
     }
 
     // Resolve the agent's current default provider/model for the "(default)" badge
-    const factory = createModelFactory(container)
+    const credentials = await resolveAiCredentialContext(container, {
+      scope: { tenantId: auth.tenantId, organizationId: auth.orgId ?? null },
+      operation: `ai_assistant.agent.${agentId}.models`,
+    })
+    const factory = createModelFactory(container, {
+      env: credentials.env,
+      ...(credentials.preferredProviderIds ? { preferredProviderIds: credentials.preferredProviderIds } : {}),
+    })
     const defaultResolution = factory.resolveModel({
       moduleId: agent.moduleId,
       agentDefaultModel: agent.defaultModel,
@@ -228,7 +238,7 @@ export async function GET(
     )
     const providers = allowRuntimeOverride
       ? llmProviderRegistry.list()
-          .filter((provider) => provider.isConfigured())
+          .filter((provider) => provider.isConfigured(credentials.env))
           .filter((provider) => isProviderAllowedInEffective(effectiveAllowlist, provider.id))
           .map((provider) => {
             const allowedModelIds = effectiveAllowlist.modelsByProvider[provider.id]
@@ -266,6 +276,10 @@ export async function GET(
       degradedReason: tenantAllowlistDegraded ? 'tenant_allowlist_unavailable' : null,
     })
   } catch (error) {
+    if (isIntegrationCredentialError(error)) {
+      const { translate } = await resolveTranslations()
+      return integrationCredentialErrorResponse(error, translate)
+    }
     logger.error('AI Agents Models — GET error', { err: error })
     return NextResponse.json({ error: 'Failed to resolve agent models.' }, { status: 500 })
   }

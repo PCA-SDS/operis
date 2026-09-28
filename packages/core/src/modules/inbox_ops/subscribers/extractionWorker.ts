@@ -21,6 +21,8 @@ import { createMessageRecordForEmail } from '../lib/messagesIntegration'
 import { resolveCache, invalidateCountsCache } from '../lib/cache'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { resolveMaxTextSize } from '../lib/config'
+import { buildIntegrationCredentialErrorBody, isIntegrationCredentialError } from '@open-mercato/shared/modules/integrations/credential-resolution'
+import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 
 const logger = createLogger('inbox_ops').child({ component: 'extraction-worker' })
 
@@ -105,6 +107,14 @@ function createDiscrepancy(
   })
 }
 
+async function describeExtractionError(error: unknown): Promise<string> {
+  if (isIntegrationCredentialError(error)) {
+    const { translate } = await resolveTranslations()
+    return buildIntegrationCredentialErrorBody(error, translate).error
+  }
+  return error instanceof Error ? error.message : String(error)
+}
+
 export default async function handle(payload: EmailReceivedPayload, ctx: ResolverContext) {
   const em = (ctx.resolve('em') as EntityManager).fork()
   const entityClasses = resolveEntityClasses(ctx)
@@ -180,6 +190,9 @@ export default async function handle(payload: EmailReceivedPayload, ctx: Resolve
       const timeoutMsRaw = Number.parseInt(process.env.INBOX_OPS_LLM_TIMEOUT_MS || '90000', 10)
       const timeoutMs = Number.isFinite(timeoutMsRaw) && timeoutMsRaw > 0 ? timeoutMsRaw : 90000
       const extraction = await runExtractionWithConfiguredProvider({
+        container: ctx,
+        scope: { tenantId: email.tenantId, organizationId: email.organizationId },
+        correlationId: email.id,
         systemPrompt,
         userPrompt,
         modelOverride: process.env.INBOX_OPS_LLM_MODEL,
@@ -190,7 +203,7 @@ export default async function handle(payload: EmailReceivedPayload, ctx: Resolve
       modelUsed = extraction.modelWithProvider
     } catch (llmError) {
       email.status = 'failed'
-      email.processingError = `LLM extraction failed: ${llmError instanceof Error ? llmError.message : String(llmError)}`
+      email.processingError = `LLM extraction failed: ${await describeExtractionError(llmError)}`
       await em.flush()
 
       try {

@@ -16,9 +16,10 @@ describe('resendHealthCheck', () => {
       message: 'Connected to Resend',
       details: { provider: 'resend', httpStatus: 200 },
     })
-    expect(global.fetch).toHaveBeenCalledWith('https://api.resend.com/domains', {
+    expect(global.fetch).toHaveBeenCalledWith('https://api.resend.com/domains', expect.objectContaining({
       headers: { Authorization: 'Bearer tenant-key' },
-    })
+      signal: expect.any(AbortSignal),
+    }))
   })
 
   it('rejects an invalid default sender before calling Resend', async () => {
@@ -87,5 +88,36 @@ describe('resendHealthCheck', () => {
       message: 'Resend API key is empty',
     })
     expect(global.fetch).not.toHaveBeenCalled()
+  })
+
+  it('reports a rate-limited check as degraded rather than a rejected key', async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 429 }) as typeof fetch
+
+    await expect(resendHealthCheck.check({ apiKey: 'tenant-key' }, { tenantId: 'tenant-1', organizationId: 'org-1' })).resolves.toEqual({
+      status: 'degraded',
+      message: 'Resend rate limited the check (HTTP 429); try again shortly',
+      details: { provider: 'resend', httpStatus: 429 },
+    })
+  })
+
+  it('reports a provider outage without blaming the key', async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 503 }) as typeof fetch
+
+    await expect(resendHealthCheck.check({ apiKey: 'tenant-key' }, { tenantId: 'tenant-1', organizationId: 'org-1' })).resolves.toEqual({
+      status: 'unhealthy',
+      message: 'Resend is unavailable (HTTP 503); try again later',
+      details: { provider: 'resend', httpStatus: 503 },
+    })
+  })
+
+  it('reports a timeout with a clear message', async () => {
+    const timeout = new Error('The operation was aborted due to timeout')
+    timeout.name = 'TimeoutError'
+    global.fetch = jest.fn().mockRejectedValue(timeout) as typeof fetch
+
+    await expect(resendHealthCheck.check({ apiKey: 'tenant-key' }, { tenantId: 'tenant-1', organizationId: 'org-1' })).resolves.toMatchObject({
+      status: 'unhealthy',
+      message: 'Resend did not respond in time',
+    })
   })
 })

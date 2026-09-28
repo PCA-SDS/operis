@@ -8,6 +8,7 @@ import { parseNumberWithDefault } from '../number'
 import { createLogger } from '../logger'
 import { FetchTimeoutError, withTimeout } from '../http/fetchWithTimeout'
 import { resolveDefaultEmailFromAddress } from './config'
+import { isEmailDeliveryDisabled } from './delivery'
 
 const logger = createLogger('shared').child({ component: 'email' })
 
@@ -163,9 +164,7 @@ async function sendWithTimeout(
 }
 
 export async function sendEmail({ apiKey: apiKeyOverride, to, cc, bcc, subject, react, from, replyTo, attachments }: SendEmailOptions) {
-  const emailDisabled =
-    parseBooleanWithDefault(process.env.OM_DISABLE_EMAIL_DELIVERY, false) ||
-    parseBooleanWithDefault(process.env.OM_TEST_MODE, false)
+  const emailDisabled = isEmailDeliveryDisabled()
 
   await captureEmailForTests({ to, subject, react, from, replyTo, attachments })
 

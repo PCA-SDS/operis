@@ -11,6 +11,8 @@ import { checkAgentPolicy, type AgentPolicyDenyCode } from '../../../lib/agent-p
 import { runAiAgentObject } from '../../../lib/agent-runtime'
 import { AgentPolicyError } from '../../../lib/agent-tools'
 import { jsonError } from '../../jsonError'
+import { integrationCredentialErrorResponse, isIntegrationCredentialError } from '@open-mercato/shared/modules/integrations/credential-resolution'
+import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 
 const logger = createLogger('ai_assistant')
 
@@ -188,6 +190,10 @@ export async function POST(req: NextRequest): Promise<Response> {
   } catch (error) {
     if (error instanceof AgentPolicyError) {
       return jsonError(statusForDenyCode(error.code), error.message, error.code)
+    }
+    if (isIntegrationCredentialError(error)) {
+      const { translate } = await resolveTranslations()
+      return integrationCredentialErrorResponse(error, translate)
     }
     logger.error('AI Run Object — Dispatch failure', { err: error })
     return jsonError(

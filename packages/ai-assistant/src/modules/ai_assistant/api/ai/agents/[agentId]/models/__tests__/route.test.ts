@@ -70,6 +70,7 @@ jest.mock('../../../../../../lib/model-factory', () => ({
 }))
 
 import { GET } from '../route'
+import { createTestCredentialResolver } from '@open-mercato/shared/lib/testing/integrationCredentials'
 
 function makeAgent(
   overrides: Partial<AiAgentDefinition> & Pick<AiAgentDefinition, 'id' | 'moduleId'>,
@@ -104,12 +105,15 @@ describe('GET /api/ai_assistant/ai/agents/[agentId]/models', () => {
       features: ['ai_assistant.view'],
       isSuperAdmin: false,
     })
+    const platformAiResolver = createTestCredentialResolver({}, { platformFallbackAllowed: true, defaultService: 'ai' })
     createRequestContainerMock.mockResolvedValue({
       resolve: (name: string) => {
         if (name === 'rbacService') return { loadAcl: loadAclMock }
         if (name === 'em') return {}
+        if (name === 'integrationCredentialResolver') return platformAiResolver
         return null
       },
+      hasRegistration: (name: string) => name === 'integrationCredentialResolver',
     })
     getSnapshotMock.mockResolvedValue(null)
     getDefaultMock.mockResolvedValue(null)

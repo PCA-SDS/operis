@@ -7,12 +7,26 @@ import type { IntegrationHealthService } from '../../../lib/health-service'
 import { organizationScopeRequiredResponse } from '@open-mercato/shared/lib/auth/organizationScope'
 import { resolveIntegrationsOrganizationIdForRequest } from '../../../lib/organization-scope'
 import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
+import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
+import { isRecord } from '@open-mercato/shared/lib/guards'
+import type { RbacService } from '@open-mercato/core/modules/auth/services/rbacService'
+import type { CredentialsService } from '../../../lib/credentials-service'
+import { isCredentialsEncryptionUnavailableError } from '../../../lib/credentials-service'
+import { mergeMaskedSecretCredentials } from '../../../lib/credentials-masking'
+import { collectCredentialUrlValidationErrors } from '../../../lib/credentials-field-validation'
+import { saveCredentialsSchema } from '../../../data/validators'
 
 const idParamsSchema = z.object({ id: z.string().min(1) })
 
 export const metadata = {
-  POST: { requireAuth: true, requireFeatures: ['integrations.manage'] },
+  POST: {
+    requireAuth: true,
+    requireFeatures: ['integrations.manage'],
+    rateLimit: { points: 30, duration: 60, keyPrefix: 'integrations_health' },
+  },
 }
+
+const CREDENTIALS_MANAGE_FEATURE = 'integrations.credentials.manage'
 
 export const openApi = {
   tags: ['Integrations'],
@@ -44,6 +58,17 @@ export async function POST(req: Request, ctx: { params?: Promise<{ id?: string }
     return organizationScopeRequiredResponse()
   }
 
+  const body = await readJsonSafe<unknown>(req, null)
+  if (isRecord(body) && body.credentials !== undefined) {
+    return testSubmittedCredentials({
+      container,
+      integrationId: integration.id,
+      userId: auth.sub,
+      scope: { organizationId, tenantId: auth.tenantId },
+      body,
+    })
+  }
+
   const guardResult = await runRouteMutationGuards({
     container,
     req,
@@ -68,6 +93,49 @@ export async function POST(req: Request, ctx: { params?: Promise<{ id?: string }
 
   await guardResult.runAfterSuccess()
 
+  return NextResponse.json({
+    status: result.status,
+    message: result.message ?? null,
+    details: result.details ?? null,
+    latencyMs: result.latencyMs,
+    checkedAt: result.checkedAt,
+  })
+}
+
+async function testSubmittedCredentials(input: {
+  container: Awaited<ReturnType<typeof createRequestContainer>>
+  integrationId: string
+  userId: string
+  scope: { organizationId: string; tenantId: string }
+  body: Record<string, unknown>
+}): Promise<Response> {
+  const rbac = input.container.resolve('rbacService') as RbacService
+  const canManageCredentials = await rbac.userHasAllFeatures(input.userId, [CREDENTIALS_MANAGE_FEATURE], input.scope)
+  if (!canManageCredentials) {
+    return NextResponse.json({ error: 'Forbidden', requiredFeatures: [CREDENTIALS_MANAGE_FEATURE] }, { status: 403 })
+  }
+  const parsed = saveCredentialsSchema.safeParse(input.body)
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Invalid credentials payload', details: parsed.error.flatten() }, { status: 422 })
+  }
+  const credentialsService = input.container.resolve('integrationCredentialsService') as CredentialsService
+  const schema = credentialsService.getSchema(input.integrationId)
+  const fieldErrors = collectCredentialUrlValidationErrors(schema, parsed.data.credentials)
+  if (Object.keys(fieldErrors).length > 0) {
+    return NextResponse.json({ error: 'Invalid credentials payload', details: { fieldErrors } }, { status: 422 })
+  }
+  let credentials: Record<string, unknown>
+  try {
+    const existing = await credentialsService.resolve(input.integrationId, input.scope)
+    credentials = mergeMaskedSecretCredentials(schema, parsed.data.credentials, existing ?? {})
+  } catch (error) {
+    if (isCredentialsEncryptionUnavailableError(error)) {
+      return NextResponse.json({ error: 'Integration credentials encryption is unavailable' }, { status: 503 })
+    }
+    throw error
+  }
+  const healthService = input.container.resolve('integrationHealthService') as IntegrationHealthService
+  const result = await healthService.testCredentials(input.integrationId, credentials, input.scope)
   return NextResponse.json({
     status: result.status,
     message: result.message ?? null,

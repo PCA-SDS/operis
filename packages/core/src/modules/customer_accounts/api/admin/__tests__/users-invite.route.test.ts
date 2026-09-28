@@ -1,6 +1,7 @@
 /** @jest-environment node */
 
 import { NextResponse } from 'next/server'
+import { IntegrationCredentialError } from '@open-mercato/shared/modules/integrations/credential-resolution'
 
 const mockCheckAuthRateLimit = jest.fn()
 const mockCreateInvitation = jest.fn()
@@ -132,11 +133,32 @@ describe('admin customer account user invite route', () => {
 
     expect(mockSendCustomerInvitationEmail).toHaveBeenCalledWith({
       container: mockContainer,
+      tenantId,
       organizationId,
       email: 'buyer@example.com',
       rawToken: 'raw-invite-token',
     })
     expect(JSON.stringify(json)).not.toContain('raw-invite-token')
+  })
+
+  it('returns an actionable 409 and rolls back when the organization has no email credential', async () => {
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined)
+    mockSendCustomerInvitationEmail.mockRejectedValueOnce(
+      new IntegrationCredentialError('integration_not_configured', { integrationId: 'resend', service: 'email' }),
+    )
+    const { POST } = await import('../users-invite')
+
+    const response = await POST(makeInviteRequest())
+    const json = await response.json()
+
+    expect(response.status).toBe(409)
+    expect(json).toMatchObject({ ok: false, code: 'integration_not_configured' })
+    expect(json.error).toContain('Resend')
+    expect(mockRollbackInvitation).toHaveBeenCalledWith(
+      expect.objectContaining({ id: '66666666-6666-4666-8666-666666666666' }),
+      null,
+    )
+    consoleErrorSpy.mockRestore()
   })
 
   it('returns 502 and rolls back the freshly-created invitation when the email cannot be sent', async () => {

@@ -14,7 +14,7 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { FilterBar, type FilterValues } from '@open-mercato/ui/backend/FilterBar'
-import { Bell, Cog, CreditCard, HardDrive, LayoutGrid, MessageSquare, RefreshCw, Search, Truck, Webhook } from 'lucide-react'
+import { Bell, Cog, CreditCard, HardDrive, LayoutGrid, MessageSquare, RefreshCw, Search, Sparkles, Truck, Webhook } from 'lucide-react'
 import {
   buildIntegrationMarketplaceFilterDefs,
   getIntegrationMarketplaceCategory,
@@ -75,6 +75,7 @@ const CATEGORY_ICONS: Record<string, React.ElementType> = {
   notification: Bell,
   storage: HardDrive,
   webhook: Webhook,
+  ai: Sparkles,
 }
 
 const HEALTH_BADGE_CLASS: Record<string, string> = {

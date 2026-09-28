@@ -6,6 +6,11 @@ import { createAttachmentQuotaService, type AttachmentQuotaService } from './lib
 import { scheduleAttachmentQuotaRecovery } from './lib/quota-recovery-queue'
 import { AttachmentTargetAccessService } from './lib/target-access-service'
 import { ScopedAttachmentUploadService } from './lib/scoped-upload-service'
+import { tryResolve } from '@open-mercato/shared/lib/di/tryResolve'
+import {
+  INTEGRATION_CREDENTIAL_RESOLVER_KEY,
+  type IntegrationCredentialResolver,
+} from '@open-mercato/shared/modules/integrations/credential-resolution'
 
 export function register(container: AppContainer) {
   container.register({
@@ -20,24 +25,22 @@ export function register(container: AppContainer) {
     )
       .scoped()
       .proxy(),
-    attachmentScopedUploadService: asFunction(({
-      em,
-      dataEngine,
-      storageDriverFactory,
-      attachmentQuotaService,
-      attachmentQuotaRecoveryScheduler,
-    }: {
+    attachmentScopedUploadService: asFunction((cradle: {
       em: ConstructorParameters<typeof StorageDriverFactory>[0]
       dataEngine: DataEngine
       storageDriverFactory: StorageDriverFactory
       attachmentQuotaService: AttachmentQuotaService
       attachmentQuotaRecoveryScheduler: typeof scheduleAttachmentQuotaRecovery
     }) => new ScopedAttachmentUploadService({
-      em,
-      dataEngine,
-      storageDriverFactory,
-      attachmentQuotaService,
-      attachmentQuotaRecoveryScheduler,
+      em: cradle.em,
+      dataEngine: cradle.dataEngine,
+      storageDriverFactory: cradle.storageDriverFactory,
+      attachmentQuotaService: cradle.attachmentQuotaService,
+      attachmentQuotaRecoveryScheduler: cradle.attachmentQuotaRecoveryScheduler,
+      credentialResolver: tryResolve<IntegrationCredentialResolver>(
+        { resolve: (name: string) => (cradle as Record<string, unknown>)[name] },
+        INTEGRATION_CREDENTIAL_RESOLVER_KEY,
+      ),
     }))
       .scoped()
       .proxy(),

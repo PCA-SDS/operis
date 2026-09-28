@@ -50,12 +50,55 @@ function normalizeProbeResult(raw: HealthCheckResult): HealthCheckResult {
   return { status: 'unhealthy', message: raw.message ?? 'Invalid health status', details: raw.details }
 }
 
-function timeoutPromise(ms: number): Promise<never> {
-  return new Promise((_, reject) => {
-    setTimeout(() => {
+const REDACTED = '[redacted]'
+const MIN_REDACTED_VALUE_LENGTH = 8
+
+function collectRedactionCandidates(credentials: Record<string, unknown>): string[] {
+  return Object.values(credentials)
+    .filter((value): value is string => typeof value === 'string')
+    .map((value) => value.trim())
+    .filter((value) => value.length >= MIN_REDACTED_VALUE_LENGTH)
+}
+
+function redactText(text: string, candidates: string[]): string {
+  return candidates.reduce((current, candidate) => current.split(candidate).join(REDACTED), text)
+}
+
+function redactValue(value: unknown, candidates: string[]): unknown {
+  if (typeof value === 'string') return redactText(value, candidates)
+  if (Array.isArray(value)) return value.map((item) => redactValue(item, candidates))
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, redactValue(item, candidates)]))
+  }
+  return value
+}
+
+function redactProbeResult(result: HealthCheckResult, credentials: Record<string, unknown>): HealthCheckResult {
+  const candidates = collectRedactionCandidates(credentials)
+  if (candidates.length === 0) return result
+  return {
+    status: result.status,
+    ...(result.message !== undefined ? { message: redactText(result.message, candidates) } : {}),
+    ...(result.details !== undefined ? { details: redactValue(result.details, candidates) as Record<string, unknown> } : {}),
+  }
+}
+
+async function runProbeWithTimeout(
+  checker: HealthCheckService,
+  credentials: Record<string, unknown>,
+  scope: IntegrationScope,
+): Promise<HealthCheckResult> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
       reject(new Error('Health check timed out'))
-    }, ms)
+    }, HEALTH_CHECK_TIMEOUT_MS)
   })
+  try {
+    return await Promise.race([checker.check(credentials, scope), timeout])
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
 }
 
 export function deriveIntegrationHealthStatus(input: {
@@ -82,7 +125,51 @@ export function createHealthService(
   stateService: IntegrationStateService,
   logService: IntegrationLogService,
 ) {
+  async function probe(
+    serviceName: string,
+    credentials: Record<string, unknown>,
+    scope: IntegrationScope,
+  ): Promise<{ result: HealthCheckResult; latencyMs: number }> {
+    const startedAt = Date.now()
+    let result: HealthCheckResult
+    try {
+      const checker = container.resolve<HealthCheckService>(serviceName)
+      result = normalizeProbeResult(await runProbeWithTimeout(checker, credentials, scope))
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Health check failed'
+      result = { status: 'unhealthy', message }
+    }
+    return { result: redactProbeResult(result, credentials), latencyMs: Date.now() - startedAt }
+  }
+
   return {
+    /**
+     * Probes credentials the caller has not saved. Nothing is persisted: no credentials, no
+     * health state and no log entry, so testing a key never changes what the organization uses.
+     */
+    async testCredentials(
+      integrationId: string,
+      credentials: Record<string, unknown>,
+      scope: IntegrationScope,
+    ): Promise<HealthCheckRunResult> {
+      const checkedAt = new Date().toISOString()
+      const healthConfig = getEffectiveHealthCheckConfig(integrationId)
+      if (!healthConfig?.service) {
+        return { status: 'unconfigured', message: 'No health check configured', latencyMs: null, checkedAt }
+      }
+      if (isCredentialsEmpty(credentials)) {
+        return { status: 'unconfigured', message: 'No credentials configured', latencyMs: null, checkedAt }
+      }
+      const { result, latencyMs } = await probe(healthConfig.service, credentials, scope)
+      return {
+        status: result.status,
+        message: result.message,
+        details: result.details,
+        latencyMs,
+        checkedAt: new Date().toISOString(),
+      }
+    },
+
     async runHealthCheck(integrationId: string, scope: IntegrationScope): Promise<HealthCheckRunResult> {
       const checkedAt = new Date().toISOString()
       const healthConfig = getEffectiveHealthCheckConfig(integrationId)
@@ -110,22 +197,7 @@ export function createHealthService(
         }
       }
 
-      const startedAt = Date.now()
-      let result: HealthCheckResult
-
-      try {
-        const checker = container.resolve<HealthCheckService>(healthConfig.service)
-        const raw = await Promise.race([
-          checker.check(credentials, scope),
-          timeoutPromise(HEALTH_CHECK_TIMEOUT_MS),
-        ])
-        result = normalizeProbeResult(raw)
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Health check failed'
-        result = { status: 'unhealthy', message }
-      }
-
-      const latencyMs = Date.now() - startedAt
+      const { result, latencyMs } = await probe(healthConfig.service, credentials ?? {}, scope)
 
       await stateService.upsert(
         integrationId,
