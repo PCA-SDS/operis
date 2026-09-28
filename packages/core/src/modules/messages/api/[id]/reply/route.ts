@@ -1,9 +1,8 @@
 import type { CommandBus } from '@open-mercato/shared/lib/commands/command-bus'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi/types'
 import { replyMessageSchema } from '../../../data/validators'
-import { attachOperationMetadataHeader } from '../../../lib/operationMetadata'
+import { attachOperationMetadataHeader } from '@open-mercato/shared/lib/commands/operationMetadata'
 import { canUseMessageEmailFeature, resolveMessageContext } from '../../../lib/routeHelpers'
-import { runMessageMutationGuardAfterSuccess, runMessageMutationGuards } from '../../guards'
 import {
   errorResponseSchema,
   forwardResponseSchema,
@@ -11,6 +10,7 @@ import {
 } from '../../openapi'
 import { MessageCommandExecuteResult } from '../../../commands/shared'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['messages.compose'] },
@@ -25,24 +25,21 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return Response.json({ error: 'Missing feature: messages.email' }, { status: 403 })
   }
 
-  const guardResult = await runMessageMutationGuards(
-    ctx.container,
-    {
-      tenantId: scope.tenantId,
-      organizationId: scope.organizationId,
-      userId: scope.userId,
+  const guardResult = await runRouteMutationGuards({
+    container: ctx.container,
+    req,
+    auth: { userId: scope.userId, tenantId: scope.tenantId, organizationId: scope.organizationId },
+    input: {
       resourceKind: 'messages.message',
       resourceId: null,
       operation: 'create',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
       mutationPayload: input as Record<string, unknown>,
     },
-  )
+  })
   if (!guardResult.ok) {
     return Response.json(
-      guardResult.errorBody ?? { error: 'Operation blocked by guard' },
-      { status: guardResult.errorStatus ?? 422 },
+      guardResult.errorBody,
+      { status: guardResult.errorStatus },
     )
   }
 
@@ -89,16 +86,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     resourceKind: 'messages.message',
     resourceId: messageId,
   })
-  await runMessageMutationGuardAfterSuccess(guardResult.afterSuccessCallbacks, {
-    tenantId: scope.tenantId,
-    organizationId: scope.organizationId,
-    userId: scope.userId,
-    resourceKind: 'messages.message',
-    resourceId: messageId,
-    operation: 'create',
-    requestMethod: req.method,
-    requestHeaders: req.headers,
-  })
+  await guardResult.runAfterSuccess({ resourceId: messageId })
   return response
 }
 

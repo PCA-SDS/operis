@@ -5,6 +5,7 @@ import { extractUndoPayload, type UndoPayload } from '@open-mercato/shared/lib/c
 import { Message, MessageRecipient } from '../data/entities'
 import { emitMessagesEvent, type MessagesEventId } from '../events'
 import { assertOrganizationAccess, type MessageRecipientSnapshot, type MessageScopeInput } from './shared'
+import { toIsoOrEcho } from '@open-mercato/shared/lib/date/normalize'
 
 const recipientMutationSchema = z.object({
   messageId: z.string().uuid(),
@@ -16,10 +17,6 @@ const recipientMutationSchema = z.object({
 type RecipientMutationInput = z.infer<typeof recipientMutationSchema>
 
 type RecipientUndoPayload = UndoPayload<MessageRecipientSnapshot>
-
-function toIso(value: Date | null | undefined): string | null {
-  return value ? value.toISOString() : null
-}
 
 function toDate(value: string | null | undefined): Date | null {
   if (!value) return null
@@ -52,9 +49,9 @@ function snapshotRecipient(recipient: MessageRecipient): MessageRecipientSnapsho
     recipientUserId: recipient.recipientUserId,
     recipientType: recipient.recipientType,
     status: recipient.status,
-    readAt: toIso(recipient.readAt),
-    archivedAt: toIso(recipient.archivedAt),
-    deletedAt: toIso(recipient.deletedAt),
+    readAt: toIsoOrEcho(recipient.readAt),
+    archivedAt: toIsoOrEcho(recipient.archivedAt),
+    deletedAt: toIsoOrEcho(recipient.deletedAt),
   }
 }
 

@@ -17,6 +17,7 @@ import {
 import { getMessageObjectType } from '../../../../lib/message-objects-registry'
 import { getMessageTypeOrDefault } from '../../../../lib/message-types-registry'
 import { toErrorMessage } from '@open-mercato/shared/lib/http/errorMessage'
+import { formatDateTime } from '@open-mercato/shared/lib/time'
 
 type TokenMessageObject = {
   id: string
@@ -70,13 +71,6 @@ type MessageTokenResponse = MessageTokenDetailResponse | MessageTokenPreflightRe
 
 function isProtectedPreflight(data: MessageTokenResponse): data is MessageTokenPreflightResponse {
   return data.requiresAuth && !('id' in data)
-}
-
-function formatDateTime(value: string | null | undefined): string {
-  if (!value) return '—'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return '—'
-  return date.toLocaleString()
 }
 
 function toObjectActions(
@@ -286,7 +280,7 @@ export default function MessageTokenPage({ params }: { params: { token: string }
       <header className="space-y-1">
         <h1 className="text-2xl font-semibold">{data.subject}</h1>
         <p className="text-sm text-muted-foreground">
-          {t('messages.token.sentAt', 'Sent')}: {formatDateTime(data.sentAt)}
+          {t('messages.token.sentAt', 'Sent')}: {formatDateTime(data.sentAt, { fallback: '—' })}
         </p>
       </header>
 

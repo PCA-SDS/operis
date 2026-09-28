@@ -5,7 +5,7 @@ import { MarkdownContent } from '@open-mercato/ui/backend/markdown/MarkdownConte
 import { getMessageUiComponentRegistry } from '../../utils/typeUiRegistry'
 import { getMessageObjectType } from '../../../lib/message-objects-registry'
 import type { MessageDetail, MessageDetailObject } from '../types'
-import { formatDateTime } from '../utils'
+import { formatDateTime } from '@open-mercato/shared/lib/time'
 
 export function MessageDetailThreadSection({ detail }: { detail: MessageDetail }) {
   const t = useT()
@@ -20,7 +20,7 @@ export function MessageDetailThreadSection({ detail }: { detail: MessageDetail }
         {(detail.thread ?? []).map((threadItem) => (
           <article key={threadItem.id} className="rounded border p-3">
             <p className="text-xs text-muted-foreground">
-              {(threadItem.senderName || threadItem.senderEmail || threadItem.senderUserId)} • {formatDateTime(threadItem.sentAt)}
+              {(threadItem.senderName || threadItem.senderEmail || threadItem.senderUserId)} • {formatDateTime(threadItem.sentAt, { fallback: '—' })}
             </p>
             <div className="mt-2 max-h-[60vh] overflow-y-auto pr-1">
               <MarkdownContent

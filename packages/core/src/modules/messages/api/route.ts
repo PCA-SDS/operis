@@ -20,10 +20,9 @@ import { composeMessageSchema, listMessagesSchema, type ListMessagesInput } from
 import { MESSAGE_ATTACHMENT_ENTITY_ID } from '../lib/constants'
 import { getMessageType } from '../lib/message-types-registry'
 import { validateMessageObjectsForType } from '../lib/object-validation'
-import { attachOperationMetadataHeader } from '../lib/operationMetadata'
+import { attachOperationMetadataHeader } from '@open-mercato/shared/lib/commands/operationMetadata'
 import { canUseMessageEmailFeature, resolveMessageContext } from '../lib/routeHelpers'
 import { applyMessageParticipantScope } from '../lib/participantScope'
-import { runMessageMutationGuardAfterSuccess, runMessageMutationGuards } from './guards'
 import { findMessageIdsBySearchTokens } from '../lib/searchLookup'
 import { MessageCommandExecuteResult } from '../commands/shared'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
@@ -33,6 +32,7 @@ import {
   listMessagesSchema as listSchema,
   messageListItemSchema,
 } from './openapi'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 type MessageCommandExecuteResultWithThreadId = MessageCommandExecuteResult & {
   threadId: string
@@ -461,24 +461,21 @@ export async function POST(req: Request) {
     }
   }
 
-  const guardResult = await runMessageMutationGuards(
-    ctx.container,
-    {
-      tenantId: scope.tenantId,
-      organizationId: scope.organizationId,
-      userId: scope.userId,
+  const guardResult = await runRouteMutationGuards({
+    container: ctx.container,
+    req,
+    auth: { userId: scope.userId, tenantId: scope.tenantId, organizationId: scope.organizationId },
+    input: {
       resourceKind: 'messages.message',
       resourceId: null,
       operation: 'create',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
       mutationPayload: input as Record<string, unknown>,
     },
-  )
+  })
   if (!guardResult.ok) {
     return Response.json(
-      guardResult.errorBody ?? { error: 'Operation blocked by guard' },
-      { status: guardResult.errorStatus ?? 422 },
+      guardResult.errorBody,
+      { status: guardResult.errorStatus },
     )
   }
 
@@ -506,16 +503,7 @@ export async function POST(req: Request) {
     resourceKind: 'messages.message',
     resourceId: messageId,
   })
-  await runMessageMutationGuardAfterSuccess(guardResult.afterSuccessCallbacks, {
-    tenantId: scope.tenantId,
-    organizationId: scope.organizationId,
-    userId: scope.userId,
-    resourceKind: 'messages.message',
-    resourceId: messageId,
-    operation: 'create',
-    requestMethod: req.method,
-    requestHeaders: req.headers,
-  })
+  await guardResult.runAfterSuccess({ resourceId: messageId })
   return response
 }
 

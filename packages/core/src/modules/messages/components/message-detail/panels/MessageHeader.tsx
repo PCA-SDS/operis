@@ -17,7 +17,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import type { MessageDetail } from '../types'
-import { formatDateTime } from '../utils'
+import { formatDateTime } from '@open-mercato/shared/lib/time'
 
 type MessageHeaderProps = {
   detail: MessageDetail
@@ -122,7 +122,7 @@ export function MessageHeader(props: MessageHeaderProps) {
           mode="detail"
           title={showSubject ? props.detail.subject : undefined}
           subtitle={`${t('messages.detail.from', 'From')}: ${props.detail.senderName || props.detail.senderEmail || props.detail.senderUserId}`}
-          statusBadge={<p className="text-xs text-muted-foreground">{formatDateTime(props.detail.sentAt)}</p>}
+          statusBadge={<p className="text-xs text-muted-foreground">{formatDateTime(props.detail.sentAt, { fallback: '—' })}</p>}
           utilityActions={canReply ? (
             <IconButton
               type="button"

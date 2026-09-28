@@ -2,11 +2,11 @@ import type { EntityManager } from '@mikro-orm/core'
 import type { CommandBus } from '@open-mercato/shared/lib/commands/command-bus'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi/types'
 import { Message, MessageRecipient } from '../../../data/entities'
-import { attachOperationMetadataHeader } from '../../../lib/operationMetadata'
+import { attachOperationMetadataHeader } from '@open-mercato/shared/lib/commands/operationMetadata'
 import { hasOrganizationAccess, resolveMessageContext } from '../../../lib/routeHelpers'
 import type { MessageScope } from '../../../lib/routeHelpers'
-import { runMessageMutationGuardAfterSuccess, runMessageMutationGuards } from '../../guards'
 import { errorResponseSchema, okResponseSchema } from '../../openapi'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 export const metadata = {
   PUT: { requireAuth: true, requireFeatures: ['messages.view'] },
@@ -57,24 +57,21 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   if ('response' in context) return context.response
   const { ctx, scope } = context
   const commandBus = ctx.container.resolve('commandBus') as CommandBus
-  const guardResult = await runMessageMutationGuards(
-    ctx.container,
-    {
-      tenantId: scope.tenantId,
-      organizationId: scope.organizationId,
-      userId: scope.userId,
+  const guardResult = await runRouteMutationGuards({
+    container: ctx.container,
+    req,
+    auth: { userId: scope.userId, tenantId: scope.tenantId, organizationId: scope.organizationId },
+    input: {
       resourceKind: 'messages.message',
       resourceId: params.id,
       operation: 'update',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
       mutationPayload: null,
     },
-  )
+  })
   if (!guardResult.ok) {
     return Response.json(
-      guardResult.errorBody ?? { error: 'Operation blocked by guard' },
-      { status: guardResult.errorStatus ?? 422 },
+      guardResult.errorBody,
+      { status: guardResult.errorStatus },
     )
   }
   const { logEntry } = await commandBus.execute('messages.recipients.mark_read', {
@@ -99,16 +96,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     resourceKind: 'messages.message',
     resourceId: params.id,
   })
-  await runMessageMutationGuardAfterSuccess(guardResult.afterSuccessCallbacks, {
-    tenantId: scope.tenantId,
-    organizationId: scope.organizationId,
-    userId: scope.userId,
-    resourceKind: 'messages.message',
-    resourceId: params.id,
-    operation: 'update',
-    requestMethod: req.method,
-    requestHeaders: req.headers,
-  })
+  await guardResult.runAfterSuccess()
   return response
 }
 
@@ -117,24 +105,21 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
   if ('response' in context) return context.response
   const { ctx, scope } = context
   const commandBus = ctx.container.resolve('commandBus') as CommandBus
-  const guardResult = await runMessageMutationGuards(
-    ctx.container,
-    {
-      tenantId: scope.tenantId,
-      organizationId: scope.organizationId,
-      userId: scope.userId,
+  const guardResult = await runRouteMutationGuards({
+    container: ctx.container,
+    req,
+    auth: { userId: scope.userId, tenantId: scope.tenantId, organizationId: scope.organizationId },
+    input: {
       resourceKind: 'messages.message',
       resourceId: params.id,
       operation: 'update',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
       mutationPayload: null,
     },
-  )
+  })
   if (!guardResult.ok) {
     return Response.json(
-      guardResult.errorBody ?? { error: 'Operation blocked by guard' },
-      { status: guardResult.errorStatus ?? 422 },
+      guardResult.errorBody,
+      { status: guardResult.errorStatus },
     )
   }
   const { logEntry } = await commandBus.execute('messages.recipients.mark_unread', {
@@ -159,16 +144,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     resourceKind: 'messages.message',
     resourceId: params.id,
   })
-  await runMessageMutationGuardAfterSuccess(guardResult.afterSuccessCallbacks, {
-    tenantId: scope.tenantId,
-    organizationId: scope.organizationId,
-    userId: scope.userId,
-    resourceKind: 'messages.message',
-    resourceId: params.id,
-    operation: 'update',
-    requestMethod: req.method,
-    requestHeaders: req.headers,
-  })
+  await guardResult.runAfterSuccess()
   return response
 }
 

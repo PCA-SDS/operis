@@ -5,9 +5,8 @@ import { parseUnlinkAttachmentIds } from '../../../commands/attachments'
 import { Message, MessageRecipient } from '../../../data/entities'
 import { attachmentIdsPayloadSchema, unlinkAttachmentPayloadSchema } from '../../../data/validators'
 import { getMessageAttachments, linkAttachmentsToMessage } from '../../../lib/attachments'
-import { attachOperationMetadataHeader } from '../../../lib/operationMetadata'
-import { resolveMessageContext } from '../../../lib/routeHelpers'
-import { runMessageMutationGuardAfterSuccess, runMessageMutationGuards } from '../../guards'
+import { attachOperationMetadataHeader } from '@open-mercato/shared/lib/commands/operationMetadata'
+import { resolveMessageContext, hasOrganizationAccess } from '../../../lib/routeHelpers'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 import {
   attachmentIdsPayloadSchema as attachmentIdsOpenApiSchema,
@@ -16,18 +15,12 @@ import {
   okResponseSchema,
   unlinkAttachmentPayloadSchema as unlinkAttachmentOpenApiSchema,
 } from '../../openapi'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 export const metadata = {
   GET: { requireAuth: true },
   POST: { requireAuth: true, requireFeatures: ['messages.attach_files'] },
   DELETE: { requireAuth: true, requireFeatures: ['messages.attach_files'] },
-}
-
-function hasOrganizationAccess(scopeOrganizationId: string | null, messageOrganizationId: string | null | undefined): boolean {
-  if (scopeOrganizationId) {
-    return messageOrganizationId === scopeOrganizationId
-  }
-  return messageOrganizationId == null
 }
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
@@ -97,24 +90,21 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   }
 
   const commandBus = ctx.container.resolve('commandBus') as CommandBus
-  const guardResult = await runMessageMutationGuards(
-    ctx.container,
-    {
-      tenantId: scope.tenantId,
-      organizationId: scope.organizationId,
-      userId: scope.userId,
+  const guardResult = await runRouteMutationGuards({
+    container: ctx.container,
+    req,
+    auth: { userId: scope.userId, tenantId: scope.tenantId, organizationId: scope.organizationId },
+    input: {
       resourceKind: 'messages.message',
       resourceId: message.id,
       operation: 'update',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
       mutationPayload: input as Record<string, unknown>,
     },
-  )
+  })
   if (!guardResult.ok) {
     return Response.json(
-      guardResult.errorBody ?? { error: 'Operation blocked by guard' },
-      { status: guardResult.errorStatus ?? 422 },
+      guardResult.errorBody,
+      { status: guardResult.errorStatus },
     )
   }
   const { logEntry } = await commandBus.execute('messages.attachments.link_to_draft', {
@@ -140,16 +130,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     resourceKind: 'messages.message',
     resourceId: params.id,
   })
-  await runMessageMutationGuardAfterSuccess(guardResult.afterSuccessCallbacks, {
-    tenantId: scope.tenantId,
-    organizationId: scope.organizationId,
-    userId: scope.userId,
-    resourceKind: 'messages.message',
-    resourceId: message.id,
-    operation: 'update',
-    requestMethod: req.method,
-    requestHeaders: req.headers,
-  })
+  await guardResult.runAfterSuccess()
   return response
 }
 
@@ -182,24 +163,21 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
   }
 
   const commandBus = ctx.container.resolve('commandBus') as CommandBus
-  const guardResult = await runMessageMutationGuards(
-    ctx.container,
-    {
-      tenantId: scope.tenantId,
-      organizationId: scope.organizationId,
-      userId: scope.userId,
+  const guardResult = await runRouteMutationGuards({
+    container: ctx.container,
+    req,
+    auth: { userId: scope.userId, tenantId: scope.tenantId, organizationId: scope.organizationId },
+    input: {
       resourceKind: 'messages.message',
       resourceId: message.id,
       operation: 'update',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
       mutationPayload: input as Record<string, unknown>,
     },
-  )
+  })
   if (!guardResult.ok) {
     return Response.json(
-      guardResult.errorBody ?? { error: 'Operation blocked by guard' },
-      { status: guardResult.errorStatus ?? 422 },
+      guardResult.errorBody,
+      { status: guardResult.errorStatus },
     )
   }
   const { logEntry } = await commandBus.execute('messages.attachments.unlink_from_draft', {
@@ -225,16 +203,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     resourceKind: 'messages.message',
     resourceId: params.id,
   })
-  await runMessageMutationGuardAfterSuccess(guardResult.afterSuccessCallbacks, {
-    tenantId: scope.tenantId,
-    organizationId: scope.organizationId,
-    userId: scope.userId,
-    resourceKind: 'messages.message',
-    resourceId: message.id,
-    operation: 'update',
-    requestMethod: req.method,
-    requestHeaders: req.headers,
-  })
+  await guardResult.runAfterSuccess()
   return response
 }
 

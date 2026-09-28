@@ -1,22 +1,10 @@
 import { OptionalProps } from '@mikro-orm/core'
 import { Entity, Index, PrimaryKey, Property, Unique } from '@open-mercato/shared/lib/db/decorators'
+import type { MessageAction } from '@open-mercato/shared/modules/messages/types'
 
 export type MessageStatus = 'draft' | 'sent'
 export type MessagePriority = 'low' | 'normal' | 'high' | 'urgent'
 export type MessageBodyFormat = 'text' | 'markdown'
-
-export type MessageAction = {
-  id: string
-  label: string
-  labelKey?: string
-  variant?: 'default' | 'secondary' | 'destructive' | 'outline' | 'ghost'
-  icon?: string
-  commandId?: string
-  href?: string
-  isTerminal?: boolean
-  confirmRequired?: boolean
-  confirmMessage?: string
-}
 
 export type MessageActionData = {
   actions: MessageAction[]

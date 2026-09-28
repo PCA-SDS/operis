@@ -5,7 +5,7 @@ import type { MessageActionsProps } from '@open-mercato/shared/modules/messages/
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Button } from '@open-mercato/ui/primitives/button'
 import type { MessageAction, MessageDetail } from '../types'
-import { formatDateTime } from '../utils'
+import { formatDateTime } from '@open-mercato/shared/lib/time'
 
 type ActionsPanelProps = {
   detail: MessageDetail
@@ -58,7 +58,7 @@ export function MessageDetailActionsSection(props: ActionsPanelProps) {
       )}
       {props.detail.actionTaken ? (
         <p className="text-xs text-muted-foreground">
-          {t('messages.actions.taken', 'Action taken')}: {props.detail.actionTaken} ({formatDateTime(props.detail.actionTakenAt)})
+          {t('messages.actions.taken', 'Action taken')}: {props.detail.actionTaken} ({formatDateTime(props.detail.actionTakenAt, { fallback: '—' })})
         </p>
       ) : null}
     </section>

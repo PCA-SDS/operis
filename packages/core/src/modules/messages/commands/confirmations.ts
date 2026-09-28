@@ -4,6 +4,7 @@ import type { CommandHandler } from '@open-mercato/shared/lib/commands'
 import { extractUndoPayload, type UndoPayload } from '@open-mercato/shared/lib/commands/undo'
 import { Message, MessageConfirmation, MessageRecipient } from '../data/entities'
 import { confirmMessageSchema } from '../data/validators'
+import { toIsoOrEcho } from '@open-mercato/shared/lib/date/normalize'
 
 type ConfirmMessageResult = {
   messageId: string
@@ -20,10 +21,6 @@ type ConfirmationSnapshot = {
   confirmedByUserId: string | null
   tenantId: string
   organizationId: string | null
-}
-
-function toIso(value: Date | null | undefined): string | null {
-  return value ? value.toISOString() : null
 }
 
 function toDate(value: string | null | undefined): Date | null {
@@ -45,7 +42,7 @@ const confirmMessageCommand: CommandHandler<unknown, ConfirmMessageResult> = {
         id: existing?.id ?? null,
         messageId: input.messageId,
         confirmed: existing?.confirmed ?? false,
-        confirmedAt: toIso(existing?.confirmedAt),
+        confirmedAt: toIsoOrEcho(existing?.confirmedAt),
         confirmedByUserId: existing?.confirmedByUserId ?? null,
         tenantId,
         organizationId,
@@ -122,7 +119,7 @@ const confirmMessageCommand: CommandHandler<unknown, ConfirmMessageResult> = {
       id: confirmation?.id ?? null,
       messageId: input.messageId,
       confirmed: confirmation?.confirmed ?? false,
-      confirmedAt: toIso(confirmation?.confirmedAt),
+      confirmedAt: toIsoOrEcho(confirmation?.confirmedAt),
       confirmedByUserId: confirmation?.confirmedByUserId ?? null,
       tenantId,
       organizationId,

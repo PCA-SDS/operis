@@ -25,6 +25,7 @@ import {
   type MessageAggregateSnapshot,
   type MessageScopeInput,
 } from './shared'
+import { toIsoOrEcho } from '@open-mercato/shared/lib/date/normalize'
 
 type MessageSentEventPayload = {
   messageId: string
@@ -172,10 +173,6 @@ type MessageDeleteUndoState = {
   recipientId: string | null
   recipientStatus: 'unread' | 'read' | 'archived' | 'deleted' | null
   recipientDeletedAt: string | null
-}
-
-function toIso(value: Date | null | undefined): string | null {
-  return value ? value.toISOString() : null
 }
 
 function toDate(value: string | null | undefined): Date | null {
@@ -1010,10 +1007,10 @@ const deleteForActorCommand: CommandHandler<unknown, { ok: true }> = {
     return {
       before: {
         messageId: message.id,
-        messageDeletedAt: toIso(message.deletedAt),
+        messageDeletedAt: toIsoOrEcho(message.deletedAt),
         recipientId: recipient?.id ?? null,
         recipientStatus: recipient?.status ?? null,
-        recipientDeletedAt: toIso(recipient?.deletedAt),
+        recipientDeletedAt: toIsoOrEcho(recipient?.deletedAt),
       } satisfies MessageDeleteUndoState,
     }
   },
@@ -1067,10 +1064,10 @@ const deleteForActorCommand: CommandHandler<unknown, { ok: true }> = {
     })
     return {
       messageId: input.messageId,
-      messageDeletedAt: toIso(message?.deletedAt),
+      messageDeletedAt: toIsoOrEcho(message?.deletedAt),
       recipientId: recipient?.id ?? null,
       recipientStatus: recipient?.status ?? null,
-      recipientDeletedAt: toIso(recipient?.deletedAt),
+      recipientDeletedAt: toIsoOrEcho(recipient?.deletedAt),
     } satisfies MessageDeleteUndoState
   },
   buildLog: async ({ input, snapshots }) => {

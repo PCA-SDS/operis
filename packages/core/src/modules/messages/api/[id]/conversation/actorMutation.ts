@@ -1,18 +1,19 @@
 import type { CommandBus } from '@open-mercato/shared/lib/commands/command-bus'
-import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi/types'
 import { attachOperationMetadataHeader } from '@open-mercato/shared/lib/commands/operationMetadata'
 import { resolveMessageContext } from '../../../lib/routeHelpers'
-import {
-  conversationMutationResponseSchema,
-  errorResponseSchema,
-} from '../../openapi'
 import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
-export const metadata = {
-  DELETE: { requireAuth: true, requireFeatures: ['messages.view'] },
-}
+export type ConversationActorCommandId =
+  | 'messages.conversation.archive_for_actor'
+  | 'messages.conversation.unarchive_for_actor'
+  | 'messages.conversation.mark_read_for_actor'
+  | 'messages.conversation.mark_unread_for_actor'
 
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function runConversationActorMutation(
+  req: Request,
+  id: string,
+  commandId: ConversationActorCommandId,
+) {
   const { ctx, scope } = await resolveMessageContext(req)
   const commandBus = ctx.container.resolve('commandBus') as CommandBus
 
@@ -22,8 +23,8 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     auth: { userId: scope.userId, tenantId: scope.tenantId, organizationId: scope.organizationId },
     input: {
       resourceKind: 'messages.conversation',
-      resourceId: params.id,
-      operation: 'delete',
+      resourceId: id,
+      operation: 'update',
       mutationPayload: null,
     },
   })
@@ -35,9 +36,9 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
   }
 
   try {
-    const { result, logEntry } = await commandBus.execute('messages.conversation.delete_for_actor', {
+    const { result, logEntry } = await commandBus.execute(commandId, {
       input: {
-        anchorMessageId: params.id,
+        anchorMessageId: id,
         tenantId: scope.tenantId,
         organizationId: scope.organizationId,
         userId: scope.userId,
@@ -55,7 +56,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     const response = Response.json(result)
     attachOperationMetadataHeader(response, logEntry, {
       resourceKind: 'messages.conversation',
-      resourceId: params.id,
+      resourceId: id,
     })
     await guardResult.runAfterSuccess()
     return response
@@ -70,20 +71,4 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     }
     throw error
   }
-}
-
-export const openApi: OpenApiRouteDoc = {
-  tag: 'Messages',
-  methods: {
-    DELETE: {
-      summary: 'Delete conversation for current actor',
-      responses: [
-        { status: 200, description: 'Conversation deleted', schema: conversationMutationResponseSchema },
-      ],
-      errors: [
-        { status: 403, description: 'Access denied', schema: errorResponseSchema },
-        { status: 404, description: 'Message not found', schema: errorResponseSchema },
-      ],
-    },
-  },
 }
