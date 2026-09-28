@@ -12,15 +12,9 @@ import { extractCustomFieldValues } from '@open-mercato/shared/lib/crud/custom-f
 import { buildResourceTypePayload, ResourceTypeCrudForm, type ResourceTypeFormValues } from '@open-mercato/core/modules/resources/components/ResourceTypeCrudForm'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { isAbortError } from '@open-mercato/shared/lib/async'
 
 const logger = createLogger('resources').child({ component: 'resource-types-edit-page' })
-
-function isAbortError(error: unknown): boolean {
-  return error instanceof Error && (
-    error.name === 'AbortError' ||
-    error.message === 'signal is aborted without reason'
-  )
-}
 
 type ResourceTypesResponse = {
   items?: Array<Record<string, unknown>>

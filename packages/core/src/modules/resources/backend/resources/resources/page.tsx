@@ -27,6 +27,7 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import { GripVertical, Pencil } from 'lucide-react'
+import { moveArrayItem } from '../moveArrayItem'
 
 const logger = createLogger('resources').child({ component: 'resources-page' })
 
@@ -129,14 +130,6 @@ function sortResourcesForAreaLayout(resources: ResourceRow[]): ResourceRow[] {
     const nameCompare = a.name.localeCompare(b.name)
     return nameCompare !== 0 ? nameCompare : a.id.localeCompare(b.id)
   })
-}
-
-function moveArrayItem<T>(items: T[], from: number, to: number): T[] {
-  const next = [...items]
-  const [item] = next.splice(from, 1)
-  if (!item) return items
-  next.splice(to, 0, item)
-  return next
 }
 
 function previewResourceRowsMove(rows: ResourceRow[], activeId: string, overId: string): ResourceRow[] {

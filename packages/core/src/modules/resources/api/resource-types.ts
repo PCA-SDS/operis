@@ -5,10 +5,11 @@ import { resolveCrudRecordId, parseScopedCommandInput } from '@open-mercato/shar
 import { escapeLikePattern } from '@open-mercato/shared/lib/db/escapeLikePattern'
 import { ResourcesResourceType } from '../data/entities'
 import { resourcesResourceTypeCreateSchema, resourcesResourceTypeUpdateSchema } from '../data/validators'
-import { sanitizeSearchTerm } from './helpers'
 import { attachResourceTypeCounts } from './resourceTypeCounts'
 import { E } from '#generated/entities.ids.generated'
 import { createResourcesCrudOpenApi, createPagedListResponseSchema, defaultOkResponseSchema } from './openapi'
+import { sanitizeSearchTerm } from '@open-mercato/shared/lib/query/sanitizeSearchTerm'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 // Field constants for ResourcesResourceType entity
 const F = {
@@ -40,8 +41,7 @@ const rawBodySchema = z.object({}).passthrough()
 
 const listSchema = z
   .object({
-    page: z.coerce.number().int().min(1).default(1),
-    pageSize: z.coerce.number().int().min(1).max(100).default(50),
+    ...paginationQuerySchema().shape,
     search: z.string().optional(),
     ids: z.string().optional(),
     sortField: z.string().optional(),

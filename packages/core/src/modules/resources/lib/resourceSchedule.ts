@@ -1,5 +1,5 @@
 import type { ScheduleItem } from '@open-mercato/ui/backend/schedule'
-import { parseAvailabilityRuleWindow, type AvailabilityRepeat } from '@open-mercato/core/modules/planner/lib/availabilitySchedule'
+import { parseAvailabilityRuleWindow, type AvailabilityRepeat, toFullDayWindow } from '@open-mercato/core/modules/planner/lib/availabilitySchedule'
 
 export type ResourceAvailabilityRule = {
   id: string
@@ -21,14 +21,6 @@ const DEFAULT_TITLE_MAP = {
     daily: 'Daily unavailability',
     once: 'Unavailability',
   },
-}
-
-const DAY_MS = 24 * 60 * 60 * 1000
-
-function toFullDayWindow(value: Date): { start: Date; end: Date } {
-  const start = new Date(value.getFullYear(), value.getMonth(), value.getDate())
-  const end = new Date(start.getTime() + DAY_MS)
-  return { start, end }
 }
 
 export function buildAvailabilityTitle(

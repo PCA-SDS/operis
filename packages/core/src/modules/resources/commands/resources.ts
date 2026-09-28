@@ -11,7 +11,6 @@ import type { DataEngine } from '@open-mercato/shared/lib/data/engine'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import type { CrudIndexerConfig } from '@open-mercato/shared/lib/crud/types'
 import { Dictionary, DictionaryEntry } from '@open-mercato/core/modules/dictionaries/data/entities'
-import { Organization } from '@open-mercato/core/modules/directory/data/entities'
 import { ResourcesResource, ResourcesResourceTag, ResourcesResourceTagAssignment, ResourcesResourceArea } from '../data/entities'
 import {
   resourcesResourceCreateSchema,
@@ -22,10 +21,11 @@ import {
   type ResourcesResourceUpdateInput,
 } from '../data/validators'
 import { resourcesResourceCrudEvents } from '../lib/crud'
-import { ensureOrganizationScope, ensureTenantScope, extractUndoPayload } from './shared'
+import { ensureOrganizationScope, ensureTenantScope, extractUndoPayload, moveSiblingOrder } from './shared'
 import { RESOURCES_CAPACITY_UNIT_DICTIONARY_KEY } from '../lib/capacityUnits'
 import { validateResourceAvailabilityRuleSetWithinOrganization } from '@open-mercato/core/modules/planner/lib/organizationAvailability'
 import { E } from '#generated/entities.ids.generated'
+import { resolveOrganizationAndAncestorIds } from '@open-mercato/core/modules/directory/lib/hierarchy'
 
 const resourceCrudIndexer: CrudIndexerConfig<ResourcesResource> = {
   entityType: E.resources.resources_resource,
@@ -68,19 +68,6 @@ type ResourceUndoPayload = {
   after?: ResourceSnapshot | null
   customBefore?: CustomFieldSnapshot | null
   customAfter?: CustomFieldSnapshot | null
-}
-
-async function resolveAvailabilityPolicyOrganizationIds(
-  em: EntityManager,
-  tenantId: string,
-  organizationId: string,
-): Promise<string[]> {
-  const organization = await em.findOne(Organization, {
-    id: organizationId,
-    tenant: tenantId,
-    deletedAt: null,
-  })
-  return Array.from(new Set([organizationId, ...(organization?.ancestorIds ?? [])]))
 }
 
 type ResourceReorderSnapshot = {
@@ -171,38 +158,6 @@ function snapshotResourceOrder(resources: ResourcesResource[]): ResourceReorderS
   return {
     resources: resources.map((resource) => ({ id: resource.id, sortOrder: resource.sortOrder ?? 0 })),
   }
-}
-
-function moveSiblingOrder<TEntity extends { id: string }>(
-  rows: TEntity[],
-  input: {
-    id: string
-    targetId?: string
-    direction?: 'up' | 'down'
-    position?: 'top' | 'bottom' | 'before' | 'after'
-  },
-): TEntity[] {
-  const ordered = [...rows]
-  const from = ordered.findIndex((row) => row.id === input.id)
-  if (from < 0) throw new CrudHttpError(404, { error: 'Reorder item not found.' })
-  if (input.position === 'top' || input.position === 'bottom') {
-    const [moving] = ordered.splice(from, 1)
-    ordered.splice(input.position === 'top' ? 0 : ordered.length, 0, moving)
-    return ordered
-  }
-  if (input.targetId) {
-    if (input.targetId === input.id) return ordered
-    const [moving] = ordered.splice(from, 1)
-    const target = ordered.findIndex((row) => row.id === input.targetId)
-    if (target < 0) throw new CrudHttpError(404, { error: 'Reorder target not found.' })
-    ordered.splice(input.position === 'after' ? target + 1 : target, 0, moving)
-    return ordered
-  }
-  const to = input.direction === 'up' ? from - 1 : from + 1
-  if (to < 0 || to >= ordered.length) return ordered
-  const [moving] = ordered.splice(from, 1)
-  ordered.splice(to, 0, moving)
-  return ordered
 }
 
 async function loadResourceSnapshot(em: EntityManager, id: string): Promise<ResourceSnapshot | null> {
@@ -305,7 +260,7 @@ const createResourceCommand: CommandHandler<ResourcesResourceCreateInput, { reso
     const em = (ctx.container.resolve('em') as EntityManager).fork()
 
     if (parsed.availabilityRuleSetId) {
-      const organizationIds = await resolveAvailabilityPolicyOrganizationIds(em, parsed.tenantId, parsed.organizationId)
+      const organizationIds = await resolveOrganizationAndAncestorIds(em, parsed.tenantId, parsed.organizationId)
       const availabilityValidation = await validateResourceAvailabilityRuleSetWithinOrganization(em, {
         tenantId: parsed.tenantId,
         organizationId: parsed.organizationId,
@@ -582,7 +537,7 @@ const updateResourceCommand: CommandHandler<ResourcesResourceUpdateInput, { reso
     ensureOrganizationScope(ctx, record.organizationId)
 
     if (parsed.availabilityRuleSetId) {
-      const organizationIds = await resolveAvailabilityPolicyOrganizationIds(em, record.tenantId, record.organizationId)
+      const organizationIds = await resolveOrganizationAndAncestorIds(em, record.tenantId, record.organizationId)
       const availabilityValidation = await validateResourceAvailabilityRuleSetWithinOrganization(em, {
         tenantId: record.tenantId,
         organizationId: record.organizationId,

@@ -1,7 +1,8 @@
 "use client"
 
-import { apiCall, apiCallOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
+import { apiCallOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { fetchAllDictionaryEntries } from '@open-mercato/core/modules/dictionaries/lib/fetchAllEntries'
+import { ensureDictionary, type DictionarySummary } from '@open-mercato/core/modules/dictionaries/components/ensureDictionary'
 
 export type DictionaryEntryOption = {
   value: string
@@ -10,34 +11,9 @@ export type DictionaryEntryOption = {
   icon: string | null
 }
 
-type DictionarySummary = {
-  id: string
-  key: string
-  name: string
-}
-
 const RESOURCE_DICTIONARY_KEYS = {
   activityTypes: 'resources.activity-types',
 } as const
-
-async function ensureDictionary(key: string, name: string): Promise<DictionarySummary | null> {
-  const listCall = await apiCall<{ items?: DictionarySummary[] }>('/api/dictionaries')
-  const items = Array.isArray(listCall.result?.items) ? listCall.result?.items ?? [] : []
-  const existing = items.find((item) => item && item.key === key)
-  if (existing) return existing
-  if (!listCall.ok) return null
-  const created = await apiCallOrThrow<DictionarySummary>(
-    '/api/dictionaries',
-    {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ key, name }),
-    },
-  )
-  const result = created.result as DictionarySummary | undefined
-  if (result && result.id && result.key) return result
-  return null
-}
 
 export async function loadResourceDictionaryEntries(
   kind: keyof typeof RESOURCE_DICTIONARY_KEYS,

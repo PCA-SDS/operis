@@ -18,7 +18,7 @@ import {
   type ResourcesResourceAreaUpdateInput,
 } from '../data/validators'
 import { resourcesResourceAreaCrudEvents } from '../lib/crud'
-import { ensureOrganizationScope, ensureTenantScope, extractUndoPayload } from './shared'
+import { ensureOrganizationScope, ensureTenantScope, extractUndoPayload, moveSiblingOrder } from './shared'
 import { E } from '#generated/entities.ids.generated'
 
 const resourceAreaCrudIndexer: CrudIndexerConfig<ResourcesResourceArea> = {
@@ -156,38 +156,6 @@ function snapshotAreaOrder(areas: ResourcesResourceArea[]): ResourceAreaReorderS
   return {
     areas: areas.map((area) => ({ id: area.id, sortOrder: area.sortOrder ?? 0 })),
   }
-}
-
-function moveSiblingOrder<TEntity extends { id: string }>(
-  rows: TEntity[],
-  input: {
-    id: string
-    targetId?: string
-    direction?: 'up' | 'down'
-    position?: 'top' | 'bottom' | 'before' | 'after'
-  },
-): TEntity[] {
-  const ordered = [...rows]
-  const from = ordered.findIndex((row) => row.id === input.id)
-  if (from < 0) throw new CrudHttpError(404, { error: 'Reorder item not found.' })
-  if (input.position === 'top' || input.position === 'bottom') {
-    const [moving] = ordered.splice(from, 1)
-    ordered.splice(input.position === 'top' ? 0 : ordered.length, 0, moving)
-    return ordered
-  }
-  if (input.targetId) {
-    if (input.targetId === input.id) return ordered
-    const [moving] = ordered.splice(from, 1)
-    const target = ordered.findIndex((row) => row.id === input.targetId)
-    if (target < 0) throw new CrudHttpError(404, { error: 'Reorder target not found.' })
-    ordered.splice(input.position === 'after' ? target + 1 : target, 0, moving)
-    return ordered
-  }
-  const to = input.direction === 'up' ? from - 1 : from + 1
-  if (to < 0 || to >= ordered.length) return ordered
-  const [moving] = ordered.splice(from, 1)
-  ordered.splice(to, 0, moving)
-  return ordered
 }
 
 const createResourceAreaCommand: CommandHandler<ResourcesResourceAreaCreateInput, { areaId: string }> = {

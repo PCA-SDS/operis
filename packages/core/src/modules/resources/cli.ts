@@ -5,28 +5,12 @@ import { seedResourcesActivityTypes, seedResourcesAddressTypes, seedResourcesCap
 import { ResourcesResource, ResourcesResourceArea, ResourcesResourceAreaType } from './data/entities'
 import { CustomFieldValue } from '../entities/data/entities'
 import { E } from '#generated/entities.ids.generated'
-
-function parseArgs(rest: string[]) {
-  const args: Record<string, string> = {}
-  for (let i = 0; i < rest.length; i += 1) {
-    const part = rest[i]
-    if (!part) continue
-    if (part.startsWith('--')) {
-      const [rawKey, rawValue] = part.slice(2).split('=')
-      if (rawValue !== undefined) args[rawKey] = rawValue
-      else if (rest[i + 1] && !rest[i + 1]!.startsWith('--')) {
-        args[rawKey] = rest[i + 1]!
-        i += 1
-      }
-    }
-  }
-  return args
-}
+import { parseCliValueArgs } from '@open-mercato/shared/lib/cli/args'
 
 const seedCapacityUnitsCommand: ModuleCli = {
   command: 'seed-capacity-units',
   async run(rest) {
-    const args = parseArgs(rest)
+    const args = parseCliValueArgs(rest)
     const tenantId = String(args.tenantId ?? args.tenant ?? '')
     const organizationId = String(args.organizationId ?? args.org ?? args.orgId ?? '')
     if (!tenantId || !organizationId) {
@@ -53,7 +37,7 @@ const seedCapacityUnitsCommand: ModuleCli = {
 const seedActivityTypesCommand: ModuleCli = {
   command: 'seed-activity-types',
   async run(rest) {
-    const args = parseArgs(rest)
+    const args = parseCliValueArgs(rest)
     const tenantId = String(args.tenantId ?? args.tenant ?? '')
     const organizationId = String(args.organizationId ?? args.org ?? args.orgId ?? '')
     if (!tenantId || !organizationId) {
@@ -80,7 +64,7 @@ const seedActivityTypesCommand: ModuleCli = {
 const seedAddressTypesCommand: ModuleCli = {
   command: 'seed-address-types',
   async run(rest) {
-    const args = parseArgs(rest)
+    const args = parseCliValueArgs(rest)
     const tenantId = String(args.tenantId ?? args.tenant ?? '')
     const organizationId = String(args.organizationId ?? args.org ?? args.orgId ?? '')
     if (!tenantId || !organizationId) {
@@ -107,7 +91,7 @@ const seedAddressTypesCommand: ModuleCli = {
 const seedExamplesCommand: ModuleCli = {
   command: 'seed-examples',
   async run(rest) {
-    const args = parseArgs(rest)
+    const args = parseCliValueArgs(rest)
     const tenantId = String(args.tenantId ?? args.tenant ?? '')
     const organizationId = String(args.organizationId ?? args.org ?? args.orgId ?? '')
     if (!tenantId || !organizationId) {
