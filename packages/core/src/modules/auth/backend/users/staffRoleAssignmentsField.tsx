@@ -11,6 +11,7 @@ import type { CrudCustomFieldRenderProps } from '@open-mercato/ui/backend/CrudFo
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { fetchOrganizationOptions } from './organizationOptions'
+import { dedupeRoleOptionsByLabel } from './staffRoleAssignments'
 
 export type StaffRoleAssignment = {
   organizationId: string
@@ -182,11 +183,7 @@ export function StaffRoleAssignmentsField({
   }, [currentAssignments, organizationIds])
 
   const allRoleOptions = React.useMemo(() => {
-    const byId = new Map<string, RoleOption>()
-    Object.values(roleOptions).flat().forEach((option) => {
-      if (!byId.has(option.value)) byId.set(option.value, option)
-    })
-    return Array.from(byId.values())
+    return dedupeRoleOptionsByLabel(Object.values(roleOptions).flat())
   }, [roleOptions])
 
   const updateAssignment = React.useCallback((organizationId: string, roleIds: string[]) => {

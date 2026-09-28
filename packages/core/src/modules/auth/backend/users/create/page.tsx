@@ -32,8 +32,9 @@ type CreateUserFormValues = {
   roles: string[]
 } & Record<string, unknown>
 
-type UserListResponse = {
+type ActorContextResponse = {
   isSuperAdmin?: boolean
+  tenantId?: string | null
 }
 
 type WidgetCatalogResponse = {
@@ -142,6 +143,7 @@ export default function CreateUserPage() {
           setWidgetCatalog(normalized)
         }
       } catch (err) {
+        if (cancelled || controller.signal.aborted) return
         logger.error('Failed to load dashboard widget catalog', { err })
         if (!cancelled) {
           setWidgetError(t(
@@ -162,9 +164,16 @@ export default function CreateUserPage() {
     const controller = new AbortController()
     async function loadActor() {
       try {
-        const { ok, result } = await apiCall<UserListResponse>('/api/auth/users?page=1&pageSize=1', { signal: controller.signal })
-        if (!cancelled && ok) setActorIsSuperAdmin(Boolean(result?.isSuperAdmin))
+        const { ok, result } = await apiCall<ActorContextResponse>('/api/directory/organization-switcher', { signal: controller.signal })
+        if (!cancelled && ok) {
+          const isSuperAdmin = Boolean(result?.isSuperAdmin)
+          setActorIsSuperAdmin(isSuperAdmin)
+          if (!isSuperAdmin && typeof result?.tenantId === 'string' && result.tenantId.trim().length > 0) {
+            setSelectedTenantId(result.tenantId.trim())
+          }
+        }
       } catch (err) {
+        if (cancelled || controller.signal.aborted) return
         logger.error('Failed to resolve actor super admin flag', { err })
       } finally {
         if (!cancelled) setActorResolved(true)
@@ -178,9 +187,6 @@ export default function CreateUserPage() {
     setSelectedWidgets((prev) => (prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id]))
   }, [])
 
-  // Block role loading until we know whether the actor is a super admin. Without this guard the
-  // initial (non-super-admin) branch fires before the flag resolves and the server returns roles
-  // from other tenants because the real caller is a super admin without tenantId scoping.
   const loadRoleOptions = React.useCallback(async (query?: string): Promise<CrudFieldOption[]> => {
     if (!actorResolved) return []
     if (actorIsSuperAdmin) {
