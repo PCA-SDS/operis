@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
-import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import type { SearchService } from '@open-mercato/search'
 import type { FullTextSearchStrategy } from '@open-mercato/search/strategies'
 
@@ -9,6 +8,7 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import type { Kysely } from 'kysely'
 import { getReindexLockStatus } from '../../lib/reindex-lock'
 import { settingsOpenApi } from '../openapi'
+import { unauthorizedResponse } from '@open-mercato/shared/lib/http/responses'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['search.view'] },
@@ -55,14 +55,9 @@ type SettingsResponse = {
 
 const toJson = (payload: SettingsResponse, init?: ResponseInit) => NextResponse.json(payload, init)
 
-const unauthorized = async () => {
-  const { t } = await resolveTranslations()
-  return NextResponse.json({ error: t('api.errors.unauthorized', 'Unauthorized') }, { status: 401 })
-}
-
 export async function GET(req: Request) {
   const auth = await getAuthFromRequest(req)
-  if (!auth?.sub) return await unauthorized()
+  if (!auth?.sub) return await unauthorizedResponse()
 
   const container = await createRequestContainer()
   try {

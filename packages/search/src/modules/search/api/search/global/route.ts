@@ -15,6 +15,7 @@ import {
 } from '../../../lib/entity-access'
 import { searchDebug, searchError } from '../../../../../lib/debug'
 import { globalSearchOpenApi } from '../../openapi'
+import { parseEntityTypes, parseLimit } from '../queryParams'
 
 /**
  * `search.global` — the same feature the topbar gates the Cmd+K palette on
@@ -33,19 +34,6 @@ type RbacLike = {
     userId: string,
     scope: { tenantId: string | null; organizationId: string | null },
   ) => Promise<string[]>
-}
-
-function parseLimit(value: string | null): number {
-  if (!value) return 50
-  const parsed = Number.parseInt(value, 10)
-  if (Number.isNaN(parsed) || parsed <= 0) return 50
-  return Math.min(parsed, 100)
-}
-
-function parseEntityTypes(value: string | null): string[] | undefined {
-  if (!value) return undefined
-  const entityTypes = value.split(',').map((s) => s.trim()).filter(Boolean)
-  return entityTypes.length > 0 ? entityTypes : undefined
 }
 
 /**

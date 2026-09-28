@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
-import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import type { VectorDriverId } from '@open-mercato/shared/modules/vector'
 import type { VectorDriver } from '../../../../../vector'
 import { vectorStoreSettingsOpenApi } from '../../openapi'
+import { unauthorizedResponse } from '@open-mercato/shared/lib/http/responses'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['search.view'] },
@@ -49,14 +49,9 @@ async function probeDriverStatus(
   }
 }
 
-const unauthorized = async () => {
-  const { t } = await resolveTranslations()
-  return NextResponse.json({ error: t('api.errors.unauthorized', 'Unauthorized') }, { status: 401 })
-}
-
 export async function GET(req: Request) {
   const auth = await getAuthFromRequest(req)
-  if (!auth?.sub) return await unauthorized()
+  if (!auth?.sub) return await unauthorizedResponse()
 
   // Check pgvector - uses existing DATABASE_URL
   const databaseUrlSet = Boolean(process.env.DATABASE_URL?.trim())

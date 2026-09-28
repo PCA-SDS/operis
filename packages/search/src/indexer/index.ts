@@ -1,6 +1,5 @@
 export { SearchIndexer } from './search-indexer'
 export type {
-  IndexRecordParams,
   DeleteRecordParams,
   PurgeEntityParams,
   ReindexEntityParams,

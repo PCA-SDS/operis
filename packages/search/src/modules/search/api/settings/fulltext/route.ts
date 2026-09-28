@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
-import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { fulltextSettingsOpenApi } from '../../openapi'
+import { unauthorizedResponse } from '@open-mercato/shared/lib/http/responses'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['search.view'] },
@@ -32,14 +32,9 @@ type FulltextConfigResponse = {
   }
 }
 
-const unauthorized = async () => {
-  const { t } = await resolveTranslations()
-  return NextResponse.json({ error: t('api.errors.unauthorized', 'Unauthorized') }, { status: 401 })
-}
-
 export async function GET(req: Request) {
   const auth = await getAuthFromRequest(req)
-  if (!auth?.sub) return await unauthorized()
+  if (!auth?.sub) return await unauthorizedResponse()
 
   const hostSet = Boolean(process.env.MEILISEARCH_HOST?.trim())
   const apiKeySet = Boolean(process.env.MEILISEARCH_API_KEY?.trim())

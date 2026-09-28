@@ -46,45 +46,22 @@ import {
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { MENU_ROW_HOVER, menuRowVariants } from '@open-mercato/ui/primitives/menu'
-import type { SearchResult, SearchResultLink } from '@open-mercato/shared/modules/search'
+import type { SearchResult } from '@open-mercato/shared/modules/search'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { resolveEntityTypeLabel } from '../lib/entityTypeLabel'
 import {
-  getCurrentOrganizationScope,
   subscribeOrganizationScopeChanged,
 } from '@open-mercato/shared/lib/frontend/organizationEvents'
-import { isAllOrganizationsSelection } from '@open-mercato/core/modules/directory/constants'
-import { parseSelectedOrganizationCookie } from '@open-mercato/core/modules/directory/utils/scopeCookies'
 import { ForbiddenError } from '@open-mercato/ui/backend/utils/api'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { Kbd } from '@open-mercato/ui/primitives/kbd'
 import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 import { resolveSearchMinTokenLength } from '@open-mercato/shared/lib/search/config'
 import { fetchGlobalSearchResults } from '../utils'
+import { hasActiveOrganizationSelection } from './organizationSelection'
+import { pickPrimaryLink } from './searchResults'
 
 const MIN_QUERY_LENGTH = resolveSearchMinTokenLength()
-
-function normalizeLinks(links?: SearchResultLink[] | null): SearchResultLink[] {
-  if (!Array.isArray(links)) return []
-  return links.filter((link) => typeof link?.href === 'string')
-}
-
-function pickPrimaryLink(result: SearchResult): string | null {
-  if (result.url) return result.url
-  const links = normalizeLinks(result.links)
-  if (!links.length) return null
-  const primary = links.find((link) => link.kind === 'primary')
-  return (primary ?? links[0]).href
-}
-
-function hasActiveOrganizationSelection(): boolean {
-  const fromEvent = getCurrentOrganizationScope().organizationId
-  if (typeof fromEvent === 'string' && fromEvent.trim().length > 0) return true
-  const cookieHeader = typeof document === 'undefined' ? null : document.cookie
-  const cookieValue = parseSelectedOrganizationCookie(cookieHeader)
-  if (!cookieValue) return false
-  return !isAllOrganizationsSelection(cookieValue)
-}
 
 const ICON_MAP: Record<string, LucideIcon> = {
   bolt: Zap,

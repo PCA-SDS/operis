@@ -11,6 +11,7 @@ import { useAppEvent } from '@open-mercato/ui/backend/injection/useAppEvent'
 import { GlobalSearchSection } from './sections/GlobalSearchSection'
 import { FulltextSearchSection } from './sections/FulltextSearchSection'
 import { VectorSearchSection } from './sections/VectorSearchSection'
+import { normalizeErrorMessage } from './errorMessage'
 
 // Types
 type StrategyStatus = {
@@ -128,12 +129,6 @@ type VectorStoreConfigResponse = {
   currentDriver: VectorDriverId
   configured: boolean
   drivers: VectorDriverStatus[]
-}
-
-const normalizeErrorMessage = (error: unknown, fallback: string): string => {
-  if (typeof error === 'string' && error.trim().length) return error.trim()
-  if (error instanceof Error && error.message.trim().length) return error.message.trim()
-  return fallback
 }
 
 export function SearchSettingsPageClient() {

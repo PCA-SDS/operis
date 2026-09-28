@@ -15,6 +15,7 @@ import {
 } from '../../lib/entity-access'
 import { searchDebug, searchError } from '../../../../lib/debug'
 import { searchOpenApi } from '../openapi'
+import { parseEntityTypes, parseLimit } from './queryParams'
 
 /**
  * `search.view` — the search-administration feature behind the Vector Search
@@ -32,23 +33,10 @@ type RbacLike = {
   ) => Promise<string[]>
 }
 
-function parseLimit(value: string | null): number {
-  if (!value) return 50
-  const parsed = Number.parseInt(value, 10)
-  if (Number.isNaN(parsed) || parsed <= 0) return 50
-  return Math.min(parsed, 100)
-}
-
 function parseStrategies(value: string | null): SearchStrategyId[] | undefined {
   if (!value) return undefined
   const strategies = value.split(',').map((s) => s.trim()).filter(Boolean) as SearchStrategyId[]
   return strategies.length > 0 ? strategies : undefined
-}
-
-function parseEntityTypes(value: string | null): string[] | undefined {
-  if (!value) return undefined
-  const entityTypes = value.split(',').map((s) => s.trim()).filter(Boolean)
-  return entityTypes.length > 0 ? entityTypes : undefined
 }
 
 export async function GET(req: Request) {
