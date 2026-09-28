@@ -8,13 +8,7 @@ import { WebhookDeliveryEntity, WebhookEntity } from '../../data/entities'
 import { webhookDeliveryQuerySchema } from '../../data/validators'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { serializeDeliveryListItem } from '../helpers'
-
-function json(payload: unknown, init: ResponseInit = { status: 200 }) {
-  return new Response(JSON.stringify(payload), {
-    ...init,
-    headers: { 'content-type': 'application/json', ...(init.headers || {}) },
-  })
-}
+import { jsonResponse } from '@open-mercato/shared/lib/http/responses'
 
 const deliveryItemSchema = z.object({
   id: z.string(),
@@ -55,7 +49,7 @@ const crud = makeCrudRoute<never, never, z.infer<typeof webhookDeliveryQuerySche
     beforeList: async (query, ctx) => {
       const auth = ctx.auth
       const { translate } = await resolveTranslations()
-      if (!auth?.tenantId) throw json({ error: translate('webhooks.errors.tenantRequired', 'Tenant context required') }, { status: 400 })
+      if (!auth?.tenantId) throw jsonResponse({ error: translate('webhooks.errors.tenantRequired', 'Tenant context required') }, { status: 400 })
 
       const page = query.page ?? 1
       const pageSize = Math.min(query.pageSize ?? 50, 100)
@@ -112,7 +106,7 @@ const crud = makeCrudRoute<never, never, z.infer<typeof webhookDeliveryQuerySche
         totalPages: Math.ceil(total / pageSize),
       }
 
-      throw json(payload)
+      throw jsonResponse(payload)
     },
   },
 })

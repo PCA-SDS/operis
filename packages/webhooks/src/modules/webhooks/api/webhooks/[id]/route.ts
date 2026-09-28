@@ -2,11 +2,12 @@ import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { emitWebhooksEvent } from '../../../events'
-import { findScopedWebhook, json, resolveWebhookRequestScope, serializeWebhookDetail } from '../../helpers'
+import { findScopedWebhook, resolveWebhookRequestScope, serializeWebhookDetail } from '../../helpers'
 import { webhookUpdateSchema } from '../../../data/validators'
 import { enforceCommandOptimisticLockWithGuards } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
+import { jsonResponse } from '@open-mercato/shared/lib/http/responses'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['webhooks.view'] },
@@ -54,10 +55,10 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
   const webhook = await findScopedWebhook(scope.em.fork(), scope, params.id)
 
   if (!webhook) {
-    return json({ error: 'Webhook not found' }, { status: 404 })
+    return jsonResponse({ error: 'Webhook not found' }, { status: 404 })
   }
 
-  return json(serializeWebhookDetail(webhook))
+  return jsonResponse(serializeWebhookDetail(webhook))
 }
 
 export async function PUT(request: Request, context: RouteContext): Promise<Response> {
@@ -69,7 +70,7 @@ export async function PUT(request: Request, context: RouteContext): Promise<Resp
   const webhook = await findScopedWebhook(em, scope, params.id)
 
   if (!webhook) {
-    return json({ error: 'Webhook not found' }, { status: 404 })
+    return jsonResponse({ error: 'Webhook not found' }, { status: 404 })
   }
 
   try {
@@ -80,13 +81,13 @@ export async function PUT(request: Request, context: RouteContext): Promise<Resp
       request,
     })
   } catch (err) {
-    if (isCrudHttpError(err)) return json(err.body, { status: err.status })
+    if (isCrudHttpError(err)) return jsonResponse(err.body, { status: err.status })
     throw err
   }
 
   const parsed = webhookUpdateSchema.safeParse(await readJsonSafe(request))
   if (!parsed.success) {
-    return json({ error: 'Invalid request payload' }, { status: 400 })
+    return jsonResponse({ error: 'Invalid request payload' }, { status: 400 })
   }
 
   const input = parsed.data
@@ -113,7 +114,7 @@ export async function PUT(request: Request, context: RouteContext): Promise<Resp
     tenantId: webhook.tenantId,
   }, { persistent: true })
 
-  return json(serializeWebhookDetail(webhook))
+  return jsonResponse(serializeWebhookDetail(webhook))
 }
 
 export async function DELETE(request: Request, context: RouteContext): Promise<Response> {
@@ -126,7 +127,7 @@ export async function DELETE(request: Request, context: RouteContext): Promise<R
   const { translate } = await resolveTranslations()
 
   if (!webhook) {
-    return json({ error: translate('webhooks.errors.notFound', 'Webhook not found') }, { status: 404 })
+    return jsonResponse({ error: translate('webhooks.errors.notFound', 'Webhook not found') }, { status: 404 })
   }
 
   try {
@@ -137,7 +138,7 @@ export async function DELETE(request: Request, context: RouteContext): Promise<R
       request,
     })
   } catch (err) {
-    if (isCrudHttpError(err)) return json(err.body, { status: err.status })
+    if (isCrudHttpError(err)) return jsonResponse(err.body, { status: err.status })
     throw err
   }
 
@@ -150,7 +151,7 @@ export async function DELETE(request: Request, context: RouteContext): Promise<R
     tenantId: webhook.tenantId,
   }, { persistent: true })
 
-  return json({ success: true })
+  return jsonResponse({ success: true })
 }
 
 export const openApi: OpenApiRouteDoc = {

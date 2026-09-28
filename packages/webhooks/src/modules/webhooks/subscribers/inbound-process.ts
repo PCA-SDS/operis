@@ -1,5 +1,6 @@
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { getWebhookEndpointAdapter } from '../lib/adapter-registry'
+import { isRecord } from '@open-mercato/shared/lib/guards'
 
 const logger = createLogger('webhooks').child({ component: 'inbound' })
 
@@ -35,8 +36,4 @@ export default async function handler(payload: Record<string, unknown>) {
     logger.error('Processing failed', { providerKey, eventType, err })
     throw err
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

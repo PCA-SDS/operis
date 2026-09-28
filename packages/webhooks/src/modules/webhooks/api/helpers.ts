@@ -5,6 +5,7 @@ import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
 import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { WebhookDeliveryEntity, WebhookEntity } from '../data/entities'
+import { jsonResponse } from '@open-mercato/shared/lib/http/responses'
 
 export type WebhookRequestScope = {
   container: Awaited<ReturnType<typeof createRequestContainer>>
@@ -14,20 +15,13 @@ export type WebhookRequestScope = {
   allowedOrganizationIds: string[] | null
 }
 
-export function json(payload: unknown, init: ResponseInit = { status: 200 }): Response {
-  return new Response(JSON.stringify(payload), {
-    ...init,
-    headers: { 'content-type': 'application/json', ...(init.headers || {}) },
-  })
-}
-
 export async function resolveWebhookRequestScope(request: Request): Promise<WebhookRequestScope | Response> {
   const container = await createRequestContainer()
   const auth = await getAuthFromRequest(request)
   const { translate } = await resolveTranslations()
 
   if (!auth) {
-    return json({ error: translate('api.errors.unauthorized', 'Unauthorized') }, { status: 401 })
+    return jsonResponse({ error: translate('api.errors.unauthorized', 'Unauthorized') }, { status: 401 })
   }
 
   const scope = await resolveOrganizationScopeForRequest({ container, auth, request })
@@ -36,7 +30,7 @@ export async function resolveWebhookRequestScope(request: Request): Promise<Webh
   const allowedOrganizationIds = Array.isArray(scope?.allowedIds) ? scope.allowedIds : null
 
   if (!tenantId) {
-    return json({ error: translate('webhooks.errors.tenantRequired', 'Tenant context required') }, { status: 400 })
+    return jsonResponse({ error: translate('webhooks.errors.tenantRequired', 'Tenant context required') }, { status: 400 })
   }
 
   return {

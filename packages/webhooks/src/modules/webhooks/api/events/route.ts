@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { getDeclaredEvents } from '@open-mercato/shared/modules/events'
-import { json } from '../helpers'
+import { jsonResponse } from '@open-mercato/shared/lib/http/responses'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['webhooks.view'] },
@@ -27,7 +27,7 @@ export async function GET(): Promise<Response> {
     .filter((event) => !event.id.startsWith('webhooks.') && !event.excludeFromTriggers)
     .sort((left, right) => left.id.localeCompare(right.id))
 
-  return json({
+  return jsonResponse({
     data: events,
     total: events.length,
   })

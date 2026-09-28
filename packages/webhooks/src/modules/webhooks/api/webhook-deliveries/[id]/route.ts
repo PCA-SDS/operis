@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
-import { findScopedDelivery, json, resolveWebhookRequestScope, serializeDeliveryDetail } from '../../helpers'
+import { findScopedDelivery, resolveWebhookRequestScope, serializeDeliveryDetail } from '../../helpers'
+import { jsonResponse } from '@open-mercato/shared/lib/http/responses'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['webhooks.view'] },
@@ -42,10 +43,10 @@ export async function GET(request: Request, context: RouteContext): Promise<Resp
   const params = await context.params
   const delivery = await findScopedDelivery(scope.em.fork(), scope, params.id)
   if (!delivery) {
-    return json({ error: 'Delivery not found' }, { status: 404 })
+    return jsonResponse({ error: 'Delivery not found' }, { status: 404 })
   }
 
-  return json(serializeDeliveryDetail(delivery))
+  return jsonResponse(serializeDeliveryDetail(delivery))
 }
 
 export const openApi: OpenApiRouteDoc = {
