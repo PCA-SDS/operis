@@ -10,16 +10,9 @@ import {
   type SalesLineSnapshot,
   type SalesTotalsCalculationHook,
 } from './types'
+import { toNumber } from './numbers'
 
-function toNumber(value: unknown, fallback = 0): number {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string' && value.trim() !== '' && !Number.isNaN(Number(value))) {
-    return Number(value)
-  }
-  return fallback
-}
-
-function round(value: number): number {
+export function round(value: number): number {
   return Math.round((value + Number.EPSILON) * 1e4) / 1e4
 }
 

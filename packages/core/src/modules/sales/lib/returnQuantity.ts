@@ -1,3 +1,5 @@
+import { toFiniteNumber } from '@open-mercato/shared/lib/number'
+
 export type ReturnAvailableInput = {
   quantity: number
   returnedQuantity: number
@@ -12,15 +14,6 @@ export function computeAvailableReturnQuantity(line: ReturnAvailableInput): numb
   const raw = cap - line.returnedQuantity
   if (!Number.isFinite(raw) || raw <= 0) return 0
   return Math.max(0, Math.floor(raw + 1e-6))
-}
-
-function coerceQuantity(value: unknown): number {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string' && value.trim().length) {
-    const parsed = Number(value)
-    if (Number.isFinite(parsed)) return parsed
-  }
-  return 0
 }
 
 /**
@@ -50,7 +43,7 @@ export function sumShippedQuantityByLine(
             ? record.order_line_id
             : null
       if (!orderLineId) continue
-      shippedByLine.set(orderLineId, (shippedByLine.get(orderLineId) ?? 0) + coerceQuantity(record.quantity))
+      shippedByLine.set(orderLineId, (shippedByLine.get(orderLineId) ?? 0) + toFiniteNumber(record.quantity))
     }
   }
   return shippedByLine

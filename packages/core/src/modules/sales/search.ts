@@ -1,7 +1,7 @@
 import type { SearchBuildContext, SearchIndexSource, SearchModuleConfig, SearchResultPresenter } from '@open-mercato/shared/modules/search'
 import type { TranslateFn } from '@open-mercato/shared/lib/i18n/context'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
-import { normalizeText } from '@open-mercato/shared/modules/search/descriptorHelpers'
+import { normalizeText, readRecordText, friendlyFieldLabel, toIndexSource } from '@open-mercato/shared/modules/search/descriptorHelpers'
 
 type SalesDocumentKind = 'order' | 'quote' | 'invoice' | 'credit_memo'
 
@@ -13,14 +13,6 @@ const SALES_QUOTES_URL = '/backend/sales/quotes'
 function pickText(...candidates: Array<unknown>): string | null {
   for (const candidate of candidates) {
     const text = normalizeText(candidate)
-    if (text) return text
-  }
-  return null
-}
-
-function readRecordText(record: Record<string, unknown>, ...keys: string[]): string | null {
-  for (const key of keys) {
-    const text = normalizeText(record[key])
     if (text) return text
   }
   return null
@@ -58,18 +50,10 @@ function appendLine(lines: string[], label: string, value: unknown) {
   lines.push(`${label}: ${text}`)
 }
 
-function friendlyLabel(input: string): string {
-  return input
-    .replace(/^cf:/, '')
-    .replace(/_/g, ' ')
-    .replace(/([a-z])([A-Z])/g, (_match, firstChar, secondChar) => `${firstChar} ${secondChar}`)
-    .replace(/\b\w/g, (character) => character.toUpperCase())
-}
-
 function appendCustomFieldLines(lines: string[], customFields: Record<string, unknown>) {
   for (const [key, value] of Object.entries(customFields)) {
     if (value === null || value === undefined) continue
-    appendLine(lines, friendlyLabel(key), value)
+    appendLine(lines, friendlyFieldLabel(key), value)
   }
 }
 
@@ -79,12 +63,7 @@ function buildIndexSource(
   lines: string[],
 ): SearchIndexSource | null {
   appendCustomFieldLines(lines, ctx.customFields)
-  if (!lines.length) return null
-  return {
-    text: lines,
-    presenter,
-    checksumSource: { record: ctx.record, customFields: ctx.customFields },
-  }
+  return toIndexSource(ctx, presenter, lines)
 }
 
 function buildOrderUrl(orderId: string | null): string | null {

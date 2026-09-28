@@ -5,28 +5,12 @@ import { backfillDealLossReasonDictionary, seedSalesAdjustmentKinds, seedSalesSt
 import { seedSalesTaxRates } from './lib/seeds'
 import { ensureExamplePaymentMethods, ensureExampleShippingMethods } from './seed/examples-data'
 import { seedSalesExamples } from './seed/examples'
-
-function parseArgs(rest: string[]) {
-  const args: Record<string, string> = {}
-  for (let i = 0; i < rest.length; i += 1) {
-    const part = rest[i]
-    if (!part) continue
-    if (part.startsWith('--')) {
-      const [rawKey, rawValue] = part.slice(2).split('=')
-      if (rawValue !== undefined) args[rawKey] = rawValue
-      else if (rest[i + 1] && !rest[i + 1]!.startsWith('--')) {
-        args[rawKey] = rest[i + 1]!
-        i += 1
-      }
-    }
-  }
-  return args
-}
+import { parseCliValueArgs } from '@open-mercato/shared/lib/cli/args'
 
 const seedTaxRatesCommand: ModuleCli = {
   command: 'seed-tax-rates',
   async run(rest) {
-    const args = parseArgs(rest)
+    const args = parseCliValueArgs(rest)
     const tenantId = String(args.tenantId ?? args.tenant ?? '')
     const organizationId = String(args.organizationId ?? args.org ?? args.orgId ?? '')
     if (!tenantId || !organizationId) {
@@ -52,7 +36,7 @@ const seedTaxRatesCommand: ModuleCli = {
 const seedStatusesCommand: ModuleCli = {
   command: 'seed-statuses',
   async run(rest) {
-    const args = parseArgs(rest)
+    const args = parseCliValueArgs(rest)
     const tenantId = String(args.tenantId ?? args.tenant ?? '')
     const organizationId = String(args.organizationId ?? args.org ?? args.orgId ?? '')
     if (!tenantId || !organizationId) {
@@ -79,7 +63,7 @@ const seedStatusesCommand: ModuleCli = {
 const seedAdjustmentKindsCommand: ModuleCli = {
   command: 'seed-adjustment-kinds',
   async run(rest) {
-    const args = parseArgs(rest)
+    const args = parseCliValueArgs(rest)
     const tenantId = String(args.tenantId ?? args.tenant ?? '')
     const organizationId = String(args.organizationId ?? args.org ?? args.orgId ?? '')
     if (!tenantId || !organizationId) {
@@ -106,7 +90,7 @@ const seedAdjustmentKindsCommand: ModuleCli = {
 const backfillDealLossReasonsCommand: ModuleCli = {
   command: 'backfill-deal-loss-reasons',
   async run(rest) {
-    const args = parseArgs(rest)
+    const args = parseCliValueArgs(rest)
     const tenantId = String(args.tenantId ?? args.tenant ?? '')
     const organizationId = String(args.organizationId ?? args.org ?? args.orgId ?? '')
     if (!tenantId || !organizationId) {
@@ -143,7 +127,7 @@ const backfillDealLossReasonsCommand: ModuleCli = {
 const seedShippingMethodsCommand: ModuleCli = {
   command: 'seed-shipping-methods',
   async run(rest) {
-    const args = parseArgs(rest)
+    const args = parseCliValueArgs(rest)
     const tenantId = String(args.tenantId ?? args.tenant ?? '')
     const organizationId = String(args.organizationId ?? args.org ?? args.orgId ?? '')
     if (!tenantId || !organizationId) {
@@ -169,7 +153,7 @@ const seedShippingMethodsCommand: ModuleCli = {
 const seedPaymentMethodsCommand: ModuleCli = {
   command: 'seed-payment-methods',
   async run(rest) {
-    const args = parseArgs(rest)
+    const args = parseCliValueArgs(rest)
     const tenantId = String(args.tenantId ?? args.tenant ?? '')
     const organizationId = String(args.organizationId ?? args.org ?? args.orgId ?? '')
     if (!tenantId || !organizationId) {
@@ -195,7 +179,7 @@ const seedPaymentMethodsCommand: ModuleCli = {
 const seedExamplesCommand: ModuleCli = {
   command: 'seed-examples',
   async run(rest) {
-    const args = parseArgs(rest)
+    const args = parseCliValueArgs(rest)
     const tenantId = String(args.tenantId ?? args.tenant ?? '')
     const organizationId = String(args.organizationId ?? args.org ?? args.orgId ?? '')
     if (!tenantId || !organizationId) {

@@ -4,15 +4,7 @@ import { SalesOrderLine, SalesShipment, SalesShipmentItem } from '../../data/ent
 import type { ShipmentItemSnapshot } from './types'
 import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { cloneJson } from '@open-mercato/shared/lib/json/cloneJson'
-
-export const coerceShipmentQuantity = (value: unknown): number => {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string' && value.trim().length) {
-    const parsed = Number(value)
-    if (!Number.isNaN(parsed)) return parsed
-  }
-  return 0
-}
+import { toNumber } from '../numbers'
 
 const extractOrderLineId = (entry: SalesShipmentItem): string | null => {
   const raw =
@@ -51,7 +43,7 @@ export const buildShipmentItemSnapshots = (
       if (!orderLineId) return null
       const line = map.get(orderLineId) ?? null
       const id = typeof item.id === 'string' ? item.id : randomUUID()
-      const quantity = coerceShipmentQuantity(item.quantity)
+      const quantity = toNumber(item.quantity)
       const metadata =
         item.metadata && typeof item.metadata === 'object' ? cloneJson(item.metadata) : null
       return {
@@ -78,7 +70,7 @@ export const readShipmentItemsSnapshot = (raw: unknown): ShipmentItemSnapshot[] 
             ? (entry as any).order_line_id
             : null
       if (!orderLineId) return null
-      const quantity = coerceShipmentQuantity((entry as any).quantity)
+      const quantity = toNumber((entry as any).quantity)
       const orderLineNumberRaw = (entry as any).orderLineNumber ?? (entry as any).order_line_number
       const orderLineNumber =
         typeof orderLineNumberRaw === 'number' && Number.isFinite(orderLineNumberRaw)
@@ -156,7 +148,7 @@ export const loadShippedQuantityByLine = async (
   items.forEach((item) => {
     const orderLineId = typeof item.orderLine === 'string' ? item.orderLine : (item.orderLine?.id ?? null)
     if (!orderLineId) return
-    const next = (shippedByLine.get(orderLineId) ?? 0) + coerceShipmentQuantity(item.quantity)
+    const next = (shippedByLine.get(orderLineId) ?? 0) + toNumber(item.quantity)
     shippedByLine.set(orderLineId, next)
   })
   return shippedByLine

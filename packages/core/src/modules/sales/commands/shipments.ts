@@ -17,7 +17,6 @@ import {
   type ShipmentUpdateInput,
 } from '../data/validators'
 import {
-  coerceShipmentQuantity as toNumber,
   readShipmentItemsSnapshot,
   refreshShipmentItemsSnapshot,
   type ShipmentItemSnapshot,
@@ -39,6 +38,8 @@ import { emitCrudSideEffects } from '@open-mercato/shared/lib/commands/helpers'
 import type { CrudEventsConfig } from '@open-mercato/shared/lib/crud/types'
 import { findOneWithDecryption, findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { toRecord } from '@open-mercato/shared/lib/guards'
+import { toNumber } from '../lib/numbers'
 
 const fallbackShipmentLogger = createLogger('sales').child({ component: 'shipments' })
 
@@ -127,9 +128,6 @@ const parseTrackingNumbers = (input: unknown): string[] | null => {
   }
   return null
 }
-
-const normalizeCustomFieldsInput = (input: unknown): Record<string, unknown> =>
-  input && typeof input === 'object' && !Array.isArray(input) ? (input as Record<string, unknown>) : {}
 
 const resolveLogger = (ctx: any): { warn?: (meta: any, message?: string) => void } | null => {
   const container = ctx?.container as any
@@ -296,7 +294,7 @@ export async function restoreShipmentSnapshot(em: EntityManager, snapshot: Shipm
       recordId: entity.id,
       organizationId: snapshot.organizationId,
       tenantId: snapshot.tenantId,
-      values: normalizeCustomFieldsInput((snapshot as any).customFields),
+      values: toRecord((snapshot as any).customFields),
     })
   }
   em.persist(entity)
@@ -510,7 +508,7 @@ const createShipmentCommand: CommandHandler<ShipmentCreateInput, { shipmentId: s
           recordId: entity.id,
           organizationId: input.organizationId,
           tenantId: input.tenantId,
-          values: normalizeCustomFieldsInput(input.customFields),
+          values: toRecord(input.customFields),
         })
       }
       if (input.documentStatusEntryId !== undefined) {
@@ -782,7 +780,7 @@ const updateShipmentCommand: CommandHandler<ShipmentUpdateInput, { shipmentId: s
           recordId: shipmentEntity.id,
           organizationId: shipmentEntity.organizationId,
           tenantId: shipmentEntity.tenantId,
-          values: normalizeCustomFieldsInput(input.customFields),
+          values: toRecord(input.customFields),
         })
       }
       if (input.documentStatusEntryId !== undefined) {

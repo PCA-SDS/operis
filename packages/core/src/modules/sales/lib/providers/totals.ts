@@ -12,19 +12,12 @@ import type {
   ShippingMethodContext,
   ShippingMetrics,
 } from './types'
+import { toNumber } from '../numbers'
 
 const SHIPPING_PREFIX = 'shipping-provider:'
 const PAYMENT_PREFIX = 'payment-provider:'
 
 let totalsRegistered = false
-
-function toNumber(value: unknown, fallback = 0): number {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value === 'string' && value.trim() !== '' && !Number.isNaN(Number(value))) {
-    return Number(value)
-  }
-  return fallback
-}
 
 function isProviderAdjustment(adjustment: SalesAdjustmentDraft): boolean {
   const key = adjustment.calculatorKey ?? ''

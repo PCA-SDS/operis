@@ -6,8 +6,7 @@ import type {
   PaymentOrderTotalResolver,
 } from '@open-mercato/shared/modules/payment_gateways/types'
 import { SalesOrder } from '../data/entities'
-
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+import { UUID_SHAPE_PATTERN } from '@open-mercato/shared/lib/validation'
 
 function toAmount(value: string | number | null | undefined): number {
   const parsed = typeof value === 'number' ? value : Number(value ?? 0)
@@ -35,7 +34,7 @@ export function resolveOrderAmountDue(order: Pick<
 export function createSalesPaymentOrderTotalResolver(deps: { em: EntityManager }): PaymentOrderTotalResolver {
   return {
     async resolveOrderTotal(orderId: string, scope: PaymentGatewayScope): Promise<PaymentOrderTotal | null> {
-      if (!UUID_PATTERN.test(orderId) || !scope.tenantId || !scope.organizationId) return null
+      if (!UUID_SHAPE_PATTERN.test(orderId) || !scope.tenantId || !scope.organizationId) return null
       const order = await findOneWithDecryption(
         deps.em,
         SalesOrder,

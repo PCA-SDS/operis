@@ -55,8 +55,8 @@ import {
   ensureSameScope,
   ensureTenantScope,
   extractUndoPayload,
-  toNumericString,
 } from './shared'
+import { toNumericString } from '@open-mercato/shared/lib/number'
 
 type ChannelSnapshot = {
   id: string
