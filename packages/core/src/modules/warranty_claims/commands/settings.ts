@@ -1,7 +1,7 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { registerCommand, type CommandHandler } from '@open-mercato/shared/lib/commands'
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
-import { buildOptimisticLockConflictBody } from '@open-mercato/shared/lib/crud/optimistic-lock-command'
+import { buildOptimisticLockConflictBody } from '@open-mercato/shared/lib/crud/optimistic-lock'
 import { WarrantyClaimSettings } from '../data/entities'
 import { toIsoOrNull as toIso } from '@open-mercato/shared/lib/date/normalize'
 import { isUniqueViolation } from '@open-mercato/shared/lib/db/pg-errors'
@@ -13,7 +13,7 @@ import {
 import {
   WARRANTY_CLAIM_SETTINGS_DEFAULTS,
   loadWarrantyClaimSettings,
-  type WarrantyClaimEffectiveSettings,
+  type WarrantyClaimEffectiveSettings, parseNullableNumber,
 } from '../lib/settings'
 import {
   enforceWarrantyClaimOptimisticLock,
@@ -37,46 +37,36 @@ function parseCommandInput(rawInput: unknown): WarrantyClaimSettingsSaveInput {
   return parsed.data
 }
 
-function hasOwn(input: object, key: string): boolean {
-  return Object.prototype.hasOwnProperty.call(input, key)
-}
-
 function amountString(value: number | null | undefined): string | null {
   if (value === null || value === undefined) return null
   return String(value)
 }
 
-function amountNumber(value: string | number | null | undefined): number | null {
-  if (value === null || value === undefined) return null
-  const parsed = typeof value === 'number' ? value : Number(value)
-  return Number.isFinite(parsed) ? parsed : null
-}
-
 function applySettingsUpdate(settings: WarrantyClaimSettings, input: WarrantyClaimSettingsUpdateInput): void {
-  if (hasOwn(input, 'slaHours') && input.slaHours !== undefined) settings.slaHours = input.slaHours
-  if (hasOwn(input, 'slaPauseOnInfoRequested') && input.slaPauseOnInfoRequested !== undefined) {
+  if (Object.hasOwn(input, 'slaHours') && input.slaHours !== undefined) settings.slaHours = input.slaHours
+  if (Object.hasOwn(input, 'slaPauseOnInfoRequested') && input.slaPauseOnInfoRequested !== undefined) {
     settings.slaPauseOnInfoRequested = input.slaPauseOnInfoRequested
   }
-  if (hasOwn(input, 'slaAtRiskThresholdPct') && input.slaAtRiskThresholdPct !== undefined) {
+  if (Object.hasOwn(input, 'slaAtRiskThresholdPct') && input.slaAtRiskThresholdPct !== undefined) {
     settings.slaAtRiskThresholdPct = input.slaAtRiskThresholdPct
   }
-  if (hasOwn(input, 'autoApproveEnabled') && input.autoApproveEnabled !== undefined) {
+  if (Object.hasOwn(input, 'autoApproveEnabled') && input.autoApproveEnabled !== undefined) {
     settings.autoApproveEnabled = input.autoApproveEnabled
   }
-  if (hasOwn(input, 'autoApproveMaxAmount')) settings.autoApproveMaxAmount = amountString(input.autoApproveMaxAmount)
-  if (hasOwn(input, 'autoApproveCurrencyCode')) settings.autoApproveCurrencyCode = input.autoApproveCurrencyCode ?? null
-  if (hasOwn(input, 'autoApproveRequireInWarranty') && input.autoApproveRequireInWarranty !== undefined) {
+  if (Object.hasOwn(input, 'autoApproveMaxAmount')) settings.autoApproveMaxAmount = amountString(input.autoApproveMaxAmount)
+  if (Object.hasOwn(input, 'autoApproveCurrencyCode')) settings.autoApproveCurrencyCode = input.autoApproveCurrencyCode ?? null
+  if (Object.hasOwn(input, 'autoApproveRequireInWarranty') && input.autoApproveRequireInWarranty !== undefined) {
     settings.autoApproveRequireInWarranty = input.autoApproveRequireInWarranty
   }
-  if (hasOwn(input, 'defaultWarrantyMonths')) settings.defaultWarrantyMonths = input.defaultWarrantyMonths ?? null
-  if (hasOwn(input, 'businessHours')) settings.businessHours = input.businessHours ?? null
-  if (hasOwn(input, 'escalationTiers')) settings.escalationTiers = input.escalationTiers ?? null
-  if (hasOwn(input, 'adjudicationUseRules') && input.adjudicationUseRules !== undefined) {
+  if (Object.hasOwn(input, 'defaultWarrantyMonths')) settings.defaultWarrantyMonths = input.defaultWarrantyMonths ?? null
+  if (Object.hasOwn(input, 'businessHours')) settings.businessHours = input.businessHours ?? null
+  if (Object.hasOwn(input, 'escalationTiers')) settings.escalationTiers = input.escalationTiers ?? null
+  if (Object.hasOwn(input, 'adjudicationUseRules') && input.adjudicationUseRules !== undefined) {
     settings.adjudicationUseRules = input.adjudicationUseRules
   }
-  if (hasOwn(input, 'quarantineGrades')) settings.quarantineGrades = input.quarantineGrades ?? null
-  if (hasOwn(input, 'returnLabelProvider')) settings.returnLabelProvider = input.returnLabelProvider ?? null
-  if (hasOwn(input, 'returnWindowDays')) settings.returnWindowDays = input.returnWindowDays ?? null
+  if (Object.hasOwn(input, 'quarantineGrades')) settings.quarantineGrades = input.quarantineGrades ?? null
+  if (Object.hasOwn(input, 'returnLabelProvider')) settings.returnLabelProvider = input.returnLabelProvider ?? null
+  if (Object.hasOwn(input, 'returnWindowDays')) settings.returnWindowDays = input.returnWindowDays ?? null
 }
 
 function assertAutoApproveConfig(settings: WarrantyClaimSettings): void {
@@ -92,7 +82,7 @@ function buildResult(settings: WarrantyClaimSettings): SaveWarrantyClaimSettings
     slaPauseOnInfoRequested: settings.slaPauseOnInfoRequested,
     slaAtRiskThresholdPct: settings.slaAtRiskThresholdPct,
     autoApproveEnabled: settings.autoApproveEnabled,
-    autoApproveMaxAmount: amountNumber(settings.autoApproveMaxAmount),
+    autoApproveMaxAmount: parseNullableNumber(settings.autoApproveMaxAmount),
     autoApproveCurrencyCode: settings.autoApproveCurrencyCode ?? null,
     autoApproveRequireInWarranty: settings.autoApproveRequireInWarranty,
     defaultWarrantyMonths: settings.defaultWarrantyMonths ?? null,

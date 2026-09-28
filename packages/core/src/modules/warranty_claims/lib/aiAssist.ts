@@ -26,6 +26,7 @@ import type {
   WarrantyClaimType,
   WarrantyClaimWarrantyStatus,
 } from '../data/validators'
+import { withTimeout } from '@open-mercato/shared/lib/async'
 
 const MODULE_ID = 'warranty_claims'
 const AI_TIMEOUT_MS = 30_000
@@ -316,25 +317,6 @@ export function assembleClaimSummaryPrompt(claim: ClaimPromptFacts): { system: s
         timeline: claim.timeline,
       }),
     ].join('\n\n'),
-  }
-}
-
-async function withTimeout<T>(
-  operation: Promise<T>,
-  timeoutMs: number,
-  timeoutMessage: string,
-): Promise<T> {
-  let timeoutHandle: ReturnType<typeof setTimeout> | undefined
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeoutHandle = setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs)
-  })
-
-  try {
-    return await Promise.race([operation, timeoutPromise])
-  } finally {
-    if (timeoutHandle) {
-      clearTimeout(timeoutHandle)
-    }
   }
 }
 

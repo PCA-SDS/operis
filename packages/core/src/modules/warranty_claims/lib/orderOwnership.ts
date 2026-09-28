@@ -1,5 +1,6 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
+import { isMissingTableError } from './dbErrors'
 
 type SalesOrderOwnershipDb = {
   sales_orders: {
@@ -12,13 +13,6 @@ type SalesOrderOwnershipDb = {
 }
 
 export type OrderOwnershipScope = { tenantId: string; organizationId: string }
-
-function isMissingSalesOrdersTableError(err: unknown): boolean {
-  if (typeof err !== 'object' || err === null) return false
-  const candidate = err as { code?: unknown; message?: unknown }
-  return candidate.code === '42P01'
-    || (typeof candidate.message === 'string' && candidate.message.includes('does not exist'))
-}
 
 /**
  * Cross-customer integrity guard shared by staff claim writes and registrations.
@@ -48,7 +42,7 @@ export async function assertOrderBelongsToCustomer(
       .where('deleted_at', 'is', null)
       .executeTakeFirst()
   } catch (err) {
-    if (isMissingSalesOrdersTableError(err)) return
+    if (isMissingTableError(err)) return
     throw err
   }
   if (!row) return

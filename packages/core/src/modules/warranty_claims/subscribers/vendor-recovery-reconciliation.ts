@@ -1,4 +1,5 @@
 import { reconcileVendorRecoverySourceClaim } from '../commands/shared'
+import { readTrimmedString } from '@open-mercato/shared/lib/string'
 
 export const metadata = {
   event: 'warranty_claims.claim.status_changed',
@@ -12,18 +13,13 @@ type HandlerContext = {
   organizationId?: string | null
 }
 
-function readString(record: Record<string, unknown>, key: string): string | null {
-  const value = record[key]
-  return typeof value === 'string' && value.trim().length > 0 ? value.trim() : null
-}
-
 export default async function handle(payload: unknown, ctx: HandlerContext): Promise<void> {
   const record = payload && typeof payload === 'object' ? payload as Record<string, unknown> : {}
-  const claimId = readString(record, 'claimId') ?? readString(record, 'id')
+  const claimId = readTrimmedString(record, 'claimId') ?? readTrimmedString(record, 'id')
   const tenantId = ctx.tenantId ?? null
   const organizationId = ctx.organizationId ?? null
-  const claimType = readString(record, 'claimType')
-  const toStatus = readString(record, 'toStatus') ?? readString(record, 'status')
+  const claimType = readTrimmedString(record, 'claimType')
+  const toStatus = readTrimmedString(record, 'toStatus') ?? readTrimmedString(record, 'status')
   if (!claimId || !tenantId || !organizationId) return
   if (claimType !== 'vendor_recovery' || (toStatus !== 'resolved' && toStatus !== 'closed')) return
 

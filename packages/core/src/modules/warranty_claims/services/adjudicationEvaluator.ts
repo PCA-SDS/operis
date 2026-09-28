@@ -3,6 +3,8 @@ import type { WarrantyClaimEffectiveSettings } from '../lib/settings'
 import type { ClaimRiskAssessment } from '../lib/risk'
 import type { WarrantyClaim, WarrantyClaimLine } from '../data/entities'
 import { tryResolve } from '../lib/tryResolve'
+import { isRecord } from '@open-mercato/shared/lib/guards'
+import { toFiniteNumber } from '@open-mercato/shared/lib/number'
 
 export interface WarrantyAdjudicationDecision {
   decision: 'auto_approve' | 'manual_review'
@@ -69,16 +71,6 @@ type BusinessRulesEvaluation =
   | { kind: 'unavailable' }
   | { kind: 'decision'; value: WarrantyAdjudicationDecision }
 
-function numericAmount(value: string | number | null | undefined): number {
-  if (value === null || value === undefined) return 0
-  const parsed = typeof value === 'number' ? value : Number(value)
-  return Number.isFinite(parsed) ? parsed : 0
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value && typeof value === 'object' && !Array.isArray(value))
-}
-
 function readDecision(value: unknown): WarrantyAdjudicationDecision['decision'] | null {
   return value === 'auto_approve' || value === 'manual_review' ? value : null
 }
@@ -95,7 +87,7 @@ function buildBusinessRulesData(args: {
       claimType: args.claim.claimType,
       status: args.claim.status,
       currencyCode: args.claim.currencyCode ?? null,
-      totalClaimedAmount: numericAmount(args.claim.totalClaimedAmount),
+      totalClaimedAmount: toFiniteNumber(args.claim.totalClaimedAmount),
       customerId: args.claim.customerId ?? null,
       orderId: args.claim.orderId ?? null,
       reasonCode: args.claim.reasonCode ?? null,
@@ -104,8 +96,8 @@ function buildBusinessRulesData(args: {
       id: line.id,
       warrantyStatus: line.warrantyStatus,
       lineStatus: line.lineStatus,
-      qtyClaimed: numericAmount(line.qtyClaimed),
-      creditAmount: numericAmount(line.creditAmount),
+      qtyClaimed: toFiniteNumber(line.qtyClaimed),
+      creditAmount: toFiniteNumber(line.creditAmount),
       disposition: line.disposition ?? null,
       conditionGrade: line.conditionGrade ?? null,
       quarantineStatus: line.quarantineStatus,
@@ -133,7 +125,7 @@ function evaluateLightEligibility(args: {
   // A zero/indeterminate claimed amount must NOT satisfy the cap — a valuable claim whose
   // value has not been entered yet would otherwise auto-approve as though it were worth 0
   // (WQA-009). Require a positive claimed amount so undetermined value routes to manual review.
-  const claimedAmount = numericAmount(args.claim.totalClaimedAmount)
+  const claimedAmount = toFiniteNumber(args.claim.totalClaimedAmount)
   const amountWithinLimit = args.settings.autoApproveMaxAmount !== null
     && claimedAmount > 0
     && claimedAmount <= args.settings.autoApproveMaxAmount

@@ -4,7 +4,7 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import { z } from 'zod'
 import { registerCommand, type CommandHandler, type CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
 import { withAtomicFlush } from '@open-mercato/shared/lib/commands/flush'
-import { emitCrudSideEffects, emitCrudUndoSideEffects } from '@open-mercato/shared/lib/commands/helpers'
+import { emitCrudSideEffects } from '@open-mercato/shared/lib/commands/helpers'
 import type { DataEngine } from '@open-mercato/shared/lib/data/engine'
 import type { CrudEventsConfig } from '@open-mercato/shared/lib/crud/types'
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
@@ -43,10 +43,11 @@ import {
   ensureTenantScope,
   extractUndoPayload,
   requireScopedClaim,
-  type WarrantyClaimScope,
+  type WarrantyClaimScope, toDateOnly, amountString, nullableAmountString, computeWarrantyDates, emitLineCrud, emitLineUndoCrud,
 } from './shared'
 import { assertPendingClaimQuantitiesWithinSold, validateClaimReferences } from './claims'
-import { toDateOnlyIso, toIsoOrNull as toIso } from '@open-mercato/shared/lib/date/normalize'
+import { toDateOnlyIso, toIsoOrNull as toIso, toValidDateOrNull } from '@open-mercato/shared/lib/date/normalize'
+import { toFiniteNumber } from '@open-mercato/shared/lib/number'
 
 const claimCrudEvents: CrudEventsConfig = {
   module: 'warranty_claims',
@@ -144,10 +145,6 @@ function parseCommandInput<T>(schema: z.ZodType<T>, rawInput: unknown): T {
   return result.data
 }
 
-function hasOwn(input: object, key: string): boolean {
-  return Object.prototype.hasOwnProperty.call(input, key)
-}
-
 function resolveScope(ctx: CommandRuntimeContext, input: ScopeInput): WarrantyClaimScope {
   const tenantId = input.tenantId ?? ctx.auth?.tenantId ?? null
   const organizationId = input.organizationId ?? ctx.selectedOrganizationId ?? ctx.auth?.orgId ?? null
@@ -156,58 +153,6 @@ function resolveScope(ctx: CommandRuntimeContext, input: ScopeInput): WarrantyCl
   ensureTenantScope(ctx, tenantId)
   ensureOrganizationScope(ctx, organizationId)
   return { tenantId, organizationId }
-}
-
-function toDate(value: string | null): Date | null {
-  if (!value) return null
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? null : date
-}
-
-function toDateOnly(value: string | null): Date | null {
-  if (!value) return null
-  const date = new Date(`${value}T00:00:00.000Z`)
-  return Number.isNaN(date.getTime()) ? null : date
-}
-
-function amountString(value: number | string | null | undefined, fallback = '0'): string | null {
-  if (value === null) return null
-  if (value === undefined) return fallback
-  const parsed = typeof value === 'number' ? value : Number(value)
-  if (!Number.isFinite(parsed)) return fallback
-  return String(parsed)
-}
-
-function nullableAmountString(value: number | string | null | undefined): string | null {
-  if (value === undefined || value === null) return null
-  return amountString(value, '0')
-}
-
-function numberValue(value: string | number | null | undefined): number {
-  if (value === null || value === undefined) return 0
-  const parsed = typeof value === 'number' ? value : Number(value)
-  return Number.isFinite(parsed) ? parsed : 0
-}
-
-function addMonths(date: Date, months: number): Date {
-  const target = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1))
-  const lastDay = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate()
-  const copy = new Date(date.getTime())
-  copy.setUTCDate(1)
-  copy.setUTCFullYear(target.getUTCFullYear(), target.getUTCMonth(), Math.min(date.getUTCDate(), lastDay))
-  return copy
-}
-
-function computeWarrantyDates(
-  purchaseDate: Date | null | undefined,
-  warrantyMonths: number | null | undefined,
-): { warrantyExpiresAt: Date | null; warrantyStatus: WarrantyClaimWarrantyStatus } {
-  if (!purchaseDate || warrantyMonths === null || warrantyMonths === undefined) {
-    return { warrantyExpiresAt: null, warrantyStatus: 'unknown' }
-  }
-  const warrantyExpiresAt = addMonths(purchaseDate, warrantyMonths)
-  const warrantyStatus = warrantyExpiresAt.getTime() >= Date.now() ? 'in_warranty' : 'out_of_warranty'
-  return { warrantyExpiresAt, warrantyStatus }
 }
 
 function claimIdOf(line: WarrantyClaimLine): string {
@@ -246,9 +191,9 @@ function toConditionGrade(value: string | null | undefined): ConditionGrade | nu
 }
 
 function assertLineQuantities(line: WarrantyClaimLine): void {
-  const qtyClaimed = numberValue(line.qtyClaimed)
-  const qtyApproved = line.qtyApproved === null || line.qtyApproved === undefined ? null : numberValue(line.qtyApproved)
-  const qtyReceived = line.qtyReceived === null || line.qtyReceived === undefined ? null : numberValue(line.qtyReceived)
+  const qtyClaimed = toFiniteNumber(line.qtyClaimed)
+  const qtyApproved = line.qtyApproved === null || line.qtyApproved === undefined ? null : toFiniteNumber(line.qtyApproved)
+  const qtyReceived = line.qtyReceived === null || line.qtyReceived === undefined ? null : toFiniteNumber(line.qtyReceived)
   if (qtyClaimed < 0 || (qtyApproved !== null && qtyApproved < 0) || (qtyReceived !== null && qtyReceived < 0)) {
     throw new CrudHttpError(400, { error: 'warranty_claims.errors.lineLocked' })
   }
@@ -322,38 +267,38 @@ function buildLineCreateData(
 }
 
 function applyLineUpdate(line: WarrantyClaimLine, input: ClaimLineUpdateInput): void {
-  const purchaseDateChanged = hasOwn(input, 'purchaseDate') && !sameDateValue(line.purchaseDate ?? null, input.purchaseDate ?? null)
-  const warrantyMonthsChanged = hasOwn(input, 'warrantyMonths') && (line.warrantyMonths ?? null) !== (input.warrantyMonths ?? null)
-  const hasExplicitWarranty = hasOwn(input, 'warrantyExpiresAt') || hasOwn(input, 'warrantyStatus')
-  if (hasOwn(input, 'lineNo') && input.lineNo !== undefined) line.lineNo = input.lineNo
-  if (hasOwn(input, 'productId')) line.productId = input.productId ?? null
-  if (hasOwn(input, 'variantId')) line.variantId = input.variantId ?? null
-  if (hasOwn(input, 'sku')) line.sku = input.sku ?? null
-  if (hasOwn(input, 'productName')) line.productName = input.productName ?? null
-  if (hasOwn(input, 'orderLineId')) line.orderLineId = input.orderLineId ?? null
-  if (hasOwn(input, 'serialNumber')) line.serialNumber = input.serialNumber ?? null
-  if (hasOwn(input, 'lotNumber')) line.lotNumber = input.lotNumber ?? null
-  if (hasOwn(input, 'purchaseDate')) line.purchaseDate = input.purchaseDate ?? null
-  if (hasOwn(input, 'warrantyMonths')) line.warrantyMonths = input.warrantyMonths ?? null
-  if (hasOwn(input, 'warrantyExpiresAt')) line.warrantyExpiresAt = input.warrantyExpiresAt ?? null
-  if (hasOwn(input, 'warrantyStatus') && input.warrantyStatus) line.warrantyStatus = input.warrantyStatus
-  if (hasOwn(input, 'faultCode')) line.faultCode = input.faultCode ?? null
-  if (hasOwn(input, 'faultDescription')) line.faultDescription = input.faultDescription ?? null
-  if (hasOwn(input, 'qtyClaimed') && input.qtyClaimed !== undefined) line.qtyClaimed = amountString(input.qtyClaimed, '1') ?? '1'
-  if (hasOwn(input, 'qtyApproved')) line.qtyApproved = nullableAmountString(input.qtyApproved)
-  if (hasOwn(input, 'qtyReceived')) line.qtyReceived = nullableAmountString(input.qtyReceived)
-  if (hasOwn(input, 'conditionOnReceipt')) line.conditionOnReceipt = input.conditionOnReceipt ?? null
-  if (hasOwn(input, 'inspectionNotes')) line.inspectionNotes = input.inspectionNotes ?? null
-  if (hasOwn(input, 'disposition')) line.disposition = input.disposition ?? null
-  if (hasOwn(input, 'vendorName')) line.vendorName = input.vendorName ?? null
-  if (hasOwn(input, 'lineStatus') && input.lineStatus) {
+  const purchaseDateChanged = Object.hasOwn(input, 'purchaseDate') && !sameDateValue(line.purchaseDate ?? null, input.purchaseDate ?? null)
+  const warrantyMonthsChanged = Object.hasOwn(input, 'warrantyMonths') && (line.warrantyMonths ?? null) !== (input.warrantyMonths ?? null)
+  const hasExplicitWarranty = Object.hasOwn(input, 'warrantyExpiresAt') || Object.hasOwn(input, 'warrantyStatus')
+  if (Object.hasOwn(input, 'lineNo') && input.lineNo !== undefined) line.lineNo = input.lineNo
+  if (Object.hasOwn(input, 'productId')) line.productId = input.productId ?? null
+  if (Object.hasOwn(input, 'variantId')) line.variantId = input.variantId ?? null
+  if (Object.hasOwn(input, 'sku')) line.sku = input.sku ?? null
+  if (Object.hasOwn(input, 'productName')) line.productName = input.productName ?? null
+  if (Object.hasOwn(input, 'orderLineId')) line.orderLineId = input.orderLineId ?? null
+  if (Object.hasOwn(input, 'serialNumber')) line.serialNumber = input.serialNumber ?? null
+  if (Object.hasOwn(input, 'lotNumber')) line.lotNumber = input.lotNumber ?? null
+  if (Object.hasOwn(input, 'purchaseDate')) line.purchaseDate = input.purchaseDate ?? null
+  if (Object.hasOwn(input, 'warrantyMonths')) line.warrantyMonths = input.warrantyMonths ?? null
+  if (Object.hasOwn(input, 'warrantyExpiresAt')) line.warrantyExpiresAt = input.warrantyExpiresAt ?? null
+  if (Object.hasOwn(input, 'warrantyStatus') && input.warrantyStatus) line.warrantyStatus = input.warrantyStatus
+  if (Object.hasOwn(input, 'faultCode')) line.faultCode = input.faultCode ?? null
+  if (Object.hasOwn(input, 'faultDescription')) line.faultDescription = input.faultDescription ?? null
+  if (Object.hasOwn(input, 'qtyClaimed') && input.qtyClaimed !== undefined) line.qtyClaimed = amountString(input.qtyClaimed, '1') ?? '1'
+  if (Object.hasOwn(input, 'qtyApproved')) line.qtyApproved = nullableAmountString(input.qtyApproved)
+  if (Object.hasOwn(input, 'qtyReceived')) line.qtyReceived = nullableAmountString(input.qtyReceived)
+  if (Object.hasOwn(input, 'conditionOnReceipt')) line.conditionOnReceipt = input.conditionOnReceipt ?? null
+  if (Object.hasOwn(input, 'inspectionNotes')) line.inspectionNotes = input.inspectionNotes ?? null
+  if (Object.hasOwn(input, 'disposition')) line.disposition = input.disposition ?? null
+  if (Object.hasOwn(input, 'vendorName')) line.vendorName = input.vendorName ?? null
+  if (Object.hasOwn(input, 'lineStatus') && input.lineStatus) {
     assertLineStatusMove(line.lineStatus, input.lineStatus)
     line.lineStatus = input.lineStatus
   }
-  if (hasOwn(input, 'creditAmount')) line.creditAmount = nullableAmountString(input.creditAmount)
-  if (hasOwn(input, 'restockingFee')) line.restockingFee = nullableAmountString(input.restockingFee)
-  if (hasOwn(input, 'coreChargeAmount')) line.coreChargeAmount = nullableAmountString(input.coreChargeAmount)
-  if (hasOwn(input, 'coreCreditAmount')) line.coreCreditAmount = nullableAmountString(input.coreCreditAmount)
+  if (Object.hasOwn(input, 'creditAmount')) line.creditAmount = nullableAmountString(input.creditAmount)
+  if (Object.hasOwn(input, 'restockingFee')) line.restockingFee = nullableAmountString(input.restockingFee)
+  if (Object.hasOwn(input, 'coreChargeAmount')) line.coreChargeAmount = nullableAmountString(input.coreChargeAmount)
+  if (Object.hasOwn(input, 'coreCreditAmount')) line.coreCreditAmount = nullableAmountString(input.coreCreditAmount)
   if ((purchaseDateChanged || warrantyMonthsChanged) && !hasExplicitWarranty) {
     const computedWarranty = computeWarrantyDates(line.purchaseDate ?? null, line.warrantyMonths ?? null)
     line.warrantyExpiresAt = computedWarranty.warrantyExpiresAt
@@ -449,7 +394,7 @@ function restoreLineFromSnapshot(line: WarrantyClaimLine, snapshot: LineSnapshot
   line.coreCreditAmount = snapshot.coreCreditAmount
   line.vendorClaimLineId = snapshot.vendorClaimLineId
   line.vendorName = snapshot.vendorName
-  line.deletedAt = toDate(snapshot.deletedAt)
+  line.deletedAt = toValidDateOrNull(snapshot.deletedAt)
   line.updatedAt = new Date()
 }
 
@@ -504,50 +449,6 @@ async function emitClaimUpdated(ctx: CommandRuntimeContext, claim: WarrantyClaim
     { id: claim.id, organizationId: claim.organizationId, tenantId: claim.tenantId },
     ctx.auth?.tenantId ?? null,
     'warranty_claims.claim_line.rollup',
-  )
-}
-
-async function emitLineCrud(
-  ctx: CommandRuntimeContext,
-  action: 'created' | 'updated' | 'deleted',
-  line: WarrantyClaimLine,
-): Promise<void> {
-  const dataEngine = ctx.container.resolve('dataEngine') as DataEngine
-  await emitCrudSideEffects({
-    dataEngine,
-    action,
-    entity: line,
-    identifiers: { id: line.id, organizationId: line.organizationId, tenantId: line.tenantId },
-    indexer: { entityType: E.warranty_claims.warranty_claim_line },
-  })
-  await invalidateCrudCache(
-    ctx.container,
-    'warranty_claims.claim_line',
-    { id: line.id, organizationId: line.organizationId, tenantId: line.tenantId },
-    ctx.auth?.tenantId ?? null,
-    `warranty_claims.claim_line.${action}`,
-  )
-}
-
-async function emitLineUndoCrud(
-  ctx: CommandRuntimeContext,
-  action: 'created' | 'updated' | 'deleted',
-  line: WarrantyClaimLine,
-): Promise<void> {
-  const dataEngine = ctx.container.resolve('dataEngine') as DataEngine
-  await emitCrudUndoSideEffects({
-    dataEngine,
-    action,
-    entity: line,
-    identifiers: { id: line.id, organizationId: line.organizationId, tenantId: line.tenantId },
-    indexer: { entityType: E.warranty_claims.warranty_claim_line },
-  })
-  await invalidateCrudCache(
-    ctx.container,
-    'warranty_claims.claim_line',
-    { id: line.id, organizationId: line.organizationId, tenantId: line.tenantId },
-    ctx.auth?.tenantId ?? null,
-    `warranty_claims.claim_line.undo.${action}`,
   )
 }
 
@@ -683,21 +584,21 @@ const updateClaimLineCommand: CommandHandler<ClaimLineUpdateInput, { lineId: str
     }
     assertParentMutable(claim)
     await enforceWarrantyClaimOptimisticLock(ctx, line, WARRANTY_CLAIM_LINE_RESOURCE_KIND)
-    if (hasOwn(input, 'orderLineId') && input.orderLineId && (input.orderLineId ?? null) !== (line.orderLineId ?? null)) {
+    if (Object.hasOwn(input, 'orderLineId') && input.orderLineId && (input.orderLineId ?? null) !== (line.orderLineId ?? null)) {
       await validateClaimReferences(ctx, scope, {
         lineOrderRefs: [{ orderLineId: input.orderLineId, orderId: claim.orderId ?? null }],
       })
     }
-    if (hasOwn(input, 'disposition')) {
+    if (Object.hasOwn(input, 'disposition')) {
       assertDispositionAllowedForType(claim.claimType, input.disposition ?? null)
       assertDispositionAllowedForGrade(toConditionGrade(line.conditionGrade), input.disposition ?? null)
     }
-    const guardsClaimedQty = hasOwn(input, 'qtyClaimed') || hasOwn(input, 'orderLineId')
+    const guardsClaimedQty = Object.hasOwn(input, 'qtyClaimed') || Object.hasOwn(input, 'orderLineId')
     await withAtomicFlush(em, [
       async () => {
         if (!guardsClaimedQty) return
         await requireScopedClaim(em, claim.id, scope, { lockMode: LockMode.PESSIMISTIC_WRITE })
-        const orderLineId = hasOwn(input, 'orderLineId') ? (input.orderLineId ?? null) : (line.orderLineId ?? null)
+        const orderLineId = Object.hasOwn(input, 'orderLineId') ? (input.orderLineId ?? null) : (line.orderLineId ?? null)
         if (orderLineId) {
           await assertPendingClaimQuantitiesWithinSold(
             em,
@@ -705,7 +606,7 @@ const updateClaimLineCommand: CommandHandler<ClaimLineUpdateInput, { lineId: str
             new Map([[orderLineId, [{
               id: line.id,
               orderLineId,
-              qtyClaimed: hasOwn(input, 'qtyClaimed')
+              qtyClaimed: Object.hasOwn(input, 'qtyClaimed')
                 ? (amountString(input.qtyClaimed, '1') ?? '1')
                 : line.qtyClaimed,
             }]]]),

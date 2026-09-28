@@ -4,6 +4,8 @@ import type { TenantDataEncryptionService } from '@open-mercato/shared/lib/encry
 import { isPotentialEncryptedPayload } from './decryptionSafety'
 import type { ClaimCreateInput, ExternalClaimIntakeInput } from '../data/validators'
 import { isUniqueViolation } from '@open-mercato/shared/lib/db/pg-errors'
+import { isMissingTableError } from './dbErrors'
+import { startOfUtcDay } from '@open-mercato/shared/lib/date/format'
 
 type Translate = (key: string, fallback?: string) => string
 
@@ -47,13 +49,6 @@ type ExternalLookupDb = {
     organization_id: string | null
     deleted_at: Date | null
   }
-}
-
-function isMissingTableError(err: unknown): boolean {
-  if (typeof err !== 'object' || err === null) return false
-  const candidate = err as { code?: unknown; message?: unknown }
-  return candidate.code === '42P01'
-    || (typeof candidate.message === 'string' && candidate.message.includes('does not exist'))
 }
 
 export function createExternalIntakeDeps(
@@ -131,10 +126,6 @@ function readDate(row: Record<string, unknown>, ...keys: string[]): Date | null 
     }
   }
   return null
-}
-
-function dateOnly(value: Date): Date {
-  return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()))
 }
 
 function customerDisplayName(row: Record<string, unknown> | null): string | null {
@@ -251,7 +242,7 @@ export function buildExternalClaimCreateInput(
   settings: { defaultWarrantyMonths: number | null },
   scope: ExternalScope,
 ): ClaimCreateInput {
-  const orderPurchaseDate = resolution.orderPlacedAt ? dateOnly(resolution.orderPlacedAt) : null
+  const orderPurchaseDate = resolution.orderPlacedAt ? startOfUtcDay(resolution.orderPlacedAt) : null
   return {
     organizationId: scope.organizationId,
     tenantId: scope.tenantId,

@@ -5,6 +5,7 @@ import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { WarrantyClaim } from '../data/entities'
 import type { ClaimCreateInput } from '../data/validators'
 import { isUniqueViolation } from './externalIntake'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
 
 type EmailIntakeScope = {
   tenantId: string
@@ -31,12 +32,6 @@ function normalizeRequired(value: string, fieldName: string): string {
   const normalized = value.trim()
   if (!normalized) throw new Error(`[internal] ${fieldName} is required for warranty claim email intake`)
   return normalized
-}
-
-function trimOptional(value: string | null | undefined): string | null {
-  if (typeof value !== 'string') return null
-  const normalized = value.trim()
-  return normalized.length > 0 ? normalized : null
 }
 
 function buildNotes(subject: string | null, body: string | null): string | null {
@@ -89,8 +84,8 @@ export async function createOrGetClaimFromInboundMessage(
 
   const commandBus = args.container.resolve<CommandBus>('commandBus')
   const commandCtx = buildCommandCtx(args.container, args.scope)
-  const subject = trimOptional(args.subject)
-  const body = trimOptional(args.body)
+  const subject = normalizeOptionalString(args.subject)
+  const body = normalizeOptionalString(args.body)
   const createInput: ClaimCreateInput = {
     tenantId: args.scope.tenantId,
     organizationId: args.scope.organizationId,
@@ -98,7 +93,7 @@ export async function createOrGetClaimFromInboundMessage(
     channel: 'api',
     priority: 'normal',
     customerId: null,
-    customerName: trimOptional(args.customerName) ?? contactEmail,
+    customerName: normalizeOptionalString(args.customerName) ?? contactEmail,
     contactEmail,
     intakeMessageRef,
     notes: buildNotes(subject, body),

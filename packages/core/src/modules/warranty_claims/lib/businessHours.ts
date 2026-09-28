@@ -1,3 +1,5 @@
+import { toRecordOrNull } from '@open-mercato/shared/lib/guards'
+
 const DAY_MS = 24 * 60 * 60 * 1000
 const MINUTE_MS = 60 * 1000
 const DAY_MINUTES = 24 * 60
@@ -36,10 +38,6 @@ type NormalizedCalendar = {
   timezone: string
   holidays: Set<string>
   week: Map<BusinessWeekday, TimeInterval[]>
-}
-
-function toRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null
 }
 
 function wallClockMillisBetween(start: Date, end: Date): number {
@@ -161,7 +159,7 @@ function parseIntervals(value: unknown): TimeInterval[] {
   if (!Array.isArray(value)) return []
   const intervals: TimeInterval[] = []
   for (const rawInterval of value) {
-    const interval = toRecord(rawInterval)
+    const interval = toRecordOrNull(rawInterval)
     if (!interval) continue
     const startMinutes = parseTime(interval.start)
     const endMinutes = parseTime(interval.end)
@@ -200,12 +198,12 @@ function hasAnyInterval(week: Map<BusinessWeekday, TimeInterval[]>): boolean {
 }
 
 function normalizeCalendar(config: BusinessHoursConfig | null | undefined): NormalizedCalendar | null {
-  const record = toRecord(config)
+  const record = toRecordOrNull(config)
   if (!record) return null
 
   const timezone = resolveTimezone(record.timezone)
   const holidays = parseHolidays(record.holidays)
-  const rawWeek = toRecord(record.week)
+  const rawWeek = toRecordOrNull(record.week)
   const week = new Map<BusinessWeekday, TimeInterval[]>()
   if (rawWeek) {
     for (const weekday of WEEKDAYS) {
