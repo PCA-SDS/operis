@@ -125,14 +125,6 @@ function withOptimisticLockForRuleSet<T>(ruleSet: AvailabilityRuleSet | null | u
   return withScopedApiRequestHeaders(buildOptimisticLockHeader(ruleSet?.updatedAt ?? ruleSet?.updated_at ?? null), mutation)
 }
 
-function saveOrganizationOperatingHoursRuleSet(ruleSetId: string, errorMessage: string): Promise<unknown> {
-  return apiCallOrThrow('/api/planner/organization-availability-settings', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ operatingHoursRuleSetId: ruleSetId }),
-  }, { errorMessage })
-}
-
 /**
  * The date-specific replace endpoint mutates a subject/date aggregate that has
  * no single parent row, so its lock version is the latest `updated_at` of the
@@ -985,7 +977,7 @@ export function AvailabilityRulesEditor({
       nextWindows[day] = list
       return nextWindows
     })
-  }, [subjectType])
+  }, [])
 
   const saveWeeklyHours = React.useCallback(async (options?: { silentSuccess?: boolean; skipRefresh?: boolean }) => {
     if (isReadOnly) return
@@ -1007,8 +999,8 @@ export function AvailabilityRulesEditor({
     try {
       const windows = buildWeeklyPayload(normalizeWeeklyWindows(weeklyWindowsRef.current))
       await runMutation({
-        operation: () => withOptimisticLockForRuleSet(parentRuleSet, async () => {
-          await apiCallOrThrow('/api/planner/availability-weekly', {
+        operation: () => withOptimisticLockForRuleSet(parentRuleSet, () => (
+          apiCallOrThrow('/api/planner/availability-weekly', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1018,10 +1010,7 @@ export function AvailabilityRulesEditor({
               windows,
             }),
           }, { errorMessage: listLabels.saveWeeklyError })
-          if (subjectType === 'ruleset') {
-            await saveOrganizationOperatingHoursRuleSet(subjectIdForRules, listLabels.saveWeeklyError)
-          }
-        }),
+        )),
         context: mutationContext,
         mutationPayload: { action: 'save-weekly', subjectType: subjectForRules, subjectId: subjectIdForRules },
       })
@@ -1549,13 +1538,6 @@ export function AvailabilityRulesEditor({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         }, { errorMessage: listLabels.saveDateError }))
-        if (subjectType === 'ruleset' && !editorUnavailable) {
-          await runMutation({
-            operation: () => saveOrganizationOperatingHoursRuleSet(subjectIdForRules, listLabels.saveDateError),
-            context: mutationContext,
-            mutationPayload: { action: 'set-organization-operating-hours', subjectId: subjectIdForRules },
-          })
-        }
       } else {
         const rulesToDelete = editorRules
         const uniqueRulesById = new Map(rulesToDelete.map((rule) => [rule.id, rule]))
@@ -1585,13 +1567,6 @@ export function AvailabilityRulesEditor({
           }, { errorMessage: listLabels.saveDateError }))
         })
         await Promise.all(creations)
-        if (subjectType === 'ruleset') {
-          await runMutation({
-            operation: () => saveOrganizationOperatingHoursRuleSet(subjectIdForRules, listLabels.saveDateError),
-            context: mutationContext,
-            mutationPayload: { action: 'set-organization-operating-hours', subjectId: subjectIdForRules },
-          })
-        }
       }
       flash(listLabels.saveDateSuccess, 'success')
       setEditorOpen(false)
@@ -1627,8 +1602,6 @@ export function AvailabilityRulesEditor({
     canManageUnavailability,
     isReadOnly,
     t,
-    mutationContext,
-    runMutation,
   ])
 
   const handleSlotClick = React.useCallback((slot: ScheduleSlot) => {

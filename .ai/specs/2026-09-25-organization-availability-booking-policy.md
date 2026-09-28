@@ -6,7 +6,7 @@ Organization operating hours are the branch-level baseline. A resource may optio
 
 ## Overview
 
-The planner already stores reusable availability rulesets, and resources can reference one. That reference does not identify the official store schedule. An organization policy points to the official operating-hours ruleset; saving availability in the organization-scoped ruleset editor automatically updates this link, so users configure and activate the branch schedule in one place. The two booking/timeline offsets are stored on each weekly or date-specific availability window in that ruleset.
+The planner already stores reusable availability rulesets, and resources can reference one. That reference does not identify the official store schedule. An organization policy points to the official operating-hours ruleset; activation remains an explicit action in the ruleset Details tab so editing a reusable schedule cannot silently change the branch baseline. The two booking/timeline offsets are stored on each weekly or date-specific availability window in that ruleset.
 
 ## Problem Statement
 
@@ -50,7 +50,7 @@ Defaults: legacy organization-level offsets are `0` and are retained only as a c
 
 `GET /api/planner/organization-availability-settings` returns `configured`, the official ruleset ID, both offsets, and `updatedAt`.
 
-`PUT /api/planner/organization-availability-settings` saves the explicit ruleset link. The ruleset must belong to the selected tenant and organization. Weekly and date-specific availability endpoints accept and persist the two non-negative per-window minute values. In the organization-scoped ruleset Availability UI, successfully saving availability also saves this link; resource/member availability editors do not change it. There is no separate activation control in Details.
+`PUT /api/planner/organization-availability-settings` saves the explicit ruleset link. The ruleset must belong to the selected tenant and organization. The explicit activation action sends the settings record's `updatedAt` as its optimistic-lock token. Weekly and date-specific availability endpoints accept and persist the two non-negative per-window minute values. Saving ruleset, resource, or member availability never changes the organization policy pointer.
 
 Resource availability responses expose effective windows and an optional resource-specific latest start. Appointment intake rejects starts after the branch cutoff; assignment validation additionally enforces an explicit resource cutoff and resource close-plus-overflow for the selected resource.
 
@@ -80,5 +80,5 @@ Resource availability responses expose effective windows and an optional resourc
 
 ### 2026-09-28
 
-- Made the organization-scoped Availability editor the single configuration and activation point; removed the separate Details activation card.
+- Kept organization operating-hours activation explicit in the ruleset Details tab so reusable schedule edits cannot change the organization policy pointer.
 - Added optional per-resource last-customer cutoff and overflow fields in Availability; blank cutoff inherits branch behavior, and explicit resource values constrain only that resource.

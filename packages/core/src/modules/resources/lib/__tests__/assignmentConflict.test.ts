@@ -200,6 +200,49 @@ describe('AssignmentConflictService appointment availability', () => {
     })).resolves.toEqual({ valid: true })
   })
 
+  it('accepts an overlapping resource window that satisfies the full appointment range', async () => {
+    const resource = {
+      id: 'resource-1',
+      tenantId: 'tenant-1',
+      organizationId: 'organization-1',
+      isActive: true,
+      availabilityRuleSetId: null,
+      deletedAt: null,
+    }
+    const rules = [
+      {
+        id: 'short-window',
+        timezone: 'UTC',
+        rrule: 'DTSTART:20260925T090000Z\nDURATION:PT2H\nRRULE:FREQ=DAILY',
+        exdates: [],
+        kind: 'availability' as const,
+      },
+      {
+        id: 'long-window',
+        timezone: 'UTC',
+        rrule: 'DTSTART:20260925T100000Z\nDURATION:PT3H\nRRULE:FREQ=DAILY',
+        exdates: [],
+        kind: 'availability' as const,
+      },
+    ]
+    const em = {
+      findOne: jest.fn().mockResolvedValue(resource),
+      find: jest.fn().mockImplementation(async (_entity, where) => {
+        if (where.subjectType === 'resource') return rules
+        return []
+      }),
+      count: jest.fn().mockResolvedValue(0),
+    }
+    const service = new AssignmentConflictService(em as never)
+
+    await expect(service.validateAssignment({
+      ...BASE_PARAMS,
+      startsAt: new Date('2026-09-25T10:30:00.000Z'),
+      endsAt: new Date('2026-09-25T12:30:00.000Z'),
+      availabilityMode: 'appointment',
+    })).resolves.toEqual({ valid: true })
+  })
+
   it('applies a resource cutoff to the booking start, not a later service in the same booking', async () => {
     const service = serviceWithResourceCutoff('resource-a')
 

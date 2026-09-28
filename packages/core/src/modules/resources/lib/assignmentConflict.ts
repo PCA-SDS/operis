@@ -286,15 +286,23 @@ export class AssignmentConflictService {
       const usesOfficialRuleSet = Boolean(policy)
         && resource?.availabilityRuleSetId === policy?.operatingHoursRuleSetId
         && directRules.length === 0
-      const matchingResourceWindow = appointmentResourceWindows?.find(
+      const hasResourceStartWindow = appointmentResourceWindows?.some(
         (window) => window.start <= startsAt && window.operatingEnd >= startsAt,
       )
-      const resourceStartWindow = usesOfficialRuleSet || !appointmentResourceWindows || Boolean(matchingResourceWindow)
-      const resourceAcceptanceWindow = !matchingResourceWindow?.latestStartAt
-        || anchorStartAt <= matchingResourceWindow.latestStartAt
-      const resourceRuntimeWindow = usesOfficialRuleSet || !appointmentResourceWindows || Boolean(
-        matchingResourceWindow && matchingResourceWindow.runtimeEnd >= endsAt,
+      const hasResourceAcceptanceWindow = appointmentResourceWindows?.some(
+        (window) => window.start <= startsAt
+          && window.operatingEnd >= startsAt
+          && (!window.latestStartAt || anchorStartAt <= window.latestStartAt),
       )
+      const hasValidResourceWindow = appointmentResourceWindows?.some(
+        (window) => window.start <= startsAt
+          && window.operatingEnd >= startsAt
+          && (!window.latestStartAt || anchorStartAt <= window.latestStartAt)
+          && window.runtimeEnd >= endsAt,
+      )
+      const resourceStartWindow = usesOfficialRuleSet || !appointmentResourceWindows || hasResourceStartWindow
+      const resourceAcceptanceWindow = usesOfficialRuleSet || !appointmentResourceWindows || hasResourceAcceptanceWindow
+      const resourceRuntimeWindow = usesOfficialRuleSet || !appointmentResourceWindows || hasValidResourceWindow
 
       const startsAfterAnchor = !availabilityAnchorStartAt || startsAt >= availabilityAnchorStartAt
       if (!organizationStartWindow || !organizationRuntimeWindow || !resourceStartWindow || !resourceAcceptanceWindow || !startsAfterAnchor || !resourceRuntimeWindow) {
