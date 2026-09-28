@@ -63,15 +63,15 @@ export function isEmailAddress(value: string, allowDisplayName = false): boolean
  * The canonical email schema: trim, validate, cap at {@link EMAIL_MAX_LENGTH}.
  *
  * Before this existed there were 51 independent email schemas, 34 of which set
- * no length cap at all. Use this for any new field, and prefer it when touching
- * an existing one; roughly forty of those schemas are still hand-written.
+ * no length cap at all. Every email field in the repo now builds on it; a field
+ * whose column is narrower passes `maxLength` (appointments: 255).
  *
  * The loose client-side regex that used to be copied alongside them now lives
  * here as {@link LOOSE_EMAIL_PATTERN}, which documents when it is the right
- * tool. Two hand-rolled 25-line validators remain — `isValidCheckoutEmail` and
- * the byte-identical copy in `ui/backend/messages` — and are deliberately
- * stricter on domain labels and tighter on length (254) than this schema, so
- * they are not a drop-in swap.
+ * tool. One hand-rolled validator remains on purpose: checkout's
+ * `isValidCheckoutEmail`, which is stricter on domain labels and tighter on
+ * length (254). The message composer's byte-identical copy now uses
+ * {@link isEmailAddress}, so it accepts exactly what the messages API does.
  *
  * Client-side forms may use it for fast feedback, but the server schema is the
  * enforcement point — a client check is never a substitute for one.
