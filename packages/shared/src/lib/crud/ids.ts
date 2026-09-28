@@ -1,11 +1,10 @@
 import type { Where } from '@open-mercato/shared/lib/query/types'
+import { RFC_UUID_PATTERN } from '../validation/uuid'
 
 export const MAX_IDS_PER_REQUEST = 200
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-
 function isUuid(value: unknown): value is string {
-  return typeof value === 'string' && UUID_REGEX.test(value)
+  return typeof value === 'string' && RFC_UUID_PATTERN.test(value)
 }
 
 function normalizeIdList(values: string[]): string[] {

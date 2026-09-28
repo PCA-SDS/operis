@@ -253,7 +253,7 @@ export function normalizeIsoToken(raw: string): string | null {
   return new Date(ms).toISOString()
 }
 
-function buildConflictBody(currentIso: string, expectedIso: string): OptimisticLockConflictBody {
+export function buildOptimisticLockConflictBody(currentIso: string, expectedIso: string): OptimisticLockConflictBody {
   return {
     error: OPTIMISTIC_LOCK_CONFLICT_ERROR,
     code: OPTIMISTIC_LOCK_CONFLICT_CODE,
@@ -376,7 +376,7 @@ export function createOptimisticLockGuardService(
     return {
       ok: false,
       status: 409,
-      body: buildConflictBody(currentIso, expectedIso),
+      body: buildOptimisticLockConflictBody(currentIso, expectedIso),
     }
   }
 

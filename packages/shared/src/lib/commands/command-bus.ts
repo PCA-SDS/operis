@@ -34,6 +34,7 @@ import { CommandInterceptorError } from './errors'
 import { isReadProjectionAlwaysConsistent } from '@open-mercato/shared/lib/data/consistency'
 import { createLogger } from '../logger'
 import { resolveGrantedFeatures } from '../auth/grantedFeatures'
+import { toRecordOrNull } from '../guards'
 
 const logger = createLogger('shared').child({ component: 'commands' })
 
@@ -45,14 +46,9 @@ const SKIPPED_ACTION_LOG_RESOURCE_KINDS = new Set<string>([
   'dashboards.role_widgets',
 ])
 
-function asRecord(input: unknown): Record<string, unknown> | null {
-  if (!input || typeof input !== 'object' || Array.isArray(input)) return null
-  return input as Record<string, unknown>
-}
-
 /** Command handlers often return domain keys (e.g. warehouseId) without `id`; cache invalidation must still resolve the record. */
 function extractPrimaryIdFromCommandResult(result: unknown): string | null {
-  const r = asRecord(result)
+  const r = toRecordOrNull(result)
   if (!r) return null
   const direct = pickFirstIdentifier(r.id, r.entityId, r.recordId)
   if (direct) return direct
@@ -119,8 +115,8 @@ function appendCustomFieldChanges(
   before: unknown,
   after: unknown
 ): boolean {
-  const beforeRec = asRecord(before)
-  const afterRec = asRecord(after)
+  const beforeRec = toRecordOrNull(before)
+  const afterRec = toRecordOrNull(after)
   if (!beforeRec && !afterRec) return false
   const left = beforeRec ?? {}
   const right = afterRec ?? {}
@@ -163,8 +159,8 @@ function buildRecordChangesDeep(
     const from = before[key]
     const to = after[key]
     const path = prefix ? `${prefix}.${key}` : key
-    const fromRec = asRecord(from)
-    const toRec = asRecord(to)
+    const fromRec = toRecordOrNull(from)
+    const toRec = toRecordOrNull(to)
     if (fromRec && toRec) {
       const nested = buildRecordChangesDeep(fromRec, toRec, path, seen)
       if (Object.keys(nested).length) {
@@ -183,8 +179,8 @@ function deriveChangesFromSnapshots(
   before: unknown,
   after: unknown,
 ): Record<string, { from: unknown; to: unknown }> | null {
-  const beforeRec = asRecord(before)
-  const afterRec = asRecord(after)
+  const beforeRec = toRecordOrNull(before)
+  const afterRec = toRecordOrNull(after)
   if (!beforeRec || !afterRec) return null
   const changes = buildRecordChanges(beforeRec, afterRec)
   return Object.keys(changes).length ? changes : null
@@ -193,11 +189,11 @@ function deriveChangesFromSnapshots(
 function invertRecordedChanges(
   changes: unknown,
 ): Record<string, { from: unknown; to: unknown }> | null {
-  const source = asRecord(changes)
+  const source = toRecordOrNull(changes)
   if (!source) return null
   const inverted: Record<string, { from: unknown; to: unknown }> = {}
   for (const [key, value] of Object.entries(source)) {
-    const entry = asRecord(value)
+    const entry = toRecordOrNull(value)
     if (!entry || (!('from' in entry) && !('to' in entry))) continue
     inverted[key] = {
       from: entry.to,
@@ -275,15 +271,15 @@ export class CommandBus {
     // later-priority interceptor overrides an earlier one on key collisions.
     let interceptorContextMerged: Record<string, unknown> = {}
     for (const meta of interceptorMetadata.values()) {
-      const logContextRecord = asRecord(asRecord(meta)?.logContext)
+      const logContextRecord = toRecordOrNull(toRecordOrNull(meta)?.logContext)
       if (!logContextRecord) continue
       interceptorContextMerged = {
         ...interceptorContextMerged,
         ...logContextRecord,
       }
     }
-    const baseContext = asRecord(effectiveOptions.metadata?.context) ?? {}
-    const logMetaContext = asRecord(logMeta?.context) ?? {}
+    const baseContext = toRecordOrNull(effectiveOptions.metadata?.context) ?? {}
+    const logMetaContext = toRecordOrNull(logMeta?.context) ?? {}
     if (Object.keys(interceptorContextMerged).length > 0 || Object.keys(baseContext).length > 0 || Object.keys(logMetaContext).length > 0) {
       mergedMeta = mergedMeta ?? {}
       mergedMeta.context = {
@@ -435,7 +431,7 @@ export class CommandBus {
       ?? invertRecordedChanges(log.changesJson)
       ?? undefined
 
-    const baseContext = asRecord(log.contextJson) ?? {}
+    const baseContext = toRecordOrNull(log.contextJson) ?? {}
     const context = {
       ...baseContext,
       historyAction: 'undo',
@@ -618,10 +614,10 @@ export class CommandBus {
     if (!resource) return
     try {
       const ctx = options.ctx
-      const resultRecord = asRecord(result)
-      const resultEntity = asRecord(resultRecord?.entity)
-      const inputRecord = asRecord(options.input)
-      const inputEntity = asRecord(inputRecord?.entity)
+      const resultRecord = toRecordOrNull(result)
+      const resultEntity = toRecordOrNull(resultRecord?.entity)
+      const inputRecord = toRecordOrNull(options.input)
+      const inputEntity = toRecordOrNull(inputRecord?.entity)
 
       const recordId = pickFirstIdentifier(
         metadata?.resourceId,

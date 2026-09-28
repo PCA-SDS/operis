@@ -1,11 +1,11 @@
 import {
   assertOptimisticLock,
-  buildOptimisticLockConflictBody,
   createCommandOptimisticLockGuardService,
   enforceCommandOptimisticLock,
   enforceRecordGoneIsConflict,
   readOptimisticLockExpected,
 } from '../optimistic-lock-command'
+import { buildOptimisticLockConflictBody } from '../optimistic-lock'
 import { CrudHttpError, isCrudHttpError } from '../errors'
 import {
   OPTIMISTIC_LOCK_CONFLICT_CODE,

@@ -7,7 +7,7 @@ import type { QueryEngine, Where, Sort, Page, QueryCustomFieldSource, QueryJoinE
 import { SortDir } from '@open-mercato/shared/lib/query/types'
 import type { DataEngine } from '@open-mercato/shared/lib/data/engine'
 import { resolveOrganizationScopeForRequest, type OrganizationScope } from '@open-mercato/core/modules/directory/utils/organizationScope'
-import { serializeOperationMetadata } from '@open-mercato/shared/lib/commands/operationMetadata'
+import { attachOperationMetadataHeader } from '@open-mercato/shared/lib/commands/operationMetadata'
 import { getCommandInterceptorHttpRejection } from '@open-mercato/shared/lib/commands/errors'
 import { parseBooleanToken } from '@open-mercato/shared/lib/boolean'
 import {
@@ -76,10 +76,8 @@ import { registerOptimisticLockReaderIfAbsent } from './optimistic-lock-store'
 import { createLogger } from '../logger'
 import { isTransientDbError } from '../db/pg-errors'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
-
-type RbacServiceLike = {
-  getGrantedFeatures: (userId: string, opts: { tenantId: string | null; organizationId: string | null }) => Promise<string[]>
-}
+import type { RbacServiceLike } from '../auth/grantedFeatures'
+import { RFC4122_UUID_PATTERN } from '../validation/uuid'
 
 const logger = createLogger('shared').child({ component: 'crud' })
 
@@ -584,36 +582,6 @@ const SELECTED_ORG_COOKIE = 'om_selected_org'
 // back to the caller's home org. Attributes mirror how the switcher sets it.
 const CLEAR_SELECTED_ORG_COOKIE = `${SELECTED_ORG_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`
 
-function attachOperationHeader(res: Response, logEntry: any) {
-  if (!res || !(res instanceof Response)) return res
-  if (!logEntry || typeof logEntry !== 'object') return res
-  const undoToken = typeof logEntry.undoToken === 'string' ? logEntry.undoToken : null
-  const id = typeof logEntry.id === 'string' ? logEntry.id : null
-  const commandId = typeof logEntry.commandId === 'string' ? logEntry.commandId : null
-  if (!undoToken || !id || !commandId) return res
-  const actionLabel = typeof logEntry.actionLabel === 'string' ? logEntry.actionLabel : null
-  const resourceKind = typeof logEntry.resourceKind === 'string' ? logEntry.resourceKind : null
-  const resourceId = typeof logEntry.resourceId === 'string' ? logEntry.resourceId : null
-  const createdAt = logEntry.createdAt instanceof Date
-    ? logEntry.createdAt.toISOString()
-    : (typeof logEntry.createdAt === 'string' ? logEntry.createdAt : new Date().toISOString())
-  const headerValue = serializeOperationMetadata({
-    id,
-    undoToken,
-    commandId,
-    actionLabel,
-    resourceKind,
-    resourceId,
-    executedAt: createdAt,
-  })
-  try {
-    res.headers.set('x-om-operation', headerValue)
-  } catch {
-    // no-op if headers already sent
-  }
-  return res
-}
-
 function handleError(err: unknown): Response {
   if (err instanceof Response) return err
   if (isCrudHttpError(err)) return json(err.body, { status: err.status })
@@ -747,7 +715,7 @@ function cleanInterceptorObject(
 }
 
 function isUuid(v: any): v is string {
-  return typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v)
+  return typeof v === 'string' && RFC4122_UUID_PATTERN.test(v)
 }
 
 type AccessLogServiceLike = {
@@ -2326,7 +2294,7 @@ export function makeCrudRoute<TCreate = any, TUpdate = any, TList = any>(opts: C
         }
         const status = action.status ?? 201
         const response = json(resolvedPayload, { status })
-        attachOperationHeader(response, logEntry)
+        attachOperationMetadataHeader(response, logEntry)
         const commandResultId = pickFirstIdentifier(
           (result as Record<string, unknown> | null | undefined)?.id,
           (resolvedPayload as Record<string, unknown> | null | undefined)?.id,
@@ -2638,7 +2606,7 @@ export function makeCrudRoute<TCreate = any, TUpdate = any, TList = any>(opts: C
         }
         const status = action.status ?? 200
         const response = json(resolvedPayload, { status })
-        attachOperationHeader(response, logEntry)
+        attachOperationMetadataHeader(response, logEntry)
         if (cmdUpdateGuardAfterCallbacks.length && ctx.auth.tenantId && candidateId) {
           await runGuardAfterSuccessCallbacks(cmdUpdateGuardAfterCallbacks, {
             tenantId: ctx.auth.tenantId,
@@ -2971,7 +2939,7 @@ export function makeCrudRoute<TCreate = any, TUpdate = any, TList = any>(opts: C
         }
         const status = action.status ?? 200
         const response = json(resolvedPayload, { status })
-        attachOperationHeader(response, logEntry)
+        attachOperationMetadataHeader(response, logEntry)
         if (cmdDeleteGuardAfterCallbacks.length && ctx.auth.tenantId && candidateId) {
           await runGuardAfterSuccessCallbacks(cmdDeleteGuardAfterCallbacks, {
             tenantId: ctx.auth.tenantId,
