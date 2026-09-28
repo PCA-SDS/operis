@@ -981,35 +981,55 @@ export default function IntegrationDetailPage({ params }: IntegrationDetailPageP
 
   const CategoryIcon = resolvedIntegration?.category ? CATEGORY_ICONS[resolvedIntegration.category] : null
   const HealthStatusIcon = HEALTH_STATUS_ICONS[displayHealthStatus] ?? null
-  const prioritizedInjectedTabs = resolvedIntegration?.id === 'sync_akeneo'
-    ? [...injectedTabs].sort((left, right) => {
-      const leftPriority = isAkeneoSettingsTab(left) ? 1 : 0
-      const rightPriority = isAkeneoSettingsTab(right) ? 1 : 0
-      if (leftPriority !== rightPriority) return rightPriority - leftPriority
-      return 0
-    })
-    : injectedTabs
-  const leadingInjectedTab = resolvedIntegration?.id === 'sync_akeneo'
-    ? prioritizedInjectedTabs.find(isAkeneoSettingsTab) ?? null
-    : null
-  const trailingInjectedTabs = leadingInjectedTab
-    ? prioritizedInjectedTabs.filter((tab) => tab.id !== leadingInjectedTab.id)
-    : prioritizedInjectedTabs
+  const prioritizedInjectedTabs = React.useMemo(
+    () => resolvedIntegration?.id === 'sync_akeneo'
+      ? [...injectedTabs].sort((left, right) => {
+        const leftPriority = isAkeneoSettingsTab(left) ? 1 : 0
+        const rightPriority = isAkeneoSettingsTab(right) ? 1 : 0
+        if (leftPriority !== rightPriority) return rightPriority - leftPriority
+        return 0
+      })
+      : injectedTabs,
+    [injectedTabs, resolvedIntegration?.id],
+  )
+  const leadingInjectedTab = React.useMemo(
+    () => resolvedIntegration?.id === 'sync_akeneo'
+      ? prioritizedInjectedTabs.find(isAkeneoSettingsTab) ?? null
+      : null,
+    [prioritizedInjectedTabs, resolvedIntegration?.id],
+  )
+  const trailingInjectedTabs = React.useMemo(
+    () => leadingInjectedTab
+      ? prioritizedInjectedTabs.filter((tab) => tab.id !== leadingInjectedTab.id)
+      : prioritizedInjectedTabs,
+    [leadingInjectedTab, prioritizedInjectedTabs],
+  )
   const hiddenBuiltInTabs = new Set(resolvedIntegration?.detailPage?.hiddenTabs ?? [])
   const showCredentialsTab = !hiddenBuiltInTabs.has('credentials')
   const showVersionTab = hasVersions && !hiddenBuiltInTabs.has('version')
   const showDataSyncScheduleTab = hasDataSyncScheduleTab && !hiddenBuiltInTabs.has('data-sync-schedule')
   const showHealthTab = !hiddenBuiltInTabs.has('health')
   const showLogsTab = !hiddenBuiltInTabs.has('logs')
-  const visibleTabIds = [
-    ...(showCredentialsTab ? ['credentials'] : []),
-    ...(leadingInjectedTab ? [leadingInjectedTab.id] : []),
-    ...(showVersionTab ? ['version'] : []),
-    ...(showDataSyncScheduleTab ? ['data-sync-schedule'] : []),
-    ...(showHealthTab ? ['health'] : []),
-    ...(showLogsTab ? ['logs'] : []),
-    ...trailingInjectedTabs.map((tab) => tab.id),
-  ] satisfies IntegrationDetailTab[]
+  const visibleTabIds = React.useMemo(
+    () => [
+      ...(showCredentialsTab ? ['credentials'] : []),
+      ...(leadingInjectedTab ? [leadingInjectedTab.id] : []),
+      ...(showVersionTab ? ['version'] : []),
+      ...(showDataSyncScheduleTab ? ['data-sync-schedule'] : []),
+      ...(showHealthTab ? ['health'] : []),
+      ...(showLogsTab ? ['logs'] : []),
+      ...trailingInjectedTabs.map((tab) => tab.id),
+    ] satisfies IntegrationDetailTab[],
+    [
+      leadingInjectedTab,
+      showCredentialsTab,
+      showDataSyncScheduleTab,
+      showHealthTab,
+      showLogsTab,
+      showVersionTab,
+      trailingInjectedTabs,
+    ],
+  )
   const StateIcon = resolvedState?.isEnabled ? CheckCircle2 : XCircle
   const stateBadgeClass = resolvedState?.isEnabled
     ? 'border-status-success-border bg-status-success-bg text-status-success-text'
@@ -1017,9 +1037,11 @@ export default function IntegrationDetailPage({ params }: IntegrationDetailPageP
 
   const showCredentialActions = showCredentialsTab && activeTab === 'credentials' && credentialFormFields.length > 0
 
+  const requestedTab = searchParams?.get('tab')
+
   React.useEffect(() => {
-    setActiveTab(resolveRequestedIntegrationDetailTab(searchParams?.get('tab'), visibleTabIds))
-  }, [searchParams, visibleTabIds])
+    setActiveTab(resolveRequestedIntegrationDetailTab(requestedTab, visibleTabIds))
+  }, [requestedTab, visibleTabIds])
 
   const handleTabChange = React.useCallback((nextValue: string) => {
     const currentIntegrationId = resolveCurrentIntegrationId()
