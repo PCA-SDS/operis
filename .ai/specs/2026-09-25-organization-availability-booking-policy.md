@@ -2,11 +2,11 @@
 
 ## TLDR
 
-Organization operating hours are the only store-level baseline. A resource schedule is an additional constraint. `lastCustomerAcceptanceTime` controls the latest start time for a new booking, while `timeOverflowMinutes` controls how far an existing booking may continue after operating close and how far the timeline may extend.
+Organization operating hours are the branch-level baseline. A resource may optionally set its own last-customer cutoff and overflow in Availability; when omitted, it inherits the branch policy. `lastCustomerAcceptanceTime` controls the latest start time for a new booking, while `timeOverflowMinutes` controls how far an assigned booking may continue after that schedule's close and how far the timeline may extend.
 
 ## Overview
 
-The planner already stores reusable availability rulesets, and resources can reference one. That reference does not identify the official store schedule. This change adds an explicit organization policy that points to the official operating-hours ruleset; the two booking/timeline offsets are stored on each weekly or date-specific availability window in that ruleset.
+The planner already stores reusable availability rulesets, and resources can reference one. That reference does not identify the official store schedule. An organization policy points to the official operating-hours ruleset; saving availability in the organization-scoped ruleset editor automatically updates this link, so users configure and activate the branch schedule in one place. The two booking/timeline offsets are stored on each weekly or date-specific availability window in that ruleset.
 
 ## Problem Statement
 
@@ -30,7 +30,7 @@ organizationOperatingHours + window.timeOverflow
   ∩ resourceAvailability
 ```
 
-New bookings must start no later than `window.lastCustomerAcceptanceTime` and must end no later than `operatingEnd + window.timeOverflowMinutes`. The acceptance time must not be after operating close. Existing appointment assignments may finish in the overflow window, but may not start after operating close. Assignments using the official organization ruleset use the organization overflow as their runtime boundary; independent resource schedules remain hard constraints.
+The organization cutoff and operating-hours-plus-overflow remain the branch-wide limits. A resource with an explicit local cutoff must also start no later than that cutoff, and its assignment must end by its resource close plus local overflow. The effective local cutoff cannot loosen the branch cutoff. Resource settings apply only to assignments on that resource; resources without explicit overrides continue to inherit branch behavior. A resource schedule can still constrain when that resource is physically available.
 
 ## Architecture
 
@@ -50,14 +50,14 @@ Defaults: legacy organization-level offsets are `0` and are retained only as a c
 
 `GET /api/planner/organization-availability-settings` returns `configured`, the official ruleset ID, both offsets, and `updatedAt`.
 
-`PUT /api/planner/organization-availability-settings` saves the explicit ruleset link. The ruleset must belong to the selected tenant and organization. Weekly and date-specific availability endpoints accept and persist the two non-negative per-window minute values.
+`PUT /api/planner/organization-availability-settings` saves the explicit ruleset link. The ruleset must belong to the selected tenant and organization. Weekly and date-specific availability endpoints accept and persist the two non-negative per-window minute values. In the organization-scoped ruleset Availability UI, successfully saving availability also saves this link; resource/member availability editors do not change it. There is no separate activation control in Details.
 
-Resource availability responses expose effective windows. Appointment intake rejects starts after the last-customer cutoff and ends after the operating-hours-plus-overflow boundary.
+Resource availability responses expose effective windows and an optional resource-specific latest start. Appointment intake rejects starts after the branch cutoff; assignment validation additionally enforces an explicit resource cutoff and resource close-plus-overflow for the selected resource.
 
 ## Risks & Impact Review
 
 - Existing tenants without an explicit organization policy are not assigned a guessed ruleset.
-- Existing resource-only behavior is preserved until a policy is configured.
+- A blank resource cutoff means inherit the branch cutoff; it does not introduce a new restriction for other resources.
 - `Standard Business Hours` data currently describes 09:00–22:00 in the migration; no last-customer or overflow value is inferred from conflicting legacy locale text.
 - A later migration may backfill the explicit link only after confirming the ruleset is unique for an organization.
 
@@ -67,7 +67,7 @@ Resource availability responses expose effective windows. Appointment intake rej
 - Official schedule ambiguity: resolved with an explicit settings link.
 - Store close versus last customer: represented by an operating end time and a separate absolute acceptance time.
 - Overflow: applied to appointment assignment runtime, booking intake, and timeline bounds; it does not extend the start boundary for new or existing appointments.
-- Resource overrun: rejected when a linked resource ruleset exceeds the configured operating-hours boundary; overflow does not make new resource availability valid.
+- Resource-local cutoff and overflow are enforced only on that resource's assignments; they do not change sibling resources or branch settings.
 
 ## Changelog
 
@@ -77,3 +77,8 @@ Resource availability responses expose effective windows. Appointment intake rej
 - Added settings API and booking/resource enforcement paths.
 - Added organization-based timeline windows with overflow support.
 - Moved last-customer and overflow configuration into weekly/date-specific schedule windows; the organization settings record now only identifies the official schedule (with legacy offset fallback).
+
+### 2026-09-28
+
+- Made the organization-scoped Availability editor the single configuration and activation point; removed the separate Details activation card.
+- Added optional per-resource last-customer cutoff and overflow fields in Availability; blank cutoff inherits branch behavior, and explicit resource values constrain only that resource.

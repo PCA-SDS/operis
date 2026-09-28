@@ -434,6 +434,8 @@
   "resources.resources.availability.windows.errors.range": "Godzina zakończenia musi być po rozpoczęciu.",
   "resources.resources.availability.windows.errors.required": "Wymagane są godziny rozpoczęcia i zakończenia.",
   "resources.resources.availability.windows.label": "W jakich godzinach jesteś dostępny?",
+  "resources.resources.availability.windows.lastCustomerInheritedHelp": "Pozostaw puste, aby użyć limitu oddziału.",
+  "resources.resources.availability.windows.lastCustomerInheritedPlaceholder": "Użyj ustawień oddziału",
   "resources.resources.availability.windows.remove": "Usuń",
   "resources.resources.detail.activities.add": "Rejestruj aktywność",
   "resources.resources.detail.activities.addTitle": "Dodaj aktywność",

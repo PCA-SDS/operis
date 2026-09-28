@@ -13,6 +13,7 @@ import { PlannerAvailabilityRule } from '@open-mercato/core/modules/planner/data
 import { getMergedAvailabilityWindows } from '@open-mercato/core/modules/planner/lib/availabilityMerge'
 import {
   loadOrganizationAvailabilityPolicy,
+  resolveLatestNewBookingStart,
   resolveOrganizationAvailabilityWindows,
 } from '@open-mercato/core/modules/planner/lib/organizationAvailability'
 
@@ -250,41 +251,64 @@ export class AssignmentConflictService {
             kind: rule.kind,
           })),
           range: availabilityRange,
-        })
+      })
       : null
+    const resourceRuleById = new Map(directRules.map((rule) => [rule.id, rule]))
+    const appointmentResourceWindows = resourceWindows?.map((window) => {
+      const rule = resourceRuleById.get(window.ruleId ?? '')
+      const hasAcceptanceOverride = rule?.lastCustomerAcceptanceMinutes != null
+        || rule?.lastCustomerBeforeCloseMinutes != null
+      return {
+        start: window.start,
+        operatingEnd: window.end,
+        runtimeEnd: new Date(window.end.getTime() + (rule?.timeOverflowMinutes ?? 0) * 60_000),
+        latestStartAt: rule && hasAcceptanceOverride
+          ? resolveLatestNewBookingStart(window.end, rule, 0, rule.timezone)
+          : null,
+      }
+    }) ?? null
     const policy = await loadOrganizationAvailabilityPolicy(this.em, {
       tenantId,
       organizationIds,
     })
 
-    if (availabilityMode === 'appointment' && policy) {
-      const organizationWindows = resolveOrganizationAvailabilityWindows(policy, availabilityRange)
+    if (availabilityMode === 'appointment') {
+      const organizationWindows = policy
+        ? resolveOrganizationAvailabilityWindows(policy, availabilityRange)
+        : null
       const anchorStartAt = availabilityAnchorStartAt ?? startsAt
-      const organizationStartWindow = organizationWindows.some(
+      const organizationStartWindow = !organizationWindows || organizationWindows.some(
         (window) => window.start <= anchorStartAt && window.latestNewBookingStart >= anchorStartAt,
       )
-      const organizationRuntimeWindow = organizationWindows.some(
+      const organizationRuntimeWindow = !organizationWindows || organizationWindows.some(
         (window) => window.start <= startsAt && window.end >= endsAt,
       )
-      const usesOfficialRuleSet = resource?.availabilityRuleSetId === policy.operatingHoursRuleSetId && directRules.length === 0
-      const resourceStartWindow = usesOfficialRuleSet || !resourceWindows || resourceWindows.some(
-        (window) => window.start <= startsAt && window.end >= startsAt,
+      const usesOfficialRuleSet = Boolean(policy)
+        && resource?.availabilityRuleSetId === policy?.operatingHoursRuleSetId
+        && directRules.length === 0
+      const matchingResourceWindow = appointmentResourceWindows?.find(
+        (window) => window.start <= startsAt && window.operatingEnd >= startsAt,
       )
-      const resourceRuntimeWindow = !resourceWindows || resourceWindows.some(
-        (window) => window.start <= startsAt && window.end >= endsAt,
+      const resourceStartWindow = usesOfficialRuleSet || !appointmentResourceWindows || Boolean(matchingResourceWindow)
+      const resourceAcceptanceWindow = !matchingResourceWindow?.latestStartAt
+        || startsAt <= matchingResourceWindow.latestStartAt
+      const resourceRuntimeWindow = usesOfficialRuleSet || !appointmentResourceWindows || Boolean(
+        matchingResourceWindow && matchingResourceWindow.runtimeEnd >= endsAt,
       )
 
       const startsAfterAnchor = !availabilityAnchorStartAt || startsAt >= availabilityAnchorStartAt
-      if (!organizationStartWindow || !organizationRuntimeWindow || !resourceStartWindow || !startsAfterAnchor || (!usesOfficialRuleSet && !resourceRuntimeWindow)) {
+      if (!organizationStartWindow || !organizationRuntimeWindow || !resourceStartWindow || !resourceAcceptanceWindow || !startsAfterAnchor || !resourceRuntimeWindow) {
         return {
           valid: false,
           error: {
             code: 'OUTSIDE_AVAILABILITY',
-            message: 'Requested time is outside resource availability hours',
+            message: resourceAcceptanceWindow
+              ? 'Requested time is outside resource availability hours'
+              : 'Requested start is after the resource last customer cutoff',
             details: {
               requestedStart: startsAt.toISOString(),
               requestedEnd: endsAt.toISOString(),
-              availableWindows: organizationWindows.map((window) => ({
+              availableWindows: (organizationWindows ?? []).map((window) => ({
                 start: window.start.toISOString(),
                 end: window.end.toISOString(),
               })),

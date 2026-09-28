@@ -105,4 +105,83 @@ describe('loadResourceAvailabilityWindows', () => {
       endsAt: '2026-09-25T23:00:00.000Z',
     }])
   })
+
+  it('applies a resource cutoff and overflow only to that resource', async () => {
+    const resources = [
+      {
+        id: 'resource-a',
+        tenantId: 'tenant-1',
+        organizationId: 'organization-1',
+        availabilityRuleSetId: 'branch-ruleset',
+        deletedAt: null,
+      },
+      {
+        id: 'resource-b',
+        tenantId: 'tenant-1',
+        organizationId: 'organization-1',
+        availabilityRuleSetId: 'branch-ruleset',
+        deletedAt: null,
+      },
+    ]
+    const resourceRule = {
+      id: 'resource-a-rule',
+      subjectId: 'resource-a',
+      timezone: 'UTC',
+      rrule: 'DTSTART:20260925T090000Z\nDURATION:PT11H\nRRULE:FREQ=DAILY',
+      exdates: [],
+      kind: 'availability' as const,
+      lastCustomerAcceptanceMinutes: 19 * 60,
+      timeOverflowMinutes: 30,
+    }
+    const organizationRule = {
+      id: 'organization-rule',
+      rrule: 'DTSTART:20260925T090000Z\nDURATION:PT13H\nRRULE:FREQ=DAILY',
+      exdates: [],
+      kind: 'availability' as const,
+      lastCustomerAcceptanceMinutes: 21 * 60,
+      timeOverflowMinutes: 60,
+    }
+    const settings = {
+      organizationId: 'organization-1',
+      operatingHoursRuleSetId: 'branch-ruleset',
+      lastCustomerBeforeCloseMinutes: 0,
+      timeOverflowMinutes: 0,
+    }
+    const em = {
+      find: jest.fn().mockImplementation(async (_entity, where) => {
+        if (where.id?.$in) return resources
+        if (where.subjectType === 'resource') return [resourceRule]
+        if (where.subjectType === 'ruleset') return [organizationRule]
+        if (where.organizationId?.$in) return [settings]
+        return []
+      }),
+      findOne: jest.fn().mockResolvedValue({
+        id: 'branch-ruleset',
+        tenantId: 'tenant-1',
+        organizationId: 'organization-1',
+        timezone: 'UTC',
+        deletedAt: null,
+      }),
+    }
+
+    const windows = await loadResourceAvailabilityWindows(em as never, {
+      tenantId: 'tenant-1',
+      organizationIds: ['organization-1'],
+      resourceIds: ['resource-a', 'resource-b'],
+      range: {
+        start: new Date('2026-09-25T00:00:00.000Z'),
+        end: new Date('2026-09-26T00:00:00.000Z'),
+      },
+    })
+
+    expect(windows.get('resource-a')).toEqual([{
+      startsAt: '2026-09-25T09:00:00.000Z',
+      endsAt: '2026-09-25T20:30:00.000Z',
+      latestStartAt: '2026-09-25T19:00:00.000Z',
+    }])
+    expect(windows.get('resource-b')).toEqual([{
+      startsAt: '2026-09-25T09:00:00.000Z',
+      endsAt: '2026-09-25T23:00:00.000Z',
+    }])
+  })
 })

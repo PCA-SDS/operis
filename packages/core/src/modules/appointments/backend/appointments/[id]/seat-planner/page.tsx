@@ -130,7 +130,7 @@ type Resource = {
   typeName?: string | null
   typeIcon?: string | null
   typeColor?: string | null
-  availabilityWindows?: Array<{ startsAt: string; endsAt: string }> | null
+  availabilityWindows?: Array<{ startsAt: string; endsAt: string; latestStartAt?: string }> | null
 }
 
 type SeatPlannerWorkspace = {
@@ -292,7 +292,8 @@ function resourceSupportsRange(resource: Resource | undefined, startsAt: string,
   return resource.availabilityWindows.some((window) => {
     const windowStart = new Date(window.startsAt).getTime()
     const windowEnd = new Date(window.endsAt).getTime()
-    return start >= windowStart && end <= windowEnd
+    const latestStart = window.latestStartAt ? new Date(window.latestStartAt).getTime() : Number.POSITIVE_INFINITY
+    return start >= windowStart && start <= latestStart && end <= windowEnd
   })
 }
 

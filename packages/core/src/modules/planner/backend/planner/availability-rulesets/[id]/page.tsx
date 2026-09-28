@@ -13,7 +13,6 @@ import { parseAvailabilityRuleWindow } from '@open-mercato/core/modules/planner/
 import { extractCustomFieldEntries } from '@open-mercato/shared/lib/crud/custom-fields-client'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { AvailabilityRuleSetForm, buildAvailabilityRuleSetPayload, type AvailabilityRuleSetFormValues } from '@open-mercato/core/modules/planner/components/AvailabilityRuleSetForm'
-import { OrganizationAvailabilityPolicyCard } from '@open-mercato/core/modules/planner/components/OrganizationAvailabilityPolicyCard'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -201,8 +200,12 @@ export default function PlannerAvailabilityRuleSetDetailPage({ params }: { param
           <Tabs
             value={activeTab}
             onValueChange={(value) => setActiveTab(value as 'details' | 'availability')}
+            variant="underline"
           >
-            <TabsList aria-label={translate('planner.availabilityRuleSets.tabs.label', 'Schedule sections')}>
+            <TabsList
+              className="w-full flex-wrap"
+              aria-label={translate('planner.availabilityRuleSets.tabs.label', 'Schedule sections')}
+            >
               {tabs.map((tab) => (
                 <TabsTrigger key={tab.id} value={tab.id}>
                   {tab.label}
@@ -224,7 +227,6 @@ export default function PlannerAvailabilityRuleSetDetailPage({ params }: { param
                   isLoading={!initialValues}
                   loadingMessage={translate('planner.availabilityRuleSets.form.loading', 'Loading schedule...')}
                 />
-                {initialValues ? <OrganizationAvailabilityPolicyCard ruleSetId={rulesetId ?? ''} /> : null}
               </div>
             ) : (
               <AvailabilityRulesEditor

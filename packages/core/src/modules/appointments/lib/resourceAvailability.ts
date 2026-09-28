@@ -4,14 +4,38 @@ import { ResourcesResource } from '@open-mercato/core/modules/resources/data/ent
 import { PlannerAvailabilityRule } from '@open-mercato/core/modules/planner/data/entities'
 import { getMergedAvailabilityWindows } from '@open-mercato/core/modules/planner/lib/availabilityMerge'
 import {
-  intersectAvailabilityWindows,
   loadOrganizationAvailabilityPolicy,
+  resolveLatestNewBookingStart,
   resolveOrganizationAvailabilityWindows,
 } from '@open-mercato/core/modules/planner/lib/organizationAvailability'
 
 export type ResourceAvailabilityWindow = {
   startsAt: string
   endsAt: string
+  latestStartAt?: string
+}
+
+function resolveResourceWindowsWithOverrides(
+  windows: Array<{ start: Date; end: Date; ruleId?: string }>,
+  rules: PlannerAvailabilityRule[],
+) {
+  const rulesById = new Map(rules.map((rule) => [rule.id, rule]))
+  return windows.map((window) => {
+    const rule = rulesById.get(window.ruleId ?? '')
+    const overflowMinutes = rule?.timeOverflowMinutes ?? 0
+    const hasAcceptanceOverride = rule?.lastCustomerAcceptanceMinutes != null
+      || rule?.lastCustomerBeforeCloseMinutes != null
+    return {
+      start: window.start,
+      operatingEnd: window.end,
+      end: new Date(window.end.getTime() + overflowMinutes * 60_000),
+      latestStartAt: rule && hasAcceptanceOverride
+        ? resolveLatestNewBookingStart(window.end, rule, 0, rule.timezone)
+        : overflowMinutes > 0
+          ? window.end
+          : null,
+    }
+  })
 }
 
 export async function resolveResourceOrganizationIds(
@@ -77,7 +101,7 @@ export async function loadResourceAvailabilityWindows(
       ? rulesBySubjectId.get(resource.availabilityRuleSetId) ?? []
       : []
     const resourceRules = directResourceRules.length > 0 ? directResourceRules : linkedRuleSetRules
-    const resourceWindows = resourceRules.length > 0
+    const rawResourceWindows = resourceRules.length > 0
       ? getMergedAvailabilityWindows({
           rules: resourceRules.map((rule) => ({
             id: rule.id,
@@ -87,6 +111,11 @@ export async function loadResourceAvailabilityWindows(
           })),
           range: params.range,
         })
+      : null
+    const resourceWindows = rawResourceWindows
+      ? directResourceRules.length > 0
+        ? resolveResourceWindowsWithOverrides(rawResourceWindows, directResourceRules)
+        : rawResourceWindows.map((window) => ({ ...window, operatingEnd: window.end, latestStartAt: null }))
       : null
 
     const orderedOrganizationIds = [
@@ -100,7 +129,11 @@ export async function loadResourceAvailabilityWindows(
     if (!policy) {
       windowsByResourceId.set(
         resource.id,
-        resourceWindows?.map((window) => ({ startsAt: window.start.toISOString(), endsAt: window.end.toISOString() })) ?? null,
+        resourceWindows?.map((window) => ({
+          startsAt: window.start.toISOString(),
+          endsAt: window.end.toISOString(),
+          ...(window.latestStartAt ? { latestStartAt: window.latestStartAt.toISOString() } : {}),
+        })) ?? null,
       )
       return
     }
@@ -109,13 +142,35 @@ export async function loadResourceAvailabilityWindows(
     const usesOfficialRuleSet = resource.availabilityRuleSetId === policy.operatingHoursRuleSetId
       && directResourceRules.length === 0
     const effectiveWindows = usesOfficialRuleSet
-      ? organizationWindows
+      ? organizationWindows.map((window) => ({
+          start: window.start,
+          end: window.end,
+          latestStartAt: null,
+        }))
       : resourceWindows
-      ? intersectAvailabilityWindows(organizationWindows, resourceWindows)
-      : organizationWindows
+      ? resourceWindows.flatMap((resourceWindow) => organizationWindows.flatMap((organizationWindow) => {
+          const start = resourceWindow.start > organizationWindow.start ? resourceWindow.start : organizationWindow.start
+          const end = resourceWindow.end < organizationWindow.end ? resourceWindow.end : organizationWindow.end
+          if (start >= end) return []
+          const resourceLatestStartAt = resourceWindow.latestStartAt ?? resourceWindow.operatingEnd
+          const latestStartAt = new Date(Math.min(
+            resourceLatestStartAt.getTime(),
+            organizationWindow.latestNewBookingStart.getTime(),
+          ))
+          return [{ start, end, latestStartAt }]
+        }))
+      : organizationWindows.map((window) => ({
+          start: window.start,
+          end: window.end,
+          latestStartAt: null,
+        }))
     windowsByResourceId.set(
       resource.id,
-      effectiveWindows.map((window) => ({ startsAt: window.start.toISOString(), endsAt: window.end.toISOString() })),
+      effectiveWindows.map((window) => ({
+        startsAt: window.start.toISOString(),
+        endsAt: window.end.toISOString(),
+        ...(window.latestStartAt ? { latestStartAt: window.latestStartAt.toISOString() } : {}),
+      })),
     )
   }))
 

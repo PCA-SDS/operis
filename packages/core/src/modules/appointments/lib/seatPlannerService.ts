@@ -97,7 +97,7 @@ export interface SeatPlannerWorkspace {
     typeName?: string | null
     typeIcon?: string | null
     typeColor?: string | null
-    availabilityWindows: Array<{ startsAt: string; endsAt: string }> | null
+    availabilityWindows: Array<{ startsAt: string; endsAt: string; latestStartAt?: string }> | null
   }>
 }
 

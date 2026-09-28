@@ -434,6 +434,8 @@
   "resources.resources.availability.windows.errors.range": "End time must be after start.",
   "resources.resources.availability.windows.errors.required": "Start and end times are required.",
   "resources.resources.availability.windows.label": "What hours are you available?",
+  "resources.resources.availability.windows.lastCustomerInheritedHelp": "Leave empty to use the branch cutoff.",
+  "resources.resources.availability.windows.lastCustomerInheritedPlaceholder": "Inherit from branch",
   "resources.resources.availability.windows.remove": "Remove",
   "resources.resources.detail.activities.add": "Log activity",
   "resources.resources.detail.activities.addTitle": "Add activity",

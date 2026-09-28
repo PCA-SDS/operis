@@ -113,6 +113,93 @@ describe('AssignmentConflictService appointment availability', () => {
     return { em, service: new AssignmentConflictService(em as never) }
   }
 
+  function serviceWithResourceCutoff(resourceId: string) {
+    const resource = {
+      id: resourceId,
+      tenantId: 'tenant-1',
+      organizationId: 'organization-1',
+      isActive: true,
+      availabilityRuleSetId: 'ruleset-1',
+      deletedAt: null,
+    }
+    const ruleSet = {
+      id: 'ruleset-1',
+      tenantId: 'tenant-1',
+      organizationId: 'organization-1',
+      timezone: 'UTC',
+      deletedAt: null,
+    }
+    const organizationRule = {
+      id: 'organization-rule',
+      rrule: 'DTSTART:20260925T090000Z\nDURATION:PT13H\nRRULE:FREQ=DAILY',
+      exdates: [],
+      kind: 'availability' as const,
+      lastCustomerAcceptanceMinutes: 21 * 60,
+      timeOverflowMinutes: 60,
+    }
+    const resourceRule = {
+      id: 'resource-rule',
+      subjectId: 'resource-a',
+      timezone: 'UTC',
+      rrule: 'DTSTART:20260925T090000Z\nDURATION:PT11H\nRRULE:FREQ=DAILY',
+      exdates: [],
+      kind: 'availability' as const,
+      lastCustomerAcceptanceMinutes: 19 * 60,
+      timeOverflowMinutes: 30,
+    }
+    const settings = {
+      organizationId: 'organization-1',
+      operatingHoursRuleSetId: 'ruleset-1',
+      timezone: 'UTC',
+      lastCustomerBeforeCloseMinutes: 0,
+      timeOverflowMinutes: 0,
+    }
+    const em = {
+      findOne: jest.fn().mockImplementation(async (_entity, where) => {
+        if (where.id === resource.id) return resource
+        if (where.id === ruleSet.id) return ruleSet
+        return null
+      }),
+      find: jest.fn().mockImplementation(async (_entity, where) => {
+        if (where.subjectType === 'resource') return resourceId === 'resource-a' ? [resourceRule] : []
+        if (where.subjectType === 'ruleset') return [organizationRule]
+        if (where.organizationId?.$in) return [settings]
+        return []
+      }),
+      count: jest.fn().mockResolvedValue(0),
+    }
+    return new AssignmentConflictService(em as never)
+  }
+
+  it('allows the resource cutoff and overflow without changing other resources', async () => {
+    const resourceAService = serviceWithResourceCutoff('resource-a')
+    const resourceBService = serviceWithResourceCutoff('resource-b')
+
+    await expect(resourceAService.validateAssignment({
+      ...BASE_PARAMS,
+      resourceId: 'resource-a',
+      startsAt: new Date('2026-09-25T19:00:00.000Z'),
+      endsAt: new Date('2026-09-25T20:30:00.000Z'),
+      availabilityMode: 'appointment',
+    })).resolves.toEqual({ valid: true })
+
+    await expect(resourceAService.validateAssignment({
+      ...BASE_PARAMS,
+      resourceId: 'resource-a',
+      startsAt: new Date('2026-09-25T19:01:00.000Z'),
+      endsAt: new Date('2026-09-25T20:00:00.000Z'),
+      availabilityMode: 'appointment',
+    })).resolves.toMatchObject({ valid: false, error: { code: 'OUTSIDE_AVAILABILITY' } })
+
+    await expect(resourceBService.validateAssignment({
+      ...BASE_PARAMS,
+      resourceId: 'resource-b',
+      startsAt: new Date('2026-09-25T21:00:00.000Z'),
+      endsAt: new Date('2026-09-25T22:00:00.000Z'),
+      availabilityMode: 'appointment',
+    })).resolves.toEqual({ valid: true })
+  })
+
   it('allows an appointment assignment to finish during organization overflow', async () => {
     const { service } = serviceWithOfficialOrganizationRuleSet()
 
