@@ -26,6 +26,7 @@ describe('createAppointmentFromPublicIntake', () => {
   const persisted: unknown[] = []
   const em = {
     findOne: jest.fn(),
+    find: jest.fn(() => Promise.resolve([])),
     create: jest.fn((_Entity: unknown, data: Record<string, unknown>) => ({
       id: '55555555-5555-4555-8555-555555555555',
       ...data,
@@ -44,6 +45,7 @@ describe('createAppointmentFromPublicIntake', () => {
     mockListBookableServicesForOrganization.mockReset()
     mockEnsureSystemAppointmentStatuses.mockReset()
     em.findOne.mockReset()
+    em.find.mockClear()
     em.create.mockClear()
     em.persist.mockClear()
     em.flush.mockClear()

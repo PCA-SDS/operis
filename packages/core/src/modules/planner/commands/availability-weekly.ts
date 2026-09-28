@@ -1,5 +1,6 @@
 import type { CommandHandler } from '@open-mercato/shared/lib/commands'
 import { registerCommand } from '@open-mercato/shared/lib/commands'
+import { LockMode } from '@mikro-orm/core'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { parseAvailabilityRuleWindow } from '@open-mercato/core/modules/planner/lib/availabilitySchedule'
 import { PlannerAvailabilityRule, PlannerAvailabilityRuleSet } from '../data/entities'
@@ -45,6 +46,9 @@ type AvailabilityRuleSnapshot = {
   rrule: string
   exdates: string[]
   kind: PlannerAvailabilityKind
+  lastCustomerBeforeCloseMinutes: number | null
+  lastCustomerAcceptanceMinutes: number | null
+  timeOverflowMinutes: number | null
   note: string | null
   deletedAt: Date | null
 }
@@ -59,6 +63,12 @@ function parseTimeInput(value: string): { hours: number; minutes: number } | nul
   if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null
   if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null
   return { hours, minutes }
+}
+
+function parseAcceptanceMinutes(value?: string | null): number | null {
+  if (!value) return null
+  const parsed = parseTimeInput(value)
+  return parsed ? parsed.hours * 60 + parsed.minutes : null
 }
 
 function toDateForWeekday(weekday: number, time: string): Date | null {
@@ -100,6 +110,9 @@ function toAvailabilityRuleSnapshot(record: PlannerAvailabilityRule): Availabili
     rrule: record.rrule,
     exdates: [...(record.exdates ?? [])],
     kind: record.kind,
+    lastCustomerBeforeCloseMinutes: record.lastCustomerBeforeCloseMinutes ?? null,
+    lastCustomerAcceptanceMinutes: record.lastCustomerAcceptanceMinutes ?? null,
+    timeOverflowMinutes: record.timeOverflowMinutes ?? null,
     note: record.note ?? null,
     deletedAt: record.deletedAt ?? null,
   }
@@ -111,6 +124,11 @@ function nextRuleSetUpdatedAt(current: Date | null | undefined, fallback: Date):
     return new Date(currentMs + 1)
   }
   return fallback
+}
+
+function isRecurringWeeklyRule(rule: PlannerAvailabilityRule): boolean {
+  const repeat = parseAvailabilityRuleWindow(rule).repeat
+  return repeat === 'weekly' || repeat === 'daily'
 }
 
 async function loadWeeklySnapshots(
@@ -130,10 +148,7 @@ async function loadWeeklySnapshots(
     deletedAt: null,
   })
   return existing
-    .filter((rule) => {
-      const repeat = parseAvailabilityRuleWindow(rule).repeat
-      return repeat === 'weekly' || repeat === 'daily'
-    })
+    .filter(isRecurringWeeklyRule)
     .map(toAvailabilityRuleSnapshot)
 }
 
@@ -150,6 +165,9 @@ async function restoreAvailabilityRuleFromSnapshot(em: EntityManager, snapshot: 
       rrule: snapshot.rrule,
       exdates: snapshot.exdates ?? [],
       kind: snapshot.kind ?? 'availability',
+      lastCustomerBeforeCloseMinutes: snapshot.lastCustomerBeforeCloseMinutes ?? null,
+      lastCustomerAcceptanceMinutes: snapshot.lastCustomerAcceptanceMinutes ?? null,
+      timeOverflowMinutes: snapshot.timeOverflowMinutes ?? null,
       note: snapshot.note ?? null,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -163,6 +181,9 @@ async function restoreAvailabilityRuleFromSnapshot(em: EntityManager, snapshot: 
     record.rrule = snapshot.rrule
     record.exdates = snapshot.exdates ?? []
     record.kind = snapshot.kind ?? 'availability'
+    record.lastCustomerBeforeCloseMinutes = snapshot.lastCustomerBeforeCloseMinutes ?? null
+    record.lastCustomerAcceptanceMinutes = snapshot.lastCustomerAcceptanceMinutes ?? null
+    record.timeOverflowMinutes = snapshot.timeOverflowMinutes ?? null
     record.note = snapshot.note ?? null
     record.deletedAt = snapshot.deletedAt ?? null
   }
@@ -204,7 +225,7 @@ const replaceWeeklyAvailabilityCommand: CommandHandler<PlannerAvailabilityWeekly
           tenantId: parsed.tenantId,
           organizationId: parsed.organizationId,
           deletedAt: null,
-        })
+        }, { lockMode: LockMode.PESSIMISTIC_WRITE })
         if (ruleSet) {
           enforceCommandOptimisticLock({
             resourceKind: AVAILABILITY_RULE_SET_RESOURCE_KIND,
@@ -232,18 +253,14 @@ const replaceWeeklyAvailabilityCommand: CommandHandler<PlannerAvailabilityWeekly
         deletedAt: null,
       })
 
-      const toDelete = existing.filter((rule) => {
-        const repeat = parseAvailabilityRuleWindow(rule).repeat
-        return repeat === 'weekly' || repeat === 'daily'
-      })
-
-      toDelete.forEach((rule) => {
-        rule.deletedAt = now
-        rule.updatedAt = now
-      })
+      const toDelete = existing.filter(isRecurringWeeklyRule)
 
       if (toDelete.length) {
-        trx.persist(toDelete)
+        await trx.nativeUpdate(
+          PlannerAvailabilityRule,
+          { id: { $in: toDelete.map((rule) => rule.id) }, deletedAt: null },
+          { deletedAt: now, updatedAt: now },
+        )
       }
 
       parsed.windows.forEach((window) => {
@@ -260,6 +277,9 @@ const replaceWeeklyAvailabilityCommand: CommandHandler<PlannerAvailabilityWeekly
           rrule,
           exdates: [],
           kind: 'availability',
+          lastCustomerBeforeCloseMinutes: null,
+          lastCustomerAcceptanceMinutes: parseAcceptanceMinutes(window.lastCustomerAcceptanceTime),
+          timeOverflowMinutes: window.timeOverflowMinutes ?? null,
           note: null,
           createdAt: now,
           updatedAt: now,

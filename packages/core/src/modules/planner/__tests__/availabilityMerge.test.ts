@@ -77,15 +77,25 @@ describe('getMergedAvailabilityWindows', () => {
     expect(windows).toEqual([])
   })
 
-  it('creates a full-day window for once availability overrides', () => {
+  it('preserves every configured window for once availability overrides', () => {
     const range: AvailabilityRange = {
       start: new Date('2024-01-02T00:00:00Z'),
       end: new Date('2024-01-03T00:00:00Z'),
     }
     const rules: AvailabilityRuleLike[] = [
       {
-        id: 'override',
+        id: 'recurring',
+        rrule: 'DTSTART:20240101T080000Z;DURATION:PT9H;FREQ=DAILY',
+        kind: 'availability',
+      },
+      {
+        id: 'morning-override',
         rrule: 'DTSTART:20240102T090000Z;DURATION:PT1H;FREQ=DAILY;COUNT=1',
+        kind: 'availability',
+      },
+      {
+        id: 'afternoon-override',
+        rrule: 'DTSTART:20240102T140000Z;DURATION:PT2H;FREQ=DAILY;COUNT=1',
         kind: 'availability',
       },
     ]
@@ -93,7 +103,8 @@ describe('getMergedAvailabilityWindows', () => {
     const windows = getMergedAvailabilityWindows({ rules, range }).map(toIsoWindow)
 
     expect(windows).toEqual([
-      { start: '2024-01-02T00:00:00.000Z', end: '2024-01-03T00:00:00.000Z' },
+      { start: '2024-01-02T09:00:00.000Z', end: '2024-01-02T10:00:00.000Z' },
+      { start: '2024-01-02T14:00:00.000Z', end: '2024-01-02T16:00:00.000Z' },
     ])
   })
 

@@ -9,8 +9,14 @@
 
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { ResourcesAssignment, ResourcesBlock, ResourcesResource } from '../data/entities'
-import { getMergedAvailabilityWindows, type AvailabilityRuleLike } from '@open-mercato/core/modules/planner/lib/availabilityMerge'
 import { PlannerAvailabilityRule } from '@open-mercato/core/modules/planner/data/entities'
+import { getMergedAvailabilityWindows } from '@open-mercato/core/modules/planner/lib/availabilityMerge'
+import {
+  loadOrganizationAvailabilityPolicy,
+  resolveOrganizationAvailabilityWindows,
+} from '@open-mercato/core/modules/planner/lib/organizationAvailability'
+
+const DAY_MS = 24 * 60 * 60 * 1000
 
 export interface ConflictCheckOptions {
   /** Assignment ID to exclude (e.g., when updating an existing assignment) */
@@ -20,6 +26,8 @@ export interface ConflictCheckOptions {
   /** Include draft assignments when a draft reserves a slot for its module. */
   includeDrafts?: boolean
 }
+
+export type AssignmentAvailabilityMode = 'resource' | 'appointment'
 
 export interface ValidationResult {
   valid: boolean
@@ -56,6 +64,8 @@ export class AssignmentConflictService {
     excludeSourceEntityIds?: string[]
     organizationIds?: string[]
     includeDrafts?: boolean
+    availabilityMode?: AssignmentAvailabilityMode
+    availabilityAnchorStartAt?: Date
   }): Promise<ValidationResult> {
     // 0. Check the interval itself is well-formed
     // Every overlap test below is half-open `[start, end)` — `startsAt < otherEnd AND endsAt > otherStart`.
@@ -101,6 +111,9 @@ export class AssignmentConflictService {
       resourceOrganizationId,
       params.startsAt,
       params.endsAt,
+      params.availabilityMode,
+      params.availabilityAnchorStartAt,
+      [resourceOrganizationId, ...scopedOrganizationIds.filter((id) => id !== resourceOrganizationId)],
     )
     if (!availabilityCheck.valid) {
       return availabilityCheck
@@ -195,52 +208,97 @@ export class AssignmentConflictService {
     organizationId: string,
     startsAt: Date,
     endsAt: Date,
+    availabilityMode: AssignmentAvailabilityMode = 'resource',
+    availabilityAnchorStartAt?: Date,
+    organizationIds: string[] = [organizationId],
   ): Promise<ValidationResult> {
-    // Get the resource to check if it has availability rules
-    const resource = await this.em.findOne(ResourcesResource, { id: resourceId, tenantId, organizationId })
+    const resource = await this.em.findOne(ResourcesResource, {
+      id: resourceId,
+      tenantId,
+      organizationId,
+      deletedAt: null,
+    })
+    const directRules = resource
+      ? await this.em.find(PlannerAvailabilityRule, {
+            tenantId,
+            organizationId,
+            subjectType: 'resource',
+            subjectId: resourceId,
+            deletedAt: null,
+          })
+      : []
+    const ruleSetRules = resource?.availabilityRuleSetId
+      ? await this.em.find(PlannerAvailabilityRule, {
+                tenantId,
+                organizationId,
+                subjectType: 'ruleset',
+                subjectId: resource.availabilityRuleSetId,
+                deletedAt: null,
+              })
+      : []
+    const rules = directRules.length > 0 ? directRules : ruleSetRules
+    const availabilityRange = {
+      start: new Date(startsAt.getTime() - DAY_MS),
+      end: new Date(endsAt.getTime() + DAY_MS),
+    }
+    const resourceWindows = rules.length > 0
+      ? getMergedAvailabilityWindows({
+          rules: rules.map((rule) => ({
+            id: rule.id,
+            rrule: rule.rrule,
+            exdates: rule.exdates,
+            kind: rule.kind,
+          })),
+          range: availabilityRange,
+        })
+      : null
+    const policy = await loadOrganizationAvailabilityPolicy(this.em, {
+      tenantId,
+      organizationIds,
+    })
 
-    // If resource has no availability rule set, allow any time
-    // (availability rules are optional)
-    if (!resource?.availabilityRuleSetId) {
+    if (availabilityMode === 'appointment' && policy) {
+      const organizationWindows = resolveOrganizationAvailabilityWindows(policy, availabilityRange)
+      const anchorStartAt = availabilityAnchorStartAt ?? startsAt
+      const organizationStartWindow = organizationWindows.some(
+        (window) => window.start <= anchorStartAt && window.latestNewBookingStart >= anchorStartAt,
+      )
+      const organizationRuntimeWindow = organizationWindows.some(
+        (window) => window.start <= startsAt && window.end >= endsAt,
+      )
+      const usesOfficialRuleSet = resource?.availabilityRuleSetId === policy.operatingHoursRuleSetId && directRules.length === 0
+      const resourceStartWindow = usesOfficialRuleSet || !resourceWindows || resourceWindows.some(
+        (window) => window.start <= startsAt && window.end >= startsAt,
+      )
+      const resourceRuntimeWindow = !resourceWindows || resourceWindows.some(
+        (window) => window.start <= startsAt && window.end >= endsAt,
+      )
+
+      const startsAfterAnchor = !availabilityAnchorStartAt || startsAt >= availabilityAnchorStartAt
+      if (!organizationStartWindow || !organizationRuntimeWindow || !resourceStartWindow || !startsAfterAnchor || (!usesOfficialRuleSet && !resourceRuntimeWindow)) {
+        return {
+          valid: false,
+          error: {
+            code: 'OUTSIDE_AVAILABILITY',
+            message: 'Requested time is outside resource availability hours',
+            details: {
+              requestedStart: startsAt.toISOString(),
+              requestedEnd: endsAt.toISOString(),
+              availableWindows: organizationWindows.map((window) => ({
+                start: window.start.toISOString(),
+                end: window.end.toISOString(),
+              })),
+            },
+          },
+        }
+      }
+
       return { valid: true }
     }
 
-    // Load availability rules from Planner module
-    const rules = await this.em.find(PlannerAvailabilityRule, {
-      tenantId,
-      organizationId,
-      subjectType: 'resource',
-      subjectId: resourceId,
-      deletedAt: null,
-    })
-    const ruleSetRules = await this.em.find(PlannerAvailabilityRule, {
-      tenantId,
-      organizationId,
-      subjectType: 'ruleset',
-      subjectId: resource.availabilityRuleSetId,
-      deletedAt: null,
-    })
-    const mergedRules = [...rules, ...ruleSetRules]
+    const windows = resourceWindows
 
-    if (mergedRules.length === 0) {
-      // No rules defined, allow any time
-      return { valid: true }
-    }
-
-    // Convert to AvailabilityRuleLike format
-    const ruleLike: AvailabilityRuleLike[] = mergedRules.map((rule) => ({
-      id: rule.id,
-      rrule: rule.rrule,
-      exdates: rule.exdates,
-      kind: rule.kind,
-      note: rule.note,
-    }))
-
-    // Get merged availability windows for the requested range
-    const windows = getMergedAvailabilityWindows({
-      rules: ruleLike,
-      range: { start: startsAt, end: endsAt },
-    })
+    if (!windows) return { valid: true }
 
     // Check if there's a window that contains the entire requested range
     const hasOverlap = windows.some(

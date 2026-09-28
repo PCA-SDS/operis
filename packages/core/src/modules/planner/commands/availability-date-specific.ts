@@ -42,6 +42,9 @@ type AvailabilityRuleSnapshot = {
   rrule: string
   exdates: string[]
   kind: PlannerAvailabilityKind
+  lastCustomerBeforeCloseMinutes: number | null
+  lastCustomerAcceptanceMinutes: number | null
+  timeOverflowMinutes: number | null
   note: string | null
   unavailabilityReasonEntryId: string | null
   unavailabilityReasonValue: string | null
@@ -58,6 +61,12 @@ function parseTimeInput(value: string): { hours: number; minutes: number } | nul
   if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null
   if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null
   return { hours, minutes }
+}
+
+function parseAcceptanceMinutes(value?: string | null): number | null {
+  if (!value) return null
+  const parsed = parseTimeInput(value)
+  return parsed ? parsed.hours * 60 + parsed.minutes : null
 }
 
 function toDateForDay(value: string, time: string, timezone: string): Date | null {
@@ -129,6 +138,9 @@ function toAvailabilityRuleSnapshot(record: PlannerAvailabilityRule): Availabili
     rrule: record.rrule,
     exdates: [...(record.exdates ?? [])],
     kind: record.kind,
+    lastCustomerBeforeCloseMinutes: record.lastCustomerBeforeCloseMinutes ?? null,
+    lastCustomerAcceptanceMinutes: record.lastCustomerAcceptanceMinutes ?? null,
+    timeOverflowMinutes: record.timeOverflowMinutes ?? null,
     note: record.note ?? null,
     unavailabilityReasonEntryId: record.unavailabilityReasonEntryId ?? null,
     unavailabilityReasonValue: record.unavailabilityReasonValue ?? null,
@@ -176,6 +188,9 @@ async function restoreAvailabilityRuleFromSnapshot(em: EntityManager, snapshot: 
       rrule: snapshot.rrule,
       exdates: snapshot.exdates ?? [],
       kind: snapshot.kind ?? 'availability',
+      lastCustomerBeforeCloseMinutes: snapshot.lastCustomerBeforeCloseMinutes ?? null,
+      lastCustomerAcceptanceMinutes: snapshot.lastCustomerAcceptanceMinutes ?? null,
+      timeOverflowMinutes: snapshot.timeOverflowMinutes ?? null,
       note: snapshot.note ?? null,
       unavailabilityReasonEntryId: snapshot.unavailabilityReasonEntryId ?? null,
       unavailabilityReasonValue: snapshot.unavailabilityReasonValue ?? null,
@@ -191,6 +206,9 @@ async function restoreAvailabilityRuleFromSnapshot(em: EntityManager, snapshot: 
     record.rrule = snapshot.rrule
     record.exdates = snapshot.exdates ?? []
     record.kind = snapshot.kind ?? 'availability'
+    record.lastCustomerBeforeCloseMinutes = snapshot.lastCustomerBeforeCloseMinutes ?? null
+    record.lastCustomerAcceptanceMinutes = snapshot.lastCustomerAcceptanceMinutes ?? null
+    record.timeOverflowMinutes = snapshot.timeOverflowMinutes ?? null
     record.note = snapshot.note ?? null
     record.unavailabilityReasonEntryId = snapshot.unavailabilityReasonEntryId ?? null
     record.unavailabilityReasonValue = snapshot.unavailabilityReasonValue ?? null
@@ -296,9 +314,12 @@ const replaceDateSpecificAvailabilityCommand: CommandHandler<PlannerAvailability
               timezone: parsed.timezone,
               rrule,
               exdates: [],
-              kind: 'availability',
-              note: null,
-              unavailabilityReasonEntryId: null,
+            kind: 'availability',
+            note: null,
+            lastCustomerBeforeCloseMinutes: null,
+            lastCustomerAcceptanceMinutes: parseAcceptanceMinutes(window.lastCustomerAcceptanceTime),
+            timeOverflowMinutes: window.timeOverflowMinutes ?? null,
+            unavailabilityReasonEntryId: null,
               unavailabilityReasonValue: null,
               createdAt: now,
               updatedAt: now,

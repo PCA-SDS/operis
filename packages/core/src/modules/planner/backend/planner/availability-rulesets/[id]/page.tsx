@@ -13,6 +13,7 @@ import { parseAvailabilityRuleWindow } from '@open-mercato/core/modules/planner/
 import { extractCustomFieldEntries } from '@open-mercato/shared/lib/crud/custom-fields-client'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { AvailabilityRuleSetForm, buildAvailabilityRuleSetPayload, type AvailabilityRuleSetFormValues } from '@open-mercato/core/modules/planner/components/AvailabilityRuleSetForm'
+import { OrganizationAvailabilityPolicyCard } from '@open-mercato/core/modules/planner/components/OrganizationAvailabilityPolicyCard'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -215,16 +216,19 @@ export default function PlannerAvailabilityRuleSetDetailPage({ params }: { param
           </Tabs>
 
           {activeTab === 'details' ? (
-            <AvailabilityRuleSetForm
-              title={translate('planner.availabilityRuleSets.form.editTitle', 'Edit schedule')}
-              backHref="/backend/planner/availability-rulesets"
-              cancelHref="/backend/planner/availability-rulesets"
-              initialValues={resolvedInitialValues}
-              onSubmit={handleSubmit}
-              onDelete={handleDelete}
-              isLoading={!initialValues}
-              loadingMessage={translate('planner.availabilityRuleSets.form.loading', 'Loading schedule...')}
-            />
+            <div className="space-y-6">
+              <AvailabilityRuleSetForm
+                title={translate('planner.availabilityRuleSets.form.editTitle', 'Edit schedule')}
+                backHref="/backend/planner/availability-rulesets"
+                cancelHref="/backend/planner/availability-rulesets"
+                initialValues={resolvedInitialValues}
+                onSubmit={handleSubmit}
+                onDelete={handleDelete}
+                isLoading={!initialValues}
+                loadingMessage={translate('planner.availabilityRuleSets.form.loading', 'Loading schedule...')}
+              />
+              {initialValues ? <OrganizationAvailabilityPolicyCard ruleSetId={rulesetId ?? ''} /> : null}
+            </div>
           ) : (
             <AvailabilityRulesEditor
               subjectType="ruleset"

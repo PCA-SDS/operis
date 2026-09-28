@@ -23,6 +23,9 @@ const F = {
   rrule: "rrule",
   exdates: "exdates",
   kind: "kind",
+  last_customer_before_close_minutes: "last_customer_before_close_minutes",
+  last_customer_acceptance_minutes: "last_customer_acceptance_minutes",
+  time_overflow_minutes: "time_overflow_minutes",
   note: "note",
   unavailability_reason_entry_id: "unavailability_reason_entry_id",
   unavailability_reason_value: "unavailability_reason_value",
@@ -85,6 +88,9 @@ const crud = makeCrudRoute({
       F.rrule,
       F.exdates,
       F.kind,
+      F.last_customer_before_close_minutes,
+      F.last_customer_acceptance_minutes,
+      F.time_overflow_minutes,
       F.note,
       F.unavailability_reason_entry_id,
       F.unavailability_reason_value,
@@ -95,8 +101,11 @@ const crud = makeCrudRoute({
       createdAt: F.created_at,
       updatedAt: F.updated_at,
     },
-    buildFilters: async (query) => {
+    buildFilters: async (query, ctx) => {
       const filters: Record<string, unknown> = {}
+      if (ctx.selectedOrganizationId) {
+        filters[F.organization_id] = ctx.selectedOrganizationId
+      }
       if (query.subjectType) {
         filters[F.subject_type] = query.subjectType
       }
@@ -224,6 +233,9 @@ const availabilityRuleListItemSchema = z.object({
   rrule: z.string().nullable().optional(),
   exdates: z.array(z.string()).nullable().optional(),
   kind: z.string().nullable().optional(),
+  last_customer_before_close_minutes: z.number().int().nullable().optional(),
+  last_customer_acceptance_minutes: z.number().int().nullable().optional(),
+  time_overflow_minutes: z.number().int().nullable().optional(),
   note: z.string().nullable().optional(),
   unavailability_reason_entry_id: z.string().uuid().nullable().optional(),
   unavailability_reason_value: z.string().nullable().optional(),

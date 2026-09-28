@@ -59,6 +59,8 @@ export type AppointmentResourceTimelineBlock = {
 type AppointmentResourceTimelineProps = {
   date: string
   resources: AppointmentResourceTimelineResource[]
+  timelineWindows?: Array<{ startsAt: string; endsAt: string }> | null
+  bookingAcceptanceWindows?: Array<{ startsAt: string; latestStartAt: string }> | null
   appointments: AppointmentResourceTimelineAppointment[]
   blocks: AppointmentResourceTimelineBlock[]
   fitScreen?: boolean
@@ -114,18 +116,16 @@ function buildTimeMarkers(timelineStartMinutes: number, timelineEndMinutes: numb
   return markers
 }
 
-function resourceSupportsRange(
+function resourceSupportsStart(
   resource: AppointmentResourceTimelineResource | undefined,
   startsAt: string,
-  endsAt: string,
 ) {
   if (!resource || resource.availabilityWindows === null || resource.availabilityWindows === undefined) return true
   const start = new Date(startsAt).getTime()
-  const end = new Date(endsAt).getTime()
   return resource.availabilityWindows.some((window) => {
     const windowStart = new Date(window.startsAt).getTime()
     const windowEnd = new Date(window.endsAt).getTime()
-    return start >= windowStart && end <= windowEnd
+    return start >= windowStart && start <= windowEnd
   })
 }
 
@@ -304,7 +304,7 @@ function TimelineAppointmentBlock({
   )
 }
 
-export function AppointmentResourceTimeline({ date, resources, appointments, blocks, fitScreen = false, placementMode = false, placementStartAt = null, renderAppointmentPopover, onSlotClick }: AppointmentResourceTimelineProps) {
+export function AppointmentResourceTimeline({ date, resources, timelineWindows, bookingAcceptanceWindows = null, appointments, blocks, fitScreen = false, placementMode = false, placementStartAt = null, renderAppointmentPopover, onSlotClick }: AppointmentResourceTimelineProps) {
   const t = useT()
   const viewportRef = React.useRef<HTMLDivElement>(null)
   const [viewportSize, setViewportSize] = React.useState({ width: 0, height: 0 })
@@ -331,19 +331,34 @@ export function AppointmentResourceTimeline({ date, resources, appointments, blo
   const timelineBounds = React.useMemo(() => {
     const startCandidates: number[] = []
     const endCandidates: number[] = []
-    for (const resource of resources) {
-      const windows = resource.availabilityWindows
-      if (windows === null || windows === undefined) {
+    if (timelineWindows !== undefined) {
+      if (timelineWindows === null) {
         startCandidates.push(START_HOUR * 60)
         endCandidates.push(END_HOUR * 60)
-        continue
+      } else {
+        for (const window of timelineWindows) {
+          const start = new Date(window.startsAt)
+          const end = new Date(window.endsAt)
+          if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) continue
+          startCandidates.push(start.getHours() * 60 + start.getMinutes())
+          endCandidates.push(end.getHours() * 60 + end.getMinutes())
+        }
       }
-      for (const window of windows) {
-        const start = new Date(window.startsAt)
-        const end = new Date(window.endsAt)
-        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) continue
-        startCandidates.push(start.getHours() * 60 + start.getMinutes())
-        endCandidates.push(end.getHours() * 60 + end.getMinutes())
+    } else {
+      for (const resource of resources) {
+        const windows = resource.availabilityWindows
+        if (windows === null || windows === undefined) {
+          startCandidates.push(START_HOUR * 60)
+          endCandidates.push(END_HOUR * 60)
+          continue
+        }
+        for (const window of windows) {
+          const start = new Date(window.startsAt)
+          const end = new Date(window.endsAt)
+          if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) continue
+          startCandidates.push(start.getHours() * 60 + start.getMinutes())
+          endCandidates.push(end.getHours() * 60 + end.getMinutes())
+        }
       }
     }
     const startMinutes = startCandidates.length > 0 ? Math.min(...startCandidates) : START_HOUR * 60
@@ -352,7 +367,7 @@ export function AppointmentResourceTimeline({ date, resources, appointments, blo
       startMinutes: Math.floor(startMinutes / SLOT_MINUTES) * SLOT_MINUTES,
       endMinutes: Math.ceil(endMinutes / SLOT_MINUTES) * SLOT_MINUTES,
     }
-  }, [resources])
+  }, [resources, timelineWindows])
   const slots = React.useMemo(() => buildSlots(timelineBounds.startMinutes, timelineBounds.endMinutes), [timelineBounds])
   const timeMarkers = React.useMemo(() => buildTimeMarkers(timelineBounds.startMinutes, timelineBounds.endMinutes), [timelineBounds])
   const timelineHours = (timelineBounds.endMinutes - timelineBounds.startMinutes) / 60
@@ -412,14 +427,23 @@ export function AppointmentResourceTimeline({ date, resources, appointments, blo
                       slotStartsAt.getTime() < new Date(block.endsAt).getTime()
                       && slotEndsAt.getTime() > new Date(block.startsAt).getTime()
                     ))
-                    const isUnavailable = !resourceSupportsRange(resource, slotStartsAt.toISOString(), slotEndsAt.toISOString())
+                    const isUnavailable = !resourceSupportsStart(resource, slotStartsAt.toISOString())
+                    const isAfterLastCustomer = !placementMode
+                      && bookingAcceptanceWindows !== null
+                      && bookingAcceptanceWindows !== undefined
+                      && !bookingAcceptanceWindows.some((window) => {
+                        const windowStart = new Date(window.startsAt).getTime()
+                        const latestStart = new Date(window.latestStartAt).getTime()
+                        const slotStart = slotStartsAt.getTime()
+                        return slotStart >= windowStart && slotStart <= latestStart
+                      })
                     const isBeforePlacementTime = placementMinutes !== null && minutes < placementMinutes
-                    const isBlocked = isOccupied || isUnavailable || isBeforePlacementTime
+                    const isBlocked = isOccupied || isUnavailable || isAfterLastCustomer || isBeforePlacementTime
                     const slotHeight = hourHeight / (60 / SLOT_MINUTES)
                     return (
                       <React.Fragment key={`${resource.id}-${startsAt}`}>
                         <div className="pointer-events-none absolute left-0 right-0 border-t border-dashed border-border/60" style={{ top: index * slotHeight }} />
-                        {isUnavailable || isBeforePlacementTime ? <div className="pointer-events-none absolute inset-x-0 z-0 bg-muted/60" style={{ top: index * slotHeight, height: slotHeight }} /> : null}
+                        {isUnavailable || isAfterLastCustomer || isBeforePlacementTime ? <div className="pointer-events-none absolute inset-x-0 z-0 bg-muted/60" style={{ top: index * slotHeight, height: slotHeight }} /> : null}
                         {onSlotClick ? <button type="button" disabled={isBlocked} aria-label={`${resource.name} ${startsAt}`} className={cn('absolute inset-x-0 z-10 border-0 bg-transparent', isBlocked ? 'cursor-not-allowed opacity-40' : 'hover:bg-primary/5')} style={{ top: index * slotHeight, height: slotHeight }} onClick={() => onSlotClick(resource.id, startsAt)} /> : null}
                       </React.Fragment>
                     )
