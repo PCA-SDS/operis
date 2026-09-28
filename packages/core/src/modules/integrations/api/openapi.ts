@@ -1,10 +1,8 @@
-import { z, type ZodTypeAny } from 'zod'
-import { createCrudOpenApiFactory, createPagedListResponseSchema as createSharedPagedListResponseSchema } from '@open-mercato/shared/lib/openapi/crud'
+import { z } from 'zod'
+import { createCrudOpenApiFactory, createOptionalMetaPagedListResponseSchema } from '@open-mercato/shared/lib/openapi/crud'
 import { integrationMarketplaceHealthStatusSchema } from '../data/validators'
 
-export function createPagedListResponseSchema(itemSchema: ZodTypeAny) {
-  return createSharedPagedListResponseSchema(itemSchema, { paginationMetaOptional: true })
-}
+export const createPagedListResponseSchema = createOptionalMetaPagedListResponseSchema
 
 export const integrationAnalyticsSchema = z.object({
   lastActivityAt: z.string().nullable(),

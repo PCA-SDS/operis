@@ -22,6 +22,9 @@ import { Spinner } from '@open-mercato/ui/primitives/spinner'
 import { LogList, type LogListEntry } from '@open-mercato/ui/backend/LogList'
 import { CreditCard, HandCoins, RefreshCw, Webhook } from 'lucide-react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@open-mercato/ui/primitives/table'
+import { splitLogPayload, formatLogDetailLabel } from '@open-mercato/core/modules/integrations/lib/logPayload'
+import { formatDateTime } from '@open-mercato/shared/lib/time'
+import { formatCurrency } from '@open-mercato/shared/lib/units/money'
 
 type TransactionRow = {
   id: string
@@ -105,66 +108,12 @@ const STATUS_STYLES: Record<string, string> = {
   unknown: 'bg-status-pink-bg text-status-pink-text',
 }
 
-function formatDateTime(value: string | null | undefined): string {
-  if (!value) return '—'
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return value
-  return parsed.toLocaleString()
-}
-
-function formatAmount(value: string, currencyCode: string): string {
-  const amount = Number(value)
-  if (Number.isNaN(amount)) return `${value} ${currencyCode}`
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: 'currency',
-      currency: currencyCode,
-    }).format(amount)
-  } catch {
-    return `${amount.toFixed(2)} ${currencyCode}`
-  }
-}
-
 function formatTypeLabel(value: string): string {
   return value
     .split('_')
     .filter(Boolean)
     .map((part) => part[0]?.toUpperCase() + part.slice(1))
     .join(' ')
-}
-
-function formatLogDetailLabel(key: string): string {
-  return key
-    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-    .replace(/[_-]+/g, ' ')
-    .split(' ')
-    .filter(Boolean)
-    .map((part) => part[0]?.toUpperCase() + part.slice(1))
-    .join(' ')
-}
-
-function isPrimitiveLogValue(value: unknown): value is string | number | boolean | null {
-  return value === null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
-}
-
-function splitLogPayload(payload: Record<string, unknown> | null | undefined) {
-  if (!payload) {
-    return {
-      inlineEntries: [] as Array<[string, string | number | boolean | null]>,
-      nestedEntries: [] as Array<[string, unknown]>,
-    }
-  }
-
-  const inlineEntries: Array<[string, string | number | boolean | null]> = []
-  const nestedEntries: Array<[string, unknown]> = []
-  Object.entries(payload).forEach(([key, value]) => {
-    if (isPrimitiveLogValue(value)) {
-      inlineEntries.push([key, value])
-      return
-    }
-    nestedEntries.push([key, value])
-  })
-  return { inlineEntries, nestedEntries }
 }
 
 function DetailStat({ label, value }: { label: string; value: React.ReactNode }) {
@@ -427,7 +376,7 @@ export default function PaymentTransactionsPage() {
     {
       accessorKey: 'amount',
       header: t('payment_gateways.transactions.columns.amount', 'Amount'),
-      cell: ({ row }) => formatAmount(row.original.amount, row.original.currencyCode),
+      cell: ({ row }) => formatCurrency(row.original.amount, row.original.currencyCode, { fallback: '—' }),
     },
     {
       accessorKey: 'providerSessionId',
@@ -442,7 +391,7 @@ export default function PaymentTransactionsPage() {
     {
       accessorKey: 'updatedAt',
       header: t('payment_gateways.transactions.columns.updatedAt', 'Updated'),
-      cell: ({ row }) => formatDateTime(row.original.updatedAt),
+      cell: ({ row }) => formatDateTime(row.original.updatedAt, { fallback: '—' }),
     },
   ], [t])
 
@@ -554,7 +503,7 @@ export default function PaymentTransactionsPage() {
                     />
                     <DetailStat
                       label={t('payment_gateways.transactions.detail.summary.amount', 'Amount')}
-                      value={formatAmount(detail.transaction.amount, detail.transaction.currencyCode)}
+                      value={formatCurrency(detail.transaction.amount, detail.transaction.currencyCode, { fallback: '—' })}
                     />
                     <DetailStat
                       label={t('payment_gateways.transactions.detail.summary.provider', 'Provider')}
@@ -574,10 +523,10 @@ export default function PaymentTransactionsPage() {
                             [t('payment_gateways.transactions.columns.gatewayPaymentId', 'Gateway payment ID'), detail.transaction.gatewayPaymentId ?? '—'],
                             [t('payment_gateways.transactions.columns.gatewayRefundId', 'Gateway refund ID'), detail.transaction.gatewayRefundId ?? '—'],
                             [t('payment_gateways.transactions.columns.redirectUrl', 'Redirect URL'), detail.transaction.redirectUrl ?? '—'],
-                            [t('payment_gateways.transactions.columns.createdAt', 'Created at'), formatDateTime(detail.transaction.createdAt)],
-                            [t('payment_gateways.transactions.columns.updatedAt', 'Updated at'), formatDateTime(detail.transaction.updatedAt)],
-                            [t('payment_gateways.transactions.columns.lastWebhookAt', 'Last webhook'), formatDateTime(detail.transaction.lastWebhookAt)],
-                            [t('payment_gateways.transactions.columns.lastPolledAt', 'Last poll'), formatDateTime(detail.transaction.lastPolledAt)],
+                            [t('payment_gateways.transactions.columns.createdAt', 'Created at'), formatDateTime(detail.transaction.createdAt, { fallback: '—' })],
+                            [t('payment_gateways.transactions.columns.updatedAt', 'Updated at'), formatDateTime(detail.transaction.updatedAt, { fallback: '—' })],
+                            [t('payment_gateways.transactions.columns.lastWebhookAt', 'Last webhook'), formatDateTime(detail.transaction.lastWebhookAt, { fallback: '—' })],
+                            [t('payment_gateways.transactions.columns.lastPolledAt', 'Last poll'), formatDateTime(detail.transaction.lastPolledAt, { fallback: '—' })],
                           ].map(([label, value]) => (
                             <div key={label} className="rounded-lg border bg-muted/30 px-4 py-3">
                               <dt className="text-overline font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
@@ -613,7 +562,7 @@ export default function PaymentTransactionsPage() {
                                       </Badge>
                                     </TableCell>
                                     <TableCell>{entry.processed ? t('common.yes', 'Yes') : t('common.no', 'No')}</TableCell>
-                                    <TableCell className="text-muted-foreground">{formatDateTime(entry.receivedAt)}</TableCell>
+                                    <TableCell className="text-muted-foreground">{formatDateTime(entry.receivedAt, { fallback: '—' })}</TableCell>
                                   </TableRow>
                                 ))}
                               </TableBody>
@@ -629,7 +578,7 @@ export default function PaymentTransactionsPage() {
                         <LogList
                           entries={detail.logs.map<LogListEntry>((log) => {
                             const metadataEntries = [
-                              [t('payment_gateways.transactions.log.time', 'Time'), formatDateTime(log.createdAt)],
+                              [t('payment_gateways.transactions.log.time', 'Time'), formatDateTime(log.createdAt, { fallback: '—' })],
                               [t('payment_gateways.transactions.log.level', 'Level'), t(`payment_gateways.transactions.level.${log.level}`, log.level)],
                               [t('payment_gateways.transactions.log.code', 'Code'), log.code ?? null],
                               [t('payment_gateways.transactions.log.runId', 'Run ID'), log.runId ?? null],
@@ -640,7 +589,7 @@ export default function PaymentTransactionsPage() {
 
                             return {
                               id: log.id,
-                              time: formatDateTime(log.createdAt),
+                              time: formatDateTime(log.createdAt, { fallback: '—' }),
                               level: log.level,
                               levelLabel: t(`payment_gateways.transactions.level.${log.level}`, log.level),
                               message: log.message,

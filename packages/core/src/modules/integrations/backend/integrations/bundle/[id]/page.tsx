@@ -21,16 +21,9 @@ import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimi
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
-import type { CredentialFieldType, IntegrationCredentialField } from '@open-mercato/shared/modules/integrations/types'
 import { LoadingMessage, ErrorMessage, RecordNotFoundState } from '@open-mercato/ui/backend/detail'
-
-type CredentialField = IntegrationCredentialField
-
-const UNSUPPORTED_CREDENTIAL_FIELD_TYPES = new Set<CredentialFieldType>(['oauth', 'ssh_keypair'])
-
-function isEditableCredentialField(field: CredentialField): boolean {
-  return !UNSUPPORTED_CREDENTIAL_FIELD_TYPES.has(field.type)
-}
+import { isEditableCredentialField, type CredentialField } from '../../credentialFields'
+import { resolveRouteId } from '@open-mercato/ui/backend/utils/routeParams'
 
 type BundleIntegration = {
   id: string
@@ -64,11 +57,6 @@ type BundleConfigPageProps = {
   params?: {
     id?: string | string[]
   }
-}
-
-function resolveRouteId(value: string | string[] | undefined): string | undefined {
-  if (Array.isArray(value)) return value[0]
-  return value
 }
 
 function resolvePathnameId(pathname: string): string | undefined {

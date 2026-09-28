@@ -4,12 +4,9 @@ import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { getIntegration } from '@open-mercato/shared/modules/integrations/types'
 import type { IntegrationHealthService } from '../../../lib/health-service'
-import {
-  runIntegrationMutationGuardAfterSuccess,
-  runIntegrationMutationGuards,
-} from '../../guards'
 import { organizationScopeRequiredResponse } from '@open-mercato/shared/lib/auth/organizationScope'
 import { resolveIntegrationsOrganizationIdForRequest } from '../../../lib/organization-scope'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const idParamsSchema = z.object({ id: z.string().min(1) })
 
@@ -47,22 +44,19 @@ export async function POST(req: Request, ctx: { params?: Promise<{ id?: string }
     return organizationScopeRequiredResponse()
   }
 
-  const guardResult = await runIntegrationMutationGuards(
+  const guardResult = await runRouteMutationGuards({
     container,
-    {
-      tenantId: auth.tenantId,
-      organizationId,
-      userId: auth.sub ?? '',
+    req,
+    auth: { userId: auth.sub ?? '', tenantId: auth.tenantId, organizationId },
+    input: {
       resourceKind: 'integrations.integration',
       resourceId: integration.id,
       operation: 'update',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
       mutationPayload: { integrationId: integration.id },
     },
-  )
+  })
   if (!guardResult.ok) {
-    return NextResponse.json(guardResult.errorBody ?? { error: 'Operation blocked by guard' }, { status: guardResult.errorStatus ?? 422 })
+    return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
   }
 
   const healthService = container.resolve('integrationHealthService') as IntegrationHealthService
@@ -72,16 +66,7 @@ export async function POST(req: Request, ctx: { params?: Promise<{ id?: string }
     { organizationId: organizationId, tenantId: auth.tenantId },
   )
 
-  await runIntegrationMutationGuardAfterSuccess(guardResult.afterSuccessCallbacks, {
-    tenantId: auth.tenantId,
-    organizationId,
-    userId: auth.sub ?? '',
-    resourceKind: 'integrations.integration',
-    resourceId: integration.id,
-    operation: 'update',
-    requestMethod: req.method,
-    requestHeaders: req.headers,
-  })
+  await guardResult.runAfterSuccess()
 
   return NextResponse.json({
     status: result.status,

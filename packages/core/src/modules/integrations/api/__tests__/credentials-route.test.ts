@@ -6,10 +6,7 @@ import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { getIntegration } from '@open-mercato/shared/modules/integrations/types'
 import { emitIntegrationsEvent } from '../../events'
-import {
-  runIntegrationMutationGuardAfterSuccess,
-  runIntegrationMutationGuards,
-} from '../guards'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 import { GET, PUT } from '../[id]/credentials/route'
 import { MASKED_SECRET_VALUE } from '../../lib/credentials-masking'
 
@@ -30,10 +27,11 @@ jest.mock('../../events', () => ({
   emitIntegrationsEvent: jest.fn(),
 }))
 
-jest.mock('../guards', () => ({
-  runIntegrationMutationGuards: jest.fn(),
-  runIntegrationMutationGuardAfterSuccess: jest.fn(),
+jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
+  runRouteMutationGuards: jest.fn(),
 }))
+
+const runAfterSuccessMock = jest.fn()
 
 const akeneoSchema: IntegrationCredentialsSchema = {
   fields: [
@@ -58,7 +56,7 @@ describe('integrations credentials PUT route — URL validation', () => {
     saveMock.mockReset()
     ;(getAuthFromRequest as jest.Mock).mockResolvedValue({ tenantId: 't1', orgId: 'o1', sub: 'u1' })
     ;(getIntegration as jest.Mock).mockReturnValue({ id: 'sync_akeneo', title: 'Akeneo PIM' })
-    ;(runIntegrationMutationGuards as jest.Mock).mockResolvedValue({ ok: true })
+    ;(runRouteMutationGuards as jest.Mock).mockResolvedValue({ ok: true, runAfterSuccess: runAfterSuccessMock })
     ;(createRequestContainer as jest.Mock).mockResolvedValue({
       resolve: (key: string) => {
         if (key === 'integrationCredentialsService') {
@@ -102,7 +100,7 @@ describe('integrations credentials PUT route — URL validation', () => {
       { apiUrl: 'https://your-instance.cloud.akeneo.com', clientId: 'abc' },
       { organizationId: 'o1', tenantId: 't1' },
     )
-    expect(runIntegrationMutationGuardAfterSuccess).toHaveBeenCalled()
+    expect(runAfterSuccessMock).toHaveBeenCalled()
   })
 })
 
@@ -123,7 +121,7 @@ describe('integrations credentials route — secret masking (issue #2253)', () =
     resolveMock.mockReset()
     ;(getAuthFromRequest as jest.Mock).mockResolvedValue({ tenantId: 't1', orgId: 'o1', sub: 'u1' })
     ;(getIntegration as jest.Mock).mockReturnValue({ id: 'sync_akeneo', title: 'Akeneo PIM' })
-    ;(runIntegrationMutationGuards as jest.Mock).mockResolvedValue({ ok: true })
+    ;(runRouteMutationGuards as jest.Mock).mockResolvedValue({ ok: true, runAfterSuccess: runAfterSuccessMock })
     ;(createRequestContainer as jest.Mock).mockResolvedValue({
       resolve: (key: string) => {
         if (key === 'integrationCredentialsService') {

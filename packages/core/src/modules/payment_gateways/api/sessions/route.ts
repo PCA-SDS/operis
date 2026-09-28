@@ -6,10 +6,7 @@ import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { createSessionSchema } from '../../data/validators'
 import type { PaymentGatewayService } from '../../lib/gateway-service'
 import { paymentGatewaysTag } from '../openapi'
-import {
-  runPaymentGatewayMutationGuardAfterSuccess,
-  runPaymentGatewayMutationGuards,
-} from '../guards'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const gatewayTransactionResourceKind = 'payment_gateways.gateway_transaction'
 
@@ -31,24 +28,21 @@ export async function POST(req: Request) {
   }
 
   const container = await createRequestContainer()
-  const guardResult = await runPaymentGatewayMutationGuards(
+  const guardResult = await runRouteMutationGuards({
     container,
-    {
-      tenantId: auth.tenantId,
-      organizationId: auth.orgId,
-      userId: auth.sub ?? '',
+    req,
+    auth: { userId: auth.sub ?? '', tenantId: auth.tenantId, organizationId: auth.orgId },
+    input: {
       resourceKind: gatewayTransactionResourceKind,
       resourceId: null,
       operation: 'create',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
       mutationPayload: parsed.data as Record<string, unknown>,
     },
-  )
+  })
   if (!guardResult.ok) {
     return NextResponse.json(
-      guardResult.errorBody ?? { error: 'Operation blocked by guard' },
-      { status: guardResult.errorStatus ?? 422 },
+      guardResult.errorBody,
+      { status: guardResult.errorStatus },
     )
   }
 
@@ -74,16 +68,7 @@ export async function POST(req: Request) {
     const redirectUrl = session.redirectUrl
       ?? (session.clientSession?.type === 'redirect' ? session.clientSession.redirectUrl : null)
 
-    await runPaymentGatewayMutationGuardAfterSuccess(guardResult.afterSuccessCallbacks, {
-      tenantId: auth.tenantId,
-      organizationId: auth.orgId,
-      userId: auth.sub ?? '',
-      resourceKind: gatewayTransactionResourceKind,
-      resourceId: transaction.id,
-      operation: 'create',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-    })
+    await guardResult.runAfterSuccess({ resourceId: transaction.id })
 
     return NextResponse.json({
       transactionId: transaction.id,

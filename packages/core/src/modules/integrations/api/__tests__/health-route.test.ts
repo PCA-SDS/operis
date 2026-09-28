@@ -3,10 +3,7 @@
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { getIntegration } from '@open-mercato/shared/modules/integrations/types'
-import {
-  runIntegrationMutationGuardAfterSuccess,
-  runIntegrationMutationGuards,
-} from '../guards'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 import { POST } from '../[id]/health/route'
 
 jest.mock('@open-mercato/shared/lib/auth/server', () => ({
@@ -22,10 +19,11 @@ jest.mock('@open-mercato/shared/modules/integrations/types', () => ({
   getIntegration: jest.fn(),
 }))
 
-jest.mock('../guards', () => ({
-  runIntegrationMutationGuards: jest.fn(),
-  runIntegrationMutationGuardAfterSuccess: jest.fn(),
+jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
+  runRouteMutationGuards: jest.fn(),
 }))
+
+const runAfterSuccessMock = jest.fn()
 
 function buildRequest(): Request {
   return new Request('http://localhost/api/integrations/sync_akeneo/health', {
@@ -53,11 +51,10 @@ describe('integrations health POST route — mutation guard contract', () => {
   })
 
   it('blocks the health probe and after-success callbacks when a guard denies the mutation', async () => {
-    ;(runIntegrationMutationGuards as jest.Mock).mockResolvedValue({
+    ;(runRouteMutationGuards as jest.Mock).mockResolvedValue({
       ok: false,
       errorStatus: 403,
       errorBody: { error: 'Blocked by guard' },
-      afterSuccessCallbacks: [],
     })
 
     const response = await POST(buildRequest(), { params: { id: 'sync_akeneo' } })
@@ -66,15 +63,12 @@ describe('integrations health POST route — mutation guard contract', () => {
     const body = await response.json()
     expect(body).toEqual({ error: 'Blocked by guard' })
     expect(runHealthCheckMock).not.toHaveBeenCalled()
-    expect(runIntegrationMutationGuardAfterSuccess).not.toHaveBeenCalled()
+    expect(runAfterSuccessMock).not.toHaveBeenCalled()
   })
 
   it('runs the probe and after-success callbacks when guards pass', async () => {
     const checkedAt = new Date('2026-06-19T00:00:00.000Z').toISOString()
-    ;(runIntegrationMutationGuards as jest.Mock).mockResolvedValue({
-      ok: true,
-      afterSuccessCallbacks: [{ guard: {}, metadata: null }],
-    })
+    ;(runRouteMutationGuards as jest.Mock).mockResolvedValue({ ok: true, runAfterSuccess: runAfterSuccessMock })
     runHealthCheckMock.mockResolvedValue({
       status: 'healthy',
       message: 'ok',
@@ -96,11 +90,11 @@ describe('integrations health POST route — mutation guard contract', () => {
     })
     expect(runHealthCheckMock).toHaveBeenCalledWith('sync_akeneo', { organizationId: 'o1', tenantId: 't1' })
 
-    const guardCallOrder = (runIntegrationMutationGuards as jest.Mock).mock.invocationCallOrder[0]
+    const guardCallOrder = (runRouteMutationGuards as jest.Mock).mock.invocationCallOrder[0]
     const probeCallOrder = runHealthCheckMock.mock.invocationCallOrder[0]
-    const afterSuccessCallOrder = (runIntegrationMutationGuardAfterSuccess as jest.Mock).mock.invocationCallOrder[0]
+    const afterSuccessCallOrder = runAfterSuccessMock.mock.invocationCallOrder[0]
     expect(guardCallOrder).toBeLessThan(probeCallOrder)
     expect(probeCallOrder).toBeLessThan(afterSuccessCallOrder)
-    expect(runIntegrationMutationGuardAfterSuccess).toHaveBeenCalledTimes(1)
+    expect(runAfterSuccessMock).toHaveBeenCalledTimes(1)
   })
 })

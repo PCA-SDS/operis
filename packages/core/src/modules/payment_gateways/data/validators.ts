@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { currencyCodeSchema, moneyAmountSchema } from '@open-mercato/shared/lib/validation'
+import { currencyCodeSchema, moneyAmountSchema, paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 const unifiedPaymentStatusSchema = z.enum([
   'pending',
@@ -86,8 +86,7 @@ export const getStatusSchema = z.object({
 export type GetStatusPayload = z.infer<typeof getStatusSchema>
 
 export const listTransactionsQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  ...paginationQuerySchema({ defaultPageSize: 20 }).shape,
   search: z.string().trim().max(200).optional(),
   providerKey: z.string().trim().min(1).max(100).optional(),
   status: unifiedPaymentStatusSchema.optional(),

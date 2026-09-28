@@ -2,13 +2,10 @@ import { NextResponse } from 'next/server'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
-import {
-  runCrudMutationGuardAfterSuccess,
-  validateCrudMutationGuard,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
 import { getStatusSchema } from '../../data/validators'
 import type { PaymentGatewayService } from '../../lib/gateway-service'
 import { paymentGatewaysTag } from '../openapi'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const gatewayTransactionResourceKind = 'payment_gateways.gateway_transaction'
 
@@ -88,36 +85,24 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Transaction not found' }, { status: 404 })
     }
 
-    const guardResult = await validateCrudMutationGuard(container, {
-      tenantId: auth.tenantId,
-      organizationId: scope.organizationId,
-      userId: actorUserId,
-      resourceKind: gatewayTransactionResourceKind,
-      resourceId: transactionId,
-      operation: 'custom',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      mutationPayload: parsed.data,
+    const guardResult = await runRouteMutationGuards({
+      container,
+      req,
+      auth: { userId: actorUserId, tenantId: auth.tenantId, organizationId: scope.organizationId },
+      input: {
+        resourceKind: gatewayTransactionResourceKind,
+        resourceId: transactionId,
+        operation: 'custom',
+        mutationPayload: parsed.data,
+      },
     })
-    if (guardResult && !guardResult.ok) {
-      return NextResponse.json(guardResult.body, { status: guardResult.status })
+    if (!guardResult.ok) {
+      return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
     }
 
     const status = await service.getPaymentStatus(transactionId, scope)
 
-    if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-      await runCrudMutationGuardAfterSuccess(container, {
-        tenantId: auth.tenantId,
-        organizationId: scope.organizationId,
-        userId: actorUserId,
-        resourceKind: gatewayTransactionResourceKind,
-        resourceId: transactionId,
-        operation: 'custom',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
-        metadata: guardResult.metadata ?? null,
-      })
-    }
+    await guardResult.runAfterSuccess()
 
     return NextResponse.json({
       transactionId: transaction.id,

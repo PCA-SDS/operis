@@ -32,8 +32,6 @@ import { raiseCrudError } from '@open-mercato/ui/backend/utils/serverErrors'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import {
-  type CredentialFieldType,
-  type IntegrationCredentialField,
   type IntegrationDetailBuiltInTab,
 } from '@open-mercato/shared/modules/integrations/types'
 import { LoadingMessage, ErrorMessage, RecordNotFoundState } from '@open-mercato/ui/backend/detail'
@@ -53,16 +51,12 @@ import {
   refreshIntegrationRunActivityPanels,
 } from '../detail-page-refresh'
 import { isValidCredentialUrl } from '../../../lib/credentials-field-validation'
+import { isEditableCredentialField, type CredentialField } from '../credentialFields'
+import { splitLogPayload, formatLogDetailLabel } from '../../../lib/logPayload'
+import { resolveRouteId } from '@open-mercato/ui/backend/utils/routeParams'
 
-type CredentialField = IntegrationCredentialField
 type BuiltInIntegrationDetailTab = 'credentials' | 'version' | 'health' | 'logs' | 'data-sync-schedule'
 type IntegrationDetailTab = BuiltInIntegrationDetailTab | string
-
-const UNSUPPORTED_CREDENTIAL_FIELD_TYPES = new Set<CredentialFieldType>(['oauth', 'ssh_keypair'])
-
-function isEditableCredentialField(field: CredentialField): boolean {
-  return !UNSUPPORTED_CREDENTIAL_FIELD_TYPES.has(field.type)
-}
 
 type ApiVersion = {
   id: string
@@ -280,11 +274,6 @@ const CATEGORY_ICONS: Record<string, React.ElementType> = {
   webhook: Webhook,
 }
 
-function resolveRouteId(value: string | string[] | undefined): string | undefined {
-  if (Array.isArray(value)) return value[0]
-  return value
-}
-
 function resolvePathnameId(pathname: string): string | undefined {
   const parts = pathname.split('/').filter(Boolean)
   const integrationId = parts.at(-1)
@@ -369,20 +358,6 @@ function formatTypeLabel(value: string): string {
   return value.split('_').filter(Boolean).map((part) => part[0]?.toUpperCase() + part.slice(1)).join(' ')
 }
 
-function isPrimitiveLogValue(value: unknown): value is string | number | boolean | null {
-  return value === null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
-}
-
-function formatLogDetailLabel(key: string): string {
-  return key
-    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-    .replace(/[_-]+/g, ' ')
-    .split(' ')
-    .filter(Boolean)
-    .map((part) => part[0]?.toUpperCase() + part.slice(1))
-    .join(' ')
-}
-
 function formatLogPrimitiveValue(value: string | number | boolean | null): string {
   if (value === null) return 'None'
   if (typeof value === 'boolean') return value ? 'Yes' : 'No'
@@ -391,28 +366,6 @@ function formatLogPrimitiveValue(value: string | number | boolean | null): strin
 
 function isAkeneoSettingsTab(tab: IntegrationDetailInjectedTab): boolean {
   return tab.id.includes('sync_akeneo') || tab.label.toLowerCase().includes('akeneo')
-}
-
-function splitLogPayload(payload: Record<string, unknown> | null | undefined) {
-  if (!payload) {
-    return {
-      inlineEntries: [] as Array<[string, string | number | boolean | null]>,
-      nestedEntries: [] as Array<[string, unknown]>,
-    }
-  }
-
-  const inlineEntries: Array<[string, string | number | boolean | null]> = []
-  const nestedEntries: Array<[string, unknown]> = []
-
-  Object.entries(payload).forEach(([key, value]) => {
-    if (isPrimitiveLogValue(value)) {
-      inlineEntries.push([key, value])
-      return
-    }
-    nestedEntries.push([key, value])
-  })
-
-  return { inlineEntries, nestedEntries }
 }
 
 export default function IntegrationDetailPage({ params }: IntegrationDetailPageProps) {

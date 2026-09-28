@@ -1,9 +1,9 @@
-import { parseBooleanToken } from '@open-mercato/shared/lib/boolean'
 import type { IntegrationScope } from '@open-mercato/shared/modules/integrations/types'
 import type { CredentialsService } from '@open-mercato/core/modules/integrations/lib/credentials-service'
 import type { IntegrationLogService } from '@open-mercato/core/modules/integrations/lib/log-service'
 import type { IntegrationStateService } from '@open-mercato/core/modules/integrations/lib/state-service'
 import { integration } from '../integration'
+import { readBooleanEnv, readEnvValue } from '@open-mercato/shared/lib/env'
 
 const STRIPE_INTEGRATION_ID = 'gateway_stripe'
 
@@ -23,22 +23,6 @@ type StripeEnvPreset = {
 export type ApplyStripePresetResult =
   | { status: 'skipped'; reason: string }
   | { status: 'configured'; appliedApiVersion: string | null; enabled: boolean }
-
-function readEnvValue(env: NodeJS.ProcessEnv, keys: string[]): string | undefined {
-  for (const key of keys) {
-    const value = env[key]?.trim()
-    if (value) return value
-  }
-  return undefined
-}
-
-function readBooleanEnv(env: NodeJS.ProcessEnv, keys: string[]): boolean | undefined {
-  for (const key of keys) {
-    const parsed = parseBooleanToken(env[key])
-    if (parsed !== null) return parsed
-  }
-  return undefined
-}
 
 function resolveDefaultApiVersion(): string | undefined {
   return integration.apiVersions?.find((version) => version.default)?.id

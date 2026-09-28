@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 export const saveCredentialsSchema = z.object({
   credentials: z.record(
@@ -34,8 +35,7 @@ export const listIntegrationLogsQuerySchema = z.object({
   runId: z.string().uuid().optional(),
   entityType: z.string().optional(),
   entityId: z.string().uuid().optional(),
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  ...paginationQuerySchema({ defaultPageSize: 20 }).shape,
 })
 
 export type ListIntegrationLogsQuery = z.infer<typeof listIntegrationLogsQuerySchema>
@@ -60,8 +60,7 @@ export const listIntegrationsQuerySchema = z.object({
   healthStatus: integrationMarketplaceHealthStatusSchema.optional(),
   sort: z.enum(['title', 'category', 'enabledAt', 'healthStatus']).optional(),
   order: z.enum(['asc', 'desc']).default('asc'),
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(100),
+  ...paginationQuerySchema({ defaultPageSize: 100 }).shape,
 })
 
 export type ListIntegrationsQuery = z.infer<typeof listIntegrationsQuerySchema>

@@ -3,8 +3,8 @@ import { GET, POST } from '../status/route'
 
 const mockResolve = jest.fn()
 const mockGetAuth = jest.fn()
-const mockValidateGuard = jest.fn()
-const mockRunGuardAfter = jest.fn()
+const mockRunRouteMutationGuards = jest.fn()
+const mockRunAfterSuccess = jest.fn()
 
 jest.mock('@open-mercato/shared/lib/di/container', () => ({
   createRequestContainer: jest.fn(async () => ({ resolve: mockResolve })),
@@ -14,9 +14,8 @@ jest.mock('@open-mercato/shared/lib/auth/server', () => ({
   getAuthFromRequest: (...args: unknown[]) => mockGetAuth(...args),
 }))
 
-jest.mock('@open-mercato/shared/lib/crud/mutation-guard', () => ({
-  validateCrudMutationGuard: (...args: unknown[]) => mockValidateGuard(...args),
-  runCrudMutationGuardAfterSuccess: (...args: unknown[]) => mockRunGuardAfter(...args),
+jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
+  runRouteMutationGuards: (...args: unknown[]) => mockRunRouteMutationGuards(...args),
 }))
 
 const TRANSACTION_ID = '11111111-1111-4111-8111-111111111111'
@@ -82,8 +81,8 @@ describe('payment_gateways status route', () => {
       if (token === 'paymentGatewayService') return service
       throw new Error(`Unexpected token: ${token}`)
     })
-    mockValidateGuard.mockResolvedValue(null)
-    mockRunGuardAfter.mockResolvedValue(undefined)
+    mockRunRouteMutationGuards.mockResolvedValue({ ok: true, runAfterSuccess: mockRunAfterSuccess })
+    mockRunAfterSuccess.mockResolvedValue(undefined)
   })
 
   describe('GET (read-only)', () => {
@@ -117,19 +116,20 @@ describe('payment_gateways status route', () => {
         organizationId: 'org-1',
         tenantId: 'tenant-1',
       })
-      expect(mockValidateGuard).toHaveBeenCalledTimes(1)
-      const guardInput = mockValidateGuard.mock.calls[0][1]
-      expect(guardInput).toMatchObject({
+      expect(mockRunRouteMutationGuards).toHaveBeenCalledTimes(1)
+      const guardParams = mockRunRouteMutationGuards.mock.calls[0][0]
+      expect(guardParams.input).toMatchObject({
         resourceKind: 'payment_gateways.gateway_transaction',
         resourceId: TRANSACTION_ID,
         operation: 'custom',
-        requestMethod: 'POST',
       })
+      expect(guardParams.req.method).toBe('POST')
+      expect(mockRunAfterSuccess).toHaveBeenCalledTimes(1)
       expect(body.status).toBe('captured')
     })
 
     it('blocks the write when the mutation guard denies it', async () => {
-      mockValidateGuard.mockResolvedValue({ ok: false, status: 409, body: { error: 'locked' } })
+      mockRunRouteMutationGuards.mockResolvedValue({ ok: false, errorStatus: 409, errorBody: { error: 'locked' } })
       const res = await POST(postRequest({ transactionId: TRANSACTION_ID }))
       expect(res.status).toBe(409)
       expect(service.getPaymentStatus).not.toHaveBeenCalled()
