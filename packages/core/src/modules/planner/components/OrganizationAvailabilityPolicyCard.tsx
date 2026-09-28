@@ -92,12 +92,12 @@ export function OrganizationAvailabilityPolicyCard({ ruleSetId }: { ruleSetId: s
   const isOfficial = settings?.configured && settings.operatingHoursRuleSetId === ruleSetId
 
   return (
-    <section className="space-y-4 rounded-lg border border-border bg-surface p-5">
+    <section className="space-y-4 rounded-xl border border-card-edge bg-surface p-5 shadow-sm">
       <div>
         <h2 className="text-lg font-semibold">{labels.title}</h2>
         <p className="mt-1 text-sm text-muted-foreground">{labels.description}</p>
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border p-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-surface-muted p-3">
         <div>
           <p className="text-sm font-medium">{labels.official}</p>
           <p className="text-xs text-muted-foreground">{isOfficial ? labels.officialActive : labels.official}</p>
