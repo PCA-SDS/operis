@@ -6,8 +6,8 @@ const organizationId = '22222222-2222-4222-8222-222222222222'
 const userId = '33333333-3333-4333-8333-333333333333'
 const orderId = '44444444-4444-4444-8444-444444444444'
 
-const validateCrudMutationGuardMock = jest.fn()
-const runCrudMutationGuardAfterSuccessMock = jest.fn()
+const runRouteMutationGuardsMock = jest.fn()
+const runAfterSuccessMock = jest.fn()
 const createShipmentMock = jest.fn()
 
 jest.mock('@open-mercato/shared/lib/auth/server', () => ({
@@ -29,9 +29,8 @@ jest.mock('@open-mercato/shared/lib/di/container', () => ({
   })),
 }))
 
-jest.mock('@open-mercato/shared/lib/crud/mutation-guard', () => ({
-  validateCrudMutationGuard: (...args: unknown[]) => validateCrudMutationGuardMock(...args),
-  runCrudMutationGuardAfterSuccess: (...args: unknown[]) => runCrudMutationGuardAfterSuccessMock(...args),
+jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
+  runRouteMutationGuards: (...args: unknown[]) => runRouteMutationGuardsMock(...args),
 }))
 
 function createMockRequest(body: unknown): Request {
@@ -54,8 +53,8 @@ const validCreatePayload = {
 describe('shipping carrier shipments route', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    validateCrudMutationGuardMock.mockResolvedValue({ ok: true, shouldRunAfterSuccess: true, metadata: { token: 'guard' } })
-    runCrudMutationGuardAfterSuccessMock.mockResolvedValue(undefined)
+    runRouteMutationGuardsMock.mockResolvedValue({ ok: true, runAfterSuccess: runAfterSuccessMock })
+    runAfterSuccessMock.mockResolvedValue(undefined)
     createShipmentMock.mockResolvedValue({
       id: 'shipment-1',
       carrierShipmentId: 'carrier-1',
@@ -69,56 +68,43 @@ describe('shipping carrier shipments route', () => {
     const response = await POST(createMockRequest(validCreatePayload))
 
     expect(response.status).toBe(201)
-    expect(validateCrudMutationGuardMock).toHaveBeenCalledWith(
-      expect.any(Object),
+    expect(runRouteMutationGuardsMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        tenantId,
-        organizationId,
-        userId,
-        resourceKind: 'shipping_carriers.shipment',
-        resourceId: orderId,
-        operation: 'create',
-        requestMethod: 'POST',
-        mutationPayload: expect.objectContaining({ providerKey: 'test-carrier', orderId }),
+        container: expect.any(Object),
+        auth: expect.objectContaining({ tenantId, organizationId, userId }),
+        input: expect.objectContaining({
+          resourceKind: 'shipping_carriers.shipment',
+          resourceId: orderId,
+          operation: 'create',
+          mutationPayload: expect.objectContaining({ providerKey: 'test-carrier', orderId }),
+        }),
       }),
     )
   })
 
-  it('runs the after-success hook when the guard requests it', async () => {
+  it('runs the guard after-success step once the shipment is created', async () => {
     const response = await POST(createMockRequest(validCreatePayload))
 
     expect(response.status).toBe(201)
-    expect(runCrudMutationGuardAfterSuccessMock).toHaveBeenCalledWith(
-      expect.any(Object),
-      expect.objectContaining({
-        tenantId,
-        organizationId,
-        userId,
-        resourceKind: 'shipping_carriers.shipment',
-        resourceId: orderId,
-        operation: 'create',
-        requestMethod: 'POST',
-        metadata: { token: 'guard' },
-      }),
-    )
+    expect(runAfterSuccessMock).toHaveBeenCalled()
   })
 
   it('returns the guard error response when the guard blocks creation', async () => {
-    validateCrudMutationGuardMock.mockResolvedValue({ ok: false, status: 422, body: { error: 'blocked' } })
+    runRouteMutationGuardsMock.mockResolvedValue({ ok: false, errorStatus: 422, errorBody: { error: 'blocked' } })
 
     const response = await POST(createMockRequest(validCreatePayload))
 
     expect(response.status).toBe(422)
     expect(createShipmentMock).not.toHaveBeenCalled()
-    expect(runCrudMutationGuardAfterSuccessMock).not.toHaveBeenCalled()
+    expect(runAfterSuccessMock).not.toHaveBeenCalled()
   })
 
-  it('does not run the after-success hook when the guard does not request it', async () => {
-    validateCrudMutationGuardMock.mockResolvedValue({ ok: true, shouldRunAfterSuccess: false })
+  it('does not run the guard after-success step when the carrier call fails', async () => {
+    createShipmentMock.mockRejectedValueOnce(new Error('carrier unavailable'))
 
     const response = await POST(createMockRequest(validCreatePayload))
 
-    expect(response.status).toBe(201)
-    expect(runCrudMutationGuardAfterSuccessMock).not.toHaveBeenCalled()
+    expect(response.status).toBe(502)
+    expect(runAfterSuccessMock).not.toHaveBeenCalled()
   })
 })

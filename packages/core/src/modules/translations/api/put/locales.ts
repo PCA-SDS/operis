@@ -2,14 +2,11 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { resolveTranslationsRouteContext, resolveTranslationsActorId } from '@open-mercato/core/modules/translations/api/context'
 import { CrudHttpError, isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
-import {
-  runCrudMutationGuardAfterSuccess,
-  validateCrudMutationGuard,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
 import { isValidIso639 } from '@open-mercato/shared/lib/i18n/iso639'
 import type { ModuleConfigService } from '@open-mercato/core/modules/configs/lib/module-config-service'
 import type { OpenApiMethodDoc, OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const logger = createLogger('translations').child({ component: 'locales' })
 
@@ -31,37 +28,25 @@ async function PUT(req: Request) {
     const uniqueLocales = [...new Set(body.locales.map((l) => l.toLowerCase().trim()))]
 
     const guardUserId = resolveTranslationsActorId(context.auth)
-    const guardResult = await validateCrudMutationGuard(context.container, {
-      tenantId: context.tenantId,
-      organizationId: context.organizationId,
-      userId: guardUserId,
-      resourceKind: 'translations.locales',
-      resourceId: 'supported_locales',
-      operation: 'custom',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      mutationPayload: { locales: uniqueLocales },
+    const guardResult = await runRouteMutationGuards({
+      container: context.container,
+      req,
+      auth: { userId: guardUserId, tenantId: context.tenantId, organizationId: context.organizationId },
+      input: {
+        resourceKind: 'translations.locales',
+        resourceId: 'supported_locales',
+        operation: 'custom',
+        mutationPayload: { locales: uniqueLocales },
+      },
     })
-    if (guardResult && !guardResult.ok) {
-      return NextResponse.json(guardResult.body, { status: guardResult.status })
+    if (!guardResult.ok) {
+      return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
     }
 
     const configService = context.container.resolve('moduleConfigService') as ModuleConfigService
     await configService.setValue('translations', 'supported_locales', uniqueLocales, { tenantId: context.tenantId })
 
-    if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-      await runCrudMutationGuardAfterSuccess(context.container, {
-        tenantId: context.tenantId,
-        organizationId: context.organizationId,
-        userId: guardUserId,
-        resourceKind: 'translations.locales',
-        resourceId: 'supported_locales',
-        operation: 'custom',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
-        metadata: guardResult.metadata ?? null,
-      })
-    }
+    await guardResult.runAfterSuccess()
 
     return NextResponse.json({ locales: uniqueLocales })
   } catch (err) {

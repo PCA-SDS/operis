@@ -26,7 +26,7 @@ const PERSON_FIELD_ALIASES: Record<string, string[]> = {
   'address.longitude': ['longitude', 'lng', 'lon'],
 }
 
-function normalizeLabel(value: string): string {
+export function normalizeLabel(value: string): string {
   return value
     .trim()
     .replace(/([a-z0-9])([A-Z])/g, '$1 $2')

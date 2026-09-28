@@ -2,15 +2,12 @@ import { NextResponse } from 'next/server'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
-import {
-  runCrudMutationGuardAfterSuccess,
-  validateCrudMutationGuard,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
 import type { ShippingCarrierService } from '../../lib/shipping-service'
 import { isShipmentCancelNotAllowedError } from '../../lib/status-sync'
 import { shippingCarrierUpstreamErrorResponse } from '../../lib/upstream-error-response'
 import { cancelShipmentSchema } from '../../data/validators'
 import { shippingCarriersTag } from '../openapi'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 function resolveGuardUserId(auth: {
   sub?: string | null
@@ -40,19 +37,19 @@ export async function POST(req: Request) {
   }
   const container = await createRequestContainer()
   const guardUserId = resolveGuardUserId(auth)
-  const guardResult = await validateCrudMutationGuard(container, {
-    tenantId: auth.tenantId,
-    organizationId: auth.orgId,
-    userId: guardUserId,
-    resourceKind: 'shipping_carriers.shipment',
-    resourceId: parsed.data.shipmentId,
-    operation: 'custom',
-    requestMethod: req.method,
-    requestHeaders: req.headers,
-    mutationPayload: parsed.data as Record<string, unknown>,
+  const guardResult = await runRouteMutationGuards({
+    container,
+    req,
+    auth: { userId: guardUserId, tenantId: auth.tenantId, organizationId: auth.orgId },
+    input: {
+      resourceKind: 'shipping_carriers.shipment',
+      resourceId: parsed.data.shipmentId,
+      operation: 'custom',
+      mutationPayload: parsed.data as Record<string, unknown>,
+    },
   })
-  if (guardResult && !guardResult.ok) {
-    return NextResponse.json(guardResult.body, { status: guardResult.status })
+  if (!guardResult.ok) {
+    return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
   }
 
   const service = container.resolve('shippingCarrierService') as ShippingCarrierService
@@ -63,19 +60,7 @@ export async function POST(req: Request) {
       tenantId: auth.tenantId,
     })
 
-    if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-      await runCrudMutationGuardAfterSuccess(container, {
-        tenantId: auth.tenantId,
-        organizationId: auth.orgId,
-        userId: guardUserId,
-        resourceKind: 'shipping_carriers.shipment',
-        resourceId: parsed.data.shipmentId,
-        operation: 'custom',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
-        metadata: guardResult.metadata ?? null,
-      })
-    }
+    await guardResult.runAfterSuccess()
 
     return NextResponse.json(result)
   } catch (error: unknown) {

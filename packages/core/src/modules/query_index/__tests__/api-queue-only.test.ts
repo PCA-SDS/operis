@@ -87,7 +87,7 @@ describe('query_index API persistent job dispatch', () => {
         userId: 'user-1',
         resourceKind: 'query_index',
         resourceId: 'catalog:catalog_product',
-        operation: 'custom',
+        operation: 'update',
         requestMethod: 'POST',
         requestHeaders: expect.any(Headers),
         mutationPayload: expect.objectContaining({ entityType: 'catalog:catalog_product' }),
@@ -97,7 +97,7 @@ describe('query_index API persistent job dispatch', () => {
       expect.objectContaining({
         resourceKind: 'query_index',
         resourceId: 'catalog:catalog_product',
-        operation: 'custom',
+        operation: 'update',
         metadata: { guard: true },
       }),
     )
@@ -127,7 +127,7 @@ describe('query_index API persistent job dispatch', () => {
         userId: 'user-1',
         resourceKind: 'query_index',
         resourceId: 'catalog:catalog_product',
-        operation: 'custom',
+        operation: 'update',
         requestMethod: 'POST',
         requestHeaders: expect.any(Headers),
         mutationPayload: expect.objectContaining({ entityType: 'catalog:catalog_product' }),
@@ -137,7 +137,7 @@ describe('query_index API persistent job dispatch', () => {
       expect.objectContaining({
         resourceKind: 'query_index',
         resourceId: 'catalog:catalog_product',
-        operation: 'custom',
+        operation: 'update',
         metadata: { guard: true },
       }),
     )

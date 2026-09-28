@@ -7,11 +7,11 @@ import { RuleExecutionLog } from '../../data/entities'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { executionResultSchema } from '../../data/validators'
 import { findAndCountWithDecryption } from '@open-mercato/shared/lib/encryption/find'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 const querySchema = z.looseObject({
   id: z.coerce.bigint().optional(),
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(50),
+  ...paginationQuerySchema().shape,
   ruleId: z.string().uuid().optional(),
   entityId: z.string().uuid().optional(),
   entityType: z.string().optional(),

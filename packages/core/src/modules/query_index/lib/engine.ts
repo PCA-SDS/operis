@@ -2,7 +2,7 @@ import type { QueryEngine, QueryOptions, QueryResult, QueryResultMeta, Encrypted
 import { SortDir } from '@open-mercato/shared/lib/query/types'
 import type { EntityId } from '@open-mercato/shared/modules/entities'
 import type { EntityManager } from '@mikro-orm/postgresql'
-import { BasicQueryEngine, resolveEntityTableName, resolveRegisteredEntityTableName } from '@open-mercato/shared/lib/query/engine'
+import { BasicQueryEngine, resolveEntityTableName, resolveRegisteredEntityTableName, buildFilterableCustomFieldJoins, type EncryptionResolver } from '@open-mercato/shared/lib/query/engine'
 import { isOrmBackedSystemEntityId } from '@open-mercato/shared/lib/data/engine'
 import { type Kysely, sql, type RawBuilder } from 'kysely'
 import type { EventBus } from '@open-mercato/events'
@@ -81,33 +81,6 @@ function markAutoReindexScheduled(key: string, debounceMs: number, now: number):
   return true
 }
 
-function buildFilterableCustomFieldJoins(
-  sources: QueryCustomFieldSource[] | undefined,
-): Array<{
-  alias: string
-  table?: string
-  entityId: EntityId
-  from: { field: string }
-  to: { field: string }
-  type: 'left' | 'inner'
-}> {
-  if (!sources || sources.length === 0) return []
-  return sources.flatMap((source, index) => {
-    if (!source.join) return []
-    const alias = typeof source.alias === 'string' && source.alias.trim().length > 0
-      ? source.alias.trim()
-      : `cfs_${index}`
-    return [{
-      alias,
-      table: source.table,
-      entityId: source.entityId,
-      from: { field: source.join.fromField },
-      to: { field: source.join.toField },
-      type: source.join.type === 'inner' ? 'inner' : 'left',
-    }]
-  })
-}
-
 function resolveBooleanEnv(names: readonly string[], defaultValue: boolean): boolean {
   for (const name of names) {
     const raw = process.env[name]
@@ -152,12 +125,6 @@ type SearchRuntime = {
   /** Per-`query()` alias minter for `search_tokens` subqueries (see #2738). */
   mintAlias: () => string
 }
-
-type EncryptionResolver = () => {
-  decryptEntityPayload?: (entityId: EntityId, payload: Record<string, unknown>, tenantId?: string | null, organizationId?: string | null) => Promise<Record<string, unknown>>
-  getEncryptedFieldNames?: (entityId: EntityId, tenantId?: string | null, organizationId?: string | null) => Promise<readonly string[]>
-  isEnabled?: () => boolean
-} | null
 
 type SearchTokenSource = { entity: string; recordIdColumn: string }
 

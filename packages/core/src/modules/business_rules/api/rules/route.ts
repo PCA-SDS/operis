@@ -23,13 +23,13 @@ import {
 } from '../../lib/rule-engine'
 import { validateOpenMercatoCallActions } from '../../lib/openmercato-call-options'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 const logger = createLogger('business_rules').child({ component: 'rules-api' })
 
 const querySchema = z.looseObject({
   id: z.uuid().optional(),
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(50),
+  ...paginationQuerySchema().shape,
   search: z.string().optional(),
   ruleId: z.string().optional(),
   ruleType: ruleTypeSchema.optional(),

@@ -1,5 +1,6 @@
 import type { CustomFieldDefDto } from '@open-mercato/ui/backend/utils/customFieldDefs'
 import type { FieldMapping, FieldMappingDedupeRole, FieldMappingKind } from '../../../../data_sync/lib/adapter'
+import { normalizeLabel } from '../../../lib/column-detector'
 
 export const SYNC_EXCEL_PEOPLE_CUSTOM_FIELD_ENTITY_IDS = [
   'customers:customer_entity',
@@ -192,20 +193,10 @@ const ADDRESS_TARGET_OPTIONS: MappingTargetOption[] = [
   },
 ]
 
-function normalizeMatchToken(value: string): string {
-  return value
-    .trim()
-    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-    .toLowerCase()
-    .replace(/[_-]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
-
 const TRAILING_IMPORT_QUALIFIERS = new Set(['external', 'imported', 'crm'])
 
 function addNormalizedMatchToken(tokens: Set<string>, value: string): void {
-  const normalized = normalizeMatchToken(value)
+  const normalized = normalizeLabel(value)
   if (normalized.length > 0) {
     tokens.add(normalized)
   }
@@ -216,7 +207,7 @@ function stripParentheticalText(value: string): string {
 }
 
 function stripTrailingImportQualifier(value: string): string {
-  const parts = normalizeMatchToken(value).split(' ').filter((part) => part.length > 0)
+  const parts = normalizeLabel(value).split(' ').filter((part) => part.length > 0)
   while (parts.length > 1 && TRAILING_IMPORT_QUALIFIERS.has(parts[parts.length - 1])) {
     parts.pop()
   }
@@ -339,7 +330,7 @@ export function buildPeopleSuggestedMapping(
 
   for (const header of headers) {
     if (usedExternalFields.has(header)) continue
-    const normalizedHeader = normalizeMatchToken(header)
+    const normalizedHeader = normalizeLabel(header)
     const matchedOption = supplementalTargetOptions.find((option) => {
       if (usedTargetFields.has(option.value)) return false
       return option.matchTokens.includes(normalizedHeader)
@@ -382,5 +373,3 @@ export function findMappingTargetOption(
 ): MappingTargetOption | undefined {
   return targetOptions.find((option) => option.value === targetField)
 }
-
-export { normalizeMatchToken }

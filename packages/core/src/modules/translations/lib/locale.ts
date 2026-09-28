@@ -1,16 +1,5 @@
 import { resolveLocaleFromAcceptLanguage } from '@open-mercato/shared/lib/i18n/locale'
-
-function readCookieFromHeader(header: string | null | undefined, name: string): string | undefined {
-  if (!header) return undefined
-  const parts = header.split(';')
-  for (const part of parts) {
-    const trimmed = part.trim()
-    if (trimmed.startsWith(`${name}=`)) {
-      return trimmed.slice(name.length + 1)
-    }
-  }
-  return undefined
-}
+import { readCookieFromHeader } from '@open-mercato/shared/lib/http/cookies'
 
 function parseAcceptLanguage(accept: string): string | null {
   return resolveLocaleFromAcceptLanguage(accept)

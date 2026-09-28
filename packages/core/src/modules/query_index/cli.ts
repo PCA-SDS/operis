@@ -6,6 +6,8 @@ import { createProgressBar } from '@open-mercato/shared/lib/cli/progress'
 import { resolveTenantEncryptionService } from '@open-mercato/shared/lib/encryption/customFieldValues'
 import { decryptIndexDocForSearch, encryptIndexDocForStorage } from '@open-mercato/shared/lib/encryption/indexDoc'
 import { parseBooleanToken } from '@open-mercato/shared/lib/boolean'
+import { isIndexerVerbose } from '@open-mercato/shared/lib/indexers/verbose'
+import { parseCliArgs, stringOption, numberOption, type CliArgs, toPositiveInt, toNonNegativeInt } from '@open-mercato/shared/lib/cli/args'
 
 type ProgressBarHandle = {
   update(completed: number): void
@@ -21,20 +23,13 @@ import {
   mergeUpsertIndexBatchResults,
   type AnyRow,
 } from './lib/batch'
-import { reindexEntity, DEFAULT_REINDEX_PARTITIONS } from './lib/reindexer'
+import { reindexEntity, DEFAULT_REINDEX_PARTITIONS, getColumnSet } from './lib/reindexer'
 import { purgeIndexScope } from './lib/purge'
 import { refreshCoverageSnapshot } from './lib/coverage'
 import { flattenSystemEntityIds } from '@open-mercato/shared/lib/entities/system-entities'
 import type { VectorIndexService } from '@open-mercato/search/vector'
 
-type ParsedArgs = Record<string, string | boolean>
-
 type PartitionProgressInfo = { processed: number; total: number }
-
-function isIndexerVerbose(): boolean {
-  const parsed = parseBooleanToken(process.env.OM_INDEXER_VERBOSE ?? '')
-  return parsed === true
-}
 
 function createGroupedProgress(label: string, partitionTargets: number[]) {
   const totals = new Map<number, number>()
@@ -73,48 +68,7 @@ function createGroupedProgress(label: string, partitionTargets: number[]) {
   }
 }
 
-function parseArgs(rest: string[]): ParsedArgs {
-  const args: ParsedArgs = {}
-  for (let i = 0; i < rest.length; i += 1) {
-    const part = rest[i]
-    if (!part?.startsWith('--')) continue
-    const [rawKey, rawValue] = part.slice(2).split('=')
-    if (!rawKey) continue
-    if (rawValue !== undefined) {
-      args[rawKey] = rawValue
-    } else if (i + 1 < rest.length && !rest[i + 1]!.startsWith('--')) {
-      args[rawKey] = rest[i + 1]!
-      i += 1
-    } else {
-      args[rawKey] = true
-    }
-  }
-  return args
-}
-
-function stringOption(args: ParsedArgs, ...keys: string[]): string | undefined {
-  for (const key of keys) {
-    const raw = args[key]
-    if (typeof raw !== 'string') continue
-    const trimmed = raw.trim()
-    if (trimmed.length > 0) return trimmed
-  }
-  return undefined
-}
-
-function numberOption(args: ParsedArgs, ...keys: string[]): number | undefined {
-  for (const key of keys) {
-    const raw = args[key]
-    if (typeof raw === 'number') return raw
-    if (typeof raw === 'string') {
-      const parsed = Number(raw)
-      if (Number.isFinite(parsed)) return parsed
-    }
-  }
-  return undefined
-}
-
-function flagEnabled(args: ParsedArgs, ...keys: string[]): boolean {
+function flagEnabled(args: CliArgs, ...keys: string[]): boolean {
   for (const key of keys) {
     const raw = args[key]
     if (raw === undefined) continue
@@ -128,20 +82,6 @@ function flagEnabled(args: ParsedArgs, ...keys: string[]): boolean {
     }
   }
   return false
-}
-
-function toPositiveInt(value: number | undefined): number | undefined {
-  if (value === undefined) return undefined
-  const n = Math.floor(value)
-  if (!Number.isFinite(n) || n <= 0) return undefined
-  return n
-}
-
-function toNonNegativeInt(value: number | undefined, fallback = 0): number {
-  if (value === undefined) return fallback
-  const n = Math.floor(value)
-  if (!Number.isFinite(n) || n < 0) return fallback
-  return n
 }
 
 const DEFAULT_BATCH_SIZE = 200
@@ -306,20 +246,6 @@ async function rebuildEntityIndexes(options: RebuildExecutionOptions): Promise<R
   // After bar.complete() so the terminal is left in a sane state before we throw.
   assertIndexBatchWritesLanded(entityType, writeTotals)
   return { processed, matched: intended }
-}
-
-async function getColumnSet(db: Kysely<any>, tableName: string): Promise<Set<string>> {
-  try {
-    const rows = await db
-      .selectFrom('information_schema.columns' as any)
-      .select(['column_name' as any])
-      .where(sql<boolean>`table_schema = current_schema()`)
-      .where('table_name' as any, '=', tableName)
-      .execute() as Array<{ column_name: string }>
-    return new Set(rows.map((row) => String(row.column_name).toLowerCase()))
-  } catch {
-    return new Set<string>()
-  }
 }
 
 type ScopeDescriptor = {
@@ -506,7 +432,7 @@ async function verifyAndRepairIndexCoverage(
 const rebuild: ModuleCli = {
   command: 'rebuild',
   async run(rest) {
-    const args = parseArgs(rest)
+    const args = parseCliArgs(rest, { keepEmptyValues: true })
     const entity = stringOption(args, 'entity', 'e')
     if (!entity) {
       console.error(
@@ -614,7 +540,7 @@ const rebuild: ModuleCli = {
 const rebuildAll: ModuleCli = {
   command: 'rebuild-all',
   async run(rest) {
-    const args = parseArgs(rest)
+    const args = parseCliArgs(rest, { keepEmptyValues: true })
     const globalFlag = flagEnabled(args, 'global')
     const includeDeleted = flagEnabled(args, 'withDeleted')
     const orgId = stringOption(args, 'org', 'organizationId')
@@ -719,7 +645,7 @@ const rebuildAll: ModuleCli = {
 const reindex: ModuleCli = {
   command: 'reindex',
   async run(rest) {
-    const args = parseArgs(rest)
+    const args = parseCliArgs(rest, { keepEmptyValues: true })
     const entity = stringOption(args, 'entity', 'e')
     const orgId = stringOption(args, 'org', 'organizationId')
     const tenantId = stringOption(args, 'tenant', 'tenantId')
@@ -1094,7 +1020,7 @@ const reindex: ModuleCli = {
 const purge: ModuleCli = {
   command: 'purge',
   async run(rest) {
-    const args = parseArgs(rest)
+    const args = parseCliArgs(rest, { keepEmptyValues: true })
     const entity = stringOption(args, 'entity', 'e')
     const orgId = stringOption(args, 'org', 'organizationId')
     const tenantId = stringOption(args, 'tenant', 'tenantId')

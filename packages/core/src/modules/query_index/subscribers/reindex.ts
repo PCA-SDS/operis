@@ -5,17 +5,12 @@ import { reindexEntity } from '../lib/reindexer'
 import type { VectorIndexService } from '@open-mercato/search/vector'
 import type { ProgressService } from '@open-mercato/core/modules/progress/lib/progressService'
 import { resolveQueryIndexReindexScope } from '../lib/subscriber-scope'
+import { forkSubscriberEntityManager } from '../lib/subscriberEm'
 
 export const metadata = { event: 'query_index.reindex', persistent: true }
 
-function forkReindexEntityManager(em: EntityManager): EntityManager {
-  const fork = (em as unknown as { fork?: (options?: Record<string, unknown>) => EntityManager }).fork
-  if (typeof fork !== 'function') return em
-  return fork.call(em, { clear: true, freshEventManager: true, useContext: false })
-}
-
 export default async function handle(payload: any, ctx: { resolve: <T=any>(name: string) => T }) {
-  const em = forkReindexEntityManager(ctx.resolve<EntityManager>('em'))
+  const em = forkSubscriberEntityManager(ctx.resolve<EntityManager>('em'))
   const eventBus = ctx.resolve<any>('eventBus')
   let vectorService: VectorIndexService | null = null
   try {

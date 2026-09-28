@@ -24,8 +24,8 @@ const serviceMock = {
   searchDropOffPoints: jest.fn(),
 }
 const mockTranslate = jest.fn((_key: string, fallback: string) => fallback)
-const validateCrudMutationGuardMock = jest.fn()
-const runCrudMutationGuardAfterSuccessMock = jest.fn()
+const runRouteMutationGuardsMock = jest.fn()
+const runAfterSuccessMock = jest.fn()
 
 jest.mock('@open-mercato/shared/lib/auth/server', () => ({ getAuthFromRequest: jest.fn() }))
 jest.mock('@open-mercato/shared/lib/di/container', () => ({ createRequestContainer: jest.fn() }))
@@ -33,9 +33,8 @@ jest.mock('@open-mercato/shared/lib/http/readJsonSafe', () => ({ readJsonSafe: j
 jest.mock('@open-mercato/shared/lib/i18n/server', () => ({
   resolveTranslations: jest.fn(async () => ({ translate: mockTranslate, t: mockTranslate })),
 }))
-jest.mock('@open-mercato/shared/lib/crud/mutation-guard', () => ({
-  validateCrudMutationGuard: (...args: unknown[]) => validateCrudMutationGuardMock(...args),
-  runCrudMutationGuardAfterSuccess: (...args: unknown[]) => runCrudMutationGuardAfterSuccessMock(...args),
+jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
+  runRouteMutationGuards: (...args: unknown[]) => runRouteMutationGuardsMock(...args),
 }))
 jest.mock('@open-mercato/shared/lib/logger', () => {
   const mocked = {
@@ -87,8 +86,8 @@ describe('shipping carrier upstream errors', () => {
         throw new Error(`[internal] Unexpected container resolve: ${name}`)
       },
     })
-    validateCrudMutationGuardMock.mockResolvedValue({ ok: true, shouldRunAfterSuccess: false })
-    runCrudMutationGuardAfterSuccessMock.mockResolvedValue(undefined)
+    runRouteMutationGuardsMock.mockResolvedValue({ ok: true, runAfterSuccess: runAfterSuccessMock })
+    runAfterSuccessMock.mockResolvedValue(undefined)
   })
 
   it.each([
