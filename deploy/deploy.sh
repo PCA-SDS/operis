@@ -298,13 +298,15 @@ if [ -n "$CLI_IMAGE" ] && [ -n "$ENV_IMAGE" ] && [ "$CLI_IMAGE" != "$ENV_IMAGE" 
   log "      the .env value is unused — correct or delete it at your convenience"
 fi
 
-# The gateway network belongs to the pca-erp stack, not to this compose file.
-# Without this check a missing/renamed network surfaces as an opaque compose
-# error after the pull and the backup have already run.
-EDGE_NET="$(read_env EDGE_NETWORK)"; EDGE_NET="${EDGE_NET:-pca-erp-network}"
+# The gateway network is created once by hand and shared with deploy/gateway,
+# not owned by this compose file. Without this check a missing/renamed network
+# surfaces as an opaque compose error after the pull and the backup have
+# already run.
+EDGE_NET="$(read_env EDGE_NETWORK)"; EDGE_NET="${EDGE_NET:-operis-edge}"
 docker network inspect "$EDGE_NET" >/dev/null 2>&1 || fail "docker network '$EDGE_NET' does not exist.
-       Operis joins it so pca-erp-nginx can reach the app container. If the
-       pca-erp stack was renamed or torn down, set EDGE_NETWORK in .env to the
+       Operis joins it so operis-gateway-nginx can reach the app container.
+       Create it with: docker network create $EDGE_NET
+       (see deploy/README.md \"Gateway\"), or set EDGE_NETWORK in .env to the
        right network. Check with: docker network ls"
 
 PREVIOUS_TAG="$(read_state CURRENT_TAG)"

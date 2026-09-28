@@ -1,0 +1,99 @@
+# ==============================================================================
+# Operis gateway: nginx + certbot, the only thing on :80/:443
+# ==============================================================================
+# Installed BY HAND to /opt/operis-gateway (this file + the nginx/ directory).
+# CI never syncs it: a bad copy takes production and staging offline together,
+# so every change goes through `nginx -t` first. See deploy/README.md "Gateway".
+#
+#   internet ─:443─> operis-gateway-nginx ─(operis-edge)─┬─> operis-app          (operis.pca-sds.com)
+#                                                        └─> operis-staging-app  (staging-operis.pca-sds.com)
+#
+# Everything this stack uses is created ONCE, by hand, before the first `up`:
+#   docker network create operis-edge
+#   docker volume create operis-gateway-certs
+#   docker volume create operis-gateway-webroot
+# All three are external, so `docker compose down` (even with -v) can never
+# delete the certificates or pull the network out from under the app stacks.
+#
+# nginx refuses to start while any ssl_certificate below points at a missing
+# file, so the certificates must exist before this stack starts.
+# ==============================================================================
+
+name: operis-gateway
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  nginx:
+    image: nginx:1.30-alpine
+    container_name: operis-gateway-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # Mounted over conf.d, which also hides the image's stock default.conf.
+      # Plain .conf files, no templating: what is in git is what nginx loads.
+      - ./nginx:/etc/nginx/conf.d:ro
+      - certs:/etc/letsencrypt:ro
+      - webroot:/var/www/certbot:ro
+    # certbot renews in its own container and cannot signal this one, so nginx
+    # reloads every 6h to pick up renewed certificates.
+    command:
+      - /bin/sh
+      - -c
+      - |
+        while :; do
+          sleep 6h & wait $${!}
+          nginx -s reload
+        done &
+        exec /docker-entrypoint.sh nginx -g 'daemon off;'
+    networks: [ edge ]
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1/healthz || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  certbot:
+    image: certbot/certbot:v3.1.0
+    container_name: operis-gateway-certbot
+    restart: unless-stopped
+    # Renews every certificate in the volume, not a fixed list, so a new
+    # hostname needs no change here. The challenge files land in the webroot
+    # volume, which nginx serves on :80 for any hostname.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        trap exit TERM
+        while :; do
+          certbot renew --webroot -w /var/www/certbot
+          sleep 12h & wait $${!}
+        done
+    volumes:
+      - certs:/etc/letsencrypt
+      - webroot:/var/www/certbot
+    # Outbound access to Let's Encrypt only. Kept off operis-edge: it has no
+    # reason to reach the app containers.
+    network_mode: bridge
+    logging: *default-logging
+
+volumes:
+  certs:
+    external: true
+    name: operis-gateway-certs
+  webroot:
+    external: true
+    name: operis-gateway-webroot
+
+networks:
+  edge:
+    external: true
+    name: operis-edge

@@ -1,18 +1,18 @@
 # ==============================================================================
-# Operis — production stack (behind the existing pca-erp nginx gateway)
+# Operis — production stack (behind the Operis gateway, deploy/gateway)
 # ==============================================================================
 # Deployed to /opt/operis/docker-compose.yml by the GitHub Actions workflow.
 # It never builds: the image is built once in CI and pulled by tag.
 #
-#   internet ─443─> pca-erp-nginx ──(pca-erp-network)──> operis-app ─┐
-#                   (not ours; owns 80/443)                          │
-#                                                    ┌───────────────┘
+#   internet ─443─> operis-gateway-nginx ──(operis-edge)──> operis-app ─┐
+#                   (deploy/gateway; owns 80/443)                       │
+#                                                    ┌──────────────────┘
 #                                                    ├─> postgres  ┐
 #                                                    ├─> redis     │ operis-internal
 #                                                    └─> meilisearch ┘
 #
 # NOTHING here publishes a host port. The app is reachable only by containers
-# on pca-erp-network (i.e. the gateway); the datastores only by the app. That
+# on operis-edge (i.e. the gateway); the datastores only by the app. That
 # also sidesteps Docker's iptables rules, which bypass ufw for published ports.
 #
 # Run it by hand with the ./dc helper (which supplies both env files):
@@ -102,7 +102,7 @@ services:
       QUEUE_STRATEGY: async
       NEXT_PUBLIC_QUEUE_STRATEGY: async
       RATE_LIMIT_STRATEGY: redis
-      # Exactly one reverse proxy (pca-erp-nginx) sits in front, and it
+      # Exactly one reverse proxy (operis-gateway-nginx) sits in front, and it
       # overwrites X-Forwarded-For with $proxy_add_x_forwarded_for. Trust one
       # hop. A higher value lets a client spoof its own IP and walk straight
       # through the login rate limiter.
@@ -121,10 +121,11 @@ services:
     networks:
       # Datastores.
       - internal
-      # The gateway. Declared external below: it belongs to the pca-erp stack,
-      # is not created or destroyed by this compose file, and joining it here
+      # The gateway. Declared external below: created once by hand
+      # (`docker network create operis-edge`) and shared with deploy/gateway,
+      # so no compose file creates or destroys it, and joining it here
       # (rather than running `docker network connect` by hand) means the link
-      # survives a pca-erp redeploy that recreates the nginx container.
+      # survives recreating either the gateway or this container.
       - edge
     security_opt: [ "no-new-privileges:true" ]
     stop_grace_period: 30s
@@ -280,7 +281,7 @@ networks:
     name: ${STACK_NAME:-operis}-internal
   edge:
     external: true
-    name: ${EDGE_NETWORK:-pca-erp-network}
+    name: ${EDGE_NETWORK:-operis-edge}
 
 # Block style, NOT the flow style (`{ name: … }`) this used to be. A
 # `${VAR:-default}` inside a flow mapping ends it at the substitution's own

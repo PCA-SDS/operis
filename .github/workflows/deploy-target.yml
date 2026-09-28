@@ -186,12 +186,11 @@ jobs:
         # this release needs, so adding one is a reviewed change in git rather
         # than something to remember to set on the box afterwards.
         #
-        # Neither nginx template is synced, deliberately. They live in the
-        # pca-erp stack's directory and a bad copy there breaks the gateway for
-        # four other hostnames — and because `map`/`log_format` are http-context
-        # names shared by both vhosts, a bad copy of the staging one can stop
-        # nginx starting at all. Installed by hand, once, behind an `nginx -t`.
-        # See deploy/README.md.
+        # The gateway (deploy/gateway) is not synced, deliberately. One nginx
+        # serves both environments, and because `map`/`log_format` are
+        # http-context names shared by every vhost, a bad copy of any one file
+        # can stop nginx starting at all. Installed by hand behind an
+        # `nginx -t`. See deploy/README.md "Gateway".
         #
         # The same compose file goes to both stacks; STACK_NAME in each stack's
         # own .env is what makes them distinct. That file is never synced.

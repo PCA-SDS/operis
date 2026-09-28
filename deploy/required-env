@@ -22,7 +22,7 @@
 #   APP_IMAGE       supplied per-deploy by CI (--image); the .env value is only
 #                   a fallback for manual on-box runs, so deploy.sh checks it
 #                   separately and reports which source it used.
-#   EDGE_NETWORK    deploy.sh defaults it to pca-erp-network and verifies the
+#   EDGE_NETWORK    deploy.sh defaults it to operis-edge and verifies the
 #                   network actually exists, which is the stronger check.
 #   TENANT_DATA_ENCRYPTION_FALLBACK_KEY
 #                   required only when TENANT_DATA_ENCRYPTION=true; deploy.sh
