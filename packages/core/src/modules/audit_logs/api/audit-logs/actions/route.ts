@@ -11,13 +11,13 @@ import { z } from 'zod'
 import { MAX_PAGE_SIZE } from '@open-mercato/shared/lib/validation'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { parseBooleanToken } from '@open-mercato/shared/lib/boolean'
-import { ACTION_LOG_FILTER_TYPES } from '@open-mercato/core/modules/audit_logs/lib/projections'
+import { parseCommaSeparatedList } from '@open-mercato/shared/lib/string'
+import { parseNumber, parseDate, parseActionTypes } from '../queryParams'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['audit_logs.view_self'] },
 }
 
-const ACTION_TYPE_TOKENS = ACTION_LOG_FILTER_TYPES
 const SORT_FIELDS = ['createdAt', 'user', 'action', 'field', 'source'] as const
 const SORT_DIRECTIONS = ['asc', 'desc'] as const
 
@@ -105,13 +105,6 @@ const errorSchema = z.object({
   error: z.string(),
 })
 
-function parseDate(value: string | null): Date | undefined {
-  if (!value) return undefined
-  const ts = Date.parse(value)
-  if (Number.isNaN(ts)) return undefined
-  return new Date(ts)
-}
-
 function parseLimit(param: string | null): number {
   if (!param) return 50
   const value = Number(param)
@@ -124,29 +117,6 @@ function parseOffset(param: string | null): number {
   const value = Number(param)
   if (!Number.isFinite(value)) return 0
   return Math.max(Math.trunc(value), 0)
-}
-
-function splitCsv(value: string | null): string[] {
-  if (!value) return []
-  return value
-    .split(',')
-    .map((entry) => entry.trim())
-    .filter(Boolean)
-}
-
-function parseActionTypes(param: string | null) {
-  return splitCsv(param).filter((value): value is (typeof ACTION_TYPE_TOKENS)[number] =>
-    ACTION_TYPE_TOKENS.includes(value as (typeof ACTION_TYPE_TOKENS)[number]),
-  )
-}
-
-function parseNumber(param: string | null, { min, max, fallback }: { min: number; max: number; fallback: number }) {
-  if (!param) return fallback
-  const value = Number(param)
-  if (!Number.isFinite(value)) return fallback
-  const normalized = Math.trunc(value)
-  if (Number.isNaN(normalized)) return fallback
-  return Math.min(Math.max(normalized, min), max)
 }
 
 export async function GET(req: Request) {
@@ -175,7 +145,7 @@ export async function GET(req: Request) {
   const resourceKind = url.searchParams.get('resourceKind') ?? undefined
   const resourceId = url.searchParams.get('resourceId') ?? undefined
   const actionTypes = parseActionTypes(url.searchParams.get('actionType'))
-  const fieldNames = splitCsv(url.searchParams.get('fieldName'))
+  const fieldNames = parseCommaSeparatedList(url.searchParams.get('fieldName'))
   const includeRelated = parseBooleanToken(url.searchParams.get('includeRelated')) === true
   const includeTotal = parseBooleanToken(url.searchParams.get('includeTotal')) === true
   const undoableOnly = parseBooleanToken(url.searchParams.get('undoableOnly')) === true
@@ -198,7 +168,7 @@ export async function GET(req: Request) {
   let actorUserId: string | undefined = canViewTenant ? undefined : auth.sub
   let actorUserIds: string[] | undefined
   if (canViewTenant && actorQuery) {
-    const parsedActorUserIds = splitCsv(actorQuery)
+    const parsedActorUserIds = parseCommaSeparatedList(actorQuery)
     if (parsedActorUserIds.length === 1) {
       actorUserId = parsedActorUserIds[0]
     } else if (parsedActorUserIds.length > 1) {

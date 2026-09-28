@@ -7,9 +7,8 @@ import {
   AccordionTrigger,
 } from '@open-mercato/ui/primitives/accordion'
 import type { ChangeRow } from './changeRows'
-import { isRecord } from './changeRows'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@open-mercato/ui/primitives/table'
-export { extractChangeRows, isRecord } from './changeRows'
+export { extractChangeRows } from './changeRows'
 export type { ChangeRow } from './changeRows'
 
 export function humanizeField(field: string) {
@@ -52,20 +51,11 @@ export function safeStringify(value: unknown) {
 }
 
 export function formatResource(
-  item: { resourceKind: string | null; resourceId: string | null },
+  item: { resourceKind?: string | null; resourceId?: string | null },
   fallback: string,
 ) {
   if (!item.resourceKind && !item.resourceId) return fallback
   return [item.resourceKind, item.resourceId].filter(Boolean).join(' · ')
-}
-
-export function formatDate(value: string) {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(date)
 }
 
 export type ChangedFieldsTableProps = {

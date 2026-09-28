@@ -10,6 +10,7 @@ import { requireResolvedTenantScope } from '../readScope'
 import { z } from 'zod'
 import { MAX_PAGE_SIZE } from '@open-mercato/shared/lib/validation'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
+import { parseNumber, parseDate } from '../queryParams'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['audit_logs.view_self'] },
@@ -55,22 +56,6 @@ const auditAccessResponseSchema = z.object({
 const errorSchema = z.object({
   error: z.string(),
 })
-
-function parseDate(value: string | null): Date | undefined {
-  if (!value) return undefined
-  const ts = Date.parse(value)
-  if (Number.isNaN(ts)) return undefined
-  return new Date(ts)
-}
-
-function parseNumber(param: string | null, { min, max, fallback }: { min: number; max: number; fallback: number }) {
-  if (!param) return fallback
-  const value = Number(param)
-  if (!Number.isFinite(value)) return fallback
-  const normalized = Math.trunc(value)
-  if (Number.isNaN(normalized)) return fallback
-  return Math.min(Math.max(normalized, min), max)
-}
 
 export async function GET(req: Request) {
   const auth = await getAuthFromRequest(req)

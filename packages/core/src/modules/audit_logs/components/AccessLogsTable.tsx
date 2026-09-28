@@ -5,6 +5,8 @@ import { extensionPoints } from '@open-mercato/core/modules/audit_logs/extension
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { DataTable, type PaginationProps } from '@open-mercato/ui/backend/DataTable'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { formatResource } from '../lib/display-helpers'
+import { formatDateTime } from '@open-mercato/shared/lib/time'
 
 export type AccessLogItem = {
   id: string
@@ -66,7 +68,7 @@ export function AccessLogsTable({ items, isLoading, actions, pagination }: { ite
     {
       accessorKey: 'createdAt',
       header: t('audit_logs.access.columns.when'),
-      cell: (info) => formatDate(info.getValue() as string),
+      cell: (info) => formatDateTime(info.getValue() as string, { fallback: info.getValue() as string }),
     },
   ], [t, noneLabel])
 
@@ -80,18 +82,4 @@ export function AccessLogsTable({ items, isLoading, actions, pagination }: { ite
       pagination={pagination}
     />
   )
-}
-
-function formatResource(item: { resourceKind?: string | null; resourceId?: string | null }, fallback: string) {
-  if (!item.resourceKind && !item.resourceId) return fallback
-  return [item.resourceKind, item.resourceId].filter(Boolean).join(' · ')
-}
-
-function formatDate(value: string) {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(date)
 }

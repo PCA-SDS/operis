@@ -1,18 +1,17 @@
 import { NextResponse } from 'next/server'
-import { getAuthFromRequest, type AuthContext } from '@open-mercato/shared/lib/auth/server'
+import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
-import { resolveFeatureCheckContext, resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
+import { resolveFeatureCheckContext } from '@open-mercato/core/modules/directory/utils/organizationScope'
 import type { RbacService } from '@open-mercato/core/modules/auth/services/rbacService'
 import { CommandBus } from '@open-mercato/shared/lib/commands/command-bus'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { ActionLogService } from '@open-mercato/core/modules/audit_logs/services/actionLogService'
-import type { CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
 import { getCommandInterceptorHttpRejection } from '@open-mercato/shared/lib/commands/errors'
-import type { AwilixContainer } from 'awilix'
 import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
+import { createRuntimeContext } from '../runtimeContext'
 
 const logger = createLogger('audit_logs').child({ component: 'undo' })
 
@@ -139,18 +138,6 @@ export async function POST(req: Request) {
     }
     logger.error('Undo failed', { err })
     return NextResponse.json({ error: 'Undo failed' }, { status: 400 })
-  }
-}
-
-async function createRuntimeContext(container: AwilixContainer, auth: AuthContext, request: Request): Promise<CommandRuntimeContext> {
-  const scope = await resolveOrganizationScopeForRequest({ container, auth, request })
-  return {
-    container,
-    auth,
-    organizationScope: scope,
-    selectedOrganizationId: scope.selectedId,
-    organizationIds: scope.filterIds,
-    request,
   }
 }
 

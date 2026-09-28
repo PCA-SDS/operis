@@ -10,19 +10,19 @@ import { resolveFeatureCheckContext } from '@open-mercato/core/modules/directory
 import type { RbacService } from '@open-mercato/core/modules/auth/services/rbacService'
 import { extractChangeRows } from '@open-mercato/core/modules/audit_logs/lib/changeRows'
 import {
-  ACTION_LOG_FILTER_TYPES,
   deriveActionLogActionType,
   deriveActionLogSource,
 } from '@open-mercato/core/modules/audit_logs/lib/projections'
 import { ActionLogService } from '@open-mercato/core/modules/audit_logs/services/actionLogService'
 import { loadAuditLogDisplayMaps } from '../../display'
 import { requireResolvedTenantScope } from '../../readScope'
+import { parseCommaSeparatedList } from '@open-mercato/shared/lib/string'
+import { parseActionTypes } from '../../queryParams'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['audit_logs.view_self'] },
 }
 
-const ACTION_TYPE_TOKENS = ACTION_LOG_FILTER_TYPES
 const SORT_FIELDS = ['createdAt', 'user', 'action', 'field', 'source'] as const
 const SORT_DIRECTIONS = ['asc', 'desc'] as const
 
@@ -73,20 +73,6 @@ const errorSchema = z.object({
   error: z.string(),
 })
 
-function splitCsv(value: string | null): string[] {
-  if (!value) return []
-  return value
-    .split(',')
-    .map((entry) => entry.trim())
-    .filter(Boolean)
-}
-
-function parseActionTypes(param: string | null) {
-  return splitCsv(param).filter((value): value is (typeof ACTION_TYPE_TOKENS)[number] =>
-    ACTION_TYPE_TOKENS.includes(value as (typeof ACTION_TYPE_TOKENS)[number]),
-  )
-}
-
 function parseLimit(param: string | null): number {
   if (!param) return 1000
   const value = Number(param)
@@ -134,7 +120,7 @@ export async function GET(req: Request) {
   const resourceKind = url.searchParams.get('resourceKind') ?? undefined
   const resourceId = url.searchParams.get('resourceId') ?? undefined
   const actionTypes = parseActionTypes(url.searchParams.get('actionType'))
-  const fieldNames = splitCsv(url.searchParams.get('fieldName'))
+  const fieldNames = parseCommaSeparatedList(url.searchParams.get('fieldName'))
   const includeRelated = parseBooleanToken(url.searchParams.get('includeRelated')) === true
   const undoableOnly = parseBooleanToken(url.searchParams.get('undoableOnly')) === true
   const limit = parseLimit(url.searchParams.get('limit'))
@@ -153,7 +139,7 @@ export async function GET(req: Request) {
   let actorUserId: string | undefined = canViewTenant ? undefined : auth.sub
   let actorUserIds: string[] | undefined
   if (canViewTenant && actorQuery) {
-    const parsedActorUserIds = splitCsv(actorQuery)
+    const parsedActorUserIds = parseCommaSeparatedList(actorQuery)
     if (parsedActorUserIds.length === 1) {
       actorUserId = parsedActorUserIds[0]
     } else if (parsedActorUserIds.length > 1) {

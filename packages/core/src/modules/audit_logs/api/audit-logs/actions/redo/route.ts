@@ -1,19 +1,19 @@
 import { NextResponse } from 'next/server'
-import { getAuthFromRequest, type AuthContext } from '@open-mercato/shared/lib/auth/server'
+import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
-import { resolveFeatureCheckContext, resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
+import { resolveFeatureCheckContext } from '@open-mercato/core/modules/directory/utils/organizationScope'
 import type { RbacService } from '@open-mercato/core/modules/auth/services/rbacService'
 import { CommandBus } from '@open-mercato/shared/lib/commands/command-bus'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { ActionLogService } from '@open-mercato/core/modules/audit_logs/services/actionLogService'
-import type { CommandRuntimeContext, CommandLogMetadata } from '@open-mercato/shared/lib/commands'
-import { serializeOperationMetadata } from '@open-mercato/shared/lib/commands/operationMetadata'
-import type { AwilixContainer } from 'awilix'
+import type { CommandLogMetadata } from '@open-mercato/shared/lib/commands'
+import { OPERATION_METADATA_HEADER_NAME, serializeOperationMetadata } from '@open-mercato/shared/lib/commands/operationMetadata'
 import type { ActionLog } from '@open-mercato/core/modules/audit_logs/data/entities'
 import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
+import { createRuntimeContext } from '../runtimeContext'
 
 const logger = createLogger('audit_logs').child({ component: 'redo' })
 
@@ -150,7 +150,7 @@ export async function POST(req: Request) {
       const createdAt = actionLog.createdAt instanceof Date
         ? actionLog.createdAt.toISOString()
         : (typeof actionLog.createdAt === 'string' ? actionLog.createdAt : new Date().toISOString())
-      response.headers.set('x-om-operation', serializeOperationMetadata({
+      response.headers.set(OPERATION_METADATA_HEADER_NAME, serializeOperationMetadata({
         id: actionLog.id,
         undoToken: actionLog.undoToken,
         commandId: actionLog.commandId ?? log.commandId,
@@ -170,18 +170,6 @@ export async function POST(req: Request) {
     }
     logger.error('Redo failed', { err })
     return NextResponse.json({ error: 'Redo failed' }, { status: 400 })
-  }
-}
-
-async function createRuntimeContext(container: AwilixContainer, auth: AuthContext, request: Request): Promise<CommandRuntimeContext> {
-  const scope = await resolveOrganizationScopeForRequest({ container, auth, request })
-  return {
-    container,
-    auth,
-    organizationScope: scope,
-    selectedOrganizationId: scope.selectedId,
-    organizationIds: scope.filterIds,
-    request,
   }
 }
 
