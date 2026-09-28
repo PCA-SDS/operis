@@ -8,7 +8,7 @@ describe('integration detail tab navigation', () => {
   })
 
   it('updates the tab query with History API without navigating the backend route', () => {
-    window.history.replaceState(null, '', '/backend/integrations/resend?runId=run-123')
+    window.history.replaceState({ __NA: true }, '', '/backend/integrations/resend?runId=run-123')
     const replaceState = jest.spyOn(window.history, 'replaceState')
 
     const nextUrl = replaceIntegrationDetailTabUrl({

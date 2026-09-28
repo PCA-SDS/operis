@@ -39,7 +39,7 @@ export function replaceIntegrationDetailTabUrl(input: {
   const nextUrl = query ? `${basePath}?${query}` : basePath
 
   if (typeof window !== 'undefined') {
-    window.history.replaceState(window.history.state, '', nextUrl)
+    window.history.replaceState(null, '', nextUrl)
   }
 
   return nextUrl
