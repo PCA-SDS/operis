@@ -23,6 +23,7 @@ import { ListEmptyState } from '@open-mercato/ui/backend/filters/ListEmptyState'
 import type { FilterDef, FilterValues } from '@open-mercato/ui/backend/FilterBar'
 import { buildPortalRootUrl, buildPortalUrlPattern } from '../../../lib/portalUrl'
 import { formatDate } from '@open-mercato/shared/lib/time'
+import { useDemoPortalAccounts } from '../useDemoPortalAccounts'
 
 type UserRow = {
   id: string
@@ -42,6 +43,7 @@ type UsersResponse = {
   items?: UserRow[]
   total?: number
   totalPages?: number
+  totalIsCapped?: boolean
 }
 
 async function fetchRoleFilterOptions(): Promise<Array<{ value: string; label: string; id: string }>> {
@@ -233,12 +235,14 @@ export function PortalUsersPageClient({ portalOrigin }: PortalUsersPageClientPro
   const [pageSize] = React.useState(50)
   const [total, setTotal] = React.useState(0)
   const [totalPages, setTotalPages] = React.useState(1)
+  const [totalIsCapped, setTotalIsCapped] = React.useState(false)
   const [search, setSearch] = React.useState('')
   const [filterValues, setFilterValues] = React.useState<FilterValues>({})
   const [isLoading, setIsLoading] = React.useState(true)
   const [reloadToken, setReloadToken] = React.useState(0)
   const [roleOptions, setRoleOptions] = React.useState<Array<{ value: string; label: string; id: string }>>([])
   const [createDialogOpen, setCreateDialogOpen] = React.useState(false)
+  const { accounts: demoAccounts } = useDemoPortalAccounts()
 
   const { runMutation, retryLastMutation } = useGuardedMutation<{
     entityType: string
@@ -313,6 +317,7 @@ export function PortalUsersPageClient({ portalOrigin }: PortalUsersPageClientPro
         setRows(items)
         setTotal(typeof payload?.total === 'number' ? payload.total : items.length)
         setTotalPages(typeof payload?.totalPages === 'number' ? payload.totalPages : 1)
+        setTotalIsCapped(payload?.totalIsCapped === true)
       } catch (err) {
         if (!cancelled) {
           const message = err instanceof Error ? err.message : t('customer_accounts.admin.error.loadUsers', 'Failed to load customer users')
@@ -497,9 +502,14 @@ export function PortalUsersPageClient({ portalOrigin }: PortalUsersPageClientPro
                 url: buildPortalUrlPattern(portalOrigin),
               })}
             </p>
-            <p className="mt-0.5 text-xs text-status-info-text">
-              {t('customer_accounts.admin.portalInfo.credentials', 'Demo credentials: alice.johnson@example.com / Password123!')}
-            </p>
+            {demoAccounts.length > 0 ? (
+              <p className="mt-0.5 text-xs text-status-info-text">
+                {t('customer_accounts.admin.portalInfo.credentials', 'Seeded demo credentials: {email} / {password}', {
+                  email: demoAccounts[0].email,
+                  password: demoAccounts[0].password,
+                })}
+              </p>
+            ) : null}
           </div>
           <div className="flex shrink-0 flex-col gap-2">
             <Button
@@ -576,7 +586,7 @@ export function PortalUsersPageClient({ portalOrigin }: PortalUsersPageClientPro
             ]}
           />
         )}
-        pagination={{ page, pageSize, total, totalPages, onPageChange: setPage }}
+        pagination={{ page, pageSize, total, totalPages, totalIsCapped, onPageChange: setPage }}
         isLoading={isLoading}
       />
       <CreateUserDialog

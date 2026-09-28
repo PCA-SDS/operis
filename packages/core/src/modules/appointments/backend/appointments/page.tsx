@@ -60,7 +60,7 @@ type Row = {
   scheduleConfirmationStatus: 'confirmed' | 'unconfirmed' | 'not_applicable'
 }
 
-type ListPayload = { items: Row[]; total?: number; totalPages?: number }
+type ListPayload = { items: Row[]; total?: number; totalPages?: number; totalIsCapped?: boolean }
 
 type StatusOption = { code: string; label: string }
 
@@ -202,6 +202,7 @@ export default function AppointmentsListPage() {
   const [pageSize, setPageSize] = React.useState(10)
   const [total, setTotal] = React.useState(0)
   const [totalPages, setTotalPages] = React.useState(1)
+  const [totalIsCapped, setTotalIsCapped] = React.useState(false)
   const [filterValues, setFilterValues] = React.useState<FilterValues>({})
   const [selectedStatusCodes, setSelectedStatusCodes] = React.useState<Set<string>>(() => new Set())
   const [reloadToken, setReloadToken] = React.useState(0)
@@ -310,6 +311,7 @@ export default function AppointmentsListPage() {
           setRows(Array.isArray(call.result?.items) ? call.result.items : [])
           setTotal(typeof call.result?.total === 'number' ? call.result.total : 0)
           setTotalPages(typeof call.result?.totalPages === 'number' ? call.result.totalPages : 1)
+          setTotalIsCapped(call.result?.totalIsCapped === true)
           hasLoadedAppointmentsRef.current = true
         }
       } catch (error) {
@@ -678,6 +680,7 @@ export default function AppointmentsListPage() {
             pageSize,
             total,
             totalPages,
+            totalIsCapped,
             onPageChange: setPage,
             pageSizeOptions: [10, 25, 50, 100],
             onPageSizeChange: (nextPageSize) => {

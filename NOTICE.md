@@ -33,6 +33,10 @@ Upstream documentation may still be a useful *historical* reference for
 architectural intent, but this repository's own documentation under
 [`docs/`](docs/) is the authoritative description of how Operis behaves.
 
+Selected upstream fixes may still be ported by hand. Each one is recorded, with the
+upstream commit it came from, in
+[`docs/architecture/upstream-ports.md`](docs/architecture/upstream-ports.md).
+
 ## Excluded components — commercial licensing boundary
 
 Open Mercato is **open-core**. The following were deliberately **not** imported

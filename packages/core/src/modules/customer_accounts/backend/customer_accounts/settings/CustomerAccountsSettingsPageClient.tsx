@@ -7,12 +7,7 @@ import { Button } from '@open-mercato/ui/primitives/button'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { buildPortalRootUrl, buildPortalUrlPattern } from '../../../lib/portalUrl'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@open-mercato/ui/primitives/table'
-
-const DEMO_CREDENTIALS = [
-  { email: 'alice.johnson@example.com', password: 'Password123!', role: 'Portal Admin' },
-  { email: 'bob.smith@example.com', password: 'Password123!', role: 'Buyer' },
-  { email: 'carol.white@example.com', password: 'Password123!', role: 'Viewer' },
-] as const
+import { useDemoPortalAccounts } from '../useDemoPortalAccounts'
 
 export type CustomerAccountsSettingsPageClientProps = {
   portalOrigin: string
@@ -20,6 +15,7 @@ export type CustomerAccountsSettingsPageClientProps = {
 
 export function CustomerAccountsSettingsPageClient({ portalOrigin }: CustomerAccountsSettingsPageClientProps) {
   const t = useT()
+  const { accounts: demoAccounts } = useDemoPortalAccounts()
 
   const portalUrl = useMemo(() => buildPortalUrlPattern(portalOrigin), [portalOrigin])
   const portalRootUrl = useMemo(() => buildPortalRootUrl(portalOrigin), [portalOrigin])
@@ -68,43 +64,49 @@ export function CustomerAccountsSettingsPageClient({ portalOrigin }: CustomerAcc
           </p>
         </div>
 
-        <div className="rounded-lg border p-4 space-y-3">
-          <h3 className="text-sm font-semibold">
-            {t('customer_accounts.settings.demo_credentials.title', 'Demo Credentials')}
-          </h3>
-          <div className="overflow-x-auto">
-            <Table columnCount={3} density="compact">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>
-                    {t('customer_accounts.settings.demo_credentials.email', 'Email')}
-                  </TableHead>
-                  <TableHead>
-                    {t('customer_accounts.settings.demo_credentials.password', 'Password')}
-                  </TableHead>
-                  <TableHead>
-                    {t('customer_accounts.settings.demo_credentials.role', 'Role')}
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {DEMO_CREDENTIALS.map((cred) => (
-                  <TableRow key={cred.email}>
-                    <TableCell className="font-mono text-xs">{cred.email}</TableCell>
-                    <TableCell className="font-mono text-xs">{cred.password}</TableCell>
-                    <TableCell className="text-xs">{cred.role}</TableCell>
+        {demoAccounts.length > 0 ? (
+          <div className="rounded-lg border p-4 space-y-3">
+            <h3 className="text-sm font-semibold">
+              {t('customer_accounts.settings.demo_credentials.title', 'Demo Credentials')}
+            </h3>
+            <div className="overflow-x-auto">
+              <Table columnCount={3} density="compact">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>
+                      {t('customer_accounts.settings.demo_credentials.email', 'Email')}
+                    </TableHead>
+                    <TableHead>
+                      {t('customer_accounts.settings.demo_credentials.password', 'Password')}
+                    </TableHead>
+                    <TableHead>
+                      {t('customer_accounts.settings.demo_credentials.role', 'Role')}
+                    </TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {demoAccounts.map((account) => (
+                    <TableRow key={account.email}>
+                      <TableCell className="font-mono text-xs">{account.email}</TableCell>
+                      <TableCell className="font-mono text-xs">{account.password}</TableCell>
+                      <TableCell className="text-xs">
+                        {account.roles.length > 0
+                          ? account.roles.map((role) => role.name).join(', ')
+                          : t('customer_accounts.settings.demo_credentials.no_role', 'No role assigned')}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {t(
+                'customer_accounts.settings.demo_credentials.note',
+                'These accounts were created automatically for this organization by the example-data seeding step during setup.',
+              )}
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground">
-            {t(
-              'customer_accounts.settings.demo_credentials.note',
-              'These credentials are only available if example data was seeded during setup.',
-            )}
-          </p>
-        </div>
+        ) : null}
 
         <div className="rounded-lg border p-4 space-y-3">
           <h3 className="text-sm font-semibold">

@@ -43,6 +43,7 @@ type PagedResponse<T> = {
   items: T[]
   total: number
   totalPages: number
+  totalIsCapped?: boolean
   page?: number
   pageSize?: number
 }
@@ -534,6 +535,7 @@ export function WarehouseSection({ viewAllHref }: ConfigSectionOptions = {}) {
             pageSize: 10,
             total: query.data?.total ?? 0,
             totalPages: query.data?.totalPages ?? 1,
+            totalIsCapped: query.data?.totalIsCapped === true,
             onPageChange: setPage,
           }}
           perspective={{ tableId: extensionPoints.hosts.warehousesTable.tableId }}
@@ -793,6 +795,7 @@ export function ZoneSection({ viewAllHref }: ConfigSectionOptions = {}) {
             pageSize: 10,
             total: query.data?.total ?? 0,
             totalPages: query.data?.totalPages ?? 1,
+            totalIsCapped: query.data?.totalIsCapped === true,
             onPageChange: setPage,
           }}
           perspective={{ tableId: extensionPoints.hosts.zonesTable.tableId }}
@@ -999,6 +1002,7 @@ export function LocationSection({ viewAllHref }: ConfigSectionOptions = {}) {
             pageSize: 10,
             total: query.data?.total ?? 0,
             totalPages: query.data?.totalPages ?? 1,
+            totalIsCapped: query.data?.totalIsCapped === true,
             onPageChange: setPage,
           }}
           perspective={{ tableId: extensionPoints.hosts.locationsTable.tableId }}
@@ -1292,6 +1296,7 @@ export function InventoryProfilesSection() {
             pageSize: 10,
             total: query.data?.total ?? 0,
             totalPages: query.data?.totalPages ?? 1,
+            totalIsCapped: query.data?.totalIsCapped === true,
             onPageChange: setPage,
           }}
           perspective={{ tableId: extensionPoints.hosts.inventoryProfilesTable.tableId }}

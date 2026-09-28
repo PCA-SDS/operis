@@ -33,6 +33,7 @@ type ModerationFlagsResponse = {
   total: number
   page: number
   pageSize: number
+  totalIsCapped?: boolean
 }
 
 async function fetchModerationFlags(params: {
@@ -124,6 +125,7 @@ export function AiModerationFlagsPageClient() {
   )
 
   const total = query.data?.total ?? 0
+  const totalIsCapped = query.data?.totalIsCapped === true
 
   return (
     <div className="flex flex-col gap-6">
@@ -173,6 +175,7 @@ export function AiModerationFlagsPageClient() {
           pageSize: PAGE_SIZE,
           total,
           totalPages: Math.max(1, Math.ceil(total / PAGE_SIZE)),
+          totalIsCapped,
           onPageChange: setPage,
         }}
       />

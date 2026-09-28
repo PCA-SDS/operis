@@ -264,6 +264,7 @@ export default function WmsLotsListPage() {
                 pageSize: 25,
                 total: lotsQuery.data.total,
                 totalPages: lotsQuery.data.totalPages,
+                totalIsCapped: lotsQuery.data?.totalIsCapped === true,
                 onPageChange: setPage,
               }}
               perspective={{ tableId: extensionPoints.hosts.lotsTable.tableId }}

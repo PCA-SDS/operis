@@ -36,6 +36,7 @@ type RecordsResponse = {
   page: number
   pageSize: number
   totalPages: number
+  totalIsCapped?: boolean
 }
 
 function toCsvUrl(base: string, params: URLSearchParams) {
@@ -87,6 +88,7 @@ function RecordsPageInner({ params }: { params: { entityId?: string } }) {
   const [rawData, setRawData] = React.useState<any[]>([])
   const [total, setTotal] = React.useState(0)
   const [totalPages, setTotalPages] = React.useState(1)
+  const [totalIsCapped, setTotalIsCapped] = React.useState(false)
   const [loading, setLoading] = React.useState(false)
   const scopeVersion = useOrganizationScopeVersion()
   const { confirm, ConfirmDialogElement } = useConfirmDialog()
@@ -171,6 +173,7 @@ function RecordsPageInner({ params }: { params: { entityId?: string } }) {
           setRawData(j.items || [])
           setTotal(j.total)
           setTotalPages(j.totalPages)
+          setTotalIsCapped(j?.totalIsCapped === true)
         }
       } catch (e) {
         if (!cancelled) {
@@ -374,7 +377,7 @@ function RecordsPageInner({ params }: { params: { entityId?: string } }) {
             onSearchChange={(v) => { setSearch(v); setPage(1) }}
             onFiltersApply={(vals) => { setFilterValues(vals); setPage(1) }}
             onFiltersClear={() => { setFilterValues({}); setPage(1) }}
-            pagination={{ page, pageSize, total, totalPages, onPageChange: setPage }}
+            pagination={{ page, pageSize, total, totalPages, totalIsCapped, onPageChange: setPage }}
             isLoading={loading}
           />
         </RelationDisplaysProvider>

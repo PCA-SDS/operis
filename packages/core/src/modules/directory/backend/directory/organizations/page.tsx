@@ -47,6 +47,7 @@ type OrganizationsResponse = {
   page: number
   pageSize: number
   totalPages: number
+  totalIsCapped?: boolean
   isSuperAdmin?: boolean
 }
 
@@ -174,6 +175,7 @@ export default function DirectoryOrganizationsPage() {
   }, [isSuperAdmin, t])
   const total = data?.total ?? 0
   const totalPages = data?.totalPages ?? 0
+  const totalIsCapped = data?.totalIsCapped === true
 
   const deleteMutationContextId = 'directory-organizations-list:single-delete'
   const { runMutation: runDeleteMutation, retryLastMutation: retryDeleteMutation } = useGuardedMutation<{
@@ -285,7 +287,7 @@ export default function DirectoryOrganizationsPage() {
               createLabel={t('directory.organizations.list.actions.create', 'Create')}
             />
           )}
-          pagination={{ page, pageSize: 50, total, totalPages, onPageChange: setPage }}
+          pagination={{ page, pageSize: 50, total, totalPages, totalIsCapped, onPageChange: setPage }}
           isLoading={isLoading}
         />
       </PageBody>

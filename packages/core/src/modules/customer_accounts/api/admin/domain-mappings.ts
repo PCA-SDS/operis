@@ -9,6 +9,7 @@ import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 import { registerDomainSchema } from '@open-mercato/core/modules/customer_accounts/data/validators'
 import {
   DomainMappingService,
+  DomainMappingOrgScopeError,
   type ResolveResult,
 } from '@open-mercato/core/modules/customer_accounts/services/domainMappingService'
 import { DomainMapping } from '@open-mercato/core/modules/customer_accounts/data/entities'
@@ -126,6 +127,12 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { ok: false, error: 'This domain is not available. Please choose a different hostname.' },
         { status: 409 },
+      )
+    }
+    if (err instanceof DomainMappingOrgScopeError) {
+      return NextResponse.json(
+        { ok: false, error: 'Organization was not found in the current tenant.' },
+        { status: 400 },
       )
     }
     const message = err instanceof Error ? err.message : 'Failed to register domain'

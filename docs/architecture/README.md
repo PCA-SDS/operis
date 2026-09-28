@@ -8,6 +8,7 @@ the code is authoritative and the document is a bug — fix it in the same chang
 | Document | Covers |
 |---|---|
 | [`multi-tenancy.md`](multi-tenancy.md) | The canonical Platform → Tenant → Organization → Resource model, where isolation is actually enforced, the documented bypass, the invariants, and the known gaps |
+| [`upstream-ports.md`](upstream-ports.md) | Which Open Mercato changes were ported into Operis after the fork, which were left out and why, and how to do the next port |
 
 ## Architecture Decision Records
 
