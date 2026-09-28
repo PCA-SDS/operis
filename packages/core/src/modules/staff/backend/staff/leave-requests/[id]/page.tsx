@@ -15,7 +15,8 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { LeaveRequestForm, buildLeaveRequestPayload, type LeaveRequestFormValues } from '@open-mercato/core/modules/staff/components/LeaveRequestForm'
 import { buildRecordInjectionContext, useSetCurrentRecordInjectionContext } from '@open-mercato/ui/backend/injection/recordContext'
-import { type LeaveRequestRecord, type LeaveRequestsResponse, type NormalizedLeaveRequest, normalizeLeaveRequest, resolveStatusVariant, formatDateLabel, formatDateRange } from '../../../../lib/leaveRequestHelpers'
+import { type LeaveRequestRecord, type LeaveRequestsResponse, type NormalizedLeaveRequest, normalizeLeaveRequest, resolveStatusVariant, formatDateRange } from '../../../../lib/leaveRequestHelpers'
+import { formatDate } from '@open-mercato/shared/lib/time'
 
 export default function StaffLeaveRequestDetailPage({ params }: { params?: { id?: string } }) {
   const id = params?.id
@@ -184,7 +185,7 @@ const handleSubmit = React.useCallback(async (values: LeaveRequestFormValues) =>
             </Badge>
             {record.decidedAt ? (
               <span className="text-xs text-muted-foreground">
-                {t('staff.leaveRequests.decision.at', 'Decision at')} {formatDateLabel(record.decidedAt)}
+                {t('staff.leaveRequests.decision.at', 'Decision at')} {formatDate(record.decidedAt, { fallback: '' })}
               </span>
             ) : null}
           </div>

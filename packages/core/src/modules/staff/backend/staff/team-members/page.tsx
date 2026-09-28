@@ -24,14 +24,11 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Pencil, Users } from 'lucide-react'
 import { formatDateTime } from '@open-mercato/shared/lib/time'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { hasHttpStatus } from './httpStatus'
 
 const logger = createLogger('staff')
 
 const PAGE_SIZE = 50
-
-function hasHttpStatus(error: unknown, status: number): boolean {
-  return Boolean(error && typeof error === 'object' && (error as { status?: unknown }).status === status)
-}
 
 type TeamMemberRow = {
   kind: 'team' | 'member'

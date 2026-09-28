@@ -6,12 +6,13 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { LeaveRequestPreview } from './LeaveRequestPreview'
+import { formatDateTime } from '@open-mercato/shared/lib/time'
 
 export function LeaveRequestDetail(props: ObjectDetailProps) {
   const t = useT()
   const [executingActionId, setExecutingActionId] = React.useState<string | null>(null)
   const [actionTakenByName, setActionTakenByName] = React.useState<string | null>(null)
-  const actionTakenAtLabel = formatDateTime(props.actionTakenAt)
+  const actionTakenAtLabel = formatDateTime(props.actionTakenAt, { fallback: '' })
   const hasActionTaken = Boolean(props.actionTaken)
   const actionTakenId = extractActionId(props.actionTaken)
   const actionTakenLabel = resolveActionLabel(actionTakenId, props.actions, t)
@@ -94,13 +95,6 @@ export function LeaveRequestDetail(props: ObjectDetailProps) {
       ) : null}
     </div>
   )
-}
-
-function formatDateTime(value?: Date | string | null): string {
-  if (!value) return ''
-  const date = value instanceof Date ? value : new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  return date.toLocaleString()
 }
 
 function extractActionId(actionTaken?: string | null): string | null {

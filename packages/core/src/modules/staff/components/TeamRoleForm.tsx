@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { CrudForm, type CrudField, type CrudFormGroup } from '@open-mercato/ui/backend/CrudForm'
 import { collectCustomFieldValues } from '@open-mercato/ui/backend/utils/customFieldValues'
-import { normalizeCustomFieldValues } from '@open-mercato/shared/lib/custom-fields/normalize'
+import { normalizeCustomFieldValue } from '@open-mercato/shared/lib/custom-fields/normalize'
 import { AppearanceSelector } from '@open-mercato/core/modules/dictionaries/components/AppearanceSelector'
 import { E } from '#generated/entities.ids.generated'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
@@ -36,11 +36,6 @@ export type TeamRoleFormProps = {
   extraActions?: React.ReactNode
 }
 
-const normalizeCustomFieldSubmitValue = (value: unknown): unknown => {
-  const normalized = normalizeCustomFieldValues({ value })
-  return normalized.value
-}
-
 export const buildTeamRolePayload = (
   values: TeamRoleFormValues,
   options: { id?: string } = {},
@@ -53,7 +48,7 @@ export const buildTeamRolePayload = (
   const appearance = values.appearance && typeof values.appearance === 'object'
     ? values.appearance as { icon?: string | null; color?: string | null }
     : {}
-  const customFields = collectCustomFieldValues(values, { transform: normalizeCustomFieldSubmitValue })
+  const customFields = collectCustomFieldValues(values, { transform: normalizeCustomFieldValue })
   return {
     ...(options.id ? { id: options.id } : {}),
     teamId,

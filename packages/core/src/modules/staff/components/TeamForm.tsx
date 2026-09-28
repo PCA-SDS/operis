@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { CrudForm, type CrudField, type CrudFormGroup } from '@open-mercato/ui/backend/CrudForm'
 import { collectCustomFieldValues } from '@open-mercato/ui/backend/utils/customFieldValues'
-import { normalizeCustomFieldValues } from '@open-mercato/shared/lib/custom-fields/normalize'
+import { normalizeCustomFieldValue } from '@open-mercato/shared/lib/custom-fields/normalize'
 import { E } from '#generated/entities.ids.generated'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 
@@ -28,11 +28,6 @@ export type TeamFormProps = {
   extraActions?: React.ReactNode
 }
 
-const normalizeCustomFieldSubmitValue = (value: unknown): unknown => {
-  const normalized = normalizeCustomFieldValues({ value })
-  return normalized.value
-}
-
 export const buildTeamPayload = (
   values: TeamFormValues,
   options: { id?: string } = {},
@@ -41,7 +36,7 @@ export const buildTeamPayload = (
   const description = typeof values.description === 'string' && values.description.trim().length
     ? values.description.trim()
     : null
-  const customFields = collectCustomFieldValues(values, { transform: normalizeCustomFieldSubmitValue })
+  const customFields = collectCustomFieldValues(values, { transform: normalizeCustomFieldValue })
   return {
     ...(options.id ? { id: options.id } : {}),
     name,

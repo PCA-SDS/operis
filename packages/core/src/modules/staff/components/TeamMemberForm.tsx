@@ -4,7 +4,7 @@ import * as React from 'react'
 import { useRouter } from 'next/navigation'
 import { CrudForm, type CrudField, type CrudFormGroup } from '@open-mercato/ui/backend/CrudForm'
 import { collectCustomFieldValues } from '@open-mercato/ui/backend/utils/customFieldValues'
-import { normalizeCustomFieldValues } from '@open-mercato/shared/lib/custom-fields/normalize'
+import { normalizeCustomFieldValue } from '@open-mercato/shared/lib/custom-fields/normalize'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { LookupSelect, type LookupSelectItem } from '@open-mercato/ui/backend/inputs'
 import { Button } from '@open-mercato/ui/primitives/button'
@@ -79,11 +79,6 @@ type TeamMemberTagsSectionConfig = {
   labels: TagsSectionLabels
 }
 
-const normalizeCustomFieldSubmitValue = (value: unknown): unknown => {
-  const normalized = normalizeCustomFieldValues({ value })
-  return normalized.value
-}
-
 export const buildTeamMemberPayload = (
   values: TeamMemberFormValues,
   options: { id?: string } = {},
@@ -94,7 +89,7 @@ export const buildTeamMemberPayload = (
   const tags = Array.isArray(values.tags)
     ? values.tags.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
     : null
-  const customFields = collectCustomFieldValues(values, { transform: normalizeCustomFieldSubmitValue })
+  const customFields = collectCustomFieldValues(values, { transform: normalizeCustomFieldValue })
   return {
     ...(options.id ? { id: options.id } : {}),
     teamId: values.teamId ? String(values.teamId) : null,

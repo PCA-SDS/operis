@@ -41,10 +41,7 @@ import { TranslationDrawerAction } from '@open-mercato/core/modules/translations
 import { SendObjectMessageDialog } from '@open-mercato/ui/backend/messages'
 import { ModuleGate, useBackendChrome } from '@open-mercato/ui/backend/BackendChromeProvider'
 import { hasFeature } from '@open-mercato/shared/security/features'
-
-function hasHttpStatus(error: unknown, status: number): boolean {
-  return Boolean(error && typeof error === 'object' && (error as { status?: unknown }).status === status)
-}
+import { hasHttpStatus } from '../httpStatus'
 
 const MARKDOWN_CLASSNAME =
   'text-sm text-muted-foreground break-words [&>*]:mb-2 [&>*:last-child]:mb-0 [&_ul]:ml-4 [&_ul]:list-disc [&_ol]:ml-4 [&_ol]:list-decimal [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_pre]:text-xs'

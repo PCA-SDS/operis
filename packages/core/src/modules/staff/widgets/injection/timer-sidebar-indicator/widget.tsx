@@ -6,13 +6,7 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import type { InjectionWidgetModule } from '@open-mercato/shared/modules/widgets/injection'
 import { ProjectColorDot } from '../../../lib/timesheets-ui/ProjectColorDot'
 import { useActiveTimesheetTimer } from '../../../lib/timesheets-ui/useActiveTimesheetTimer'
-
-function formatElapsed(seconds: number): string {
-  const h = Math.floor(seconds / 3600)
-  const m = Math.floor((seconds % 3600) / 60)
-  const s = seconds % 60
-  return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
-}
+import { formatElapsed } from '../../../lib/timesheets-ui/formatElapsed'
 
 function TimerSidebarIndicator() {
   const t = useT()
