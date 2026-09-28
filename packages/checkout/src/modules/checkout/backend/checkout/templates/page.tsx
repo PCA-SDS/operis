@@ -12,6 +12,7 @@ import { RowActions } from '@open-mercato/ui/backend/RowActions'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { apiCallOrThrow, readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { ListEmptyState } from '@open-mercato/ui/backend/filters/ListEmptyState'
+import { formatDate } from '@open-mercato/shared/lib/time'
 
 type TemplateRow = {
   id: string
@@ -26,12 +27,6 @@ type ListResponse = {
   items: TemplateRow[]
   total: number
   totalPages: number
-}
-
-function formatDate(value: string | null | undefined): string {
-  if (!value) return '—'
-  const parsed = new Date(value)
-  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString()
 }
 
 export default function CheckoutTemplatesPage() {
@@ -102,7 +97,7 @@ export default function CheckoutTemplatesPage() {
     {
       accessorKey: 'createdAt',
       header: t('checkout.admin.templates.columns.created'),
-      cell: ({ row }) => formatDate(row.original.createdAt),
+      cell: ({ row }) => formatDate(row.original.createdAt, { fallback: '—' }),
     },
   ], [t])
 

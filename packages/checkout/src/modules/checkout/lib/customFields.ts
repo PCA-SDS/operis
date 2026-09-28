@@ -6,6 +6,7 @@ import {
 } from '@open-mercato/shared/lib/crud/custom-fields'
 import type { CustomFieldDefinition } from '@open-mercato/shared/modules/entities'
 import { loadEntityFieldsetConfigs } from '@open-mercato/core/modules/entities/lib/fieldsets'
+import { normalizeOptionalString } from '@open-mercato/shared/lib/string'
 
 type CheckoutFieldsetGroup = {
   code: string
@@ -161,12 +162,6 @@ export const CHECKOUT_LINK_CUSTOM_FIELDS: CustomFieldDefinition[] = [
   },
 ]
 
-function normalizeFieldsetCode(value: unknown): string | null {
-  if (typeof value !== 'string') return null
-  const trimmed = value.trim()
-  return trimmed.length > 0 ? trimmed : null
-}
-
 export async function resolveCheckoutPublicCustomFields(args: {
   em: EntityManager
   entityId: string
@@ -179,7 +174,7 @@ export async function resolveCheckoutPublicCustomFields(args: {
   if (args.displayCustomFieldsOnPage !== true) return []
   if (!args.customValues || Object.keys(args.customValues).length === 0) return []
 
-  const selectedFieldset = normalizeFieldsetCode(args.customFieldsetCode)
+  const selectedFieldset = normalizeOptionalString(args.customFieldsetCode)
   const fieldsetConfigs = await loadEntityFieldsetConfigs(args.em, {
     entityIds: [args.entityId],
     tenantId: args.tenantId,

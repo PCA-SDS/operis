@@ -6,11 +6,11 @@ import { serializeLinkRecord } from '../../../commands/links'
 import { CHECKOUT_ENTITY_IDS } from '../../../lib/constants'
 import { resolveLoadedCheckoutCustomFields } from '../../../lib/utils'
 import {
-  attachOperationMetadataHeader,
   buildCommandRuntimeContext,
   handleCheckoutRouteError,
   requireAdminContext,
 } from '../../helpers'
+import { attachOperationMetadataHeader } from '@open-mercato/shared/lib/commands/operationMetadata'
 import { checkoutTag } from '../../openapi'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 

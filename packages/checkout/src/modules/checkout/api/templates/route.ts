@@ -5,11 +5,11 @@ import { escapeLikePattern } from '@open-mercato/shared/lib/db/escapeLikePattern
 import { CheckoutLinkTemplate } from '../../data/entities'
 import { checkoutTag } from '../openapi'
 import {
-  attachOperationMetadataHeader,
   buildCommandRuntimeContext,
   handleCheckoutRouteError,
   requireAdminContext,
 } from '../helpers'
+import { attachOperationMetadataHeader } from '@open-mercato/shared/lib/commands/operationMetadata'
 import { serializeTemplateRecord } from '../../commands/templates'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
 

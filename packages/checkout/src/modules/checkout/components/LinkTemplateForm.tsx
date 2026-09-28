@@ -47,6 +47,7 @@ import { CustomerFieldsEditor } from './CustomerFieldsEditor'
 import { GatewaySettingsFields } from './GatewaySettingsFields'
 import { LogoUploadField } from './LogoUploadField'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@open-mercato/ui/primitives/table'
+import { isRecord } from '@open-mercato/shared/lib/guards'
 
 type Props = {
   mode: 'link' | 'template'
@@ -90,10 +91,6 @@ const DEFAULT_COLORS = {
   backgroundColor: '#F8F4EE',
 } as const
 
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
-}
 
 function readString(value: unknown): string {
   return typeof value === 'string' ? value : ''

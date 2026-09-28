@@ -7,8 +7,7 @@ import { CHECKOUT_ENTITY_IDS } from '../../lib/constants'
 import { handleCheckoutRouteError, requireAdminContext, userHasCheckoutFeature } from '../helpers'
 import { checkoutTag } from '../openapi'
 import { serializeTransaction } from '../../lib/utils'
-
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+import { RFC_UUID_PATTERN } from '@open-mercato/shared/lib/validation'
 
 export const metadata = {
   path: '/checkout/transactions',
@@ -44,7 +43,7 @@ export async function GET(req: Request) {
       ]
       // `id` is a uuid column: ILIKE against it has no Postgres operator and
       // raises 42883, so only an exact id lookup is meaningful here.
-      if (UUID_PATTERN.test(search)) searchOr.push({ id: search })
+      if (RFC_UUID_PATTERN.test(search)) searchOr.push({ id: search })
       const tokenMatch = await findEntityIdsBySearchTokens({
         db: em.getKysely<SearchTokenDatabase>(),
         entityType: CHECKOUT_ENTITY_IDS.transaction,
