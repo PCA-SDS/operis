@@ -15,7 +15,10 @@ type CredentialTestStatus = 'healthy' | 'degraded' | 'unhealthy' | 'unconfigured
 type CredentialTestResponse = {
   status: CredentialTestStatus
   message: string | null
+  code?: string
 }
+
+const SECRET_REENTRY_REQUIRED_CODE = 'credentials.secret_reentry_required'
 
 type CredentialTestOutcome =
   | { kind: 'result'; status: CredentialTestStatus; message: string | null }
@@ -28,7 +31,14 @@ const TEST_STATUS_VARIANTS: StatusMap<CredentialTestStatus> = {
   unconfigured: 'neutral',
 }
 
-function failureForStatus(status: number): CredentialTestOutcome {
+function failureForStatus(status: number, code?: string): CredentialTestOutcome {
+  if (status === 422 && code === SECRET_REENTRY_REQUIRED_CODE) {
+    return {
+      kind: 'failed',
+      messageKey: 'integrations.detail.credentials.test.secretReentryRequired',
+      fallback: 'You changed the connection settings. Enter the secret again to test them.',
+    }
+  }
   if (status === 403) {
     return {
       kind: 'failed',
@@ -91,7 +101,7 @@ export function CredentialTestField({
       if (call.ok && call.result) {
         setOutcome({ kind: 'result', status: call.result.status, message: call.result.message })
       } else {
-        setOutcome(failureForStatus(call.status))
+        setOutcome(failureForStatus(call.status, call.result?.code))
       }
     } catch {
       setOutcome(failureForStatus(0))
