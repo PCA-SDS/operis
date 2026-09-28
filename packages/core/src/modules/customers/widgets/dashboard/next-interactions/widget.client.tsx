@@ -176,13 +176,13 @@ const CustomerNextInteractionsWidget: React.FC<DashboardWidgetComponentProps<Cus
       ) : data.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t('customers.widgets.nextInteractions.empty')}</p>
       ) : (
-        <ul className="space-y-3">
+        <ul className="divide-y divide-border">
           {data.map((item) => {
             const href = resolveDetailHref(item)
             const absolute = formatAbsolute(item.nextInteractionAt, locale)
             const relative = formatRelativeTime(item.nextInteractionAt, { locale }) ?? ''
             return (
-              <li key={item.id} className="rounded-md border p-3">
+              <li key={item.id} className="py-3 first:pt-0 last:pb-0">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3">
                     {item.nextInteractionIcon ? (

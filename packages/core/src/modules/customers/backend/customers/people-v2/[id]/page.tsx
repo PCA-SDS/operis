@@ -4,10 +4,9 @@ import * as React from 'react'
 import { extensionPoints } from '@open-mercato/core/modules/customers/extension-points'
 import Link from 'next/link'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
-import { User, Hash, Users, Building2 } from 'lucide-react'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { CrudForm } from '@open-mercato/ui/backend/CrudForm'
-import { CollapsibleZoneLayout, type ZoneSectionDescriptor } from '@open-mercato/ui/backend/crud/CollapsibleZoneLayout'
+import { CollapsibleZoneLayout } from '@open-mercato/ui/backend/crud/CollapsibleZoneLayout'
 import { useIsMobile } from '@open-mercato/ui/hooks/useIsMobile'
 import { updateCrud, deleteCrud } from '@open-mercato/ui/backend/utils/crud'
 import { apiCallOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
@@ -21,7 +20,8 @@ import { surfaceRecordConflict } from '@open-mercato/ui/backend/conflicts'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { useOrganizationScopeDetail } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { AttachmentsSection, ErrorMessage, LoadingMessage, RecordNotFoundState, type SectionAction } from '@open-mercato/ui/backend/detail'
+import { AttachmentsSection, ErrorMessage, RecordNotFoundState, type SectionAction } from '@open-mercato/ui/backend/detail'
+import { DetailPageSkeleton } from '@open-mercato/ui/backend/skeletons/PageSkeletons'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import { InjectionSpot, useInjectionWidgets } from '@open-mercato/ui/backend/injection/InjectionSpot'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
@@ -72,7 +72,7 @@ export default function PersonDetailV2Page({ params }: { params?: { id?: string 
 
 
   const formSchema = React.useMemo(() => createPersonEditSchema(), [])
-  const fields = React.useMemo(() => createPersonEditFields(t), [t])
+  const fields = React.useMemo(() => createPersonEditFields(t, { dictionaryActions: 'menu' }), [t])
 
   const [data, setData] = React.useState<PersonOverview | null>(null)
   // Mirror the latest `data` into a ref so save handlers always read the current
@@ -126,13 +126,6 @@ export default function PersonDetailV2Page({ params }: { params?: { id?: string 
   )
 
   const groups = React.useMemo(() => createPersonPersonalDataGroups(t), [t])
-
-  const zoneSections = React.useMemo<ZoneSectionDescriptor[]>(() => [
-    { id: 'personalData', icon: User, label: t('customers.people.form.groups.personalData', 'Personal data') },
-    { id: 'companyRole', icon: Building2, label: t('customers.people.form.groups.companyRole', 'Company & role') },
-    { id: 'customFields', icon: Hash, label: t('customers.people.form.groups.customAttributes', 'Custom attributes') },
-    { id: 'roles', icon: Users, label: t('customers.people.form.groups.roles', 'My roles') },
-  ], [t])
 
   // Data loading
   const initialLoadDoneRef = React.useRef(false)
@@ -481,7 +474,7 @@ export default function PersonDetailV2Page({ params }: { params?: { id?: string 
     return (
       <Page>
         <PageBody>
-          <LoadingMessage label={t('customers.people.detail.loading', 'Loading person…')} />
+          <DetailPageSkeleton label={t('customers.people.detail.loading', 'Loading person…')} />
         </PageBody>
       </Page>
     )
@@ -624,7 +617,6 @@ export default function PersonDetailV2Page({ params }: { params?: { id?: string 
                           }}
                           onActionChange={handleSectionActionChange}
                           onEditActivity={handleEditActivity}
-                          tone="soft"
                         />
                       </div>
                     )
@@ -739,10 +731,8 @@ export default function PersonDetailV2Page({ params }: { params?: { id?: string 
             ) : (
               <CollapsibleZoneLayout
                 pageType="person-v2"
-                toggleTone="soft"
                 entityName={personName}
                 isDirty={isDirty}
-                sections={zoneSections}
                 zone1={zone1Content}
                 zone2={zone2Content}
               />

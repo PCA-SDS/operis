@@ -1,14 +1,16 @@
 'use client'
 
 import * as React from 'react'
-import { Calendar, CalendarClock, Clock, Mail, Phone, StickyNote, Users } from 'lucide-react'
+import { Mail, Phone, StickyNote, Users } from 'lucide-react'
 import { toZonedTime } from 'date-fns-tz'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { Button } from '@open-mercato/ui/primitives/button'
 import type { TranslateFn } from '@open-mercato/shared/lib/i18n/context'
 import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { ActivitiesDayStrip } from './ActivitiesDayStrip'
 import { ActivitiesAddNewMenu, type ActivityKind } from './ActivitiesAddNewMenu'
+import { formatDurationShort } from './ActivityHistoryParts'
 import type { InteractionSummary } from './types'
 import { isOpenInteractionStatus } from '../../lib/interactionStatus'
 import { createLogger } from '@open-mercato/shared/lib/logger'
@@ -75,32 +77,12 @@ function isOverdue(activity: InteractionSummary, now: Date): boolean {
   return date.getTime() < now.getTime() && isOpenInteractionStatus(activity.status)
 }
 
-// Visible window for the day-strip + activity list. Mirrors `VISIBLE_DAYS = 5`
-// in ActivitiesDayStrip with extra padding so navigation forward/back doesn't
-// race the fetch.
+// Days loaded either side of the window's centre for the day strip and the
+// list; the centre follows the selected day (see `windowCenter`).
 const FETCH_WINDOW_DAYS = 31
 
 function formatTime(date: Date): string {
   return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
-}
-
-function formatRelativeDay(date: Date, t: TranslateFn): string {
-  const now = new Date()
-  const today = startOfDay(now)
-  const target = startOfDay(date)
-  const diff = Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-  if (diff === 0) return t('customers.timeline.date.today', 'today')
-  if (diff === 1) return t('customers.timeline.date.tomorrow', 'tomorrow')
-  if (diff === -1) return t('customers.timeline.date.yesterday', 'yesterday')
-  return target.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })
-}
-
-function formatDuration(minutes: number, t: TranslateFn): string {
-  if (minutes >= 60) {
-    const hours = Math.round((minutes / 60) * 10) / 10
-    return t('customers.activities.calendar.hoursShort', '{hours}h', { hours })
-  }
-  return t('customers.activities.calendar.minutesShort', '{minutes}m', { minutes })
 }
 
 export function ActivitiesCard({
@@ -120,6 +102,13 @@ export function ActivitiesCard({
   // produced "Person view shows only Calls" because the limit happened to drop
   // every non-call entry from the prefix-window).
   const [fetchedEvents, setFetchedEvents] = React.useState<InteractionSummary[] | null>(null)
+  // The loaded window is centred on today and moves to wherever the reader
+  // takes the strip once its week would run past either edge.
+  const [windowCenter, setWindowCenter] = React.useState<Date>(() => startOfDay(new Date()))
+  React.useEffect(() => {
+    const distanceDays = Math.abs(selectedDate.getTime() - windowCenter.getTime()) / 86_400_000
+    if (distanceDays > FETCH_WINDOW_DAYS - 7) setWindowCenter(startOfDay(selectedDate))
+  }, [selectedDate, windowCenter])
 
   React.useEffect(() => {
     if (!entityId) {
@@ -127,11 +116,10 @@ export function ActivitiesCard({
       return
     }
     const controller = new AbortController()
-    const today = startOfDay(new Date())
-    const fromDate = new Date(today)
-    fromDate.setDate(today.getDate() - FETCH_WINDOW_DAYS)
-    const toDate = new Date(today)
-    toDate.setDate(today.getDate() + FETCH_WINDOW_DAYS)
+    const fromDate = new Date(windowCenter)
+    fromDate.setDate(windowCenter.getDate() - FETCH_WINDOW_DAYS)
+    const toDate = new Date(windowCenter)
+    toDate.setDate(windowCenter.getDate() + FETCH_WINDOW_DAYS)
     toDate.setHours(23, 59, 59, 999)
     const params = new URLSearchParams({
       entityId,
@@ -160,7 +148,7 @@ export function ActivitiesCard({
       }
     })()
     return () => controller.abort()
-  }, [entityId, refreshKey])
+  }, [entityId, refreshKey, windowCenter])
 
   // Prefer the broader fetch when it has resolved; fall back to the seed prop
   // (route-supplied preview) only while the fetch is in flight or after a
@@ -192,35 +180,27 @@ export function ActivitiesCard({
   }, [effectiveEvents])
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border bg-card pt-4 pb-4 px-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Calendar className="size-4 text-foreground" />
-          <h3 className="text-sm font-semibold leading-none text-foreground">
-            {t('customers.activities.card.title', 'Activities')}
-          </h3>
-          {overdueCount > 0 ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-status-error-bg px-1.5 py-0.5 text-xs font-medium text-status-error-text">
-              <CalendarClock className="size-4" />
-              {t('customers.activities.card.overdue', '{count} overdue', { count: overdueCount })}
-            </span>
-          ) : null}
-        </div>
-        <ActivitiesAddNewMenu onSelect={onAddNew} />
-      </div>
-
+    <section
+      aria-label={t('customers.activities.card.title', 'Activities')}
+      className="flex flex-col gap-4 rounded-xl border border-card-edge bg-surface p-4 shadow-xs"
+    >
       <ActivitiesDayStrip
         entityId={entityId}
         selectedDate={selectedDate}
         onSelectDate={setSelectedDate}
         refreshKey={refreshKey}
         events={fetchedEvents ?? undefined}
+        titleAdornment={overdueCount > 0 ? (
+          <span className="shrink-0 text-sm font-medium text-status-error-text">
+            {t('customers.activities.card.overdue', '{count} overdue', { count: overdueCount })}
+          </span>
+        ) : null}
+        actions={<ActivitiesAddNewMenu onSelect={onAddNew} />}
       />
 
-      {eventsForSelectedDay.length > 0 ? (
-        <>
-          <div className="h-px w-full bg-border" />
-          <ul className="flex flex-col">
+      <div className="border-t border-border pt-3">
+        {eventsForSelectedDay.length > 0 ? (
+          <ul className="-mx-2 flex flex-col">
             {eventsForSelectedDay.map((activity) => (
               <PlannedEventRow
                 key={activity.id}
@@ -231,16 +211,13 @@ export function ActivitiesCard({
               />
             ))}
           </ul>
-        </>
-      ) : (
-        <>
-          <div className="h-px w-full bg-border" />
-          <p className="px-1 py-2 text-xs text-muted-foreground">
+        ) : (
+          <p className="py-2 text-sm text-muted-foreground">
             {t('customers.activities.card.empty', 'Nothing scheduled for this day.')}
           </p>
-        </>
-      )}
-    </div>
+        )}
+      </div>
+    </section>
   )
 }
 
@@ -261,48 +238,48 @@ function PlannedEventRow({ activity, onClick, entityCompanyName, t }: PlannedEve
   const typeLabel = labelForType(activity.interactionType, t)
   const subtitleSuffix = activity.dealTitle ?? entityCompanyName ?? null
   const subtitle = subtitleSuffix ? `${typeLabel} · ${subtitleSuffix}` : typeLabel
-  const interactive = !!onClick
+  const content = (
+    <>
+      <span
+        className={cn(
+          'w-18 shrink-0 whitespace-nowrap text-sm tabular-nums',
+          overdue ? 'font-medium text-status-error-text' : 'text-foreground',
+        )}
+      >
+        {validDate ? formatTime(date) : ''}
+      </span>
+      <Icon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="truncate text-sm font-medium text-foreground">
+          {activity.title ?? activity.body ?? typeLabel}
+        </span>
+        <span className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+          <span className="truncate">{subtitle}</span>
+          {duration ? (
+            <>
+              <span aria-hidden="true">·</span>
+              <span className="shrink-0">{formatDurationShort(duration, t)}</span>
+            </>
+          ) : null}
+        </span>
+      </span>
+    </>
+  )
 
   return (
     <li>
-      <button
-        type="button"
-        onClick={interactive ? () => onClick?.(activity) : undefined}
-        disabled={!interactive}
-        className={cn(
-          'flex w-full items-start gap-[9px] pt-[8px] text-left transition-colors',
-          interactive ? 'cursor-pointer rounded-md hover:bg-accent/30 px-1' : 'px-1',
-        )}
-      >
-        <div className="flex h-[44px] w-[43px] shrink-0 flex-col gap-[2px] pt-[2px]">
-          <span className="text-xs font-semibold leading-none text-foreground">
-            {validDate ? formatTime(date) : ''}
-          </span>
-          <span className="text-overline leading-none font-normal text-muted-foreground">
-            {validDate ? formatRelativeDay(date, t) : ''}
-          </span>
-        </div>
-        <div className="flex shrink-0 items-center justify-center rounded-full bg-muted border-4 border-background size-7">
-          <Icon className="size-4 text-muted-foreground" />
-        </div>
-        <div className="min-w-0 flex flex-1 flex-col gap-[4px]">
-          <span className="text-sm leading-5 tracking-[-0.084px] text-foreground">
-            {activity.title ?? activity.body ?? labelForType(activity.interactionType, t)}
-          </span>
-          {duration ? (
-            <span className={cn(
-              'inline-flex w-fit items-center gap-[2px] rounded-full pl-[4px] pr-[8px] py-[2px] text-xs font-medium leading-[16px]',
-              overdue
-                ? 'bg-status-error-bg text-status-error-text'
-                : 'bg-status-warning-bg text-status-warning-text',
-            )}>
-              <Clock className="size-4" />
-              {formatDuration(duration, t)}
-            </span>
-          ) : null}
-          <span className="text-overline font-normal text-muted-foreground">{subtitle}</span>
-        </div>
-      </button>
+      {onClick ? (
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => onClick(activity)}
+          className="h-auto w-full justify-start gap-3 whitespace-normal rounded-lg px-2 py-2 text-left font-normal hover:bg-surface-muted"
+        >
+          {content}
+        </Button>
+      ) : (
+        <div className="flex w-full items-center gap-3 px-2 py-2">{content}</div>
+      )}
     </li>
   )
 }

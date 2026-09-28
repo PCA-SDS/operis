@@ -5,6 +5,7 @@ import { Spinner } from '@open-mercato/ui/primitives/spinner'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { ErrorMessage } from '@open-mercato/ui/backend/detail'
+import { PageHeader } from '@open-mercato/ui/backend/Page'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
@@ -225,41 +226,36 @@ export function CachePanel() {
     }
   }, [canManage, confirm, segmentPurges, t, handleRefresh, runMutation, cacheMutationContext]);
 
+  const title = t('configs.cache.title', 'Cache overview')
+  const description = t('configs.cache.description', 'Inspect cached responses and clear segments when necessary.')
+
   if (state.loading) {
     return (
-      <section className="space-y-3 rounded-lg border bg-surface p-6">
+      <div className="space-y-6">
         {ConfirmDialogElement}
-        <header className="space-y-1">
-          <h2 className="text-lg font-semibold">{t('configs.cache.title', 'Cache overview')}</h2>
-          <p className="text-sm text-muted-foreground">
-            {t('configs.cache.description', 'Inspect cached responses and clear segments when necessary.')}
-          </p>
-        </header>
+        <PageHeader title={title} description={description} />
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Spinner className="h-4 w-4" />
           {t('configs.cache.loading', 'Loading cache statistics…')}
         </div>
-      </section>
+      </div>
     )
   }
 
   if (state.error) {
     return (
-      <section className="space-y-3 rounded-lg border bg-surface p-6">
+      <div className="space-y-6">
         {ConfirmDialogElement}
-        <header className="space-y-1">
-          <h2 className="text-lg font-semibold">{t('configs.cache.title', 'Cache overview')}</h2>
-          <p className="text-sm text-muted-foreground">
-            {t('configs.cache.description', 'Inspect cached responses and clear segments when necessary.')}
-          </p>
-        </header>
-        <ErrorMessage label={state.error} />
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" type="button" onClick={handleRefresh}>
-            {t('configs.cache.retry', 'Retry')}
-          </Button>
+        <PageHeader title={title} description={description} />
+        <div className="space-y-3">
+          <ErrorMessage label={state.error} />
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" type="button" onClick={handleRefresh}>
+              {t('configs.cache.retry', 'Retry')}
+            </Button>
+          </div>
         </div>
-      </section>
+      </div>
     )
   }
 
@@ -267,46 +263,44 @@ export function CachePanel() {
   const canShowActions = !checkingFeature && canManage
 
   return (
-    <section className="space-y-6 rounded-lg border bg-surface p-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-1">
-          <h2 className="text-lg font-semibold">{t('configs.cache.title', 'Cache overview')}</h2>
-          <p className="text-sm text-muted-foreground">
-            {t('configs.cache.description', 'Inspect cached responses and clear segments when necessary.')}
-          </p>
-          {stats ? (
-            <>
-              <p className="text-xs text-muted-foreground">
-                {t(
-                  'configs.cache.generatedAt',
-                  'Stats generated {{timestamp}}',
-                  { timestamp: new Date(stats.generatedAt).toLocaleString() }
-                )}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {t(
-                  'configs.cache.totalEntries',
-                  '{{count}} cached entries',
-                  { count: stats.totalKeys }
-                )}
-              </p>
-            </>
-          ) : null}
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" type="button" onClick={handleRefresh}>
-            {t('configs.cache.refresh', 'Refresh')}
-          </Button>
-          {canShowActions ? (
-            <Button variant="destructive" type="button" disabled={purgingAll} onClick={() => { void handlePurgeAll() }}>
-              {purgingAll
-                ? t('configs.cache.purgeAllLoading', 'Purging…')
-                : t('configs.cache.purgeAll', 'Purge all cache')}
+    <div className="space-y-6">
+      <PageHeader
+        title={title}
+        description={description}
+        actions={(
+          <>
+            <Button variant="outline" type="button" onClick={handleRefresh}>
+              {t('configs.cache.refresh', 'Refresh')}
             </Button>
-          ) : null}
-        </div>
-      </header>
-      <div className="space-y-4 rounded-xl border border-border bg-surface shadow-sm p-4">
+            {canShowActions ? (
+              <Button variant="destructive" type="button" disabled={purgingAll} onClick={() => { void handlePurgeAll() }}>
+                {purgingAll
+                  ? t('configs.cache.purgeAllLoading', 'Purging…')
+                  : t('configs.cache.purgeAll', 'Purge all cache')}
+              </Button>
+            ) : null}
+          </>
+        )}
+      />
+      <div className="space-y-4 rounded-xl border border-card-edge bg-surface shadow-sm p-4">
+        {stats ? (
+          <div className="space-y-1">
+            <p className="text-xs text-muted-foreground">
+              {t(
+                'configs.cache.generatedAt',
+                'Stats generated {{timestamp}}',
+                { timestamp: new Date(stats.generatedAt).toLocaleString() }
+              )}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {t(
+                'configs.cache.totalEntries',
+                '{{count}} cached entries',
+                { count: stats.totalKeys }
+              )}
+            </p>
+          </div>
+        ) : null}
         {stats && stats.segments.length ? (
           <div className="overflow-x-auto">
             <Table density="compact" columnCount={canShowActions ? 5 : 4} className="min-w-[560px]">
@@ -375,7 +369,7 @@ export function CachePanel() {
         )}
       </div>
       {ConfirmDialogElement}
-    </section>
+    </div>
   )
 }
 

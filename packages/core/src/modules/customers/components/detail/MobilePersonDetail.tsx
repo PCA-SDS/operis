@@ -3,7 +3,7 @@
 import * as React from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
-import { Tabs, TabsList, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
+import { Tabs, TabsList, TabsPanel, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
 
 export type MobilePersonZone = 'details' | 'activity'
 
@@ -83,14 +83,12 @@ export function MobilePersonDetail({
         <Tabs
           value={zone}
           onValueChange={(value) => handleZoneChange(value as MobilePersonZone)}
-          variant="underline"
         >
           <TabsList
             aria-label={t(
               'customers.people.mobile.zoneSwitcher.ariaLabel',
               'Zone selector',
             )}
-            className="w-full"
           >
             {ZONES.map((entry) => (
               <TabsTrigger
@@ -104,13 +102,13 @@ export function MobilePersonDetail({
           </TabsList>
         </Tabs>
       </div>
-      <div
+      <TabsPanel
+        value={zone}
         id={`mobile-person-zone-${zone}`}
-        role="tabpanel"
         aria-labelledby={`mobile-person-zone-${zone}-tab`}
       >
         {zone === 'details' ? zone1 : zone2}
-      </div>
+      </TabsPanel>
     </div>
   )
 }

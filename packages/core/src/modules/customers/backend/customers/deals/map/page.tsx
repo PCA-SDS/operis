@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import Link from 'next/link'
-import { Page, PageBody } from '@open-mercato/ui/backend/Page'
+import { Page, PageBody, PAGE_TITLE_CLASS } from '@open-mercato/ui/backend/Page'
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -53,7 +53,7 @@ export default function DealsMapPage(): React.ReactElement {
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             {/* Same treatment as the deals list and kanban views — see Page.tsx PageHeader. */}
-            <h1 className="text-2xl font-normal leading-tight text-foreground sm:text-3xl">
+            <h1 className={PAGE_TITLE_CLASS}>
               {translateWithFallback(t, 'customers.nav.deals.map', 'Deals Map')}
             </h1>
             <SearchInput

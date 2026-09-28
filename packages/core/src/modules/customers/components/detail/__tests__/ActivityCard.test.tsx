@@ -45,17 +45,28 @@ function createActivity(overrides: Partial<InteractionSummary> = {}): Interactio
 }
 
 describe('ActivityCard', () => {
-  it('renders call details, AI actions, and participant direction', () => {
+  it('renders a call as a history row: title, body, location and one quiet meta line', () => {
     renderWithProviders(<ActivityCard activity={createActivity()} />)
 
-    expect(screen.getByText('Discovery call (32 min)')).toBeInTheDocument()
+    expect(screen.getByText('Discovery call')).toBeInTheDocument()
     expect(screen.getByText('Remote')).toBeInTheDocument()
     expect(screen.getByText('Discussed roadmap, pricing, and next steps for rollout.')).toBeInTheDocument()
     expect(screen.getByText('Jane Doe')).toBeInTheDocument()
     expect(screen.getByText('with')).toBeInTheDocument()
     expect(screen.getByText('Sarah Mitchell')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Summarize/i })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /Action items/i })).toBeDisabled()
+    // The duration moved out of the title into the meta line.
+    expect(screen.getByText('32m')).toBeInTheDocument()
+    // No placeholder AI chips: they had no actions behind them.
+    expect(screen.queryByRole('button', { name: /Summarize/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Action items/i })).toBeNull()
+  })
+
+  it('titles an untitled activity by its type and keeps its body', () => {
+    renderWithProviders(<ActivityCard activity={createActivity({ title: null, interactionType: 'note' })} />)
+
+    // The title and the meta line's type both read "Note".
+    expect(screen.getAllByText('Note')).toHaveLength(2)
+    expect(screen.getByText('Discussed roadmap, pricing, and next steps for rollout.')).toBeInTheDocument()
   })
 
   it('uses email recipient wording for email activities', () => {
@@ -73,8 +84,7 @@ describe('ActivityCard', () => {
 
     expect(screen.getByText('to')).toBeInTheDocument()
     expect(screen.getByText('buyer@example.com')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Show email/i })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /Sentiment/i })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /Show email/i })).toBeNull()
   })
 
   it.each(['planned', 'in_progress', 'waiting', 'follow_up_custom'])(

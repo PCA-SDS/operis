@@ -18,12 +18,13 @@ describe('Button destructive variants', () => {
   // halves of that contract — swapping them back is a visual regression that
   // no other test would catch.
 
-  it('destructive is quiet: destructive border and text on the page surface', () => {
+  it('destructive is quiet: red text on the neutral second-rank fill, no hairline', () => {
     const classes = classesOf('destructive')
     expect(classes).toContain('border')
-    expect(classes).toContain('border-destructive/40')
-    expect(classes).toContain('bg-surface')
+    expect(classes).toContain('border-transparent')
+    expect(classes).toContain('bg-primary-soft')
     expect(classes).toContain('text-destructive')
+    expect(classes).not.toContain('border-destructive/40')
   })
 
   it('destructive does not fill with the destructive surface', () => {
@@ -66,5 +67,36 @@ describe('Button destructive variants', () => {
     const classNames = getByRole('button').className.split(/\s+/)
     expect(classNames).toContain('bg-primary')
     expect(classNames).not.toContain('text-destructive')
+  })
+})
+
+describe('Button toggle variant', () => {
+  // Toggle chips used to switch between `default` and `soft`, so a chosen chip
+  // was the blue primary fill while a chosen segment of a SegmentedControl was
+  // the near-black pill: two looks for one idea, often in the same dialog.
+
+  it('rests as the second-rank button', () => {
+    const toggle = classesOf('toggle')
+    for (const cls of classesOf('soft')) expect(toggle).toContain(cls)
+  })
+
+  it('takes the segmented pill when pressed, never the primary fill', () => {
+    const toggle = classesOf('toggle')
+    expect(toggle).toContain('aria-pressed:bg-sidebar')
+    expect(toggle).toContain('aria-pressed:text-sidebar-foreground')
+    expect(toggle.some((cls) => /(^|:)bg-primary($|-hover|-active)/.test(cls))).toBe(false)
+  })
+
+  it('reads its state from aria-pressed alone', () => {
+    const { getAllByRole } = render(
+      <>
+        <Button variant="toggle" aria-pressed>On</Button>
+        <Button variant="toggle" aria-pressed={false}>Off</Button>
+      </>,
+    )
+    const [on, off] = getAllByRole('button')
+    expect(on.className).toBe(off.className)
+    expect(on).toHaveAttribute('aria-pressed', 'true')
+    expect(off).toHaveAttribute('aria-pressed', 'false')
   })
 })

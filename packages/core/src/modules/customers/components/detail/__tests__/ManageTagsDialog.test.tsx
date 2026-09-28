@@ -80,7 +80,7 @@ describe('ManageTagsDialog', () => {
     })
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Partner Stage/ })).toBeInTheDocument()
+      expect(screen.getByRole('tab', { name: /Partner Stage/ })).toHaveAttribute('aria-selected', 'true')
     })
   })
 

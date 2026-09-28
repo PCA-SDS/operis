@@ -9,5 +9,6 @@ export const metadata = {
   pageOrder: 10,
   pagePriority: 10,
   icon: 'message-square',
+  loadingSkeleton: 'conversation',
   breadcrumb: [{ label: 'Conversations', labelKey: 'chat.nav.conversations' }],
 }

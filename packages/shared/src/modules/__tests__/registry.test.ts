@@ -433,6 +433,15 @@ describe('resolvePageRouteMetadata', () => {
       placement: undefined,
     })
   })
+
+  it('carries the fields the backend loading state frames and fills a page from', () => {
+    const resolved = resolvePageRouteMetadata('/backend/chat', {
+      moduleSidebar: false,
+      loadingSkeleton: 'conversation',
+    })
+    expect(resolved.moduleSidebar).toBe(false)
+    expect(resolved.loadingSkeleton).toBe('conversation')
+  })
 })
 
 describe('Module type with workers', () => {

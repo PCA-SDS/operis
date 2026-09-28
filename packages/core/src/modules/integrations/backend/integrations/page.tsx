@@ -1,7 +1,7 @@
 "use client"
 import * as React from 'react'
 import Link from 'next/link'
-import { Page, PageBody } from '@open-mercato/ui/backend/Page'
+import { Page, PageBody, PageHeader } from '@open-mercato/ui/backend/Page'
 import { Card, CardHeader, CardTitle, CardContent } from '@open-mercato/ui/primitives/card'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Switch } from '@open-mercato/ui/primitives/switch'
@@ -298,9 +298,52 @@ export default function IntegrationsMarketplacePage() {
     )
   }, [t])
 
+  const pageHeader = (
+    <PageHeader
+      title={t('integrations.marketplace.title')}
+      description={t('integrations.marketplace.description')}
+      actions={(
+        <>
+          <div className="relative w-full min-w-[200px] max-w-xs lg:w-64">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+            <Input
+              placeholder={t('integrations.marketplace.search')}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="pl-8"
+            />
+          </div>
+          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span className="sr-only">{t('integrations.marketplace.sort.label', 'Sort by')}</span>
+            <select
+              className="h-9 rounded-md border border-input bg-input-bg px-2 text-sm"
+              value={sortField}
+              onChange={(e) => setSortField(e.target.value as typeof sortField)}
+            >
+              <option value="title">{t('integrations.marketplace.sort.title', 'Title')}</option>
+              <option value="category">{t('integrations.marketplace.sort.category', 'Category')}</option>
+              <option value="enabledAt">{t('integrations.marketplace.sort.enabledAt', 'Enabled date')}</option>
+              <option value="healthStatus">{t('integrations.marketplace.sort.health', 'Health')}</option>
+            </select>
+          </label>
+          <select
+            className="h-9 rounded-md border border-input bg-input-bg px-2 text-sm"
+            value={sortOrder}
+            onChange={(e) => setSortOrder(e.target.value as typeof sortOrder)}
+            aria-label={t('integrations.marketplace.sort.order', 'Sort order')}
+          >
+            <option value="asc">{t('integrations.marketplace.sort.asc', 'Ascending')}</option>
+            <option value="desc">{t('integrations.marketplace.sort.desc', 'Descending')}</option>
+          </select>
+        </>
+      )}
+    />
+  )
+
   if (isLoading && !data) {
     return (
       <Page>
+        {pageHeader}
         <PageBody>
           <div className="flex items-center justify-center py-16">
             <Spinner />
@@ -312,49 +355,9 @@ export default function IntegrationsMarketplacePage() {
 
   return (
     <Page>
+      {pageHeader}
       <PageBody className="space-y-6">
-        <section className="space-y-6 rounded-lg border bg-surface p-6">
-          <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="space-y-0.5">
-              <h2 className="text-lg font-semibold">{t('integrations.marketplace.title')}</h2>
-              <p className="text-sm text-muted-foreground">
-                {t('integrations.marketplace.description')}
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="relative w-full min-w-[200px] max-w-xs lg:w-64">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
-                <Input
-                  placeholder={t('integrations.marketplace.search')}
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                  className="pl-8"
-                />
-              </div>
-              <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span className="sr-only">{t('integrations.marketplace.sort.label', 'Sort by')}</span>
-                <select
-                  className="h-9 rounded-md border border-input bg-input-bg px-2 text-sm"
-                  value={sortField}
-                  onChange={(e) => setSortField(e.target.value as typeof sortField)}
-                >
-                  <option value="title">{t('integrations.marketplace.sort.title', 'Title')}</option>
-                  <option value="category">{t('integrations.marketplace.sort.category', 'Category')}</option>
-                  <option value="enabledAt">{t('integrations.marketplace.sort.enabledAt', 'Enabled date')}</option>
-                  <option value="healthStatus">{t('integrations.marketplace.sort.health', 'Health')}</option>
-                </select>
-              </label>
-              <select
-                className="h-9 rounded-md border border-input bg-input-bg px-2 text-sm"
-                value={sortOrder}
-                onChange={(e) => setSortOrder(e.target.value as typeof sortOrder)}
-                aria-label={t('integrations.marketplace.sort.order', 'Sort order')}
-              >
-                <option value="asc">{t('integrations.marketplace.sort.asc', 'Ascending')}</option>
-                <option value="desc">{t('integrations.marketplace.sort.desc', 'Descending')}</option>
-              </select>
-            </div>
-          </header>
+        <section className="space-y-6 rounded-xl border border-card-edge bg-surface p-6 shadow-sm">
 
           <div className="lg:hidden">
             <FilterBar
@@ -376,8 +379,9 @@ export default function IntegrationsMarketplacePage() {
                 <Button
                   key={category}
                   type="button"
-                  variant={selectedCategory === category ? 'default' : 'outline'}
+                  variant="toggle"
                   size="sm"
+                  aria-pressed={selectedCategory === category}
                   onClick={() => setFilterValues(normalizeIntegrationMarketplaceFilterValues({ category }))}
                 >
                   {Icon ? <Icon className="mr-1.5 h-3.5 w-3.5" /> : null}

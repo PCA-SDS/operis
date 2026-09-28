@@ -73,7 +73,6 @@ export type LinkEntityAdapter<TDetails = unknown, TLinkSettings = Record<string,
 
   dialogTitle: string
   dialogSubtitle?: string
-  headerIcon?: React.ReactNode
   sectionLabel?: string
   searchPlaceholder: string
   searchEmptyHint: string
@@ -519,22 +518,11 @@ export function LinkEntityDialog<TDetails = unknown, TLinkSettings = Record<stri
           onKeyDown={handleKeyDown}
           aria-hidden={nestedOpen ? 'true' : undefined}
         >
-          <DialogHeader className="flex-row items-center gap-3 space-y-0">
-            {adapter.headerIcon ? (
-              <div className="flex size-6 shrink-0 items-center justify-center text-foreground">
-                {adapter.headerIcon}
-              </div>
+          <DialogHeader>
+            <DialogTitle>{adapter.dialogTitle}</DialogTitle>
+            {adapter.dialogSubtitle ? (
+              <DialogDescription>{adapter.dialogSubtitle}</DialogDescription>
             ) : null}
-            <div className="min-w-0 flex-1">
-              <DialogTitle>
-                {adapter.dialogTitle}
-              </DialogTitle>
-              {adapter.dialogSubtitle ? (
-                <DialogDescription className="mt-0.5 text-sm text-muted-foreground">
-                  {adapter.dialogSubtitle}
-                </DialogDescription>
-              ) : null}
-            </div>
           </DialogHeader>
 
           <div className="flex min-h-0 flex-1 flex-col lg:flex-row" data-dialog-form="true">
@@ -566,7 +554,7 @@ export function LinkEntityDialog<TDetails = unknown, TLinkSettings = Record<stri
                       <Button
                         key={filter.id}
                         type="button"
-                        variant={isActive ? 'default' : 'soft'}
+                        variant="toggle"
                         aria-pressed={isActive}
                         onClick={() => setActiveFilter(filter.id)}
                       >
@@ -583,7 +571,7 @@ export function LinkEntityDialog<TDetails = unknown, TLinkSettings = Record<stri
                             className={cn(
                               'inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-xs',
                               isActive
-                                ? 'bg-primary-foreground/20 text-primary-foreground'
+                                ? 'bg-sidebar-foreground/20 text-sidebar-foreground'
                                 : 'bg-surface text-muted-foreground',
                             )}
                           >
@@ -636,7 +624,7 @@ export function LinkEntityDialog<TDetails = unknown, TLinkSettings = Record<stri
                           }
                         }}
                         className={cn(
-                          'group flex cursor-pointer items-center gap-3 rounded-lg border px-3.5 py-3 transition-colors focus:outline-none focus:ring-2 focus:ring-ring/40',
+                          'group flex cursor-pointer items-center gap-3 rounded-lg border px-3.5 py-3 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40',
                           checked
                             ? 'border-border bg-muted/50'
                             : 'border-border/70 bg-card hover:bg-muted/30',
@@ -662,7 +650,7 @@ export function LinkEntityDialog<TDetails = unknown, TLinkSettings = Record<stri
                   <button
                     type="button"
                     onClick={() => setNestedOpen(true)}
-                    className="mt-2 flex items-center gap-3 rounded-lg border border-dashed border-border px-4 py-3.5 text-left transition-colors hover:bg-muted/30 focus:outline-none focus:ring-2 focus:ring-ring/40"
+                    className="mt-2 flex items-center gap-3 rounded-lg border border-dashed border-border px-4 py-3.5 text-left transition-colors hover:bg-muted/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                   >
                     <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
                       <Plus className="size-4" />

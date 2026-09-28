@@ -6,48 +6,39 @@ import { Tabs, TabsList, TabsTrigger } from '../tabs'
 import { FormSection } from '../../backend/forms/FormSection'
 
 describe('IconButton soft variant', () => {
-  it('paints the brand-tinted soft fill with a transparent border', () => {
+  it('paints the neutral soft fill with a transparent border, white only inside a form section', () => {
     render(<IconButton variant="soft" aria-label="Edit">x</IconButton>)
-    const button = screen.getByRole('button', { name: 'Edit' })
-    expect(button.className).toContain('bg-primary-soft')
-    expect(button.className).toContain('border-transparent')
-    expect(button.className).not.toContain('bg-surface')
+    const classes = screen.getByRole('button', { name: 'Edit' }).className.split(/\s+/)
+    expect(classes).toContain('bg-primary-soft')
+    expect(classes).toContain('border-transparent')
+    expect(classes).not.toContain('bg-surface')
+    expect(classes).toContain('in-data-[crud-section=true]:bg-surface')
   })
 
-  it('leaves the default outline variant unchanged', () => {
+  it('draws the default outline variant as the same borderless soft button', () => {
     render(<IconButton aria-label="Edit">x</IconButton>)
-    expect(screen.getByRole('button', { name: 'Edit' }).className).toContain('border-border')
+    const classes = screen.getByRole('button', { name: 'Edit' }).className.split(/\s+/)
+    expect(classes).toContain('bg-primary-soft')
+    expect(classes).toContain('border-transparent')
+    expect(classes).not.toContain('border-border')
   })
 })
 
-describe('Tabs reserveActiveWidth', () => {
-  function renderTabs(reserve?: boolean) {
-    return render(
-      <Tabs value="a" onValueChange={() => {}} variant="underline" reserveActiveWidth={reserve}>
+describe('Tabs keep one width per tab', () => {
+  it('sets every tab in the same weight, so selecting one moves nothing', () => {
+    render(
+      <Tabs value="a" onValueChange={() => {}}>
         <TabsList aria-label="Sections">
           <TabsTrigger value="a">Alpha</TabsTrigger>
           <TabsTrigger value="b">Beta</TabsTrigger>
         </TabsList>
       </Tabs>,
     )
-  }
-
-  it('reserves the semibold width on every trigger without duplicating the label', () => {
-    renderTabs(true)
     const tabs = screen.getAllByRole('tab')
     expect(tabs.map((tab) => tab.textContent)).toEqual(['Alpha', 'Beta'])
     for (const tab of tabs) {
-      const label = tab.querySelector('[data-label]') as HTMLElement
-      expect(label.getAttribute('data-label')).toBe(tab.textContent)
-      expect(label.className).toContain('after:font-semibold')
-      expect(label.className).toContain('after:content-[attr(data-label)]')
-    }
-  })
-
-  it('renders a plain label per trigger by default', () => {
-    renderTabs()
-    for (const tab of screen.getAllByRole('tab')) {
-      expect(tab.querySelector('[data-label]')).toBeNull()
+      expect(tab.className.split(/\s+/)).toContain('font-medium')
+      expect(tab.className).not.toMatch(/font-(semibold|bold)/)
     }
   })
 })

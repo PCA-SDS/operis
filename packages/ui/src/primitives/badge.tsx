@@ -37,23 +37,23 @@ const badgeVariants = cva(
   {
     variants: {
       variant: {
-        default: 'border-transparent bg-primary text-primary-foreground shadow',
+        default: 'border-transparent bg-primary text-primary-foreground',
         secondary: 'border-transparent bg-secondary text-secondary-foreground',
         // Kept verbatim from the base contract — BC guarantee in spec
         // 2026-05-13-ds-foundation-v5.md mandates existing variants must
         // render byte-identically. For the soft error-toned look, use
         // the new `error` variant below.
-        destructive: 'border-transparent bg-destructive text-destructive-foreground shadow',
+        destructive: 'border-transparent bg-destructive text-destructive-foreground',
         outline: 'text-foreground',
         muted: 'border-transparent bg-muted text-muted-foreground',
-        success: 'border-status-success-border bg-status-success-bg text-status-success-text',
-        warning: 'border-status-warning-border bg-status-warning-bg text-status-warning-text',
-        info: 'border-status-info-border bg-status-info-bg text-status-info-text',
-        neutral: 'border-status-neutral-border bg-status-neutral-bg text-status-neutral-text',
-        error: 'border-status-error-border bg-status-error-bg text-status-error-text',
+        success: 'border-transparent bg-status-success-bg text-status-success-text',
+        warning: 'border-transparent bg-status-warning-bg text-status-warning-text',
+        info: 'border-transparent bg-status-info-bg text-status-info-text',
+        neutral: 'border-transparent bg-status-neutral-bg text-status-neutral-text',
+        error: 'border-transparent bg-status-error-bg text-status-error-text',
         // Phase B.8 addition — brand-violet tinted pill for custom
         // views / renewal tags. Mirrors `Tag` brand variant.
-        brand: 'border-brand-violet/30 bg-brand-violet/10 text-brand-violet',
+        brand: 'border-transparent bg-brand-violet/10 text-brand-violet',
       },
       size: {
         sm: 'px-2 py-0.5 text-overline',

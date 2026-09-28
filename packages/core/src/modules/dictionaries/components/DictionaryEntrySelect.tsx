@@ -20,6 +20,8 @@ import {
   Select,
   SelectContent,
   SelectItem,
+  SelectItemLeading,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from '@open-mercato/ui/primitives/select'
@@ -59,6 +61,17 @@ export type DictionaryOption = {
   label: string
   color: string | null
   icon: string | null
+}
+
+const ADD_ACTION_VALUE = '__om_dictionary_add__'
+const MANAGE_ACTION_VALUE = '__om_dictionary_manage__'
+
+/** An entry's mark in a menu or field: its colour as a dot, else its icon. */
+function renderEntryMark(option: Pick<DictionaryOption, 'color' | 'icon'>): React.ReactNode {
+  if (option.color) {
+    return <span aria-hidden className="block size-2.5 rounded-full" style={{ backgroundColor: option.color }} />
+  }
+  return renderDictionaryIcon(option.icon, 'size-4 text-muted-foreground')
 }
 
 export type DictionarySelectLabels = {
@@ -112,6 +125,15 @@ export type DictionaryEntrySelectProps = {
    * the soft button family.
    */
   addButtonVariant?: 'outline' | 'soft'
+  /**
+   * Where the add and manage actions live. `buttons` (default) keeps the "+"
+   * and settings buttons beside the field and the selected entry's appearance
+   * (swatch, icon and hex) under it. `menu` makes the field a pop-up button:
+   * the actions are the last rows of its menu, and each entry's colour (or
+   * icon) leads its label, in the menu and in the field, so the field is one
+   * control at its full width with nothing drawn around it.
+   */
+  actionsPlacement?: 'buttons' | 'menu'
 }
 
 export function DictionaryEntrySelect({
@@ -134,7 +156,11 @@ export function DictionaryEntrySelect({
   sortOptions = 'label_asc',
   showActiveAppearance = true,
   addButtonVariant = 'outline',
+  actionsPlacement = 'buttons',
 }: DictionaryEntrySelectProps) {
+  const actionsInMenu = actionsPlacement === 'menu'
+  const triggerRef = React.useRef<HTMLButtonElement>(null)
+  const manageLinkRef = React.useRef<HTMLAnchorElement>(null)
   const unavailableMessageId = React.useId()
   const newValueInputId = React.useId()
   const newLabelInputId = React.useId()
@@ -319,6 +345,168 @@ export function DictionaryEntrySelect({
     () => displayOptions.map((option) => `${option.value}:${option.label}`).join('\0'),
     [displayOptions],
   )
+  const canCreate = allowInlineCreate && Boolean(createOption)
+
+  const handleValueChange = React.useCallback((next: string) => {
+    if (!next) return
+    if (next === ADD_ACTION_VALUE) {
+      // Let the menu finish closing (and hand focus back to the field) before
+      // the dialog takes focus.
+      window.setTimeout(() => setDialogOpen(true), 0)
+      return
+    }
+    if (next === MANAGE_ACTION_VALUE) {
+      manageLinkRef.current?.click()
+      return
+    }
+    onChange(next)
+  }, [onChange])
+
+  const createDialogContent = (
+    <DialogContent
+      className="sm:max-w-md"
+      onKeyDown={handleDialogKeyDown}
+      onCloseAutoFocus={actionsInMenu ? (event) => {
+        event.preventDefault()
+        triggerRef.current?.focus()
+      } : undefined}
+    >
+      <DialogHeader>
+        <DialogTitle>{labels.dialogTitle}</DialogTitle>
+        {labels.addPrompt ? <DialogDescription>{labels.addPrompt}</DialogDescription> : null}
+      </DialogHeader>
+      {/* Tinted wells via `[data-dialog-form]`. The error slot below is
+          always rendered at its line height, so the message appearing
+          never pushes the footer down. */}
+      <DialogBody data-dialog-form="true" className="space-y-6">
+        <div className="flex flex-col gap-2.5">
+          <FormFieldLabel htmlFor={newValueInputId} className="mb-0" required>{labels.valueLabel}</FormFieldLabel>
+          <Input
+            id={newValueInputId}
+            type="text"
+            aria-required="true"
+            value={newValue}
+            onChange={(event) => {
+              setNewValue(event.target.value)
+              if (formError) setFormError(null)
+            }}
+            placeholder={labels.valuePlaceholder}
+            autoFocus
+            disabled={saving}
+          />
+        </div>
+        {showLabelInput ? (
+          <div className="flex flex-col gap-2.5">
+            <FormFieldLabel htmlFor={newLabelInputId} className="mb-0">{labels.labelLabel}</FormFieldLabel>
+            <Input
+              id={newLabelInputId}
+              type="text"
+              value={newLabel}
+              onChange={(event) => setNewLabel(event.target.value)}
+              placeholder={labels.labelPlaceholder}
+              disabled={saving}
+            />
+          </div>
+        ) : null}
+        {allowAppearance ? (
+          <AppearanceSelector
+            icon={appearance.icon}
+            color={appearance.color}
+            onIconChange={appearance.setIcon}
+            onColorChange={appearance.setColor}
+            labels={appearanceLabels ?? DEFAULT_APPEARANCE_LABELS}
+          />
+        ) : null}
+        <p role="alert" className="min-h-5 text-sm text-status-error-text">{formError ?? ''}</p>
+      </DialogBody>
+      <DialogFooter>
+        <Button type="button" variant="soft" onClick={() => setDialogOpen(false)} disabled={saving}>
+          {labels.cancelLabel}
+        </Button>
+        <Button
+          type="button"
+          onClick={handleCreate}
+          disabled={saving || !newValue.trim()}
+          title={shortcutHint}
+          aria-keyshortcuts="Meta+Enter Control+Enter"
+        >
+          {saving ? <Spinner className="size-4" /> : <Save className="size-4" />}
+          {labels.saveLabel}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  )
+
+  if (actionsInMenu) {
+    const activeMark = activeOption ? renderEntryMark(activeOption) : null
+    const hasActions = canCreate || showManage
+    return (
+      <div className="space-y-2">
+        {unavailableMessage ? (
+          <p id={unavailableMessageId} className="text-xs text-muted-foreground">
+            {unavailableMessage}
+          </p>
+        ) : null}
+        <Select
+          key={`dictionary-entry:${value ?? ''}:${optionsKey}`}
+          value={value ?? ''}
+          onValueChange={handleValueChange}
+          disabled={disabled}
+        >
+          <SelectTrigger
+            ref={triggerRef}
+            id={id}
+            aria-describedby={unavailableMessage ? unavailableMessageId : undefined}
+            className={selectClassName}
+            title={activeOption?.label ?? undefined}
+          >
+            {/* One span holds the mark and the label so they sit together at
+                the start; the trigger clamps it to one line with an ellipsis. */}
+            <span className="min-w-0 flex-1 text-left">
+              {activeMark ? <span className="mr-2 inline-flex align-middle">{activeMark}</span> : null}
+              <SelectValue placeholder={labels.placeholder}>
+                {activeOption?.label}
+              </SelectValue>
+            </span>
+          </SelectTrigger>
+          <SelectContent className={selectContentClassName}>
+            {displayOptions.map((option) => {
+              const mark = renderEntryMark(option)
+              return (
+                <SelectItem key={option.value} value={option.value}>
+                  {mark ? <SelectItemLeading>{mark}</SelectItemLeading> : null}
+                  {option.label}
+                </SelectItem>
+              )
+            })}
+            {hasActions && displayOptions.length > 0 ? <SelectSeparator /> : null}
+            {canCreate ? (
+              <SelectItem value={ADD_ACTION_VALUE}>
+                <SelectItemLeading><Plus className="text-muted-foreground" /></SelectItemLeading>
+                {labels.addLabel}
+              </SelectItem>
+            ) : null}
+            {showManage ? (
+              <SelectItem value={MANAGE_ACTION_VALUE}>
+                <SelectItemLeading><Settings className="text-muted-foreground" /></SelectItemLeading>
+                {labels.manageTitle}
+              </SelectItem>
+            ) : null}
+          </SelectContent>
+        </Select>
+        {/* The manage row navigates through a real link, so it is a client-side
+            route change like any other link in the app. */}
+        {showManage ? (
+          <Link ref={manageLinkRef} href={manageLinkWithReturnTo} className="hidden" tabIndex={-1} aria-hidden="true" />
+        ) : null}
+        {canCreate ? (
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            {createDialogContent}
+          </Dialog>
+        ) : null}
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-2">
@@ -356,7 +544,7 @@ export function DictionaryEntrySelect({
           </SelectContent>
         </Select>
         <div className="flex items-center gap-1">
-          {allowInlineCreate && createOption ? (
+          {canCreate ? (
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
                 <Button
@@ -370,71 +558,7 @@ export function DictionaryEntrySelect({
                   <Plus className="h-4 w-4" />
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-md" onKeyDown={handleDialogKeyDown}>
-                <DialogHeader>
-                  <DialogTitle>{labels.dialogTitle}</DialogTitle>
-                  {labels.addPrompt ? <DialogDescription>{labels.addPrompt}</DialogDescription> : null}
-                </DialogHeader>
-                {/* Tinted wells via `[data-dialog-form]`. The error slot below is
-                    always rendered at its line height, so the message appearing
-                    never pushes the footer down. */}
-                <DialogBody data-dialog-form="true" className="space-y-6">
-                  <div className="flex flex-col gap-2.5">
-                    <FormFieldLabel htmlFor={newValueInputId} className="mb-0" required>{labels.valueLabel}</FormFieldLabel>
-                    <Input
-                      id={newValueInputId}
-                      type="text"
-                      aria-required="true"
-                      value={newValue}
-                      onChange={(event) => {
-                        setNewValue(event.target.value)
-                        if (formError) setFormError(null)
-                      }}
-                      placeholder={labels.valuePlaceholder}
-                      autoFocus
-                      disabled={saving}
-                    />
-                  </div>
-                  {showLabelInput ? (
-                    <div className="flex flex-col gap-2.5">
-                      <FormFieldLabel htmlFor={newLabelInputId} className="mb-0">{labels.labelLabel}</FormFieldLabel>
-                      <Input
-                        id={newLabelInputId}
-                        type="text"
-                        value={newLabel}
-                        onChange={(event) => setNewLabel(event.target.value)}
-                        placeholder={labels.labelPlaceholder}
-                        disabled={saving}
-                      />
-                    </div>
-                  ) : null}
-                  {allowAppearance ? (
-                    <AppearanceSelector
-                      icon={appearance.icon}
-                      color={appearance.color}
-                      onIconChange={appearance.setIcon}
-                      onColorChange={appearance.setColor}
-                      labels={appearanceLabels ?? DEFAULT_APPEARANCE_LABELS}
-                    />
-                  ) : null}
-                  <p role="alert" className="min-h-5 text-sm text-status-error-text">{formError ?? ''}</p>
-                </DialogBody>
-                <DialogFooter>
-                  <Button type="button" variant="soft" onClick={() => setDialogOpen(false)} disabled={saving}>
-                    {labels.cancelLabel}
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={handleCreate}
-                    disabled={saving || !newValue.trim()}
-                    title={shortcutHint}
-                    aria-keyshortcuts="Meta+Enter Control+Enter"
-                  >
-                    {saving ? <Spinner className="size-4" /> : <Save className="size-4" />}
-                    {labels.saveLabel}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
+              {createDialogContent}
             </Dialog>
           ) : null}
           {showManage ? (

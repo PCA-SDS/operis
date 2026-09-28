@@ -77,7 +77,7 @@ describe('ActivitiesDayStrip — aborted refreshes', () => {
     const view = renderWithProviders(
       <ActivitiesDayStrip entityId="person-1" selectedDate={selectedDate} onSelectDate={() => {}} refreshKey={0} />,
     )
-    await screen.findByText(/1 event/)
+    await screen.findByRole('button', { name: /1 event/ })
     return view
   }
 
@@ -98,7 +98,7 @@ describe('ActivitiesDayStrip — aborted refreshes', () => {
     )
     await act(async () => { failReload(createAbortError()) })
 
-    expect(screen.getByText(/1 event/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /1 event/ })).toBeInTheDocument()
     expect(loggerWarnMock).not.toHaveBeenCalled()
   })
 
@@ -111,7 +111,7 @@ describe('ActivitiesDayStrip — aborted refreshes', () => {
     )
     await act(async () => { failReload(new Error('[internal] boom')) })
 
-    expect(screen.queryByText(/1 event/)).toBeNull()
+    expect(screen.queryByRole('button', { name: /1 event/ })).toBeNull()
     expect(loggerWarnMock).toHaveBeenCalledTimes(1)
   })
 })

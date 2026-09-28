@@ -4,7 +4,7 @@ import * as React from 'react'
 import { Forward, Reply, Send } from 'lucide-react'
 import { CrudForm } from '../CrudForm'
 import { Button } from '../../primitives/button'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../primitives/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../primitives/dialog'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { getMessageUiComponentRegistry } from '@open-mercato/core/modules/messages/components/utils/typeUiRegistry'
 import { getMessageObjectType } from '@open-mercato/core/modules/messages/lib/message-objects-registry'
@@ -140,6 +140,9 @@ export function MessageComposer(props: MessageComposerProps) {
 
   const composePanel = (
     <CrudForm<Record<string, unknown>>
+      // In the dialog the dialog's own header carries the title, so the form
+      // drops its page header and grey section panel, as every dialog form does.
+      embedded={!compose.inline}
       backHref={backHref}
       title={composeWithContextPreview.composerTitle}
       fields={createMessageComposeFormGroups(composeWithContextPreview)}
@@ -164,15 +167,15 @@ export function MessageComposer(props: MessageComposerProps) {
 
   return (
     <Dialog open={Boolean(compose.open)} onOpenChange={compose.handleDialogOpenChange}>
-      <DialogContent className="sm:max-w-3xl [&>button]:hidden">
-        <DialogHeader className="sr-only">
+      <DialogContent className="sm:max-w-3xl">
+        <DialogHeader>
           <DialogTitle>{compose.composerTitle}</DialogTitle>
           <DialogDescription>
             {compose.t('messages.composer.dialogDescription', 'Compose and send a message.')}
           </DialogDescription>
         </DialogHeader>
         {composePanel}
-        <div className="flex items-center justify-end gap-2 border-t pt-4">
+        <DialogFooter>
           <Button
             type="button"
             variant="soft"
@@ -188,10 +191,10 @@ export function MessageComposer(props: MessageComposerProps) {
             }}
             disabled={compose.submitting}
           >
-            <SubmitIcon className="mr-2 size-4" />
+            <SubmitIcon className="size-4" />
             {compose.submitLabel}
           </Button>
-        </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

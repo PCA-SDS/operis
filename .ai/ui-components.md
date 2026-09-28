@@ -85,13 +85,22 @@ import { Button } from '@open-mercato/ui/primitives/button'
 ```
 
 **Variants**:
-- `default` (primary CTA) · `destructive` (danger, quiet: red text + red border on the page surface)
+- `default` (primary CTA) · `destructive` (danger, quiet: red text on the neutral second-rank fill, no hairline)
 - `destructive-solid` (danger filled — point-of-no-return confirmations only)
 - `destructive-outline` · `destructive-soft` · `destructive-ghost` (danger family)
 - `outline` · `secondary` · `ghost` · `muted` · `link`
-- `soft` (brand-tinted second rank — the Cancel beside a filled primary in a dialog footer, where `secondary`'s white card reads as a hole rather than a pair)
+- `soft` (the second rank — the Cancel beside a filled primary)
+- `toggle` (a choice that is on or off — see below)
 
-`default` and `soft` are **floating**: `shadow-sm` at rest, `shadow-md` on hover, `shadow-xs` while pressed, and no hairline — they carry a fill of their own, so a stroke around a shape that already casts a shadow draws nothing. `outline` and `secondary` keep their border precisely because their fill is `surface`: without it they would vanish into the card behind them.
+`outline`, `secondary` and `soft` are one button kept under three names: a neutral grey fill (`bg-primary-soft`) with no hairline. Every filled variant is **floating**: `shadow-sm` at rest, `shadow-md` on hover, `shadow-xs` while pressed — a stroke around a shape that already casts a shadow draws nothing. Inside a grey form section (`data-crud-section`) the neutral fill flips to `surface`, exactly as the fields beside it do, so the button never disappears into its panel.
+
+**Toggle.** A filter chip, a weekday, a "Repeats" button: anything a user turns on and off, where several can be on at once or the one button stands alone. At rest it is `soft`; with `aria-pressed="true"` it takes the `SegmentedControl`'s selected pill (`bg-sidebar`, `text-sidebar-foreground`), so a chosen chip and a chosen segment are one shape. The state lives on `aria-pressed` alone, which the button must carry anyway:
+
+```tsx
+<Button type="button" variant="toggle" aria-pressed={showCalls} onClick={toggleCalls}>Calls</Button>
+```
+
+MUST NOT flip `variant={on ? 'default' : 'soft'}` by state: that made a chosen chip the blue primary fill while a chosen segment beside it was the near-black pill. Blue is for the primary action and for a checked `Checkbox`, `Radio` or `Switch`. One of N mutually exclusive options is a `SegmentedControl`, not a row of toggles.
 
 **Sizes**: `2xs` (h-7) · `sm` (h-8) · `default` (h-9) · `lg` (h-10) · `icon` (size-9)
 
@@ -519,7 +528,7 @@ All four tones are borderless and share the box; only the fill and the ink move.
 | `tone` | Ground | Use |
 |---|---|---|
 | `default` | `bg-surface-muted` → hover `bg-surface-strong` → focus `shadow-focus` | On a card or the page. The everyday choice. |
-| `raised` | `bg-surface shadow-md` → hover `bg-modal-muted` → focus `ring-2 ring-focus-ring/30` | Hero / topbar search sitting on the **page ground**, where `surface-muted` would be invisible. |
+| `raised` | `border-card-edge bg-surface shadow-xs` → focus `ring-2 ring-focus-ring/30` | A white field on the **page ground** (the chat search). White on white, so it carries the card hairline, transparent in dark. |
 | `sidebar` | `bg-sidebar-accent/50` → hover/focus `bg-sidebar-accent`, sidebar ink, `focus-within:border-sidebar-ring` | Inside the navy rail. Content neutrals are unreadable there. |
 | `plain` | transparent, `rounded-none px-0`, no hover, **no focus halo** | When the field **is** the popover's header row — the popover owns the border and the padding. |
 
@@ -1338,7 +1347,7 @@ Single size — Figma spec is fixed at 28×16 (track), thumb 12px. Matches the r
 
 ### Color contract
 
-The "on" state uses `--primary`, matching `Checkbox` checked and `Radio` checked. The off track is `bg-surface-strong` with a hairline — the chrome step, not a grey slab.
+The "on" state uses `--primary`, matching `Checkbox` checked and `Radio` checked. The off track is `bg-surface-strong` with no hairline — the chrome step, not a grey slab; it darkens to `border-strong` on hover.
 
 ### Switch usage
 
@@ -2327,8 +2336,8 @@ Centered "nothing-to-show" panel for empty lists, empty tabs, empty DataTable ce
 
 | `variant` | Token | Use |
 |---|---|---|
-| `default` | `rounded-lg border border-dashed border-muted-foreground/40 bg-muted/30` | Standalone empty page / tab. |
-| `subtle` | `rounded-lg` (no border, no fill) | Inside cards, popovers, DataTable empty cells. |
+| `default` | `rounded-xl` (no frame — whitespace holds the region) | Standalone empty page / tab. |
+| `subtle` | `rounded-xl` (no border, no fill) with the icon on a soft tile | Inside cards, popovers, DataTable empty cells. |
 
 | `size` | Padding / gap | Icon box (subtle variant) |
 |---|---|---|
@@ -2356,14 +2365,14 @@ Title type scale: `text-sm` for `sm` / `default`, `text-base` for `lg`. Descript
 ### MUST rules
 
 - Title is plain text in a `<p>` — DO NOT pre-wrap it in `<h1>`/`<h2>`. If the surrounding page needs a heading, render it OUTSIDE the `EmptyState`. This keeps the heading hierarchy of the page intact wherever an empty state appears (DataTable cell, tab, dialog, etc.).
-- For empty DataTable cells, use `variant='subtle'` so the dashed border doesn't double up with the table chrome.
+- For empty DataTable cells, use `variant='subtle'`.
 - Prefer `illustration` over `icon` when the DS illustration library has a relevant asset — it ships with its own circular background and reads better at `size='lg'`.
 - Use `actions` (not the deprecated `action` / `actionLabel` / `onAction` triple) for any new code. The deprecated props are routed to a built-in `<Button variant="outline" size="sm">` with a leading `<Plus />` icon — keep that only for legacy parity.
 - Pass all strings through `useT()` — the primitive has no built-in default copy.
 
 ### Anti-patterns
 
-- `<div className="text-center text-muted-foreground py-12">Nothing yet</div>` → use `EmptyState` (dashed-border card + token-driven spacing + a11y heading slot).
+- `<div className="text-center text-muted-foreground py-12">Nothing yet</div>` → use `EmptyState` (token-driven spacing + a11y heading slot).
 - Wrapping `title` in `<h1>` / `<h2>` inside `EmptyState` → renders a `<p>`; if the page needs a heading render it OUTSIDE the EmptyState.
 - Reaching for `action` / `actionLabel` / `onAction` / `actionLabelClassName` props in new code → those are `@deprecated`; use `actions={<Button>…</Button>}`.
 - Passing a custom `<Plus />` button as `children` instead of `actions` → `children` sits between description and actions; for the primary CTA use the typed slot.
@@ -2990,7 +2999,7 @@ import {
 } from '@open-mercato/ui/primitives/accordion'
 ```
 
-Collapsible-section primitive built on `@radix-ui/react-accordion`. Matches Figma `210:4022` — a card with three visual states: white card + soft border + x-small shadow when closed (idle), `bg-muted` + no border + no shadow on hover or when open. The Figma `Flip Icon` toggle is exposed as `iconPosition` (`'end'` default / `'start'`) and the indicator style is selectable through `triggerIcon` (`'plus-minus'` default / `'chevron'` / `'none'`).
+Collapsible-section primitive built on `@radix-ui/react-accordion`. Matches Figma `210:4022` — a card with three visual states: white card + x-small shadow and no border when closed (idle), `bg-muted` + no shadow on hover or when open. The Figma `Flip Icon` toggle is exposed as `iconPosition` (`'end'` default / `'start'`) and the indicator style is selectable through `triggerIcon` (`'plus-minus'` default / `'chevron'` / `'none'`).
 
 ### Basic usage
 
@@ -3409,7 +3418,7 @@ import { ButtonGroup, buttonGroupVariants } from '@open-mercato/ui/primitives/bu
 
 | Size | Outer radius | Maps to Figma | Use with child Button size |
 |---|---|---|---|
-| `2xs` | `rounded-sm` (6px) | 2X-Small (24) | `2xs` (h-7) — toolbar-density rows |
+| `2xs` | `rounded-sm` (4px) | 2X-Small (24) | `2xs` (h-7) — toolbar-density rows |
 | `sm` | `rounded-md` (8px) | X-Small (32) | `sm` (h-8) — dense compositions |
 | `default` (default) | `rounded-md` (8px) | Small (36) | `default` (h-9) — standard rows |
 
@@ -3534,7 +3543,9 @@ This is the **one toggle primitive for mutually-exclusive state** — reach for 
   value={view}                                  // current selected value
   onValueChange={(next) => setView(next)}       // fires on selection change
   size="sm" | "default"                         // optional, default "default"
+  tone="default" | "inset"                      // optional; the rail only (see Tone)
   fullWidth={false}                             // optional; span the container, equal-width segments
+  flush={true}                                  // optional, default true; false insets the pill (see Geometry)
   disabled={false}                              // optional
   aria-label="View filter"                      // recommended
 >
@@ -3556,14 +3567,22 @@ Built on Radix `RadioGroup` — inherits arrow-key navigation, roving tabindex, 
 
 | Size | Track height | Item height | Item text | Use case |
 |---|---|---|---|---|
-| `default` (default) | `h-9` (36px) | stretches to the track (30px) | `text-sm` | Standard toolbar density, matches Button/Input |
-| `sm` | `h-8` (32px) | stretches to the track (26px) | `text-xs` | Tight rows, chart period selectors |
+| `default` (default) | `h-9` (36px) | fills the track (36px) | `text-sm` | Standard toolbar density, matches Button/Input |
+| `sm` | `h-8` (32px) | fills the track (32px) | `text-xs` | Tight rows, chart period selectors |
 
-Items deliberately carry **no height of their own** — the track is `items-stretch` with a uniform `p-0.5`, so the selected pill is inset by exactly 2px on all four sides. Giving an item a fixed height reintroduces a vertical gap different from the horizontal one, which is plainly visible now that the pill is a filled colour.
+Items deliberately carry **no height of their own** — the track is `items-stretch`, so an item is exactly as tall as the track's content box and the selected pill stands exactly as tall as a `Button` or field of the same size beside it.
+
+### Tone
+
+`tone` picks the **rail** and nothing else: `default` is the page ground's rail (`bg-segmented-rail`); `inset` is the field well (`bg-input-bg`) for a raised surface — a card, a dialog, a popover. In light both are the grey control fill, because a white rail vanished once the page ground turned white. In dark the ground's rail is the raised surface (#1C1C1E), so the raised-grey pill stands off it, and the well (#2C2C2E) steps off a card of that same colour, which is why a switcher on a surface still takes `inset`. Inside a grey `CrudForm` section both turn white with the fields (`globals.css`). The pill and the labels are identical in both tones.
+
+### Geometry
+
+`flush` is the default: the track has no border and no padding, and the pill fills it edge to edge with the track's `rounded-lg` corners. `flush={false}` brings back a pill inset 4px (2px at `sm`) inside a bordered rail. Nothing in the product uses it; a switcher that sits 26px tall among 36px controls is the inconsistency this default removed.
 
 ### Selected state
 
-The selected segment is painted by the sliding pill, in `bg-sidebar` with `text-sidebar-foreground` ink — the same navy as the app sidebar, so "selected" reads identically everywhere in the product. Label colour transitions over `duration-200`, matching the pill's travel, so ink and fill arrive together instead of the text snapping to its selected colour mid-slide.
+One look, everywhere — a toolbar, a page, a dialog. The selected segment is painted by the sliding pill, `bg-sidebar` (the near-black #1D1D1F) with `text-sidebar-foreground` ink in semibold. Unselected labels are full ink (`text-foreground`), like every other control's label, with a quiet `bg-foreground/5` fill on hover. Label colour transitions over `duration-200`, matching the pill's travel, so ink and fill arrive together instead of the text snapping to its selected colour mid-slide. A pressed `Button variant="toggle"` takes the same pill.
 
 ### Usage
 
@@ -3594,7 +3613,8 @@ const [period, setPeriod] = React.useState('1M')
 3. **Every item MUST have a unique `value`.** Duplicate values break Radix's keyboard navigation and selection state.
 4. **NEVER nest `Button` / `IconButton` inside `SegmentedControlItem`.** Radix RadioGroup.Item already provides a `<button>` — nesting another interactive element breaks ARIA.
 5. **`disabled` on the root cascades to every item** via Radix; do not pass `disabled` per-item unless intentionally locking a subset.
-6. **NEVER build a parallel segmented toggle** out of `Button` + `aria-pressed`. Use this primitive with `fullWidth` / `icon`; a local copy loses the radio ARIA contract, the sliding pill, and the shared selected colour.
+6. **NEVER build a parallel segmented toggle** out of `Button` + `aria-pressed`. Use this primitive with `fullWidth` / `icon`; a local copy loses the radio ARIA contract, the sliding pill, and the shared selected colour. (A set where several can be on at once is `Button variant="toggle"`.)
+9. **NEVER restyle the pill or the labels for one screen.** `tone` is the only per-surface choice; a second look for the same control in a dialog is what made the product's switchers disagree.
 7. **Pass icons via `icon`, not inside `children`.** Children are duplicated into an invisible ghost copy to reserve the semibold label width; an icon in there renders twice for nothing and lands inside the truncation box.
 8. **Keep `children` render-safe to duplicate** — plain text or simple inline markup, nothing stateful, for the same ghost-copy reason.
 
@@ -3628,7 +3648,7 @@ const [period, setPeriod] = React.useState('1M')
 
 ### Notes
 
-- Selected item raises with `bg-background` + `shadow-xs` over the muted `bg-muted/40` track — produces the iOS-segmented "slide thumb" effect via simple background swap (no JS animation).
+- The selected pill is one shared element that slides between segments (framer-motion shared layout, `layoutId` scoped per control); reduced motion drops the travel to an instant move.
 - Built on `@radix-ui/react-radio-group` (already installed via `Radio` primitive — no new dep).
 - Figma defines 5-item variants (1D / 1W / 1M / 3M / 1Y), but the primitive accepts any number of items. Width grows with content.
 - Underlying ARIA structure: `role="radiogroup"` on root, `role="radio"` + `aria-checked` on each item. Arrow keys move focus + selection between items (Radix default).
@@ -4378,6 +4398,10 @@ Both share the underlying Radix Dialog, the same `Cmd/Ctrl+Enter` submit + `Esca
 </Drawer>
 ```
 
+### Motion
+
+Every panel that enters from the side of the screen moves the same way: it slides the whole way in from its edge in 500ms and out in 300ms on `ease-panel` (Apple's sheet curve), while its scrim fades on the same timing. `Drawer`, `Sheet` and a side `Dialog` carry it already. A panel a module draws itself takes the same classes from `@open-mercato/ui/primitives/side-panel-motion`: `SIDE_PANEL_MOTION[side]` on the panel and `SIDE_PANEL_SCRIM_MOTION` on its scrim, both keyed off `data-state`, with `useSidePanelPresence(open)` keeping it mounted while it slides out. A Radix sheet its parent mounts only while open uses `useSidePanelDismiss(onClose)` so the parent's unmount does not cut the exit. An in-page panel that takes its width (the chat split panel, the AI dock, the record page's form column) animates that width on the same timing.
+
 ### Sides
 
 | `side` | Slot | Default size | Use case |
@@ -4489,11 +4513,11 @@ Matches Figma `Drawer Footer [1.1]` variants 1–6.
 
 - Figma source: DS Open Mercato `Drawer` page (`486:7366`) — `Drawer Header [1.1]` (`3187:2897`) and `Drawer Footer [1.1]` (`4096:21416`) plus assembled examples (`167124:24738`, `167124:24794`, `167124:24859`, ...).
 - Built on `@radix-ui/react-dialog` (Radix Dialog under the hood). `@radix-ui/react-dialog` was promoted from transitive to a direct dep of `packages/ui` in the v5 A.10 CommandMenu commit.
-- **Overlay:** `bg-foreground/40 backdrop-blur-sm` — page chrome stays visible-but-dimmed behind the drawer.
+- **Overlay:** `bg-scrim` — the theme-stable dimming token (black at 32% light, 60% dark); page chrome stays visible-but-dimmed behind the drawer.
 - **Content panel:** `bg-background shadow-2xl` + rounded corners on the inner (viewport-facing) edges only. Per Figma there is NO border on the seam — the rounded corners + the shadow do the visual separation work. Resulting classes by side: `rounded-l-2xl` (right), `rounded-r-2xl` (left), `rounded-b-2xl` (top), `rounded-t-2xl` (bottom).
 - **No chrome dividers** between Header / Body / Footer. Section separators inside the body (e.g. "ELIGIBILITY CRITERIA" labels) come from content composition, not from the Drawer primitive.
 - Default `max-w-[400px]` (Figma Drawer width) for right/left works well for forms; pass `className="max-w-2xl"` on `DrawerContent` for wider detail panes.
-- Auto-rendered top-right close button (`X` icon, `size-8`, muted-foreground, hover bg `muted/40`). Use `hideCloseButton` when the body provides its own dismissal (e.g. a Save/Cancel footer alone).
+- Auto-rendered close button: the shared `CloseButton` (a filled grey circle), placed and inset exactly as in `Dialog`, whose header, body and footer insets the Drawer shares. Use `hideCloseButton` when the body provides its own dismissal (e.g. a Save/Cancel footer alone).
 
 ---
 
@@ -5739,11 +5763,27 @@ Modal dialog (Radix-based). v5 added a mobile bottom-sheet layout that automatic
 ### Props (`DialogContent`)
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
-| `size` | `'sm' \| 'default' \| 'lg' \| 'xl'` | `'default'` | Desktop max-width on `sm:` breakpoint |
+| `size` | `'sm' \| 'default' \| 'lg' \| 'xl'` | `'default'` | Desktop max-width: `max-w-sm` / `lg` / `2xl` / `4xl` |
+| `side` | `'center' \| 'right' \| 'left'` | `'center'` | `right` / `left` makes a side sheet: the full height of the screen against that edge (full screen on a phone), sliding in and out on the shared side-panel motion. Set its width with `className` (`max-w-xl`). Never rebuild a side sheet by overriding the centred modal's position classes |
+| `dismissible` | `boolean` | `true` | Render the close button |
+| `closeSize` | `'sm' \| 'md' \| 'lg'` | `'md'` | Close button size; its position and the header gutter follow it |
 | `className` | `string` | — | Custom classes |
 
-Mobile (<640px): bottom-sheet (`fixed inset-x-0 bottom-0`, `rounded-t-xl`, `max-h-[90vh]`).
-Desktop (≥640px): centred modal (`sm:left-1/2 sm:top-1/2`, `sm:rounded-xl`, `sm:max-w-{size}`).
+Desktop (≥640px): a centred `rounded-2xl bg-surface shadow-xl` panel on the `bg-scrim` overlay, no border.
+Phone (<640px): a bottom sheet (`max-sm:inset-x-0 max-sm:bottom-0`, top corners only, `max-h-[92dvh]`).
+
+**Sizing is desktop-first.** A plain `max-w-*`, `h-*`, `max-h-*` or `top-*` on `DialogContent` sizes the desktop panel, as it reads (`className="max-w-3xl"`, `className="top-16 translate-y-0"` for a top-anchored panel), and `sm:` classes still work. The phone sheet lives entirely under `max-sm:`, so those overrides never reach it; restate a phone rule under `max-sm:` only when the sheet itself must change (a full-screen panel takes `max-sm:top-0 max-sm:max-h-svh`).
+
+### Chrome
+- **Insets:** 20px on a phone and 24px from `sm`, the same on all four sides: the title sits as far below the top edge as it is in from the left, and the buttons as far above the bottom edge as they are in from the right.
+- **Title:** `text-lg font-semibold` (18px), left-aligned; description `text-sm text-muted-foreground`, 4px below. No icon or badge in the header: a destructive flow is signalled by the confirm button and the copy.
+- **Close button:** the shared `CloseButton`, a filled grey circle (the control fill), on the title's centre line and as far in from the right edge as the title is from the left. The header keeps a gutter clear of it. A button placed in the header row beside the title takes `-mt-1` so a 36px button centres on the 28px title line.
+- **Footer:** buttons right-aligned, secondary then primary, all default height (36px); stacked full-width on a phone. The footer owns the 20px gap above its buttons, so a body that scrolls cannot crowd them: a body or header directly above a footer drops its bottom padding. `bordered` adds a hairline for a long scrolling body.
+- **Forms inside a dialog:** fields take the control fill (`data-dialog-form`), a switcher takes `SegmentedControl tone="inset"`, and a `CrudForm` renders `embedded` so the dialog header carries the title.
+- **Custom chrome:** a surface that cannot use the slots builds from the exported constants (`DIALOG_TITLE_CLASS`, `DIALOG_HEADER_CLASS`, `DIALOG_BODY_CLASS`, `DIALOG_FOOTER_CLASS`, `DIALOG_CLOSE_POSITION_CLASS`, `DIALOG_CLOSE_GUTTER_CLASS`) rather than copying their values. `Sheet`, `Drawer` and the confirm dialog use them.
+
+### Confirm dialog
+`useConfirmDialog()` / `ConfirmDialog` share the same chrome and entrance. Like an Apple alert, it offers Cancel as the way out and shows no close button beside it; the close button returns only when a caller passes `cancelText={false}`.
 
 ### Usage
 ```tsx
@@ -5804,36 +5844,49 @@ Horizontal or vertical rule between sections. New props in v5: `label` (inline d
 
 **Source:** `packages/ui/src/primitives/tabs.tsx`
 
-Tabbed navigation. v5 added `variant` and `orientation` props.
+Tabbed navigation. Every tab strip in the product uses it and looks and moves the same way: text tabs in
+one weight, the selected one in full ink over a hairline rail, and a 2px accent bar that glides from the old
+tab to the new one (300ms on `ease-panel`). The new panel fades in (150ms, the `fadeIn` motion). Reduced
+motion makes both instant.
 
 ### Compound API
-- `Tabs` — root (Radix), `value`/`defaultValue`/`onValueChange`
-- `TabsList` — visual list container
-- `TabsTrigger` — individual tab button
-- `TabsContent` — content panel per tab
+- `Tabs` — root, `value`/`defaultValue`/`onValueChange`, `orientation`
+- `TabsList` — the strip (`role="tablist"`); always pass `aria-label`
+- `TabsTrigger` — one tab; `leading` icon (`size-4`, takes the tab's ink) and `count` (a quiet number)
+- `TabsContent` — the panel for one tab, mounted while selected
+- `TabsPanel` — the panel for a page that renders the selected tab's content itself; pass `value` so it fades in on a switch
 
 ### Props (`Tabs`)
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
-| `variant` | `'underline' \| 'pill' \| 'enclosed'` | `'underline'` | Visual style |
-| `orientation` | `'horizontal' \| 'vertical'` | `'horizontal'` | Layout direction |
-| `value` / `defaultValue` / `onValueChange` | — | — | Controlled / uncontrolled (Radix) |
+| `orientation` | `'horizontal' \| 'vertical'` | `'horizontal'` | Row over a rail, or a stack with the selection on a quiet fill |
+| `value` / `defaultValue` / `onValueChange` | — | — | Controlled / uncontrolled |
+| `variant` | `'underline'` | — | Deprecated and ignored: tabs have one look |
 
 ### Usage
 ```tsx
-<Tabs defaultValue="overview" variant="underline">
-  <TabsList>
+<Tabs defaultValue="overview">
+  <TabsList aria-label="Product sections">
     <TabsTrigger value="overview">Overview</TabsTrigger>
-    <TabsTrigger value="specs">Specs</TabsTrigger>
+    <TabsTrigger value="specs" count={4}>Specs</TabsTrigger>
   </TabsList>
   <TabsContent value="overview">…</TabsContent>
   <TabsContent value="specs">…</TabsContent>
 </Tabs>
+
+// A page that draws the panel itself
+<TabsPanel value={activeTab} className="pt-6">{content}</TabsPanel>
 ```
 
+### Rules
+- MUST NOT restyle triggers (padding, weight, fills) or the count; the strip is 40px with 36px tabs.
+- A strip that runs out of room wraps. To scroll it sideways, put the scroll on a wrapper and give `TabsList`
+  `w-max min-w-full`, so the rail runs under every tab and the bar is not cut by the scroll edge.
+- A control that picks a mode rather than a panel is a `SegmentedControl`, not tabs.
+
 ### Accessibility
-- Radix handles roving tabindex, arrow-key navigation, `aria-selected`
-- For `orientation="vertical"` ensure trigger labels read top-to-bottom
+- Arrow keys move focus along the strip (Up/Down when vertical), Home and End to its ends; Enter or Space selects.
+- Every tab stays in the Tab order.
 
 ---
 
@@ -5847,7 +5900,7 @@ Semantic HTML table primitives with DS spacing/typography. Pure presentational �
 - `Table` — root `<table>` wrapped in `<div class="overflow-x-auto">`
 - `TableHeader` (`<thead>`), `TableBody` (`<tbody>`), `TableFooter` (`<tfoot>`)
 - `TableRow` (`<tr>`) — hover bg, focus-within styles
-- `TableHead` (`<th>`) — uppercase micro-label header cell, `scope="col"`
+- `TableHead` (`<th>`) — quiet sentence-case header cell (`text-xs font-medium text-muted-foreground`), `scope="col"`
 - `TableCell` (`<td>`) — body cell
 - `TableCaption` — `<caption>` for screen readers
 - `TableSortLabel` — the sort trigger for a sortable column
@@ -5895,9 +5948,9 @@ Every table in the product renders these primitives, so they all share one look.
 
 | | |
 |---|---|
-| Card | `rounded-xl bg-surface shadow-md`, `overflow-hidden` |
-| Header strip | `bg-table-header`, rule on the cell so it survives pinning |
-| Header label | `text-xs font-bold uppercase tracking-wide text-muted-foreground`, clipped, never wrapped |
+| Card | `rounded-xl bg-surface shadow-sm`, `overflow-hidden`, no border in either theme |
+| Header strip | `bg-table-header` (the card's white) with one `border-b border-table-border` hairline under it |
+| Header label | `text-xs font-medium text-muted-foreground`, sentence case, clipped, never wrapped |
 | Sort | `TableSortLabel` — label goes full ink when active; active arrow takes `accent-strong`, idle pair sits at `disabled-foreground` and lifts on hover |
 | Row | one line tall (`whitespace-nowrap`), `py-4`, hairline rule between rows |
 | Row hover | `bg-table-row-hover` — one token, whether or not the row is clickable |

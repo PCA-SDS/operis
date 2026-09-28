@@ -19,3 +19,12 @@ export const DEALS_IN_PRODUCT = false
 
 /** The cross-customer task roll-up at `/backend/customer-tasks`. */
 export const CUSTOMER_TASKS_IN_PRODUCT = false
+
+/**
+ * The Custom attributes section on people and companies: the create forms, the
+ * add-person dialog and both detail pages. Only the section is withheld; the
+ * field definitions and any stored values stay, and an edit saves stored values
+ * back unchanged. A custom field marked required while this is off would still
+ * be validated, with nowhere on the form to fill it in.
+ */
+export const CUSTOMER_CUSTOM_ATTRIBUTES_IN_PRODUCT = false

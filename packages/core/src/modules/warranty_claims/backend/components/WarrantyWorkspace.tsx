@@ -44,20 +44,16 @@ export function WarrantyWorkspace({
       </div>
       {summary ?? null}
       {tabs?.length && activeTab && onTabChange ? (
-        <Tabs value={activeTab} onValueChange={onTabChange} variant="underline">
-          <TabsList className="flex h-auto w-full gap-1 overflow-x-auto px-7 pb-2" aria-label={title}>
-            {tabs.map((tab) => (
-              <TabsTrigger
-                key={tab.id}
-                value={tab.id}
-                count={tab.count}
-                disabled={tab.disabled}
-                className="shrink-0 gap-2 px-4 pb-2 pt-3 [&_[data-slot=tabs-trigger-count]]:h-auto [&_[data-slot=tabs-trigger-count]]:min-w-0 [&_[data-slot=tabs-trigger-count]]:rounded-md [&_[data-slot=tabs-trigger-count]]:bg-muted [&_[data-slot=tabs-trigger-count]]:px-1.5 [&_[data-slot=tabs-trigger-count]]:py-0.5 [&_[data-slot=tabs-trigger-count]]:text-overline [&_[data-slot=tabs-trigger-count]]:text-muted-foreground"
-              >
-                {tab.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+        <Tabs value={activeTab} onValueChange={onTabChange}>
+          <div className="overflow-x-auto px-7 pb-2">
+            <TabsList className="w-max min-w-full" aria-label={title}>
+              {tabs.map((tab) => (
+                <TabsTrigger key={tab.id} value={tab.id} count={tab.count} disabled={tab.disabled}>
+                  {tab.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
         </Tabs>
       ) : null}
       <div className={`min-w-0 [&>[data-component-handle]>div:first-child_[data-slot=button]]:h-8 [&>[data-component-handle]>div:first-child_[data-slot=search-input-wrapper]]:h-8 [&_[data-slot=table-header]_[data-slot=table-row]]:h-9 [&_[data-slot=table-body]_[data-slot=table-row]]:h-16 ${contentClassName ?? ''}`}>{children}</div>

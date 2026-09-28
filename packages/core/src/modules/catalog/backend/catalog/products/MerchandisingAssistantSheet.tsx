@@ -57,7 +57,6 @@ import {
 } from '@open-mercato/ui/primitives/dialog'
 import { Popover, PopoverContent, PopoverTrigger } from '@open-mercato/ui/primitives/popover'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
-import { cn } from '@open-mercato/shared/lib/utils'
 
 export interface MerchandisingPageContextFilter {
   categoryId: string | null
@@ -466,18 +465,9 @@ export function MerchandisingAssistantSheet({
       </ButtonGroup>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent
-        disableBodyWrap
-          className={cn(
-            // Mobile: full-screen sheet. Desktop (≥sm): right-anchored side sheet.
-            // The Dialog primitive applies a centering transform at the
-            // sm breakpoint; each piece (`top`, `left`, transform, inset)
-            // must be overridden at the same breakpoint or the panel
-            // renders half off the viewport.
-            'top-0 left-0 right-0 bottom-0 translate-x-0 translate-y-0 max-w-none w-screen h-svh max-h-svh rounded-none',
-            'sm:top-0 sm:bottom-0 sm:right-0 sm:left-auto sm:translate-x-0 sm:translate-y-0',
-            'sm:max-w-xl sm:w-[36rem] sm:rounded-l-2xl sm:h-screen sm:max-h-screen',
-            'flex flex-col gap-3 p-4 z-banner',
-          )}
+          side="right"
+          disableBodyWrap
+          className="max-w-xl gap-3 p-4 z-banner"
           data-ai-merchandising-sheet=""
         >
           <DialogHeader>

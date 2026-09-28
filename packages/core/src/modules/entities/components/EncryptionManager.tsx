@@ -24,6 +24,7 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { getEntityFields } from '#generated/entity-fields-registry'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@open-mercato/ui/primitives/table'
+import { PageHeader } from '@open-mercato/ui/backend/Page'
 
 const logger = createLogger('entities').child({ component: 'EncryptionManager' })
 
@@ -411,13 +412,11 @@ export function EncryptionManager() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface shadow-sm p-4">
-        <div className="space-y-2">
-          <h2 className="text-xl font-semibold">{t('entities.encryption.title', 'Encryption')}</h2>
-          <p className="text-sm text-muted-foreground">
-            {t('entities.encryption.description', 'Manage which entity fields are encrypted with tenant keys and optional hash columns.')}
-          </p>
-        </div>
+      <PageHeader
+        title={t('entities.encryption.title', 'Encryption')}
+        description={t('entities.encryption.description', 'Manage which entity fields are encrypted with tenant keys and optional hash columns.')}
+      />
+      <div className="flex flex-col gap-3 rounded-xl border border-card-edge bg-surface shadow-sm p-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
           <div className="flex-1 space-y-3">
             <div>

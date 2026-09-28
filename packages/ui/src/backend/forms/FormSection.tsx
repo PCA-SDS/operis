@@ -79,7 +79,7 @@ export function FormSection({
           {children}
         </div>
       ) : (
-        <div className={cn('space-y-5', className)}>{children}</div>
+        <div className={cn('space-y-6', className)}>{children}</div>
       )}
     </section>
   )

@@ -1,7 +1,19 @@
 "use client"
 
 import { usePathname } from 'next/navigation'
-import { Skeleton } from '@open-mercato/ui/primitives/skeleton'
+import { Page, PageBody } from '@open-mercato/ui/backend/Page'
+import { BackendModuleFrame } from '@open-mercato/ui/backend/module-nav/BackendModuleFrame'
+import { ModuleSidebarSkeletonRow } from '@open-mercato/ui/backend/module-nav/ModuleSidebar'
+import {
+  DashboardSkeleton,
+  DetailPageSkeleton,
+  ListPageSkeleton,
+  PageLoadingIndicator,
+  SkeletonBar,
+  SkeletonRegion,
+} from '@open-mercato/ui/backend/skeletons/PageSkeletons'
+import { useBackendRouteShape } from '@open-mercato/ui/backend/skeletons/BackendRouteShapesProvider'
+import { CalendarPageSkeleton } from '@open-mercato/core/modules/customers/components/calendar/CalendarPageSkeleton'
 
 /**
  * Route-level Suspense fallback for the whole backend tree.
@@ -12,124 +24,114 @@ import { Skeleton } from '@open-mercato/ui/primitives/skeleton'
  * screen for that entire time, so clicking a nav item or a table row produced
  * no observable change at all until the server answered.
  *
- * This sits inside `(backend)/backend/layout.tsx`, so the AppShell chrome —
- * nav rail, sidebar, header — stays mounted and only the content pane swaps.
+ * This sits inside `(backend)/backend/layout.tsx`, so the AppShell chrome stays
+ * mounted and only the content pane swaps. Covers `/backend` and every
+ * `/backend/[...slug]` route beneath it.
  *
- * Covers `/backend` and every `/backend/[...slug]` route beneath it.
+ * The fallback frames the page the way the page will frame itself: the layout
+ * hands down each route's shape (its `moduleSidebar`, its module and parent
+ * link, and the `loadingSkeleton` it declared), so the module's real sidebar is
+ * in place before the page arrives. Inside it, a page that declared a skeleton
+ * gets that skeleton, which is built to its measurements; any other page gets a
+ * quiet spinner, because a guessed shape is exactly what made the old fallback
+ * resolve into something that looked nothing like it. Those pages still load
+ * into their own skeletons: a `DataTable` draws skeleton rows in its real
+ * columns and a `CrudForm` draws its real sections.
  *
- * Kept free of data fetching on purpose: this renders as a Suspense *fallback*,
- * which Next.js prefetches and shows instantly. Awaiting anything here
- * (translations, cookies) would make the fallback itself suspend and defeat the
- * point. `usePathname` reads from the router and suspends nothing, which is why
- * the shape can be chosen here at all — `loading.tsx` is handed no params.
- *
- * `Skeleton` already carries its own `role="status"`/`aria-busy`, so no extra
- * announcement is needed — matching `PortalShell`'s SidebarNavSkeleton.
+ * Kept free of data fetching on purpose: a Suspense fallback that awaited
+ * anything would suspend itself. `usePathname` and the route shapes are
+ * already in hand, which is why the shape can be chosen here at all.
  */
 export default function BackendLoading() {
-  const pathname = usePathname()
-  return pathname?.startsWith('/backend/chat') ? <ConversationSkeleton /> : <ListSkeleton />
-}
+  const pathname = usePathname() ?? '/backend'
+  const shape = useBackendRouteShape(pathname)
+  if (pathname.replace(/\/+$/, '') === '/backend') return <DashboardSkeleton />
+  if (shape?.skeleton === 'conversation') return <ConversationSkeleton withTranscript={shape.pattern !== '/backend/chat'} />
 
-/**
- * The list-page shape: title, toolbar, rows.
- *
- * The default because most of the backend is a `DataTable`, and matching the
- * common case means the swap to real content does not shift layout.
- */
-function ListSkeleton() {
+  const content =
+    shape?.skeleton === 'list' ? <ListPageSkeleton />
+      : shape?.skeleton === 'detail' ? <DetailPageSkeleton />
+        : shape?.skeleton === 'calendar' ? <CalendarPageSkeleton />
+          : <PageLoadingIndicator />
+
   return (
-    <div className="flex flex-col gap-6 p-4 md:p-6">
-      <div className="flex flex-col gap-3">
-        <Skeleton className="h-7 w-56" />
-        <Skeleton className="h-4 w-80 max-w-full" />
-      </div>
-
-      <div className="flex flex-wrap items-center gap-3">
-        <Skeleton className="h-9 w-full max-w-xs" />
-        <Skeleton className="h-9 w-28" />
-        <Skeleton className="ml-auto h-9 w-32" />
-      </div>
-
-      <div className="overflow-hidden rounded-md border border-border bg-surface">
-        <div className="flex items-center gap-4 border-b border-border px-4 py-3">
-          <Skeleton className="h-4 w-1/4" />
-          <Skeleton className="h-4 w-1/5" />
-          <Skeleton className="h-4 w-1/6" />
-          <Skeleton className="ml-auto h-4 w-16" />
-        </div>
-        {Array.from({ length: 8 }).map((_, index) => (
-          <div
-            key={index}
-            className="flex items-center gap-4 border-b border-border px-4 py-3 last:border-b-0"
-          >
-            <Skeleton className="h-4 w-1/4" />
-            <Skeleton className="h-4 w-1/5" />
-            <Skeleton className="h-4 w-1/6" />
-            <Skeleton className="ml-auto h-4 w-16" />
-          </div>
-        ))}
-      </div>
-    </div>
+    <BackendModuleFrame
+      enabled={shape?.moduleSidebar !== false}
+      routeGroupId={shape?.group ?? null}
+      routeParentHref={shape?.parentHref ?? null}
+    >
+      {content}
+    </BackendModuleFrame>
   )
 }
 
 /**
- * Chat is the one backend surface that is not a list, and the list shape was
- * actively wrong for it: eight full-width table rows resolved into a two-pane
- * transcript, so the whole content area moved on arrival.
- *
- * The grid, the `16rem` rail and the `bg-surface` transcript card mirror
- * `ChatShell`, so the only thing that changes when the real page lands is that
- * the placeholders become words.
+ * The chat routes declare this shape: `ChatShell` on its `fill` page, with no
+ * module sidebar. The rail is the conversation list's search and New chat rows
+ * and the three rows it shows while loading, drawn with the sidebar's own
+ * placeholder row, as the list draws them; the card
+ * beside it is blank on the list route, as the real one is until a
+ * conversation is chosen, and holds a transcript inside a conversation.
  */
-function ConversationSkeleton() {
+function ConversationSkeleton({ withTranscript }: { withTranscript: boolean }) {
   return (
-    <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] gap-4 p-4 md:p-6 lg:grid-cols-[16rem_minmax(0,1fr)] lg:gap-6">
-      <aside className="hidden min-h-0 flex-col gap-4 lg:flex">
-        <Skeleton className="h-9 w-full rounded-lg" />
-        <div className="flex flex-col gap-3">
-          {Array.from({ length: 6 }).map((_, index) => (
-            <div key={index} className="flex items-center gap-2.5">
-              <Skeleton shape="circle" className="size-7" />
-              <Skeleton className="h-3 w-2/3" />
-            </div>
-          ))}
-        </div>
-      </aside>
+    <BackendModuleFrame enabled={false}>
+      <Page fill>
+        <PageBody fill>
+          <SkeletonRegion className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[16rem_minmax(0,1fr)] lg:gap-6">
+            <aside className={withTranscript ? 'hidden min-h-0 flex-col lg:flex' : 'flex min-h-0 flex-col'}>
+              <div className="flex min-h-0 flex-1 flex-col gap-1 p-2">
+                <ModuleSidebarSkeletonRow width="w-28" />
+                <ModuleSidebarSkeletonRow width="w-20" />
+                <div className="flex min-h-0 flex-1 flex-col gap-1">
+                  <ModuleSidebarSkeletonRow width="w-32" avatar />
+                  <ModuleSidebarSkeletonRow width="w-24" avatar />
+                  <ModuleSidebarSkeletonRow width="w-28" avatar />
+                </div>
+              </div>
+            </aside>
 
-      <section className="flex min-h-0 flex-col overflow-hidden rounded-xl bg-surface">
-        <div className="flex items-center gap-2.5 border-b border-border px-4 py-3">
-          <Skeleton shape="circle" className="size-8" />
-          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-            <Skeleton className="h-3.5 w-40" />
-            <Skeleton className="h-3 w-24" />
-          </div>
-        </div>
+            <section
+              className={withTranscript
+                ? 'flex min-h-0 flex-col overflow-hidden rounded-xl border border-card-edge bg-surface'
+                : 'hidden min-h-0 flex-col overflow-hidden rounded-xl border border-card-edge bg-surface lg:flex'}
+            >
+              {withTranscript ? (
+                <>
+                  <div className="flex items-center gap-2.5 border-b border-border px-4 py-3">
+                    <SkeletonBar className="size-8 rounded-full" />
+                    <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                      <SkeletonBar className="h-3.5 w-40" />
+                      <SkeletonBar className="h-3 w-24" />
+                    </div>
+                  </div>
 
-        {/* Weighted to the bottom, alternating sides, ragged widths — a
-            transcript scrolled to the latest message, which is what arrives. */}
-        <div className="flex min-h-0 flex-1 flex-col justify-end gap-3 px-4 py-3">
-          {[
-            { mine: false, width: 'w-3/5' },
-            { mine: false, width: 'w-2/5' },
-            { mine: true, width: 'w-1/2' },
-            { mine: false, width: 'w-3/4' },
-            { mine: true, width: 'w-1/3' },
-            { mine: true, width: 'w-3/5' },
-          ].map((row, index) => (
-            <div key={index} className={row.mine ? 'flex w-full justify-end' : 'flex w-full'}>
-              <Skeleton
-                className={`h-9 rounded-2xl ${row.width} ${row.mine ? 'bg-primary-soft' : 'bg-surface-muted'}`}
-              />
-            </div>
-          ))}
-        </div>
+                  {/* Weighted to the bottom, alternating sides, ragged widths: a
+                      transcript scrolled to the latest message, which is what arrives. */}
+                  <div className="flex min-h-0 flex-1 flex-col justify-end gap-3 px-4 py-3">
+                    {[
+                      { mine: false, width: 'w-3/5' },
+                      { mine: false, width: 'w-2/5' },
+                      { mine: true, width: 'w-1/2' },
+                      { mine: false, width: 'w-3/4' },
+                      { mine: true, width: 'w-1/3' },
+                      { mine: true, width: 'w-3/5' },
+                    ].map((row, index) => (
+                      <div key={index} className={row.mine ? 'flex w-full justify-end' : 'flex w-full'}>
+                        <SkeletonBar className={`h-9 rounded-2xl ${row.width} ${row.mine ? 'bg-primary-soft' : ''}`} />
+                      </div>
+                    ))}
+                  </div>
 
-        <div className="px-4 py-3">
-          <Skeleton className="h-11 w-full rounded-xl" />
-        </div>
-      </section>
-    </div>
+                  <div className="px-4 py-3">
+                    <SkeletonBar className="h-11 w-full rounded-xl" />
+                  </div>
+                </>
+              ) : null}
+            </section>
+          </SkeletonRegion>
+        </PageBody>
+      </Page>
+    </BackendModuleFrame>
   )
 }

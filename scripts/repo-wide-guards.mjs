@@ -81,6 +81,10 @@ export const REPO_WIDE_GUARDS = [
         scans: 'packages/core and packages/onboarding frontends — hardcoded status colors (#3165)',
       },
       {
+        path: 'src/__tests__/theme-token-colors.test.ts',
+        scans: 'every packages/*/src root plus apps/mercato/src — colour that bypasses the light/dark theme tokens',
+      },
+      {
         path: 'src/__tests__/feature-policy-authorization-coverage.test.ts',
         scans: 'server runtime roots across packages and app templates — low-level ACL authorization bypasses',
       },
@@ -123,6 +127,10 @@ export const REPO_WIDE_GUARDS = [
       {
         path: 'src/modules/design_system/gallery/__tests__/inventory-parity.test.ts',
         scans: 'packages/cli/agentic/shared/ai/harness/design-system-inventory.json — the only guard that compares the runtime gallery registry against the derived inventory, so a change that silently under-reports a family is caught here and nowhere else. The inventory is hand-maintained in this fork: create-app was removed and no generator replaced it (#4991).',
+      },
+      {
+        path: 'src/modules/customers/components/calendar/__tests__/useAvailableHeight.gutter.test.ts',
+        scans: "apps/mercato/src/app/globals.css — the locked-page bottom gap in the shell rule matches the calendar's VIEWPORT_BOTTOM_GUTTER_PX",
       },
     ],
   },

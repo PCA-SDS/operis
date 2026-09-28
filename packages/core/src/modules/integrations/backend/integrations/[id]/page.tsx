@@ -1148,7 +1148,7 @@ export default function IntegrationDetailPage({ params }: IntegrationDetailPageP
           </CardContent>
         </Card>
 
-        <section className="rounded-xl border border-border bg-surface shadow-sm p-4">
+        <section className="rounded-xl border border-card-edge bg-surface shadow-sm p-4">
           <div className="flex items-center justify-between gap-4">
             <div className="space-y-2">
               <p className="text-overline uppercase tracking-wide text-muted-foreground">
@@ -1212,48 +1212,50 @@ export default function IntegrationDetailPage({ params }: IntegrationDetailPageP
           </section>
         ) : null}
 
-        <Tabs value={activeTab} onValueChange={handleTabChange} variant="underline" className="space-y-5">
-          <TabsList className="w-full overflow-x-auto">
-            {showCredentialsTab ? (
-              <TabsTrigger value="credentials" leading={<Key className="h-4 w-4" />}>
-                {t('integrations.detail.tabs.credentials')}
-              </TabsTrigger>
-            ) : null}
-            {leadingInjectedTab ? (
-              <TabsTrigger value={leadingInjectedTab.id} leading={<Settings className="h-4 w-4" />}>
-                {leadingInjectedTab.label}
-              </TabsTrigger>
-            ) : null}
-            {showVersionTab ? (
-              <TabsTrigger value="version" leading={<RefreshCw className="h-4 w-4" />}>
-                {t('integrations.detail.tabs.version')}
-              </TabsTrigger>
-            ) : null}
-            {showDataSyncScheduleTab ? (
-              <TabsTrigger value="data-sync-schedule" leading={<Calendar className="h-4 w-4" />}>
-                {t('data_sync.integrationTab.title', 'Sync schedules')}
-              </TabsTrigger>
-            ) : null}
-            {showHealthTab ? (
-              <TabsTrigger value="health" leading={<Activity className="h-4 w-4" />}>
-                {t('integrations.detail.tabs.health')}
-              </TabsTrigger>
-            ) : null}
-            {showLogsTab ? (
-              <TabsTrigger value="logs" leading={<FileText className="h-4 w-4" />}>
-                {t('integrations.detail.tabs.logs')}
-              </TabsTrigger>
-            ) : null}
-            {trailingInjectedTabs.map((tab) => (
-              <TabsTrigger key={tab.id} value={tab.id} leading={<Settings className="h-4 w-4" />}>
-                {tab.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-5">
+          <div className="overflow-x-auto">
+            <TabsList className="w-max min-w-full">
+              {showCredentialsTab ? (
+                <TabsTrigger value="credentials" leading={<Key className="h-4 w-4" />}>
+                  {t('integrations.detail.tabs.credentials')}
+                </TabsTrigger>
+              ) : null}
+              {leadingInjectedTab ? (
+                <TabsTrigger value={leadingInjectedTab.id} leading={<Settings className="h-4 w-4" />}>
+                  {leadingInjectedTab.label}
+                </TabsTrigger>
+              ) : null}
+              {showVersionTab ? (
+                <TabsTrigger value="version" leading={<RefreshCw className="h-4 w-4" />}>
+                  {t('integrations.detail.tabs.version')}
+                </TabsTrigger>
+              ) : null}
+              {showDataSyncScheduleTab ? (
+                <TabsTrigger value="data-sync-schedule" leading={<Calendar className="h-4 w-4" />}>
+                  {t('data_sync.integrationTab.title', 'Sync schedules')}
+                </TabsTrigger>
+              ) : null}
+              {showHealthTab ? (
+                <TabsTrigger value="health" leading={<Activity className="h-4 w-4" />}>
+                  {t('integrations.detail.tabs.health')}
+                </TabsTrigger>
+              ) : null}
+              {showLogsTab ? (
+                <TabsTrigger value="logs" leading={<FileText className="h-4 w-4" />}>
+                  {t('integrations.detail.tabs.logs')}
+                </TabsTrigger>
+              ) : null}
+              {trailingInjectedTabs.map((tab) => (
+                <TabsTrigger key={tab.id} value={tab.id} leading={<Settings className="h-4 w-4" />}>
+                  {tab.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
 
           {showCredentialsTab ? (
             <TabsContent value="credentials" className="mt-0">
-              <section className="space-y-4 rounded-xl border border-border bg-surface shadow-sm p-6">
+              <section className="space-y-4 rounded-xl border border-card-edge bg-surface shadow-sm p-6">
                 {detail.bundle ? (
                   <div className="rounded-lg border border-status-info-border bg-status-info-bg p-3 text-sm text-status-info-text">
                     {t('integrations.detail.credentials.bundleShared', { bundle: detail.bundle.title })}

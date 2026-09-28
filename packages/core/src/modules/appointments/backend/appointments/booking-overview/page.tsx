@@ -6,7 +6,7 @@ import * as React from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { BadgeDollarSign, CalendarDays, Check, Clock, Copy, ExternalLink, Inbox, Maximize2, Minimize2, MoreHorizontal, Pencil, Plus, RotateCcw, Timer, Trash2, Users, X } from 'lucide-react'
-import { Page, PageBody } from '@open-mercato/ui/backend/Page'
+import { PAGE_TITLE_CLASS, Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { DatePicker } from '@open-mercato/ui/primitives/date-picker'
 import { TimePicker } from '@open-mercato/ui/backend/inputs/TimePicker'
@@ -931,7 +931,7 @@ export default function BookingOverviewPage() {
         <div className="flex h-full min-h-0 flex-col gap-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight">{t('appointments.overview.title', 'Booking Overview')}</h1>
+              <h1 className={PAGE_TITLE_CLASS}>{t('appointments.overview.title', 'Booking Overview')}</h1>
               <p className="text-sm text-muted-foreground">{t('appointments.overview.description', 'Daily booking timeline')}</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -954,7 +954,7 @@ export default function BookingOverviewPage() {
                 {t('appointments.overview.unconfirmed', 'Unconfirmed')}
                 <span className="ml-1 rounded-full bg-status-warning-bg px-1.5 text-xs text-status-warning-text">{overview?.unconfirmedAppointmentIds.length ?? 0}</span>
               </Button>
-              <Button type="button" variant={isFitScreen ? 'default' : 'outline'} onClick={() => setIsFitScreen((value) => !value)}>{isFitScreen ? <Minimize2 className="mr-2 size-4" /> : <Maximize2 className="mr-2 size-4" />}{t('appointments.overview.fitScreen', 'Fit screen')}</Button>
+              <Button type="button" variant="toggle" aria-pressed={isFitScreen} onClick={() => setIsFitScreen((value) => !value)}>{isFitScreen ? <Minimize2 className="mr-2 size-4" /> : <Maximize2 className="mr-2 size-4" />}{t('appointments.overview.fitScreen', 'Fit screen')}</Button>
             </div>
           </div>
 

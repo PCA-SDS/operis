@@ -282,13 +282,16 @@ export function HrProfileSection({ memberId, canManage }: { memberId: string | n
             <DialogTitle>{record ? labels.edit : labels.add}</DialogTitle>
           </DialogHeader>
           <CrudForm<HrProfileFormValues>
+            // In the dialog the dialog's own header carries the title, so the
+            // form drops its page header and grey section panel.
+            embedded
             fields={fields}
             initialValues={initialValues}
             optimisticLockUpdatedAt={record?.updatedAt ?? null}
             onSubmit={handleSubmit}
             submitLabel={labels.save}
             extraActions={(
-              <Button type="button" variant="ghost" onClick={() => setDialogOpen(false)}>
+              <Button type="button" variant="soft" onClick={() => setDialogOpen(false)}>
                 {labels.cancel}
               </Button>
             )}

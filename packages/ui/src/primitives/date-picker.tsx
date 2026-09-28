@@ -220,12 +220,12 @@ export function DatePicker({
           data-slot="date-picker-trigger"
           disabled={disabled}
           className={cn(
-            // `rounded-lg` and `font-medium` match `SelectTrigger`. A date field
-            // and a select sit side by side in most forms, so the two triggers
-            // have to agree; they previously differed in corner and weight.
-            'w-full inline-flex items-center gap-2 rounded-lg border border-input bg-input-bg font-medium shadow-xs transition-colors text-left',
+            // Corner, weight, fill, hover and elevation all match `Input` and
+            // `SelectTrigger`. A date field and a select sit side by side in
+            // most forms, so the triggers have to agree to the pixel.
+            'w-full inline-flex items-center gap-2 rounded-lg border border-input bg-input-bg font-normal transition-colors text-left',
             'focus-visible:outline-none focus-visible:shadow-focus',
-            'hover:bg-muted/40',
+            'hover:bg-modal-muted',
             'disabled:bg-bg-disabled disabled:border-border-disabled disabled:shadow-none disabled:hover:bg-bg-disabled disabled:cursor-not-allowed',
             'aria-invalid:border-destructive',
             heightClass,

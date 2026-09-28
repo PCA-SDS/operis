@@ -101,7 +101,6 @@ export type QuickAddParentTask = {
  */
 export function QuickAddComposer({
   autoFocus = true,
-  floating = false,
   embedded = false,
   parentTask,
   defaultDueDate,
@@ -112,7 +111,6 @@ export function QuickAddComposer({
   onCreated,
 }: {
   autoFocus?: boolean
-  floating?: boolean
   /**
    * Render as PART of a surface that already provides its own chrome.
    *
@@ -544,9 +542,7 @@ export function QuickAddComposer({
           ? 'bg-transparent'
           : parentTask
             ? 'bg-surface-muted'
-            : floating
-              ? 'bg-surface shadow-xl'
-              : 'bg-modal-muted shadow-sm',
+            : 'bg-modal-muted shadow-sm',
       )}
     >
       <div
@@ -676,7 +672,10 @@ export function QuickAddComposer({
           </PopoverContent>
         </Popover>
 
-        <div className="-mx-3 border-t border-border px-3 pt-3">
+        {/* On a card the hairline splits the name from the description. Inside
+            a dialog the spacing does that job; the line would also run 12px
+            past the dialog's own margins. */}
+        <div className={embedded ? 'pt-1' : '-mx-3 border-t border-border px-3 pt-3'}>
           <div className="-mx-1 px-1 text-sm">
             <RichTextEditor
               variant="minimal"

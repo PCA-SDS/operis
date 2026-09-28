@@ -69,11 +69,12 @@ describe('EmptyState primitive', () => {
     expect(screen.queryByRole('button', { name: /Legacy/i })).not.toBeInTheDocument()
   })
 
-  it('default variant frames the region with a dashed hairline on the card plane', () => {
+  it('default variant is frameless: whitespace, not a dashed hairline, holds the region', () => {
     const { container } = render(<EmptyState title="Default" />)
     const root = container.querySelector('[data-slot="empty-state"]')
-    expect(root!.className).toContain('border-dashed')
-    expect(root!.className).toContain('border-border')
+    expect(root!.className).toContain('rounded-xl')
+    expect(root!.className).not.toContain('border-dashed')
+    expect(root!.className).not.toContain('border-border')
   })
 
   it('subtle variant has no border and no muted background', () => {

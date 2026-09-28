@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 import * as React from 'react'
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import {
   DictionaryEntrySelect,
   DictionaryOptionsUnavailableError,
@@ -33,7 +33,9 @@ jest.mock('@open-mercato/ui/primitives/dialog', () => ({
   DialogBody: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
     <div data-slot="dialog-body" {...props}>{children}</div>
   ),
-  Dialog: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Dialog: ({ children, open }: { children: React.ReactNode; open?: boolean }) => (
+    <div data-testid="dialog" data-open={String(Boolean(open))}>{children}</div>
+  ),
   DialogContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   DialogDescription: ({ children }: { children: React.ReactNode }) => <p>{children}</p>,
   DialogFooter: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -66,6 +68,8 @@ jest.mock('@open-mercato/ui/primitives/select', () => ({
     </span>
   ),
   SelectValue: () => null,
+  SelectSeparator: () => <option disabled>---</option>,
+  SelectItemLeading: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 
 const labels: DictionarySelectLabels = {
@@ -228,6 +232,72 @@ describe('DictionaryEntrySelect', () => {
       expect(screen.getAllByText('Value')[0].closest('label')?.textContent).toContain('*')
       expect(body.querySelector('[role="alert"]')).not.toBeNull()
       expect(screen.getByRole('button', { name: 'Cancel' })).toHaveAttribute('data-variant', 'soft')
+    })
+  })
+
+  describe('actions in the menu', () => {
+    const createOption = jest.fn(async () => null)
+    const colouredOptions = jest.fn(async () => [
+      { value: 'a', label: 'Alpha', color: '#22c55e', icon: null },
+      { value: 'b', label: 'Beta', color: null, icon: null },
+    ])
+
+    function renderMenu(onChange = jest.fn()) {
+      render(
+        <DictionaryEntrySelect
+          value="a"
+          onChange={onChange}
+          fetchOptions={colouredOptions}
+          createOption={createOption}
+          labels={labels}
+          actionsPlacement="menu"
+        />,
+      )
+      return onChange
+    }
+
+    it('puts add and manage at the end of the menu instead of buttons beside the field', async () => {
+      renderMenu()
+      await waitFor(() => expect(optionLabels()).toEqual(['Alpha', 'Beta', '---', 'Add', 'Manage']))
+      expect(screen.queryByRole('button', { name: 'Add' })).toBeNull()
+      expect(screen.queryByRole('link', { name: 'Manage' })).toBeNull()
+      // The selected entry's hex no longer sits under the field.
+      expect(screen.queryByText('#22c55e')).toBeNull()
+    })
+
+    it('opens the create dialog from the menu without changing the value', async () => {
+      jest.useFakeTimers()
+      try {
+        const onChange = renderMenu()
+        await act(async () => { await Promise.resolve() })
+        const select = screen.getByTestId('dictionary-entry-select') as HTMLSelectElement
+        const addValue = Array.from(select.options).find((option) => option.textContent === 'Add')?.value as string
+        expect(screen.getByTestId('dialog')).toHaveAttribute('data-open', 'false')
+        fireEvent.change(select, { target: { value: addValue } })
+        act(() => { jest.runAllTimers() })
+        expect(onChange).not.toHaveBeenCalled()
+        expect(screen.getByTestId('dialog')).toHaveAttribute('data-open', 'true')
+      } finally {
+        jest.useRealTimers()
+      }
+    })
+
+    it('follows the manage link from the menu, and picks values as before', async () => {
+      const click = jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+      try {
+        const onChange = renderMenu()
+        await waitFor(() => expect(optionLabels()).toContain('Beta'))
+        const select = screen.getByTestId('dictionary-entry-select') as HTMLSelectElement
+        const manageValue = Array.from(select.options).find((option) => option.textContent === 'Manage')?.value as string
+        fireEvent.change(select, { target: { value: manageValue } })
+        expect(click).toHaveBeenCalledTimes(1)
+        expect(onChange).not.toHaveBeenCalled()
+
+        fireEvent.change(select, { target: { value: 'b' } })
+        expect(onChange).toHaveBeenCalledWith('b')
+      } finally {
+        click.mockRestore()
+      }
     })
   })
 })

@@ -4,7 +4,7 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@open-mercato/shared/lib/utils'
 
 const iconButtonVariants = cva(
-  "inline-flex items-center justify-center cursor-pointer transition-all outline-none disabled:pointer-events-none disabled:bg-bg-disabled disabled:text-text-disabled disabled:border-border-disabled disabled:shadow-none [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 focus-visible:outline-none focus-visible:shadow-focus aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:hover:bg-primary-hover",
+  "inline-flex shrink-0 items-center justify-center cursor-pointer transition-all outline-none disabled:pointer-events-none disabled:bg-bg-disabled disabled:text-text-disabled disabled:border-border-disabled disabled:shadow-none [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 focus-visible:outline-none focus-visible:shadow-focus aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:hover:bg-primary-hover",
   {
     variants: {
       variant: {
@@ -12,16 +12,20 @@ const iconButtonVariants = cva(
           'bg-primary text-primary-foreground shadow-xs hover:bg-primary-hover',
         destructive:
           'bg-destructive text-white shadow-xs hover:bg-destructive/90',
+        /* `outline` and `soft` are the icon-only twin of the Button's
+           second-rank action: neutral fill, floating shadow, no hairline, and
+           the fill flips to `surface` inside a grey form section. The
+           transparent border keeps every variant on one box model. */
         outline:
-          'border border-border bg-surface text-foreground shadow-sm hover:bg-surface-muted',
-        ghost: 'hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50',
+          'border border-transparent bg-primary-soft text-foreground shadow-sm hover:bg-primary-border/60 hover:shadow-md active:shadow-xs in-data-[crud-section=true]:bg-surface',
+        /* The same hover as `Button`'s ghost, so an icon button and a text
+           button side by side (the topbar) light up alike. `accent` is #F2F2F7,
+           which all but vanished on the #F5F5F7 page ground. */
+        ghost: 'hover:bg-surface-strong hover:text-foreground',
         white:
           'bg-surface text-muted-foreground shadow-sm hover:bg-surface-muted hover:text-foreground',
-        /* The icon-only twin of `Button variant="soft"`: brand-tinted fill and a
-           floating shadow, no hairline. The transparent border keeps the box the
-           same size as the outline variant it usually replaces. */
         soft:
-          'border border-transparent bg-primary-soft text-foreground shadow-sm hover:bg-primary-border/60 hover:shadow-md active:shadow-xs',
+          'border border-transparent bg-primary-soft text-foreground shadow-sm hover:bg-primary-border/60 hover:shadow-md active:shadow-xs in-data-[crud-section=true]:bg-surface',
         modifiable:
           'bg-transparent text-current hover:bg-foreground/10',
       },

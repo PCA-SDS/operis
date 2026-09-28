@@ -45,7 +45,6 @@ import {
   Pencil,
   Trash2,
   GripVertical,
-  Tag,
   Clock,
   Banknote,
   FolderTree,
@@ -217,7 +216,7 @@ export function OptionTreeSkeleton() {
   return (
     <div className="space-y-3">
       {[1, 2].map((i) => (
-        <div key={i} className="rounded-lg border border-border bg-card shadow-sm">
+        <div key={i} className="rounded-lg border border-transparent bg-card shadow-sm">
           {/* Group Header Skeleton */}
           <div className="flex items-center gap-3 px-4 py-3 border-b border-border/50">
             <div className="h-4 w-4 rounded bg-muted animate-pulse shrink-0" />
@@ -301,8 +300,7 @@ function GroupDialog({
           }}
         >
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Layers className="h-4 w-4 text-primary" />
+            <DialogTitle>
               {parentOptionId
                 ? t('catalog.options.addSubGroup', 'Add Sub-Group')
                 : t('catalog.options.addGroup', 'Add Option Group')}
@@ -459,8 +457,7 @@ function OptionDialog({
           }}
         >
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Tag className="h-4 w-4 text-primary" />
+            <DialogTitle>
               {editId
                 ? t('catalog.options.editOption', 'Edit Option')
                 : t('catalog.options.addOption', 'Add Option')}
@@ -1038,7 +1035,7 @@ function GroupCard({
   return (
     <div
       className={cn(
-        'rounded-lg border bg-card shadow-sm transition-all',
+        'rounded-lg border border-transparent bg-card shadow-sm transition-all',
         depth === 0 ? 'border-border' : 'border-dashed border-primary/30',
       )}
     >

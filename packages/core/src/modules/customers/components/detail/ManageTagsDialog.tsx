@@ -45,18 +45,20 @@ import { Badge } from '@open-mercato/ui/primitives/badge'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { ColorPicker } from '@open-mercato/ui/primitives/color-picker'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
-import { CloseButton } from '@open-mercato/ui/primitives/close-button'
 import { ScrollArea } from '@open-mercato/ui/primitives/scroll-area'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
   DialogTitle,
 } from '@open-mercato/ui/primitives/dialog'
-import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 import { Popover, PopoverContent, PopoverTrigger } from '@open-mercato/ui/primitives/popover'
 import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primitives/segmented-control'
+import { Tabs, TabsList, TabsPanel, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
 import { useDialogKeyHandler } from '@open-mercato/ui/hooks/useDialogKeyHandler'
 
 const logger = createLogger('customers')
@@ -968,28 +970,22 @@ export function ManageTagsDialog({ open, onClose }: ManageTagsDialogProps) {
       <DialogContent
         disableBodyWrap
         data-dialog-form="true"
-        className="flex h-[min(90vh,44rem)] flex-col sm:h-[min(90vh,44rem)] overflow-hidden border-border p-0 shadow-xl sm:max-w-[820px] sm:rounded-lg [&>[data-dialog-close]]:hidden"
-        aria-describedby={undefined}
+        className="flex h-[min(90vh,44rem)] flex-col overflow-hidden sm:max-w-[820px]"
         onKeyDown={handleDialogKeyDown}
+        closeAriaLabel={t('customers.tags.manage.closeDialog', 'Close')}
       >
-        <VisuallyHidden>
-          <DialogTitle>{t('customers.tags.manage.title', 'Manage tags')}</DialogTitle>
-        </VisuallyHidden>
-
-        {/* Header */}
-        <div className="flex shrink-0 items-center justify-between px-5 py-4 sm:px-6">
-          <div className="flex flex-col gap-1">
-            <h2 className="text-base font-bold leading-tight text-foreground">
-              {t('customers.tags.manage.title', 'Manage tags')}
-            </h2>
-            <p className="text-xs leading-tight text-muted-foreground">
+        {/* The add button is 36px against the title's 28px line; `-mt-1`
+            centres it on that line, level with the close button. */}
+        <DialogHeader className="flex-row items-start justify-between gap-3">
+          <div className="flex min-w-0 flex-col gap-1">
+            <DialogTitle>{t('customers.tags.manage.title', 'Manage tags')}</DialogTitle>
+            <DialogDescription>
               {t(
                 'customers.tags.manage.subtitle',
                 'Tag dictionaries for the entire tenant',
               )}
-            </p>
+            </DialogDescription>
           </div>
-          <div className="flex items-center gap-2">
             {/* The create form opens in a popover so opening it never pushes the
                 tabs and entries down. */}
             <Popover
@@ -1003,7 +999,7 @@ export function ManageTagsDialog({ open, onClose }: ManageTagsDialogProps) {
               }}
             >
               <PopoverTrigger asChild>
-                <Button type="button" variant="soft">
+                <Button type="button" variant="soft" className="-mt-1">
                   <Plus className="size-4" />
                   {t('customers.tags.manage.addCategory', 'New category')}
                 </Button>
@@ -1048,12 +1044,7 @@ export function ManageTagsDialog({ open, onClose }: ManageTagsDialogProps) {
                 </div>
               </PopoverContent>
             </Popover>
-            <CloseButton
-              onClick={onClose}
-              aria-label={t('customers.tags.manage.closeDialog', 'Close')}
-            />
-          </div>
-        </div>
+        </DialogHeader>
         
         {loading ? (
           <div className="px-7 py-12 text-center text-sm text-muted-foreground">
@@ -1062,12 +1053,12 @@ export function ManageTagsDialog({ open, onClose }: ManageTagsDialogProps) {
         ) : (
           <>
             {/* Tab bar */}
-            <div className="flex shrink-0 items-end gap-2 border-b border-input px-4 pt-1.5">
+            <div className="flex shrink-0 items-end gap-2 px-4 pt-1.5">
               <IconButton
                 type="button"
                 variant="soft"
                 size="lg"
-                className="shrink-0 self-center"
+                className="mb-px shrink-0"
                 onClick={() => scrollCategoryRail('left')}
                 disabled={!canScrollLeft}
                 aria-label={t('customers.tags.manage.scrollLeft', 'Scroll categories left')}
@@ -1078,45 +1069,38 @@ export function ManageTagsDialog({ open, onClose }: ManageTagsDialogProps) {
                 ref={categoryRailRef}
                 className="scrollbar-hide min-w-0 flex-1 overflow-x-auto"
               >
-                <div className="flex items-end gap-0.5">
-                  {translatedCategories.map((category) => {
-                    const Icon = category.icon
-                    const isActive = category.kind === activeTab
-                    const count = entryCounts[category.kind] ?? 0
-                    return (
-                      <Button
-                        key={category.kind}
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setActiveTab(category.kind)
-                          setSearchValue('')
-                        }}
-                        className={`flex h-auto shrink-0 items-center gap-1.5 rounded-none border-b-2 px-2.5 py-2 hover:bg-transparent -mb-px ${
-                          isActive
-                            ? 'border-accent-strong text-foreground'
-                            : 'border-transparent text-muted-foreground'
-                        }`}
-                      >
-                        <Icon className="size-4" />
-                        {/* One weight in every state, so switching tabs never changes widths. */}
-                        <span className="whitespace-nowrap text-sm font-medium">
+                <Tabs
+                  value={activeTab}
+                  onValueChange={(kind) => {
+                    setActiveTab(kind)
+                    setSearchValue('')
+                  }}
+                >
+                  <TabsList
+                    aria-label={t('customers.tags.manage.categoriesLabel', 'Tag categories')}
+                    className="w-max min-w-full"
+                  >
+                    {translatedCategories.map((category) => {
+                      const Icon = category.icon
+                      return (
+                        <TabsTrigger
+                          key={category.kind}
+                          value={category.kind}
+                          leading={<Icon className="size-4" />}
+                          count={entryCounts[category.kind] ?? 0}
+                        >
                           {category.shortLabel}
-                        </span>
-                        <span className="rounded-sm bg-muted px-1 py-px text-overline font-semibold text-foreground">
-                          {count}
-                        </span>
-                      </Button>
-                    )
-                  })}
-                </div>
+                        </TabsTrigger>
+                      )
+                    })}
+                  </TabsList>
+                </Tabs>
               </div>
               <IconButton
                 type="button"
                 variant="soft"
                 size="lg"
-                className="shrink-0 self-center"
+                className="mb-px shrink-0"
                 onClick={() => scrollCategoryRail('right')}
                 disabled={!canScrollRight}
                 aria-label={t('customers.tags.manage.scrollRight', 'Scroll categories right')}
@@ -1127,7 +1111,7 @@ export function ManageTagsDialog({ open, onClose }: ManageTagsDialogProps) {
 
             {/* Content */}
             <ScrollArea className="min-h-0 flex-1" viewportClassName="px-6 py-3.5">
-              <div className="flex flex-col gap-3">
+              <TabsPanel value={activeTab} className="flex flex-col gap-3">
               {activeMeta ? (
                 <>
                   {/* Category header + search */}
@@ -1274,21 +1258,22 @@ export function ManageTagsDialog({ open, onClose }: ManageTagsDialogProps) {
                   {t('customers.tags.manage.noDictionaries', 'No tag categories found.')}
                 </div>
               )}
-              </div>
+              </TabsPanel>
             </ScrollArea>
 
-            {/* Footer */}
-            <div className="flex shrink-0 items-center justify-between px-6 py-3">
-              <div className="flex items-center gap-1.5">
-                <Info className="size-4 shrink-0 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">
-                  {t(
-                    'customers.tags.manage.tenantNotice',
-                    'Changes apply to the entire tenant \u00b7 visible immediately',
-                  )}
-                </span>
-              </div>
-              <div className="flex items-center gap-2.5">
+            <DialogFooter
+              leading={
+                <>
+                  <Info className="size-4 shrink-0 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">
+                    {t(
+                      'customers.tags.manage.tenantNotice',
+                      'Changes apply to the entire tenant \u00b7 visible immediately',
+                    )}
+                  </span>
+                </>
+              }
+            >
                 <Button
                   type="button"
                   variant="soft"
@@ -1308,8 +1293,7 @@ export function ManageTagsDialog({ open, onClose }: ManageTagsDialogProps) {
                     ? t('customers.tags.manage.saving', 'Saving...')
                     : t('customers.tags.manage.save', 'Save changes')}
                 </Button>
-              </div>
-            </div>
+            </DialogFooter>
           </>
         )}
       </DialogContent>

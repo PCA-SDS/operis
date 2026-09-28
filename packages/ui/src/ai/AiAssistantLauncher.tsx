@@ -514,23 +514,24 @@ export function AiAssistantLauncher({
         type="button"
         variant="ghost"
         onClick={openPicker}
-        className={cn('hidden sm:inline-flex items-center gap-2 text-foreground [&_svg]:text-foreground', className)}
+        className={cn('hidden xl:inline-flex items-center gap-2 text-foreground [&_svg]:text-foreground', className)}
         data-ai-launcher-trigger=""
         aria-label={triggerLabel}
         title={triggerLabel}
       >
         <AiIcon className="size-4 text-foreground" />
         <span>{shortLabel}</span>
-        <span className="ml-2 rounded border px-1 text-xs text-muted-foreground">
-          ⌘L
-        </span>
+        {/* The shared key chip, as the search's ⌘K is, rather than a bordered
+            span of its own: grey on the white bar, where ⌘K is white inside its
+            grey field. */}
+        <Kbd className="ml-2">⌘L</Kbd>
       </Button>
       {/* Mobile fallback: icon-only button — same pattern as global search. */}
       <IconButton
         type="button"
         variant="ghost"
         size="lg"
-        className="sm:hidden text-foreground [&_svg]:text-foreground"
+        className="xl:hidden text-foreground [&_svg]:text-foreground"
         onClick={openPicker}
         aria-label={triggerLabel}
         data-ai-launcher-trigger-mobile=""
@@ -675,21 +676,9 @@ export function AiAssistantLauncher({
         }
       }}>
         <DialogContent
-        disableBodyWrap
-          className={cn(
-            // Mobile: full-screen sheet (matches per-page assistant
-            // triggers). Desktop (≥sm): right-anchored side sheet so the
-            // chat doesn't appear randomly cropped or off-center.
-            // The Dialog primitive applies a centering transform at the
-            // sm breakpoint (`sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2
-            // sm:-translate-y-1/2 sm:inset-auto`); each piece must be
-            // overridden at the same breakpoint or the panel renders half
-            // off the viewport on the left.
-            'top-0 left-0 right-0 bottom-0 translate-x-0 translate-y-0 max-w-none w-screen h-svh max-h-svh rounded-none',
-            'sm:top-0 sm:bottom-0 sm:right-0 sm:left-auto sm:translate-x-0 sm:translate-y-0',
-            'sm:max-w-xl sm:w-[36rem] sm:rounded-l-2xl sm:h-screen sm:max-h-screen',
-            'flex flex-col gap-3 p-4 z-banner',
-          )}
+          side="right"
+          disableBodyWrap
+          className="max-w-xl gap-3 p-4 z-banner"
           data-ai-launcher-sheet=""
         >
           <DialogHeader>

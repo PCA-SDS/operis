@@ -7,6 +7,7 @@ import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { I18nProvider } from '@open-mercato/shared/lib/i18n/context'
 import { DataTable } from '../DataTable'
+import { LIST_SKELETON_ROW_COUNT } from '../skeletons/PageSkeletons'
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: jest.fn(), replace: jest.fn(), prefetch: jest.fn(), refresh: jest.fn() }),
@@ -47,9 +48,28 @@ function tbody() {
 describe('DataTable — refetch keeps rows instead of erasing them', () => {
   beforeEach(() => { flashMock.mockReset() })
 
-  it('shows the spinner row on a genuine first load (no rows yet)', () => {
+  it('draws skeleton rows in its own columns on a genuine first load (no rows yet)', () => {
     renderTable({ data: [], isLoading: true })
-    expect(screen.getByText('Loading data...')).toBeInTheDocument()
+    // Rows, not a 96px spinner row: the real rows land where these stood.
+    const rows = tbody().querySelectorAll('[data-skeleton-row]')
+    expect(rows).toHaveLength(LIST_SKELETON_ROW_COUNT)
+    expect(rows[0]!.querySelectorAll('[data-slot="table-cell"]')).toHaveLength(columns.length)
+    expect(tbody().querySelector('.animate-spin')).toBeNull()
+    expect(screen.getByText('Loading data...')).toHaveClass('sr-only')
+  })
+
+  it('gives first-load rows the selection and row-actions cells the real rows have', () => {
+    renderTable({
+      data: [],
+      isLoading: true,
+      rowActions: () => null,
+      bulkActions: [{ id: 'archive', label: 'Archive', onExecute: jest.fn() }],
+    })
+    const cells = tbody().querySelector('[data-skeleton-row]')!.querySelectorAll('[data-slot="table-cell"]')
+    expect(cells).toHaveLength(columns.length + 2)
+    expect(cells[0]!.querySelector('.size-4')).not.toBeNull()
+    // The 32px row-actions button is what makes a row 65px tall.
+    expect(cells[cells.length - 1]!.querySelector('.size-8')).not.toBeNull()
   })
 
   it('keeps the previous rows mounted and dimmed while refetching', () => {

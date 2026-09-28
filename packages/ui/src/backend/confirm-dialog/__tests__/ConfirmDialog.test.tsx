@@ -96,6 +96,60 @@ describe('ConfirmDialog', () => {
     expect(classNames).not.toContain('bg-destructive')
   })
 
+  it('sets its title at the dialog title step, not a size of its own', () => {
+    renderWithProviders(
+      <ConfirmDialog
+        open
+        onOpenChange={() => undefined}
+        onConfirm={() => undefined}
+        title="Delete customer?"
+        text="This cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+      />,
+    )
+
+    const title = screen.getByRole('heading', { name: 'Delete customer?' })
+    expect(title.className.split(/\s+/)).toEqual(expect.arrayContaining(['text-lg', 'font-semibold']))
+    expect(title.className).not.toContain('text-xl')
+  })
+
+  it('offers Cancel as the way out, with no close button beside it', () => {
+    renderWithProviders(
+      <ConfirmDialog
+        open
+        onOpenChange={() => undefined}
+        onConfirm={() => undefined}
+        title="Delete customer?"
+        confirmText="Delete"
+        cancelText="Cancel"
+      />,
+    )
+
+    const dialog = screen.getByRole('alertdialog')
+    expect(within(dialog).getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
+    expect(dialog.querySelector('[data-slot="close-button"]')).toBeNull()
+  })
+
+  it('shows the close button when a caller hides Cancel', () => {
+    const onOpenChange = jest.fn()
+    renderWithProviders(
+      <ConfirmDialog
+        open
+        onOpenChange={onOpenChange}
+        onConfirm={() => undefined}
+        title="Import finished"
+        confirmText="View results"
+        cancelText={false}
+      />,
+    )
+
+    const close = screen.getByRole('alertdialog').querySelector('[data-slot="close-button"]') as HTMLElement
+    expect(close).not.toBeNull()
+    fireEvent.click(close)
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+  })
+
   it('closes only the confirmation that owns an Escape event', () => {
     const firstOpenChange = jest.fn()
     const secondOpenChange = jest.fn()

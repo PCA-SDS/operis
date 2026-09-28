@@ -21,7 +21,7 @@ type ImplProps = Pick<
   total: number
 }
 
-const LEGEND_LABEL_STYLE: React.CSSProperties = { color: 'hsl(var(--muted-foreground))', fontSize: '12px' }
+const LEGEND_LABEL_STYLE: React.CSSProperties = { color: 'var(--muted-foreground)', fontSize: '12px' }
 
 function renderLegendLabel(value: React.ReactNode): React.ReactNode {
   return <span style={LEGEND_LABEL_STYLE}>{value}</span>

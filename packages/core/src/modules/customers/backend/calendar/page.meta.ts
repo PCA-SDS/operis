@@ -8,5 +8,6 @@ export const metadata = {
   pagePriority: 10,
   pageOrder: 50,
   icon: 'calendar',
+  loadingSkeleton: 'calendar',
   breadcrumb: [{ label: 'Calendar', labelKey: 'customers.calendar.nav.title' }],
 }

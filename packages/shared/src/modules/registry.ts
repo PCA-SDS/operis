@@ -78,6 +78,10 @@ export type PageMetadata = {
   // page that draws its own module navigation (or needs the full width), so the
   // shell does not render a second one.
   moduleSidebar?: boolean
+  // The placeholder the backend's route-level loading state draws while this
+  // page loads. Declare one only when the page's layout is the skeleton's: an
+  // undeclared page gets a quiet spinner, never a shape it does not have.
+  loadingSkeleton?: BackendLoadingSkeleton
   placement?: {
     section: string
     sectionLabel?: string
@@ -85,6 +89,13 @@ export type PageMetadata = {
     order?: number
   }
 }
+
+/**
+ * The page shapes the backend's route-level loading state can draw: a
+ * `DataTable` list with a search toolbar and row actions, a customer record
+ * (header card, section rail, tabs), the calendar, and a chat conversation.
+ */
+export type BackendLoadingSkeleton = 'list' | 'detail' | 'calendar' | 'conversation'
 
 export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
@@ -124,6 +135,7 @@ export type ModuleRoute = {
   breadcrumb?: Array<{ label: string; labelKey?: string; href?: string }>
   pageContext?: 'main' | 'admin' | 'settings' | 'profile'
   moduleSidebar?: boolean
+  loadingSkeleton?: BackendLoadingSkeleton
   placement?: {
     section: string
     sectionLabel?: string

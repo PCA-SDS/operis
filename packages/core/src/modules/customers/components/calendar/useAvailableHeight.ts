@@ -55,5 +55,9 @@ export function useAvailableHeight(
   return height
 }
 
-/** Breathing room under the calendar so it does not sit flush on the fold. */
-const VIEWPORT_BOTTOM_GUTTER_PX = 16
+/**
+ * Breathing room under the calendar so it does not sit flush on the fold. Every
+ * other locked page (`<Page fill>`) gets the same gap from the shell's rule in
+ * `globals.css`, so their cards end on the calendar's line.
+ */
+export const VIEWPORT_BOTTOM_GUTTER_PX = 16

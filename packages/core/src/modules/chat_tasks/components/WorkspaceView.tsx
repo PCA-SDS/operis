@@ -7,6 +7,7 @@ import { Button } from '@open-mercato/ui/primitives/button'
 import { Skeleton } from '@open-mercato/ui/primitives/skeleton'
 import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 import { ErrorMessage } from '@open-mercato/ui/backend/detail'
+import { PageHeader } from '@open-mercato/ui/backend/Page'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { taskRef } from '@open-mercato/core/modules/tasks/components/format'
@@ -97,113 +98,111 @@ export function WorkspaceView() {
   const tasks = data?.items ?? []
 
   return (
-    <div className="mx-auto flex min-h-0 w-full max-w-2xl flex-col gap-4 p-4">
-      <div>
-        <h1 className="text-lg font-semibold text-foreground">
-          {t('chat_tasks.workspace.title', 'My workspace')}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {t(
-            'chat_tasks.workspace.subtitle',
-            'A place to note your own work without starting a conversation.',
-          )}
-        </p>
-      </div>
-
-      {/* Stated where the typing happens, not buried in a help page. Somebody who
-          believed this was private would be putting confidential detail into an
-          ordinary task record. */}
-      <p className="flex items-start gap-2 rounded-lg bg-surface-muted px-3 py-2 text-xs text-muted-foreground">
-        <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-        {t(
-          'chat_tasks.workspace.sharedNotice',
-          'Tasks you add here are normal tasks. Anyone with task access in your organization can read them — this workspace is private, the tasks are not.',
+    <div className="flex min-h-0 flex-col gap-6">
+      <PageHeader
+        title={t('chat_tasks.workspace.title', 'My workspace')}
+        description={t(
+          'chat_tasks.workspace.subtitle',
+          'A place to note your own work without starting a conversation.',
         )}
-      </p>
-
-      <div className="space-y-2">
-        <label className="block text-sm font-medium text-foreground" htmlFor="workspace-quick-add">
-          {t('chat_tasks.workspace.addLabel', 'Add a task for yourself')}
-        </label>
-        <Textarea
-          id="workspace-quick-add"
-          rows={2}
-          value={text}
-          onChange={(event) => setText(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key !== 'Enter' || event.shiftKey) return
-            // An IME confirms its candidate with Enter, so while one is composing this
-            // key is not a submit.
-            if (event.nativeEvent.isComposing) return
-            event.preventDefault()
-            void submit()
-          }}
-          placeholder={t(
-            'chat_tasks.workspace.addPlaceholder',
-            'Draft the summary tomorrow 9am +writing p2',
-          )}
-          className="resize-none text-sm"
-        />
-        <Button type="button" onClick={() => void submit()} disabled={submitting || text.trim().length === 0}>
-          <Plus className="size-4" aria-hidden="true" />
-          {t('chat_tasks.workspace.add', 'Add task')}
-        </Button>
-      </div>
-
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="text-sm font-medium text-foreground">
-          {t('chat_tasks.workspace.assignedTitle', 'Assigned to me')}
-        </h2>
-        {/* The tasks module's own view, linked rather than reproduced. */}
-        <Button asChild type="button" variant="ghost" size="sm">
-          <Link href={CHAT_TASKS_ASSIGNED_HREF}>
-            {t('chat_tasks.workspace.openInTasks', 'Open in Tasks')}
-          </Link>
-        </Button>
-      </div>
-
-      <SearchInput
-        value={search}
-        onChange={setSearch}
-        placeholder={t('chat_tasks.workspace.searchPlaceholder', 'Search my tasks…')}
-        aria-label={t('chat_tasks.workspace.searchLabel', 'Search my tasks')}
       />
 
-      {isLoading ? (
+      <div className="flex flex-col gap-4">
+        {/* Stated where the typing happens, not buried in a help page. Somebody who
+            believed this was private would be putting confidential detail into an
+            ordinary task record. */}
+        <p className="flex items-start gap-2 rounded-lg bg-surface-muted px-3 py-2 text-xs text-muted-foreground">
+          <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+          {t(
+            'chat_tasks.workspace.sharedNotice',
+            'Tasks you add here are normal tasks. Anyone with task access in your organization can read them — this workspace is private, the tasks are not.',
+          )}
+        </p>
+
         <div className="space-y-2">
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-full" />
-        </div>
-      ) : error ? (
-        <div className="space-y-2">
-          <ErrorMessage label={t('chat_tasks.workspace.loadFailed', "Your tasks didn't load")} />
-          <Button type="button" variant="outline" size="sm" onClick={() => void retry()}>
-            {t('chat_tasks.workspace.retry', 'Try again')}
+          <label className="block text-sm font-medium text-foreground" htmlFor="workspace-quick-add">
+            {t('chat_tasks.workspace.addLabel', 'Add a task for yourself')}
+          </label>
+          <Textarea
+            id="workspace-quick-add"
+            rows={2}
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== 'Enter' || event.shiftKey) return
+              // An IME confirms its candidate with Enter, so while one is composing this
+              // key is not a submit.
+              if (event.nativeEvent.isComposing) return
+              event.preventDefault()
+              void submit()
+            }}
+            placeholder={t(
+              'chat_tasks.workspace.addPlaceholder',
+              'Draft the summary tomorrow 9am +writing p2',
+            )}
+            className="resize-none text-sm"
+          />
+          <Button type="button" onClick={() => void submit()} disabled={submitting || text.trim().length === 0}>
+            <Plus className="size-4" aria-hidden="true" />
+            {t('chat_tasks.workspace.add', 'Add task')}
           </Button>
         </div>
-      ) : tasks.length === 0 ? (
-        <p className="py-6 text-center text-sm text-muted-foreground">
-          {debounced
-            ? t('chat_tasks.workspace.noMatch', 'Nothing matches “{query}”.', { query: debounced })
-            : t('chat_tasks.workspace.empty', 'Nothing is assigned to you right now.')}
-        </p>
-      ) : (
-        <ul className="space-y-1">
-          {tasks.map((task) => (
-            <li key={task.id}>
-              <Link
-                href={taskHref(task.projectId, task.id)}
-                className="flex items-start gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-surface-muted"
-              >
-                <span className="mt-0.5 shrink-0 font-mono text-xs text-muted-foreground">
-                  {taskRef(task.projectKey, task.number)}
-                </span>
-                <span className="min-w-0 flex-1 truncate text-sm text-foreground">{task.title}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
+
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-sm font-medium text-foreground">
+            {t('chat_tasks.workspace.assignedTitle', 'Assigned to me')}
+          </h2>
+          {/* The tasks module's own view, linked rather than reproduced. */}
+          <Button asChild type="button" variant="ghost" size="sm">
+            <Link href={CHAT_TASKS_ASSIGNED_HREF}>
+              {t('chat_tasks.workspace.openInTasks', 'Open in Tasks')}
+            </Link>
+          </Button>
+        </div>
+
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder={t('chat_tasks.workspace.searchPlaceholder', 'Search my tasks…')}
+          aria-label={t('chat_tasks.workspace.searchLabel', 'Search my tasks')}
+        />
+
+        {isLoading ? (
+          <div className="space-y-2">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        ) : error ? (
+          <div className="space-y-2">
+            <ErrorMessage label={t('chat_tasks.workspace.loadFailed', "Your tasks didn't load")} />
+            <Button type="button" variant="outline" size="sm" onClick={() => void retry()}>
+              {t('chat_tasks.workspace.retry', 'Try again')}
+            </Button>
+          </div>
+        ) : tasks.length === 0 ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            {debounced
+              ? t('chat_tasks.workspace.noMatch', 'Nothing matches “{query}”.', { query: debounced })
+              : t('chat_tasks.workspace.empty', 'Nothing is assigned to you right now.')}
+          </p>
+        ) : (
+          <ul className="space-y-1">
+            {tasks.map((task) => (
+              <li key={task.id}>
+                <Link
+                  href={taskHref(task.projectId, task.id)}
+                  className="flex items-start gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-surface-muted"
+                >
+                  <span className="mt-0.5 shrink-0 font-mono text-xs text-muted-foreground">
+                    {taskRef(task.projectKey, task.number)}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-sm text-foreground">{task.title}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   )
 }

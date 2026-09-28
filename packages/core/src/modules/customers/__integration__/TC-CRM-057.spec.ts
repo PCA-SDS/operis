@@ -45,6 +45,8 @@ test.describe('TC-CRM-057: Activity history date-range chevron padding (#1811)',
 
       await page.getByRole('tab', { name: /Activity log/i }).click()
 
+      // The date range sits in the history's Filter popover.
+      await page.getByRole('button', { name: 'Filter' }).click()
       const trigger = page.getByRole('combobox', { name: /Date range/i })
       await trigger.scrollIntoViewIfNeeded()
       await expect(trigger).toBeVisible({ timeout: 30_000 })

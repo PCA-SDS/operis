@@ -256,11 +256,11 @@ const durationChipVariants = cva(
     variants: {
       state: {
         default:
-          'bg-surface border border-border shadow-xs text-muted-foreground hover:bg-muted/40 cursor-pointer',
-        hover: 'bg-muted/40 border border-border text-muted-foreground cursor-pointer',
+          'border border-transparent bg-primary-soft text-muted-foreground hover:bg-primary-border/60 cursor-pointer',
+        hover: 'border border-transparent bg-primary-border/60 text-muted-foreground cursor-pointer',
         active: 'bg-primary/10 text-primary cursor-pointer',
         disabled:
-          'bg-surface border border-border text-muted-foreground/40 cursor-not-allowed shadow-xs',
+          'border border-transparent bg-primary-soft text-muted-foreground/40 cursor-not-allowed',
       },
     },
     defaultVariants: { state: 'default' },
@@ -706,7 +706,7 @@ function TimePickerCard({
   return (
     <div
       className={cn(
-        'flex w-80 flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-xl',
+        'flex w-80 flex-col overflow-hidden rounded-xl bg-popover shadow-lg',
         className,
       )}
       role="dialog"

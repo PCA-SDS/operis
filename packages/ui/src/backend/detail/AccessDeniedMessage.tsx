@@ -16,7 +16,7 @@ export function AccessDeniedMessage({ label, description, action, className, ico
   return (
     <div
       className={cn(
-        'flex items-start gap-3 rounded border border-status-warning-border bg-status-warning-bg px-3 py-2 text-sm text-status-warning-text',
+        'flex items-start gap-3 rounded-lg border border-transparent bg-status-warning-bg px-4 py-3 text-sm text-status-warning-text',
         className
       )}
       role="alert"

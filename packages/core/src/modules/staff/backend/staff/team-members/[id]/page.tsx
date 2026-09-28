@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { Tabs, TabsList, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
+import { Tabs, TabsList, TabsPanel, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
 import { readApiResultOrThrow, apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { extractCustomFieldEntries } from '@open-mercato/shared/lib/crud/custom-fields-client'
 import { updateCrud, deleteCrud } from '@open-mercato/ui/backend/utils/crud'
@@ -561,12 +561,8 @@ export default function StaffTeamMemberDetailPage({ params }: { params?: { id?: 
             onValueChange={(value) =>
               setActivePanel(value as 'details' | 'availability' | 'jobHistory' | 'hrProfile' | 'account')
             }
-            variant="underline"
           >
-            <TabsList
-              className="w-full flex-wrap"
-              aria-label={t('staff.teamMembers.detail.tabs.label', 'Team member sections')}
-            >
+            <TabsList aria-label={t('staff.teamMembers.detail.tabs.label', 'Team member sections')}>
               {panelTabs.map((tab) => (
                 <TabsTrigger key={tab.id} value={tab.id}>
                   {tab.label}
@@ -575,202 +571,204 @@ export default function StaffTeamMemberDetailPage({ params }: { params?: { id?: 
             </TabsList>
           </Tabs>
 
-          {activePanel === 'details' ? (
-            <>
-              <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr),minmax(0,1.1fr)]">
-                <div className="space-y-6">
-                  <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
-                    <h2 className="mb-4 text-sm font-semibold uppercase text-muted-foreground">
-                      {t('staff.teamMembers.detail.highlights', 'Highlights')}
-                    </h2>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div>
-                        <p className="text-xs font-medium uppercase text-muted-foreground">
-                          {t('staff.teamMembers.detail.fields.team', 'Team')}
-                        </p>
-                        <p className="text-base text-foreground">{teamLabel}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium uppercase text-muted-foreground">
-                          {t('staff.teamMembers.detail.fields.roles', 'Roles')}
-                        </p>
-                        <p className="text-base text-foreground">{roleLabels.join(', ')}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium uppercase text-muted-foreground">
-                          {t('staff.teamMembers.detail.fields.user', 'User')}
-                        </p>
-                        <p className="text-base text-foreground">
-                          {userEmail ?? t('staff.teamMembers.detail.fields.userEmpty', 'No user linked')}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium uppercase text-muted-foreground">
-                          {t('staff.teamMembers.detail.fields.status', 'Status')}
-                        </p>
-                        <p className="text-base text-foreground">
-                          {memberRecord?.isActive ?? memberRecord?.is_active
-                            ? t('staff.teamMembers.detail.status.active', 'Active')
-                            : t('staff.teamMembers.detail.status.inactive', 'Inactive')}
-                        </p>
+          <TabsPanel value={activePanel} className="space-y-6">
+            {activePanel === 'details' ? (
+              <>
+                <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr),minmax(0,1.1fr)]">
+                  <div className="space-y-6">
+                    <div className="rounded-xl border border-card-edge bg-surface shadow-sm p-4">
+                      <h2 className="mb-4 text-sm font-semibold uppercase text-muted-foreground">
+                        {t('staff.teamMembers.detail.highlights', 'Highlights')}
+                      </h2>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div>
+                          <p className="text-xs font-medium uppercase text-muted-foreground">
+                            {t('staff.teamMembers.detail.fields.team', 'Team')}
+                          </p>
+                          <p className="text-base text-foreground">{teamLabel}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium uppercase text-muted-foreground">
+                            {t('staff.teamMembers.detail.fields.roles', 'Roles')}
+                          </p>
+                          <p className="text-base text-foreground">{roleLabels.join(', ')}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium uppercase text-muted-foreground">
+                            {t('staff.teamMembers.detail.fields.user', 'User')}
+                          </p>
+                          <p className="text-base text-foreground">
+                            {userEmail ?? t('staff.teamMembers.detail.fields.userEmpty', 'No user linked')}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium uppercase text-muted-foreground">
+                            {t('staff.teamMembers.detail.fields.status', 'Status')}
+                          </p>
+                          <p className="text-base text-foreground">
+                            {memberRecord?.isActive ?? memberRecord?.is_active
+                              ? t('staff.teamMembers.detail.status.active', 'Active')
+                              : t('staff.teamMembers.detail.status.inactive', 'Inactive')}
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <Tabs
-                        value={activeTab}
-                        onValueChange={(value) => setActiveTab(value as 'notes' | 'activities' | 'addresses')}
-                        variant="underline"
-                      >
-                        <TabsList className="h-auto flex-wrap border-b-0">
-                          {tabs.map((tab) => (
-                            <TabsTrigger key={tab.id} value={tab.id}>
-                              {tab.label}
-                            </TabsTrigger>
-                          ))}
-                        </TabsList>
-                      </Tabs>
-                      {sectionAction ? (
-                        <Button
-                          type="button"
-                          size="sm"
-                          disabled={sectionAction.disabled}
-                          onClick={() => sectionAction.onClick()}
+                    <div className="rounded-xl border border-card-edge bg-surface shadow-sm p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <Tabs
+                          value={activeTab}
+                          onValueChange={(value) => setActiveTab(value as 'notes' | 'activities' | 'addresses')}
                         >
-                          {sectionAction.icon ?? (activeTab === 'addresses' ? <Plus className="mr-2 h-4 w-4" /> : null)}
-                          {sectionAction.label}
-                        </Button>
-                      ) : null}
+                          <TabsList className="border-b-0">
+                            {tabs.map((tab) => (
+                              <TabsTrigger key={tab.id} value={tab.id}>
+                                {tab.label}
+                              </TabsTrigger>
+                            ))}
+                          </TabsList>
+                        </Tabs>
+                        {sectionAction ? (
+                          <Button
+                            type="button"
+                            disabled={sectionAction.disabled}
+                            onClick={() => sectionAction.onClick()}
+                          >
+                            {sectionAction.icon ?? (activeTab === 'addresses' ? <Plus className="mr-2 h-4 w-4" /> : null)}
+                            {sectionAction.label}
+                          </Button>
+                        ) : null}
+                      </div>
+                      <TabsPanel value={activeTab}>
+                        {activeTab === 'notes' ? (
+                          <NotesSection
+                            entityId={memberId ?? null}
+                            emptyLabel={t('staff.teamMembers.detail.notes.empty', 'No notes yet.')}
+                            viewerUserId={null}
+                            viewerName={null}
+                            viewerEmail={null}
+                            addActionLabel={t('staff.teamMembers.detail.notes.add', 'Add note')}
+                            emptyState={{
+                              title: t('staff.teamMembers.detail.notes.emptyTitle', 'Keep everyone in the loop'),
+                              actionLabel: t('staff.teamMembers.detail.notes.emptyAction', 'Add a note'),
+                            }}
+                            onActionChange={setSectionAction}
+                            translator={detailTranslator}
+                            labelPrefix="staff.teamMembers.detail.notes"
+                            inlineLabelPrefix="staff.teamMembers.detail.inline"
+                            dataAdapter={notesAdapter}
+                            renderIcon={renderDictionaryIcon}
+                            renderColor={renderDictionaryColor}
+                            iconSuggestions={ICON_SUGGESTIONS}
+                          />
+                        ) : null}
+                        {activeTab === 'activities' ? (
+                          <ActivitiesSection
+                            entityId={memberId ?? null}
+                            addActionLabel={t('staff.teamMembers.detail.activities.add', 'Log activity')}
+                            emptyState={{
+                              title: t('staff.teamMembers.detail.activities.emptyTitle', 'No activities yet'),
+                              actionLabel: t('staff.teamMembers.detail.activities.emptyAction', 'Add an activity'),
+                            }}
+                            onActionChange={setSectionAction}
+                            dataAdapter={activitiesAdapter}
+                            activityTypeLabels={activityTypeLabels}
+                            loadActivityOptions={loadActivityOptions}
+                            createActivityOption={createActivityOption}
+                            resolveActivityPresentation={resolveActivityPresentation}
+                            renderCustomFields={renderCustomFields}
+                            labelPrefix="staff.teamMembers.detail.activities"
+                            renderIcon={renderDictionaryIcon}
+                            renderColor={renderDictionaryColor}
+                            appearanceLabels={appearanceLabels}
+                            manageHref={manageActivityHref}
+                            customFieldEntityIds={['staff:staff_team_member_activity']}
+                          />
+                        ) : null}
+                        {activeTab === 'addresses' ? (
+                          <SharedAddressesSection
+                            entityId={memberId ?? null}
+                            emptyLabel={t('staff.teamMembers.detail.addresses.empty', 'No addresses yet.')}
+                            addActionLabel={t('staff.teamMembers.detail.addresses.add', 'Add address')}
+                            emptyState={{
+                              title: t('staff.teamMembers.detail.addresses.emptyTitle', 'No addresses yet'),
+                              actionLabel: t('staff.teamMembers.detail.addresses.emptyAction', 'Add an address'),
+                            }}
+                            onActionChange={setSectionAction}
+                            dataAdapter={addressesAdapter}
+                            addressTypesAdapter={addressTypesAdapter}
+                            labelPrefix="staff.teamMembers.detail.addresses"
+                          />
+                        ) : null}
+                      </TabsPanel>
                     </div>
-                    {activeTab === 'notes' ? (
-                      <NotesSection
-                        entityId={memberId ?? null}
-                        emptyLabel={t('staff.teamMembers.detail.notes.empty', 'No notes yet.')}
-                        viewerUserId={null}
-                        viewerName={null}
-                        viewerEmail={null}
-                        addActionLabel={t('staff.teamMembers.detail.notes.add', 'Add note')}
-                        emptyState={{
-                          title: t('staff.teamMembers.detail.notes.emptyTitle', 'Keep everyone in the loop'),
-                          actionLabel: t('staff.teamMembers.detail.notes.emptyAction', 'Add a note'),
-                        }}
-                        onActionChange={setSectionAction}
-                        translator={detailTranslator}
-                        labelPrefix="staff.teamMembers.detail.notes"
-                        inlineLabelPrefix="staff.teamMembers.detail.inline"
-                        dataAdapter={notesAdapter}
-                        renderIcon={renderDictionaryIcon}
-                        renderColor={renderDictionaryColor}
-                        iconSuggestions={ICON_SUGGESTIONS}
-                      />
-                    ) : null}
-                    {activeTab === 'activities' ? (
-                      <ActivitiesSection
-                        entityId={memberId ?? null}
-                        addActionLabel={t('staff.teamMembers.detail.activities.add', 'Log activity')}
-                        emptyState={{
-                          title: t('staff.teamMembers.detail.activities.emptyTitle', 'No activities yet'),
-                          actionLabel: t('staff.teamMembers.detail.activities.emptyAction', 'Add an activity'),
-                        }}
-                        onActionChange={setSectionAction}
-                        dataAdapter={activitiesAdapter}
-                        activityTypeLabels={activityTypeLabels}
-                        loadActivityOptions={loadActivityOptions}
-                        createActivityOption={createActivityOption}
-                        resolveActivityPresentation={resolveActivityPresentation}
-                        renderCustomFields={renderCustomFields}
-                        labelPrefix="staff.teamMembers.detail.activities"
-                        renderIcon={renderDictionaryIcon}
-                        renderColor={renderDictionaryColor}
-                        appearanceLabels={appearanceLabels}
-                        manageHref={manageActivityHref}
-                        customFieldEntityIds={['staff:staff_team_member_activity']}
-                      />
-                    ) : null}
-                    {activeTab === 'addresses' ? (
-                      <SharedAddressesSection
-                        entityId={memberId ?? null}
-                        emptyLabel={t('staff.teamMembers.detail.addresses.empty', 'No addresses yet.')}
-                        addActionLabel={t('staff.teamMembers.detail.addresses.add', 'Add address')}
-                        emptyState={{
-                          title: t('staff.teamMembers.detail.addresses.emptyTitle', 'No addresses yet'),
-                          actionLabel: t('staff.teamMembers.detail.addresses.emptyAction', 'Add an address'),
-                        }}
-                        onActionChange={setSectionAction}
-                        dataAdapter={addressesAdapter}
-                        addressTypesAdapter={addressTypesAdapter}
-                        labelPrefix="staff.teamMembers.detail.addresses"
-                      />
-                    ) : null}
+                  </div>
+                  <div className="space-y-4">
+                    <div className="rounded-xl border border-card-edge bg-surface shadow-sm p-4">
+                      <h2 className="mb-4 text-sm font-semibold uppercase text-muted-foreground">
+                        {t('staff.teamMembers.detail.details', 'Member details')}
+                      </h2>
+                      <div className="space-y-2">
+                        {visibleDescription ? (
+                          <MarkdownContent body={visibleDescription} format="markdown" className={MARKDOWN_CLASSNAME} />
+                        ) : (
+                          <p className="text-sm text-muted-foreground">
+                            {t('staff.teamMembers.detail.descriptionEmpty', 'No description provided.')}
+                          </p>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div className="space-y-4">
-                  <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
-                    <h2 className="mb-4 text-sm font-semibold uppercase text-muted-foreground">
-                      {t('staff.teamMembers.detail.details', 'Member details')}
-                    </h2>
-                    <div className="space-y-2">
-                      {visibleDescription ? (
-                        <MarkdownContent body={visibleDescription} format="markdown" className={MARKDOWN_CLASSNAME} />
-                      ) : (
-                        <p className="text-sm text-muted-foreground">
-                          {t('staff.teamMembers.detail.descriptionEmpty', 'No description provided.')}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
 
-              <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
-                <h2 className="mb-4 text-sm font-semibold uppercase text-muted-foreground">
-                  {t('staff.teamMembers.detail.formTitle', 'Member settings')}
-                </h2>
-                <TeamMemberForm
-                  embedded
-                  title={t('staff.teamMembers.form.editTitle', 'Edit team member')}
-                  backHref="/backend/staff/team-members"
-                  cancelHref="/backend/staff/team-members"
-                  initialValues={resolvedInitialValues}
-                  onSubmit={handleSubmit}
-                  onDelete={handleDelete}
-                  isLoading={!initialValues}
-                  loadingMessage={t('staff.teamMembers.form.loading', 'Loading team member...')}
+                <div className="rounded-xl border border-card-edge bg-surface shadow-sm p-4">
+                  <h2 className="mb-4 text-sm font-semibold uppercase text-muted-foreground">
+                    {t('staff.teamMembers.detail.formTitle', 'Member settings')}
+                  </h2>
+                  <TeamMemberForm
+                    embedded
+                    title={t('staff.teamMembers.form.editTitle', 'Edit team member')}
+                    backHref="/backend/staff/team-members"
+                    cancelHref="/backend/staff/team-members"
+                    initialValues={resolvedInitialValues}
+                    onSubmit={handleSubmit}
+                    onDelete={handleDelete}
+                    isLoading={!initialValues}
+                    loadingMessage={t('staff.teamMembers.form.loading', 'Loading team member...')}
+                  />
+                </div>
+              </>
+            ) : activePanel === 'availability' ? (
+              <AvailabilityRulesEditor
+                subjectType="member"
+                subjectId={memberId ?? ''}
+                labelPrefix="staff.teamMembers"
+                mode="availability"
+                rulesetId={availabilityRuleSetId}
+                onRulesetChange={handleRulesetChange}
+                allowRuleSetDelete
+                buildScheduleItems={({ availabilityRules, translate: translateLabel }) => (
+                  buildMemberScheduleItems({ availabilityRules, translate: translateLabel })
+                )}
+              />
+            ) : activePanel === 'account' ? (
+              <div className="rounded-xl border border-card-edge bg-surface shadow-sm p-4">
+                <AccountSection
+                  userId={initialValues?.userId ?? null}
+                  canCreateUsers={canCreateUsers}
+                  canEditUsers={canEditUsers}
                 />
               </div>
-            </>
-          ) : activePanel === 'availability' ? (
-            <AvailabilityRulesEditor
-              subjectType="member"
-              subjectId={memberId ?? ''}
-              labelPrefix="staff.teamMembers"
-              mode="availability"
-              rulesetId={availabilityRuleSetId}
-              onRulesetChange={handleRulesetChange}
-              allowRuleSetDelete
-              buildScheduleItems={({ availabilityRules, translate: translateLabel }) => (
-                buildMemberScheduleItems({ availabilityRules, translate: translateLabel })
-              )}
-            />
-          ) : activePanel === 'account' ? (
-            <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
-              <AccountSection
-                userId={initialValues?.userId ?? null}
-                canCreateUsers={canCreateUsers}
-                canEditUsers={canEditUsers}
-              />
-            </div>
-          ) : activePanel === 'hrProfile' ? (
-            <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
-              <HrProfileSection memberId={memberId ?? null} canManage={canManageHrProfile} />
-            </div>
-          ) : (
-            <div className="rounded-xl border border-border bg-surface shadow-sm p-4">
-              <JobHistorySection memberId={memberId ?? null} />
-            </div>
-          )}
+            ) : activePanel === 'hrProfile' ? (
+              <div className="rounded-xl border border-card-edge bg-surface shadow-sm p-4">
+                <HrProfileSection memberId={memberId ?? null} canManage={canManageHrProfile} />
+              </div>
+            ) : (
+              <div className="rounded-xl border border-card-edge bg-surface shadow-sm p-4">
+                <JobHistorySection memberId={memberId ?? null} />
+              </div>
+            )}
+          </TabsPanel>
         </div>
       </PageBody>
     </Page>

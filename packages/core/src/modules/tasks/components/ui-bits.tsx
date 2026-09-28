@@ -8,6 +8,7 @@ import { DatePicker } from '@open-mercato/ui/primitives/date-picker'
 import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
 import { Progress } from '@open-mercato/ui/primitives/progress'
 import { Skeleton } from '@open-mercato/ui/primitives/skeleton'
+import { Tabs, TabsList, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
 import { TimePicker, formatTimePickerDisplay } from '@open-mercato/ui/primitives/time-picker'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
@@ -423,8 +424,8 @@ export type TabDef<T extends string> = {
 }
 
 /**
- * The module's tab strip. Reserves the bold width up front (an invisible bold
- * copy under the visible label) so switching tabs never nudges its neighbours.
+ * The module's tab strip: the shared tab strip over this module's views. It
+ * scrolls sideways on a narrow screen rather than wrapping.
  */
 export function TasksTabs<T extends string>({
   tabs,
@@ -437,47 +438,29 @@ export function TasksTabs<T extends string>({
   onChange: (next: T) => void
   ariaLabel: string
 }) {
+  const select = (next: string) => {
+    const tab = tabs.find((entry) => entry.value === next)
+    if (tab) onChange(tab.value)
+  }
   return (
-    <div role="tablist" aria-label={ariaLabel} className="flex items-center overflow-x-auto border-b border-border">
-      {tabs.map((tab) => {
-        const Icon = tab.icon
-        const active = tab.value === value
-        return (
-          <button
-            key={tab.value}
-            role="tab"
-            aria-selected={active}
-            type="button"
-            onClick={() => onChange(tab.value)}
-            className={cn(
-              'group relative flex shrink-0 items-center gap-2 px-4 py-3 text-sm transition-colors focus:outline-none focus-visible:shadow-focus',
-              active ? 'text-foreground' : 'text-muted-foreground',
-            )}
-          >
-            {Icon && <Icon className="size-4" aria-hidden />}
-            <span className="grid">
-              <span aria-hidden="true" className="invisible col-start-1 row-start-1 font-semibold">
-                {tab.label}
-              </span>
-              <span
-                className={cn(
-                  'col-start-1 row-start-1 transition-[font-weight,color] group-hover:font-semibold group-hover:text-foreground',
-                  active ? 'font-semibold' : 'font-medium',
-                )}
+    <Tabs value={value} onValueChange={select}>
+      <div className="overflow-x-auto">
+        <TabsList aria-label={ariaLabel} className="w-max min-w-full">
+          {tabs.map((tab) => {
+            const Icon = tab.icon
+            return (
+              <TabsTrigger
+                key={tab.value}
+                value={tab.value}
+                leading={Icon ? <Icon className="size-4" aria-hidden /> : undefined}
               >
                 {tab.label}
-              </span>
-            </span>
-            {active && (
-              <span
-                aria-hidden="true"
-                className="absolute inset-x-0 -bottom-px h-0.5 bg-accent-strong"
-              />
-            )}
-          </button>
-        )
-      })}
-    </div>
+              </TabsTrigger>
+            )
+          })}
+        </TabsList>
+      </div>
+    </Tabs>
   )
 }
 

@@ -35,7 +35,9 @@ jest.mock('@open-mercato/ui/primitives/dialog', () => ({
   ),
   DialogHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   DialogTitle: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DialogDescription: ({ children }: { children: React.ReactNode }) => <p>{children}</p>,
   DialogFooter: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DIALOG_BODY_CLASS: 'px-5 pt-3 pb-5 sm:px-6 sm:pb-6',
 }))
 
 jest.mock('@open-mercato/ui/primitives/alert', () => ({

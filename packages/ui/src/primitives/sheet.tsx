@@ -5,6 +5,15 @@ import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { CloseButton } from './close-button'
+import {
+  DIALOG_CLOSE_GUTTER_CLASS,
+  DIALOG_CLOSE_POSITION_CLASS,
+  DIALOG_DESCRIPTION_CLASS,
+  DIALOG_FOOTER_CLASS,
+  DIALOG_HEADER_CLASS,
+  DIALOG_TITLE_CLASS,
+} from './dialog'
+import { SIDE_PANEL_MOTION, SIDE_PANEL_SCRIM_MOTION } from './side-panel-motion'
 
 const Sheet = DialogPrimitive.Root
 
@@ -20,9 +29,8 @@ const SheetOverlay = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Overlay
     className={cn(
-      'fixed inset-x-0 bottom-0 top-[var(--topbar-height,0px)] z-overlay bg-foreground/40',
-      'data-[state=open]:animate-in data-[state=closed]:animate-out',
-      'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+      'fixed inset-x-0 bottom-0 top-[var(--topbar-height,0px)] z-overlay bg-scrim',
+      SIDE_PANEL_SCRIM_MOTION,
       className,
     )}
     {...props}
@@ -31,23 +39,16 @@ const SheetOverlay = React.forwardRef<
 ))
 SheetOverlay.displayName = DialogPrimitive.Overlay.displayName
 
+// The motion is the one every side panel shares (`side-panel-motion.ts`).
 const sheetVariants = cva(
-  cn(
-    'fixed z-modal flex flex-col gap-4 bg-surface shadow-xl transition ease-in-out',
-    'data-[state=open]:animate-in data-[state=closed]:animate-out',
-    'data-[state=closed]:duration-200 data-[state=open]:duration-300',
-  ),
+  'fixed z-modal flex flex-col gap-4 bg-surface shadow-xl',
   {
     variants: {
       side: {
-        top:
-          'inset-x-0 top-0 border-b data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top',
-        bottom:
-          'inset-x-0 bottom-0 border-t data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
-        left:
-          'top-[var(--topbar-height,0px)] bottom-0 left-0 w-3/4 border-r data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left sm:max-w-md',
-        right:
-          'top-[var(--topbar-height,0px)] bottom-0 right-0 w-full sm:max-w-md border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right',
+        top: `inset-x-0 top-0 ${SIDE_PANEL_MOTION.top}`,
+        bottom: `inset-x-0 bottom-0 ${SIDE_PANEL_MOTION.bottom}`,
+        left: `top-[var(--topbar-height,0px)] bottom-0 left-0 w-3/4 sm:max-w-md ${SIDE_PANEL_MOTION.left}`,
+        right: `top-[var(--topbar-height,0px)] bottom-0 right-0 w-full sm:max-w-md ${SIDE_PANEL_MOTION.right}`,
       },
     },
     defaultVariants: {
@@ -93,7 +94,7 @@ const SheetContent = React.forwardRef<
       {children}
       {!hideClose ? (
         <DialogPrimitive.Close asChild>
-          <CloseButton className="absolute right-4 top-4 z-10" aria-label={closeLabel} />
+          <CloseButton className={DIALOG_CLOSE_POSITION_CLASS.md} aria-label={closeLabel} />
         </DialogPrimitive.Close>
       ) : null}
     </DialogPrimitive.Content>
@@ -105,7 +106,8 @@ const SheetHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDi
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn('flex flex-col gap-0.5 px-5 py-4 pr-12 text-left sm:px-6', className)}
+      data-slot="sheet-header"
+      className={cn(DIALOG_HEADER_CLASS, DIALOG_CLOSE_GUTTER_CLASS.md, className)}
       {...props}
     />
   ),
@@ -116,7 +118,8 @@ const SheetFooter = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDi
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn('flex flex-col-reverse gap-2 px-5 pt-1.5 pb-4 sm:flex-row sm:justify-end sm:px-6', className)}
+      data-slot="sheet-footer"
+      className={cn(DIALOG_FOOTER_CLASS, 'flex flex-col-reverse gap-2 sm:flex-row sm:justify-end', className)}
       {...props}
     />
   ),
@@ -129,7 +132,7 @@ const SheetTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
-    className={cn('text-xl font-semibold tracking-tight text-foreground', className)}
+    className={cn(DIALOG_TITLE_CLASS, className)}
     {...props}
   />
 ))
@@ -141,7 +144,7 @@ const SheetDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Description
     ref={ref}
-    className={cn('text-sm text-muted-foreground', className)}
+    className={cn(DIALOG_DESCRIPTION_CLASS, className)}
     {...props}
   />
 ))

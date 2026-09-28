@@ -210,6 +210,7 @@ export function CalendarSettingsModal({
                 />
                 {row.key === 'conflictWarnings' && draft.conflictWarnings ? (
                   <SegmentedControl
+                    tone="inset"
                     fullWidth
                     aria-label={t('customers.calendar.settings.conflictScope', 'Conflict scope')}
                     value={draft.conflictScope}
@@ -252,7 +253,7 @@ export function CalendarSettingsModal({
             {t('customers.calendar.settings.cancel', 'Cancel')}
           </Button>
           <Button type="button" onClick={handleSave}>
-            {t('customers.calendar.settings.save', 'Save Changes')}
+            {t('customers.calendar.settings.save', 'Save changes')}
           </Button>
         </DialogFooter>
       </DialogContent>

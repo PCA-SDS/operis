@@ -22,6 +22,7 @@ const buttonEntry: GalleryEntry = {
       'One default (primary) Button per view; remaining actions step down to outline, ghost or muted.',
       'Destructive actions use the destructive family; -outline/-soft/-ghost lower the emphasis without losing the semantics.',
       'Default height is h-9; sm (h-8) in dense toolbars, 2xs only inside table rows.',
+      'A choice that is on or off (filter chip, weekday, "Repeats") is variant="toggle" with aria-pressed; pressed, it is the SegmentedControl pill. Never swap default and soft by state.',
     ],
     dont: [
       'Never Button size="icon" for icon-only actions — use IconButton (correct sizing + aria-label contract).',
@@ -102,6 +103,19 @@ const buttonEntry: GalleryEntry = {
       code: `import { Button } from '@open-mercato/ui/primitives/button'
 
 <Button variant="muted">Show more</Button>`,
+    },
+    {
+      id: 'toggle',
+      title: 'toggle',
+      render: () => (
+        <>
+          <Button variant="toggle" aria-pressed>Calls</Button>
+          <Button variant="toggle" aria-pressed={false}>Meetings</Button>
+        </>
+      ),
+      code: `import { Button } from '@open-mercato/ui/primitives/button'
+
+<Button variant="toggle" aria-pressed={showCalls} onClick={toggleCalls}>Calls</Button>`,
     },
     {
       id: 'link',

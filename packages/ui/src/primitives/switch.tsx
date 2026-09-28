@@ -83,7 +83,7 @@ export const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
           aria-hidden
           className={cn(
             'pointer-events-none flex h-5 w-9 items-center rounded-full border px-0.5 transition-colors duration-200',
-            'border-border bg-surface-strong group-hover:bg-border',
+            'border-transparent bg-surface-strong group-hover:bg-border-strong',
             'group-data-[state=checked]:border-primary group-data-[state=checked]:bg-primary group-data-[state=checked]:group-hover:bg-primary-hover'
           )}
         >

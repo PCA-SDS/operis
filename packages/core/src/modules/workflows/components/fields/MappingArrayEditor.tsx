@@ -157,7 +157,7 @@ export function MappingArrayEditor({
 
                 {/* Expanded Content */}
                 {isExpanded && (
-                  <div className="px-4 pb-4 space-y-3 border-t border-border bg-white">
+                  <div className="px-4 pb-4 space-y-3 border-t border-border bg-surface">
                     {/* Key Field */}
                     <div className="pt-3">
                       <Label htmlFor={`${id}-${index}-key`} className="text-xs font-medium mb-1">

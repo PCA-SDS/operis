@@ -1020,7 +1020,7 @@ export default function ResourcesResourceAreasPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => setMoveDialog(null)}>
+            <Button type="button" variant="soft" onClick={() => setMoveDialog(null)}>
               {translations.actions.cancel}
             </Button>
           </DialogFooter>

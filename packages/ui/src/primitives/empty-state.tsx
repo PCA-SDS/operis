@@ -16,7 +16,7 @@ const emptyStateVariants = cva(
         lg: 'gap-4 px-8 py-16',
       },
       variant: {
-        default: 'rounded-xl border border-dashed border-border',
+        default: 'rounded-xl',
         subtle: 'rounded-xl',
       },
     },

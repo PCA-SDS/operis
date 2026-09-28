@@ -25,7 +25,7 @@ const fancyTypeStyles: Record<
     style: {},
   },
   primary: {
-    className: 'text-foreground hover:brightness-105',
+    className: 'text-brand-violet-foreground hover:brightness-105',
     style: {
       backgroundImage:
         'linear-gradient(161.7deg, var(--brand-sky, #A9C4EC) 0%, var(--brand-lilac, #C9C2F0) 35.36%, var(--brand-violet, #BC9AFF) 70.72%)',

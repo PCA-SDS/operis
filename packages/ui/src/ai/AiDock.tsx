@@ -23,6 +23,7 @@ import { ConversationShareButton } from './ConversationShareButton'
 import { AiProviderSetupPanel } from './AiProviderSetupPanel'
 import { useAiConfigured } from './useAiConfigured'
 import { IconButton } from '../primitives/icon-button'
+import { SIDE_PANEL_MOTION, useSidePanelPresence, type SidePanelState } from '../primitives/side-panel-motion'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 
@@ -225,12 +226,22 @@ export function AiDockProvider({ children }: { children: React.ReactNode }) {
     collapsed: false,
   }))
   const [hydrated, setHydrated] = React.useState(false)
+  // A dock restored from storage is simply there on first paint; only a dock
+  // the operator opens, closes, collapses or resizes afterwards moves.
+  const [motionReady, setMotionReady] = React.useState(false)
+  const [resizing, setResizing] = React.useState(false)
 
   React.useEffect(() => {
     const persisted = readPersisted()
     setState(persisted)
     setHydrated(true)
   }, [])
+
+  React.useEffect(() => {
+    if (!hydrated) return
+    const timer = window.setTimeout(() => setMotionReady(true), 50)
+    return () => window.clearTimeout(timer)
+  }, [hydrated])
 
   React.useEffect(() => {
     if (!hydrated) return
@@ -276,29 +287,48 @@ export function AiDockProvider({ children }: { children: React.ReactNode }) {
     ? state.collapsed
       ? COLLAPSED_WIDTH
       : state.width
-    : null
+    : 0
+
+  // The panel slides out with the assistant it was showing, since `undock`
+  // clears it at once, and the page gives its room back in step: the padding
+  // follows the panel over 500ms as it grows and 300ms as it shrinks.
+  const presence = useSidePanelPresence(Boolean(state.assistant))
+  const [shownAssistant, setShownAssistant] = React.useState(state.assistant)
+  if (state.assistant && state.assistant !== shownAssistant) setShownAssistant(state.assistant)
+  const panelAssistant = state.assistant ?? shownAssistant
+  const [previousReserved, setPreviousReserved] = React.useState(reservedWidth)
+  const [shrinking, setShrinking] = React.useState(false)
+  if (reservedWidth !== previousReserved) {
+    setShrinking(reservedWidth < previousReserved)
+    setPreviousReserved(reservedWidth)
+  }
 
   return (
     <AiDockContext.Provider value={api}>
       <div
         // The dock is desktop-only (`lg+`); reserve right-side padding only
-        // at that breakpoint so mobile layout stays full-width.
-        className={reservedWidth != null ? 'lg:pr-[var(--om-ai-dock-width)]' : undefined}
-        style={
-          reservedWidth != null
-            ? ({ ['--om-ai-dock-width' as string]: `${reservedWidth}px` } as React.CSSProperties)
-            : undefined
-        }
+        // at that breakpoint so mobile layout stays full-width. Zero while
+        // nothing is docked, so the layout reclaims its full width.
+        className={cn(
+          'lg:pr-[var(--om-ai-dock-width)]',
+          motionReady && !resizing ? 'transition-[padding] ease-panel' : null,
+          shrinking ? 'duration-300' : 'duration-500',
+        )}
+        style={{ ['--om-ai-dock-width' as string]: `${reservedWidth}px` } as React.CSSProperties}
       >
         {children}
       </div>
-      {state.assistant ? (
+      {presence.present && panelAssistant ? (
         <AiDockPanel
-          assistant={state.assistant}
+          assistant={panelAssistant}
+          state={presence.state}
+          animated={motionReady}
+          resizing={resizing}
           width={state.width}
           collapsed={state.collapsed}
           onCollapsedChange={setCollapsed}
           onWidthChange={setWidth}
+          onResizingChange={setResizing}
           onClose={undock}
         />
       ) : null}
@@ -321,19 +351,29 @@ export function useAiDock(): AiDockApi {
 
 interface AiDockPanelProps {
   assistant: AiDockedAssistant
+  state: SidePanelState
+  /** False for a dock restored from storage on first paint: it does not slide in. */
+  animated: boolean
+  /** True while the edge is held, so width follows the pointer rather than easing towards it. */
+  resizing: boolean
   width: number
   collapsed: boolean
   onCollapsedChange: (collapsed: boolean) => void
   onWidthChange: (width: number) => void
+  onResizingChange: (resizing: boolean) => void
   onClose: () => void
 }
 
 function AiDockPanel({
   assistant,
+  state,
+  animated,
+  resizing,
   width,
   collapsed,
   onCollapsedChange,
   onWidthChange,
+  onResizingChange,
   onClose,
 }: AiDockPanelProps) {
   const t = useT()
@@ -345,8 +385,9 @@ function AiDockPanel({
       const target = event.currentTarget
       target.setPointerCapture(event.pointerId)
       dragStateRef.current = { startX: event.clientX, startWidth: width }
+      onResizingChange(true)
     },
-    [width],
+    [onResizingChange, width],
   )
 
   const handlePointerMove = React.useCallback(
@@ -371,20 +412,28 @@ function AiDockPanel({
         /* ignore */
       }
       dragStateRef.current = null
+      onResizingChange(false)
     },
-    [],
+    [onResizingChange],
   )
 
   return (
     <aside
       data-ai-dock-panel=""
       data-ai-dock-agent={assistant.agent}
+      data-state={state}
       className={cn(
         // Dock is desktop-only — on small screens the AiChat dialog is the
         // primary surface (full-screen sheet) and a fixed side panel would
         // crowd the viewport.
         'hidden lg:flex',
         'fixed top-0 right-0 z-overlay h-svh min-w-0 flex-col overflow-hidden border-l bg-surface shadow-lg',
+        // The motion every side panel shares, and its width easing between the
+        // rail and the full panel on the same curve (300ms to the rail).
+        SIDE_PANEL_MOTION.right,
+        resizing ? null : 'transition-[width]',
+        collapsed ? 'data-[state=open]:duration-300' : null,
+        animated ? null : 'data-[state=open]:animate-none',
         collapsed ? 'w-12' : '',
       )}
       style={collapsed ? undefined : { width }}

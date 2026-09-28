@@ -225,7 +225,7 @@ export function InlineActivityComposer({
             value={description}
             onChange={(event) => setDescription(event.target.value)}
             placeholder={t('customers.activityComposer.descriptionPlaceholder', 'What happened?')}
-            className="min-h-[72px] w-full resize-none rounded-lg border bg-input-bg px-3 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+            className="min-h-[72px] w-full resize-none rounded-lg border bg-input-bg px-3 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             rows={3}
           />
           {errors.description ? (
@@ -292,7 +292,7 @@ export function InlineActivityComposer({
             type="datetime-local"
             value={scheduledAt}
             onChange={(event) => setScheduledAt(event.target.value)}
-            className="rounded-md border bg-input-bg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            className="rounded-md border bg-input-bg px-3 py-1.5 text-sm focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           />
         </div>
       ) : null}

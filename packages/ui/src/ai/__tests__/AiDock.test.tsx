@@ -130,7 +130,34 @@ describe('<AiDockProvider>', () => {
     await waitFor(() => {
       expect(readStoredAssistant()).toBeNull()
     })
-    expect(document.querySelector('[data-ai-dock-panel=""]')).not.toBeInTheDocument()
+    // The panel slides out before it leaves: closed at once, gone after the exit.
+    expect(document.querySelector('[data-ai-dock-panel=""]')).toHaveAttribute('data-state', 'closed')
+    await waitFor(() => {
+      expect(document.querySelector('[data-ai-dock-panel=""]')).not.toBeInTheDocument()
+    })
+  })
+
+  it('slides in when docked and reserves its width in step, but not when restored from storage', async () => {
+    renderWithProviders(<Harness />)
+    // Restored-from-storage and first paint never animate; wait out the grace period.
+    await new Promise((resolve) => setTimeout(resolve, 80))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dock assistant' }))
+    const panel = await waitFor(() => {
+      const node = document.querySelector('[data-ai-dock-panel=""]')
+      expect(node).toBeInstanceOf(HTMLElement)
+      return node as HTMLElement
+    })
+    expect(panel).toHaveAttribute('data-state', 'open')
+    expect(panel.className.split(/\s+/)).toEqual(
+      expect.arrayContaining(['data-[state=open]:slide-in-from-right', 'ease-panel']),
+    )
+    expect(panel.className).not.toContain('data-[state=open]:animate-none')
+    const wrapper = panel.previousElementSibling as HTMLElement
+    expect(wrapper.className.split(/\s+/)).toEqual(
+      expect.arrayContaining(['lg:pr-[var(--om-ai-dock-width)]', 'transition-[padding]', 'ease-panel', 'duration-500']),
+    )
+    expect(wrapper.style.getPropertyValue('--om-ai-dock-width')).toBe('420px')
   })
 
   it('starts the chat footer compact inside the dock', async () => {

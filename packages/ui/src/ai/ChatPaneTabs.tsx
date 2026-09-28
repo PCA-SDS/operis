@@ -117,7 +117,7 @@ export function ChatPaneTabs({ agentId, className }: ChatPaneTabsProps) {
                       cancelRename()
                     }
                   }}
-                  className="h-6 max-w-[10rem] rounded border border-input bg-input-bg px-1 text-xs outline-none focus:ring-2 focus:ring-ring/40"
+                  className="h-6 max-w-[10rem] rounded border border-input bg-input-bg px-1 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                   data-ai-chat-tab-rename-input=""
                 />
               ) : (

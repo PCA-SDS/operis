@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import type { SortingState } from '@tanstack/react-table'
-import { Page, PageBody } from '@open-mercato/ui/backend/Page'
+import { Page, PageBody, PageHeader } from '@open-mercato/ui/backend/Page'
 import { DataTable, withDataTableNamespaces } from '@open-mercato/ui/backend/DataTable'
 import type { FilterDef, FilterValues } from '@open-mercato/ui/backend/FilterOverlay'
 import { RowActions } from '@open-mercato/ui/backend/RowActions'
@@ -641,6 +641,14 @@ export default function TimesheetProjectsPage() {
 
   return (
     <Page>
+      <PageHeader
+        title={labels.title}
+        actions={canManage ? (
+          <Button asChild>
+            <Link href="/backend/staff/timesheets/projects/create">{labels.actions.add}</Link>
+          </Button>
+        ) : undefined}
+      />
       <PageBody>
         <div className="mb-4">
           <ProjectsKpiStrip kpis={kpis} labels={kpiLabels} isLoading={isLoadingKpis} />
@@ -699,7 +707,6 @@ export default function TimesheetProjectsPage() {
           </div>
         ) : (
           <DataTable<ProjectRow>
-            title={labels.title}
             data={rows}
             columns={columns}
             isLoading={isLoading}
@@ -719,13 +726,6 @@ export default function TimesheetProjectsPage() {
                   </Button>
                 ) : null}
               </div>
-            }
-            actions={
-              canManage ? (
-                <Button asChild size="sm">
-                  <Link href="/backend/staff/timesheets/projects/create">{labels.actions.add}</Link>
-                </Button>
-              ) : undefined
             }
             refreshButton={{
               label: labels.actions.refresh,

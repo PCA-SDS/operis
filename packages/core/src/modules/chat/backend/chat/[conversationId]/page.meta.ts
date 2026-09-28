@@ -7,5 +7,6 @@ export const metadata = {
   navHidden: true,
   pageTitle: 'Chat',
   pageTitleKey: 'chat.nav.title',
+  loadingSkeleton: 'conversation',
   breadcrumb: [{ label: 'Chat', labelKey: 'chat.nav.title', href: '/backend/chat' }],
 }

@@ -64,6 +64,21 @@ describe('<AiAssistantLauncher>', () => {
     expect(screen.getByText('Catalog Assistant')).toBeInTheDocument()
   }, 60_000)
 
+  it('labels the topbar trigger from xl, with the shared key chip for its shortcut', async () => {
+    // The labelled topbar controls (module, AI, organisation) all show their
+    // label from `xl`; below it they are 36px icon buttons, so the bar fits.
+    const { container } = renderWithProviders(<AiAssistantLauncher />)
+    await waitFor(() => {
+      expect(container.querySelector('[data-ai-launcher-trigger]')).not.toBeNull()
+    })
+    const desktop = container.querySelector('[data-ai-launcher-trigger]') as HTMLElement
+    const mobile = container.querySelector('[data-ai-launcher-trigger-mobile]') as HTMLElement
+    expect(desktop.className.split(/\s+/)).toEqual(expect.arrayContaining(['hidden', 'xl:inline-flex']))
+    expect(mobile.className.split(/\s+/)).toContain('xl:hidden')
+    const shortcut = desktop.querySelector('kbd')
+    expect(shortcut).toHaveTextContent('⌘L')
+  }, 60_000)
+
   describe('when no AI provider key is configured', () => {
     beforeEach(() => {
       apiCallMock.mockImplementation(async (url: string) => {

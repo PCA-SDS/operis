@@ -35,7 +35,7 @@ export function InlineGranularitySelect({
   const t = useT()
 
   return (
-    <div className={`inline-flex rounded-md border border-border bg-surface ${className}`} role="group">
+    <div className={`inline-flex gap-0.5 rounded-md bg-surface-muted p-0.5 ${className}`} role="group">
       {GRANULARITY_OPTIONS.map((option) => {
         const isActive = option.value === value
         return (
@@ -46,10 +46,10 @@ export function InlineGranularitySelect({
             size="sm"
             title={t(option.titleKey, option.titleFallback)}
             onClick={() => onChange(option.value)}
-            className={`h-auto px-2 py-0.5 text-xs font-medium transition-colors first:rounded-l-md last:rounded-r-md ${
+            className={`h-auto rounded-sm px-2 py-0.5 text-xs font-medium transition-colors ${
               isActive
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                ? 'bg-surface text-foreground shadow-xs hover:bg-surface hover:text-foreground'
+                : 'text-muted-foreground hover:bg-transparent hover:text-foreground'
             }`}
           >
             {t(option.shortLabelKey, option.shortFallback)}

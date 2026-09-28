@@ -22,10 +22,11 @@ const inputWrapperVariants = cva(
   }
 )
 
-/* The value is `font-medium`, the placeholder is `font-normal` — so an empty
-   field reads as a prompt and a filled one reads as data, before colour. */
+/* The value is regular weight in ink; the placeholder is the same weight in
+   the tertiary grey. Colour alone separates a prompt from data, as in Apple's
+   fields, and the label above (medium) stays the one weighted line. */
 const inputElementVariants = cva(
-  'flex-1 min-w-0 bg-transparent border-0 outline-none font-medium placeholder:font-normal placeholder:text-input-placeholder disabled:cursor-not-allowed disabled:bg-transparent disabled:text-text-disabled',
+  'flex-1 min-w-0 bg-transparent border-0 outline-none font-normal placeholder:text-input-placeholder disabled:cursor-not-allowed disabled:bg-transparent disabled:text-text-disabled',
   {
     variants: {
       size: {

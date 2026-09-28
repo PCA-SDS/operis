@@ -245,6 +245,7 @@ export function CalendarMeetingQuickAdd({
         <FormField label={t('customers.calendar.meeting.location', 'Location')}>
           <div className="space-y-2">
             <SegmentedControl
+              tone="inset"
               fullWidth
               value={locationMode}
               onValueChange={(value) => setLocationMode(value as LocationMode)}

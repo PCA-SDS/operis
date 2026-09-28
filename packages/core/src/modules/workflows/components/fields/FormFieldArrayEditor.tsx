@@ -173,7 +173,7 @@ export function FormFieldArrayEditor({
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Field name: <code className="bg-white px-1 rounded">{field.name}</code>
+                      Field name: <code className="bg-surface px-1 rounded">{field.name}</code>
                     </p>
                   </div>
                   <ChevronDown
@@ -183,7 +183,7 @@ export function FormFieldArrayEditor({
 
                 {/* Expanded Content */}
                 {isExpanded && (
-                  <div className="px-4 pb-4 space-y-3 border-t border-border bg-white">
+                  <div className="px-4 pb-4 space-y-3 border-t border-border bg-surface">
                     {/* Field Name */}
                     <div className="pt-3">
                       <Label htmlFor={`${id}-${index}-name`} className="text-xs font-medium mb-1">

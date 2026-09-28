@@ -226,7 +226,7 @@ export function AppointmentServicePicker({
       <div className="flex flex-wrap gap-2" aria-label={t('appointments.services.categories', 'Service categories')}>
         {tabs.map((tab) => {
           const count = tab.categories.flatMap((category) => category.services).filter((service) => selected.has(service.id)).length
-          return <Button key={tab.id} type="button" size="sm" variant={currentTab.id === tab.id ? 'default' : 'outline'}
+          return <Button key={tab.id} type="button" size="sm" variant="toggle"
             aria-pressed={currentTab.id === tab.id} disabled={disabled} onClick={() => setActiveTabId(tab.id)}>
             {tab.label}{count > 0 && <span className="ml-1.5 rounded bg-primary-foreground/20 px-1.5 py-0.5 text-xs">{count}</span>}
           </Button>

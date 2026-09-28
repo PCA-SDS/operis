@@ -237,12 +237,11 @@ export default function WarrantyClaimsPortalListPage({ params }: Props) {
             setFilterValues({})
             setPage(1)
           }}
-          variant="underline"
         >
-          <TabsList className="flex h-auto w-full gap-1 px-7" aria-label={t('warranty_claims.portal.list.tabs.label', 'Claim status')}>
-            <TabsTrigger value="all" count={tabCounts.all} className="gap-2 px-4 pb-2 pt-3 [&_[data-slot=tabs-trigger-count]]:h-auto [&_[data-slot=tabs-trigger-count]]:min-w-0 [&_[data-slot=tabs-trigger-count]]:rounded-md [&_[data-slot=tabs-trigger-count]]:bg-muted [&_[data-slot=tabs-trigger-count]]:px-1.5 [&_[data-slot=tabs-trigger-count]]:py-0.5 [&_[data-slot=tabs-trigger-count]]:text-overline [&_[data-slot=tabs-trigger-count]]:text-muted-foreground">{t('warranty_claims.portal.list.tabs.all', 'All')}</TabsTrigger>
-            <TabsTrigger value="open" count={tabCounts.open} className="gap-2 px-4 pb-2 pt-3 [&_[data-slot=tabs-trigger-count]]:h-auto [&_[data-slot=tabs-trigger-count]]:min-w-0 [&_[data-slot=tabs-trigger-count]]:rounded-md [&_[data-slot=tabs-trigger-count]]:bg-muted [&_[data-slot=tabs-trigger-count]]:px-1.5 [&_[data-slot=tabs-trigger-count]]:py-0.5 [&_[data-slot=tabs-trigger-count]]:text-overline [&_[data-slot=tabs-trigger-count]]:text-muted-foreground">{t('warranty_claims.portal.list.tabs.open', 'Open')}</TabsTrigger>
-            <TabsTrigger value="resolved" count={tabCounts.resolved} className="gap-2 px-4 pb-2 pt-3 [&_[data-slot=tabs-trigger-count]]:h-auto [&_[data-slot=tabs-trigger-count]]:min-w-0 [&_[data-slot=tabs-trigger-count]]:rounded-md [&_[data-slot=tabs-trigger-count]]:bg-muted [&_[data-slot=tabs-trigger-count]]:px-1.5 [&_[data-slot=tabs-trigger-count]]:py-0.5 [&_[data-slot=tabs-trigger-count]]:text-overline [&_[data-slot=tabs-trigger-count]]:text-muted-foreground">{t('warranty_claims.portal.list.tabs.resolved', 'Resolved')}</TabsTrigger>
+          <TabsList className="px-7" aria-label={t('warranty_claims.portal.list.tabs.label', 'Claim status')}>
+            <TabsTrigger value="all" count={tabCounts.all}>{t('warranty_claims.portal.list.tabs.all', 'All')}</TabsTrigger>
+            <TabsTrigger value="open" count={tabCounts.open}>{t('warranty_claims.portal.list.tabs.open', 'Open')}</TabsTrigger>
+            <TabsTrigger value="resolved" count={tabCounts.resolved}>{t('warranty_claims.portal.list.tabs.resolved', 'Resolved')}</TabsTrigger>
           </TabsList>
         </Tabs>
         <div className="[&>[data-component-handle]>div:first-child]:px-7 [&>[data-component-handle]>div:first-child]:py-4 [&>[data-component-handle]>div:first-child_[data-slot=button]]:h-8 [&>[data-component-handle]>div:first-child_[data-slot=search-input-wrapper]]:h-8 [&_[data-slot=table-header]_[data-slot=table-row]]:h-9 [&_[data-slot=table-body]_[data-slot=table-row]]:h-16 [&_:has(>[data-slot=search-input-wrapper])]:lg:w-56">

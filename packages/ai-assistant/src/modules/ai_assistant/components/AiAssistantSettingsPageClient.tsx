@@ -4,6 +4,7 @@ import * as React from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Bot, Loader2, CheckCircle2, XCircle, ChevronDown, ChevronRight, Server, Wrench, Eye, EyeOff, Database, Link2, Settings, Key, X } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { PageHeader } from '@open-mercato/ui/backend/Page'
 import { apiCall } from '@open-mercato/ui/backend/utils/apiCall'
 import { AI_ASSISTANT_LAUNCHER_OPEN_EVENT } from '@open-mercato/ui/ai/AiAssistantLauncher'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
@@ -189,7 +190,7 @@ function GlobalOverrideForm({
   const configuredProviders = availableProviders.filter((p) => p.configured)
 
   return (
-    <div className="rounded-xl border border-border bg-surface shadow-sm p-6" data-ai-settings-override-form="">
+    <div className="rounded-xl border border-card-edge bg-surface shadow-sm p-6" data-ai-settings-override-form="">
       <h2 className="mb-1 text-sm font-semibold">
         {t('ai_assistant.settings.defaultOverrideTitle', 'Default model override')}
       </h2>
@@ -333,7 +334,7 @@ function PerAgentOverrideList({
   const overriddenAgents = agents.filter((agent) => agent.source !== 'env_default' && agent.source !== 'provider_default')
 
   return (
-    <div className="rounded-xl border border-border bg-surface shadow-sm p-6" data-ai-settings-agent-overrides="">
+    <div className="rounded-xl border border-card-edge bg-surface shadow-sm p-6" data-ai-settings-agent-overrides="">
       <h2 className="mb-1 text-sm font-semibold">
         {t('ai_assistant.settings.agentOverridesTitle', 'Per-agent model resolution')}
       </h2>
@@ -415,7 +416,7 @@ function AiAssistantLauncherCard({
   }
 
   return (
-    <div className="rounded-xl border border-border bg-surface shadow-sm p-6">
+    <div className="rounded-xl border border-card-edge bg-surface shadow-sm p-6">
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-1">
           <h2 className="flex items-center gap-2 text-lg font-semibold">
@@ -498,11 +499,21 @@ function AiAssistantSettingsContent({
 
   const isLoading = healthQuery.isLoading || settingsQuery.isLoading || toolsQuery.isLoading
 
+  const pageHeader = (
+    <PageHeader
+      title={t('ai_assistant.settings.pageTitle', 'AI Assistant Settings')}
+      description={t('ai_assistant.settings.pageDescription', 'Configure and monitor the AI assistant')}
+    />
+  )
+
   if (isLoading) {
     return (
-      <div className="flex items-center gap-2 py-8 text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" />
-        {t('ai_assistant.settings.loading', 'Loading settings...')}
+      <div className="flex flex-col gap-6">
+        {pageHeader}
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Loader2 className="size-4 animate-spin" />
+          {t('ai_assistant.settings.loading', 'Loading settings...')}
+        </div>
       </div>
     )
   }
@@ -512,9 +523,9 @@ function AiAssistantSettingsContent({
   const tools = toolsQuery.data?.tools ?? []
 
   const toolsByModule = tools.reduce<Record<string, ToolInfo[]>>((acc, tool) => {
-    const module = tool.module || 'other'
-    if (!acc[module]) acc[module] = []
-    acc[module].push(tool)
+    const moduleName = tool.module || 'other'
+    if (!acc[moduleName]) acc[moduleName] = []
+    acc[moduleName].push(tool)
     return acc
   }, {})
 
@@ -522,15 +533,7 @@ function AiAssistantSettingsContent({
 
   return (
     <div className="flex flex-col gap-6" data-ai-assistant-settings="">
-      <div className="space-y-1">
-        <h1 className="flex items-center gap-2 text-2xl font-bold">
-          <Bot className="size-6" />
-          {t('ai_assistant.settings.pageTitle', 'AI Assistant Settings')}
-        </h1>
-        <p className="text-muted-foreground">
-          {t('ai_assistant.settings.pageDescription', 'Configure and monitor the AI assistant')}
-        </p>
-      </div>
+      {pageHeader}
 
       <AiAssistantLauncherCard
         launchMode={launchMode}
@@ -552,7 +555,7 @@ function AiAssistantSettingsContent({
         />
       ) : null}
 
-      <div className="rounded-xl border border-border bg-surface shadow-sm p-6">
+      <div className="rounded-xl border border-card-edge bg-surface shadow-sm p-6">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="flex items-center gap-2 text-sm font-semibold">
             <Link2 className="size-4" />
@@ -761,7 +764,7 @@ function AiAssistantSettingsContent({
         </p>
       </div>
 
-      <div className="rounded-xl border border-border bg-surface shadow-sm p-6">
+      <div className="rounded-xl border border-card-edge bg-surface shadow-sm p-6">
         <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold">
           <Settings className="size-4" />
           {t('ai_assistant.settings.developerToolsTitle', 'Developer Tools')}
@@ -833,7 +836,7 @@ function AiAssistantSettingsContent({
         onOpenChange={setSessionKeyOpen}
       />
 
-      <div className="rounded-xl border border-border bg-surface shadow-sm p-6">
+      <div className="rounded-xl border border-card-edge bg-surface shadow-sm p-6">
         <button
           type="button"
           onClick={() => setToolsExpanded((prev) => !prev)}

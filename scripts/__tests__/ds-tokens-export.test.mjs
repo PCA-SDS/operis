@@ -82,6 +82,7 @@ test('classifyValue covers every authored value shape', () => {
   assert.equal(classifyValue('radius', '0.625rem'), 'dimension')
   assert.equal(classifyValue('color-border', 'var(--border)'), 'reference')
   assert.equal(classifyValue('shadow-md', '0 4px 12px rgb(16 24 40 / 0.08)'), 'shadow')
+  assert.equal(classifyValue('ease-panel', 'cubic-bezier(0.32, 0.72, 0, 1)'), 'easing')
   assert.equal(classifyValue('font-geist-mono', 'ui-monospace, Menlo, monospace'), 'fontStack')
   assert.throws(() => classifyValue('mystery', 'url(#nope)'), /cannot classify/)
 })

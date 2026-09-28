@@ -4,7 +4,7 @@ import { cn } from '@open-mercato/shared/lib/utils'
 /**
  * Page frame.
  *
- * One vertical rhythm declared on the parent (`space-y-5`) rather than an
+ * One vertical rhythm declared on the parent (`space-y-6`) rather than an
  * `mt-*` chain on each child: spacing becomes one decision, every new block
  * inherits it, and a conditionally-rendered section can't silently lose its
  * margin.
@@ -21,10 +21,10 @@ import { cn } from '@open-mercato/shared/lib/utils'
 export type PageFill = boolean | 'sm' | 'md' | 'lg'
 
 const FILL_WRAPPER: Record<string, string> = {
-  true: 'flex h-full min-h-0 flex-col gap-5',
-  sm: 'space-y-5 sm:flex sm:h-full sm:min-h-0 sm:flex-col sm:gap-5 sm:space-y-0',
-  md: 'space-y-5 md:flex md:h-full md:min-h-0 md:flex-col md:gap-5 md:space-y-0',
-  lg: 'space-y-5 lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:gap-5 lg:space-y-0',
+  true: 'flex h-full min-h-0 flex-col gap-6',
+  sm: 'space-y-6 sm:flex sm:h-full sm:min-h-0 sm:flex-col sm:gap-6 sm:space-y-0',
+  md: 'space-y-6 md:flex md:h-full md:min-h-0 md:flex-col md:gap-6 md:space-y-0',
+  lg: 'space-y-6 lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:gap-6 lg:space-y-0',
 }
 
 const FILL_BODY: Record<string, string> = {
@@ -57,7 +57,7 @@ export function Page({
     <div
       data-slot="page"
       data-fill={key ?? undefined}
-      className={cn(key ? FILL_WRAPPER[key] : 'space-y-5', className)}
+      className={cn(key ? FILL_WRAPPER[key] : 'space-y-6', className)}
       {...props}
     >
       {children}
@@ -66,13 +66,21 @@ export function Page({
 }
 
 /**
+ * The page title's type, exported so a screen that draws its own header (a
+ * list view's `DataTable` title, `FormHeader`, a module page with custom
+ * chrome) lands on exactly the same title as `PageHeader`.
+ */
+export const PAGE_TITLE_CLASS =
+  'text-2xl font-semibold leading-tight tracking-tight text-foreground sm:text-large-title'
+
+/**
  * Page header.
  *
- * The title is large and LIGHT (`font-normal`). Weight in this product is
- * spent on things that get scanned — table column headers, tabs, nav rows —
- * not on a heading that already has size carrying it. Title and actions are
- * baseline-aligned (`items-end`) so the primary action sits on the same line
- * as the title rather than floating above a two-line description.
+ * The title is Apple's large title: 32px semibold with tight tracking
+ * (`text-large-title`, 24px on a phone). It is the one heavy line on the page;
+ * the description under it is regular weight in the secondary grey. Title and
+ * actions are baseline-aligned (`items-end`) so the primary action sits on the
+ * same line as the title rather than floating above a two-line description.
  */
 export function PageHeader({
   title,
@@ -107,9 +115,9 @@ export function PageHeader({
             {eyebrow}
           </p>
         ) : null}
-        <h1 className="text-2xl font-normal leading-tight text-foreground sm:text-3xl">{title}</h1>
+        <h1 className={PAGE_TITLE_CLASS}>{title}</h1>
         {description ? (
-          <p className="max-w-2xl text-sm font-medium text-muted-foreground">{description}</p>
+          <p className="max-w-2xl text-sm text-muted-foreground">{description}</p>
         ) : null}
       </div>
       {actions ? (
@@ -129,7 +137,7 @@ export function PageBody({
   return (
     <div
       data-slot="page-body"
-      className={cn(key ? FILL_BODY[key] : 'space-y-4', className)}
+      className={cn(key ? FILL_BODY[key] : 'space-y-6', className)}
       {...props}
     >
       {children}

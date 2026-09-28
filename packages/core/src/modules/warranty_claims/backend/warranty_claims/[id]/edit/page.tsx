@@ -434,7 +434,7 @@ export default function EditWarrantyClaimPage({ params }: { params?: { id?: stri
     return (
       <Page>
         <PageBody>
-          <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+          <section className="overflow-hidden rounded-xl border border-transparent bg-card shadow-sm">
             <div className="border-b border-border px-5 py-4">
               <p className="text-sm text-muted-foreground">{claim.claimNumber ?? t('warranty_claims.detail.unnumbered', 'Unnumbered claim')}</p>
               <h1 className="mt-1 text-xl font-semibold text-foreground">{t('warranty_claims.edit.title')}</h1>

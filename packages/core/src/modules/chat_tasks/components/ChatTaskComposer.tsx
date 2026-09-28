@@ -11,6 +11,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from '@open-mercato/ui/primitives/drawer'
+import { useSidePanelDismiss } from '@open-mercato/ui/primitives/side-panel-motion'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { Textarea } from '@open-mercato/ui/primitives/textarea'
 import { Checkbox } from '@open-mercato/ui/primitives/checkbox'
@@ -85,6 +86,9 @@ export function ChatTaskComposer({
   onCreated,
 }: ChatTaskComposerProps) {
   const t = useT()
+  // Mounted only while open, so the drawer closes itself and the parent hears
+  // about it once the slide out has played.
+  const { open, dismiss, dismissThen } = useSidePanelDismiss(onClose)
   const renderWarning = useQuickAddWarning()
   const { context, isLoading: contextLoading } = useChatTaskComposerContext(conversationId, true)
   const { create } = useChatTaskMutations()
@@ -226,7 +230,7 @@ export function ChatTaskComposer({
       } else {
         flash(t('chat_tasks.composer.created', 'Task created.'), 'success')
       }
-      onCreated(result.task, result.cardPublished, result.linkId)
+      dismissThen(() => onCreated(result.task, result.cardPublished, result.linkId))
     } catch (error) {
       // The drawer stays open and every field keeps its value: a failed submit must
       // never be the reason somebody retypes a task.
@@ -242,7 +246,7 @@ export function ChatTaskComposer({
   }
 
   return (
-    <Drawer open onOpenChange={(next) => (next ? undefined : onClose())}>
+    <Drawer open={open} onOpenChange={(next) => (next ? undefined : dismiss())}>
       <DrawerContent side="right" className="flex flex-col">
         <DrawerHeader>
           <DrawerTitle>{t('chat_tasks.composer.title', 'Create task')}</DrawerTitle>
@@ -350,8 +354,9 @@ export function ChatTaskComposer({
                   <Button
                     key={person.id}
                     type="button"
-                    variant={effectiveAssigneeId === person.id ? 'default' : 'outline'}
+                    variant="toggle"
                     size="sm"
+                    aria-pressed={effectiveAssigneeId === person.id}
                     onClick={() => setAssigneeOverride(person.id)}
                   >
                     {person.name}
@@ -435,7 +440,7 @@ export function ChatTaskComposer({
           ) : null}
         </DrawerBody>
         <DrawerFooter>
-          <Button type="button" variant="soft" onClick={onClose} disabled={submitting}>
+          <Button type="button" variant="soft" onClick={dismiss} disabled={submitting}>
             {t('chat_tasks.composer.cancel', 'Cancel')}
           </Button>
           <Button type="button" onClick={() => void submit()} disabled={!canSubmit}>

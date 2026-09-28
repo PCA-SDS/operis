@@ -49,6 +49,11 @@ footer rules and silent validation.
 | `customers/components/formConfig` `DictionarySelectField` | `addButtonVariant` (person/company builders pass `soft`; deal forms keep `outline`) |
 | customers `ObjectHistoryButton`, `ActivitiesSection`, `ActivityTimelineFilters`, `ChangelogTab`, `ChangelogFilters` | `tone="soft"` |
 
+Superseded on 2026-09-27 by Phase 10 of [`2026-09-26-apple-design-language.md`](2026-09-26-apple-design-language.md):
+`CollapsibleZoneLayout` has one look and no `toggleTone`, `ActivitiesSection` and
+`ActivityTimelineFilters` lost `tone` (the history has one design), and `tone="card"` became an
+inset group.
+
 ### Customers surfaces
 
 Headers, tabs, form zone (reorderable groups are white cards), activity feed, emails, companies, addresses, tasks, change log,
@@ -115,3 +120,4 @@ history panel, and the rich-text editor toolbar.
 - 2026-09-24 — Implemented on branch `fix-client-page`.
 - 2026-09-24 — White reorderable group cards; removed the person-page roles group.
 - 2026-09-24 — Removed the person-page display-name preview; unchanged displayName is omitted on save.
+- 2026-09-27 — Zone toggle, history tone and card groups superseded by the Apple design language's Phase 10.

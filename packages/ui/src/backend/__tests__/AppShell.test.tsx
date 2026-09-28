@@ -637,7 +637,7 @@ describe('AppShell', () => {
     }
   })
 
-  it('has no global sidebar: the topbar carries the brand and the module switcher', () => {
+  it('has no global sidebar and no product wordmark: the topbar opens with the module switcher', () => {
     const { container } = renderWithProviders(
       <AppShell email="demo@example.com" groups={groups} productName="Operis">
         <div>Content</div>
@@ -647,9 +647,52 @@ describe('AppShell', () => {
     expect(container.querySelector('#appshell-sidebar')).toBeNull()
     expect(container.querySelector('aside')).toBeNull()
     const header = document.querySelector('header') as HTMLElement
+    expect(within(header).queryByTestId('appshell-brand')).toBeNull()
+    expect(within(header).getByTestId('module-switcher-trigger')).toBeInTheDocument()
+  })
+
+  it('paints the topbar as a frosted white sheet over the grey page, with a hairline under it', () => {
+    renderWithProviders(
+      <AppShell email="demo@example.com" groups={groups}>
+        <div>Content</div>
+      </AppShell>,
+      { dict },
+    )
+    const tokens = (document.querySelector('header') as HTMLElement).className.split(/\s+/)
+    expect(tokens).toEqual(expect.arrayContaining(['bg-surface/80', 'backdrop-blur-xl', 'backdrop-saturate-150', 'border-b', 'border-border']))
+    expect(tokens).not.toContain('bg-background/80')
+  })
+
+  it('draws every breadcrumb separator at the 16px of every other topbar icon', () => {
+    renderWithProviders(
+      <AppShell
+        email="demo@example.com"
+        groups={groups}
+        breadcrumb={[{ label: 'Customers', href: '/backend/customers' }, { label: 'People', href: '/backend/customers/people' }, { label: 'Taylor' }]}
+      >
+        <div>Content</div>
+      </AppShell>,
+      { dict },
+    )
+    const header = document.querySelector('header') as HTMLElement
+    const separators = Array.from(header.querySelectorAll('[data-slot="breadcrumb-separator"]'))
+    expect(separators.length).toBeGreaterThan(0)
+    for (const separator of separators) {
+      expect(separator.querySelector('svg')?.getAttribute('class')).toContain('size-4')
+    }
+  })
+
+  it('still shows an organisation\'s own uploaded logo, linked to the dashboard', () => {
+    renderWithProviders(
+      <AppShell email="demo@example.com" groups={groups} productName="Acme" logo={{ src: '/uploads/acme.png', alt: 'Acme' }}>
+        <div>Content</div>
+      </AppShell>,
+      { dict },
+    )
+    const header = document.querySelector('header') as HTMLElement
     const brand = within(header).getByTestId('appshell-brand')
     expect(brand).toHaveAttribute('href', '/backend')
-    expect(within(header).getByTestId('module-switcher-trigger')).toBeInTheDocument()
+    expect(brand).toHaveTextContent('Acme')
   })
 
   it('publishes a --topbar-height that clears the topbar and its rule', () => {
@@ -749,6 +792,20 @@ describe('AppShell', () => {
       expect(sidebar).toHaveAttribute('aria-label', 'Customers navigation')
       expect(within(sidebar).getByRole('link', { name: 'People' })).toHaveAttribute('aria-current', 'page')
       expect(screen.getByTestId('module-switcher-current')).toHaveTextContent('Customers')
+    })
+
+    it('reserves every switcher label so changing module never resizes the trigger', () => {
+      mockPathname = '/backend/catalog/products'
+      renderModulePage()
+      const trigger = screen.getByTestId('module-switcher-trigger')
+      const reserved = Array.from(trigger.querySelectorAll<HTMLElement>('[data-label]'))
+      expect(reserved.map((node) => node.getAttribute('data-label')).sort()).toEqual(['Catalog', 'Customers', 'Modules'])
+      for (const node of reserved) {
+        expect(node).toHaveAttribute('aria-hidden', 'true')
+        expect(node.textContent).toBe('')
+      }
+      expect(screen.getByTestId('module-switcher-current')).toHaveTextContent('Catalog')
+      expect(within(trigger).getAllByText('Catalog')).toHaveLength(1)
     })
 
     it('renders no sidebar when the route belongs to no module', () => {

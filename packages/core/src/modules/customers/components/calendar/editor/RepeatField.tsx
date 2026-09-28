@@ -3,7 +3,6 @@
 import * as React from 'react'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
-import { Button } from '@open-mercato/ui/primitives/button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import {
   SegmentedControl,
@@ -11,20 +10,10 @@ import {
 } from '@open-mercato/ui/primitives/segmented-control'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@open-mercato/ui/primitives/select'
 import type { EditorRepeatEndType, EditorRepeatFreq } from '../../../lib/calendar/editorPayload'
-import { DateControl, LABEL_CLASS } from './inputs'
+import { DateControl, LABEL_CLASS, WeekdayToggles } from './inputs'
 
 /** Matches the `max` on the input and the validator's own ceiling. */
 const MAX_REPEAT_COUNT = 365
-
-const DAY_LABEL_KEYS = [
-  { letterKey: 'customers.calendar.editor.repeat.days.mon', letterFallback: 'M', ariaKey: 'customers.calendar.day.mon', ariaFallback: 'MON' },
-  { letterKey: 'customers.calendar.editor.repeat.days.tue', letterFallback: 'T', ariaKey: 'customers.calendar.day.tue', ariaFallback: 'TUE' },
-  { letterKey: 'customers.calendar.editor.repeat.days.wed', letterFallback: 'W', ariaKey: 'customers.calendar.day.wed', ariaFallback: 'WED' },
-  { letterKey: 'customers.calendar.editor.repeat.days.thu', letterFallback: 'T', ariaKey: 'customers.calendar.day.thu', ariaFallback: 'THU' },
-  { letterKey: 'customers.calendar.editor.repeat.days.fri', letterFallback: 'F', ariaKey: 'customers.calendar.day.fri', ariaFallback: 'FRI' },
-  { letterKey: 'customers.calendar.editor.repeat.days.sat', letterFallback: 'S', ariaKey: 'customers.calendar.day.sat', ariaFallback: 'SAT' },
-  { letterKey: 'customers.calendar.editor.repeat.days.sun', letterFallback: 'S', ariaKey: 'customers.calendar.day.sun', ariaFallback: 'SUN' },
-]
 
 export function RepeatField({
   freq,
@@ -74,29 +63,7 @@ export function RepeatField({
           <SelectItem value="weekly">{t('customers.calendar.editor.repeat.freq.weekly', 'Weekly')}</SelectItem>
         </SelectContent>
       </Select>
-      {freq === 'weekly' ? (
-        <div className="flex items-start gap-1.5">
-          {DAY_LABEL_KEYS.map((day, index) => {
-            const isActive = Boolean(days[index])
-            return (
-              <Button
-                key={day.ariaKey}
-                type="button"
-                variant={isActive ? 'default' : 'outline'}
-                aria-pressed={isActive}
-                aria-label={t(day.ariaKey, day.ariaFallback)}
-                onClick={() => onToggleDay(index)}
-                className={cn(
-                  'size-9 px-0 text-xs font-medium',
-                  !isActive && 'text-muted-foreground',
-                )}
-              >
-                {t(day.letterKey, day.letterFallback)}
-              </Button>
-            )
-          })}
-        </div>
-      ) : null}
+      {freq === 'weekly' ? <WeekdayToggles days={days} onToggle={onToggleDay} /> : null}
       {/* No wrap below: the picker and the counter belong BESIDE the switcher
           they qualify. Wrapping dropped them onto their own line, where they
           read as another field rather than as the switcher's argument. The
@@ -105,10 +72,8 @@ export function RepeatField({
         <div className="flex items-center gap-2">
           <span className={cn(LABEL_CLASS, 'shrink-0')}>{t('customers.calendar.editor.repeat.ends', 'Ends')}</span>
           <SegmentedControl
-            // `inset` like the editor's type switcher: this sits inside a
-            // filled form, so the rail takes the field fill and the selected
-            // pill is the white shape lifting out of it. The chrome default
-            // (white rail, navy pill) is for toolbars, not form rows.
+            // `inset` like the editor's type switcher: on the white dialog the
+            // rail takes the field fill, as the fields do.
             tone="inset"
             aria-label={t('customers.calendar.editor.repeat.ends', 'Ends')}
             className="shrink-0"

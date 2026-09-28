@@ -230,7 +230,6 @@ export function ActivityComposerDialog({
 
   if (!context) return null
   const meta = TYPE_META[context.type]
-  const Icon = meta.icon
   const dialogTitle = translateWithFallback(t, meta.titleKey, meta.titleFallback)
 
   return (
@@ -242,8 +241,7 @@ export function ActivityComposerDialog({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Icon className="size-4" aria-hidden="true" />
+          <DialogTitle>
             {dialogTitle}
           </DialogTitle>
           <DialogDescription>

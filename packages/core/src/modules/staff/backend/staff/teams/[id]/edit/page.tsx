@@ -13,7 +13,7 @@ import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimi
 import { DataTable, withDataTableNamespaces } from '@open-mercato/ui/backend/DataTable'
 import { RowActions } from '@open-mercato/ui/backend/RowActions'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { Tabs, TabsList, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
+import { Tabs, TabsList, TabsPanel, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
 import { BooleanIcon } from '@open-mercato/ui/backend/ValueIcons'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
@@ -368,9 +368,8 @@ export default function StaffTeamEditPage({ params }: { params?: { id?: string }
           <Tabs
             value={activeTab}
             onValueChange={(value) => setActiveTab(value as 'details' | 'members')}
-            variant="underline"
           >
-            <TabsList className="w-full flex-wrap" aria-label={memberLabels.tabs.label}>
+            <TabsList aria-label={memberLabels.tabs.label}>
               {[
                 { id: 'details', label: memberLabels.tabs.details },
                 { id: 'members', label: memberLabels.tabs.members },
@@ -382,71 +381,73 @@ export default function StaffTeamEditPage({ params }: { params?: { id?: string }
             </TabsList>
           </Tabs>
 
-          {activeTab === 'details' ? (
-            <TeamForm
-              title={t('staff.teams.form.editTitle', 'Edit Team')}
-              backHref="/backend/staff/teams"
-              cancelHref="/backend/staff/teams"
-              initialValues={initialValues ?? { name: '', description: '', isActive: true }}
-              onSubmit={handleSubmit}
-              onDelete={handleDelete}
-              isLoading={!initialValues}
-              loadingMessage={t('staff.teams.form.loading', 'Loading team...')}
-              extraActions={teamId ? (
-                <SendObjectMessageDialog
-                  object={{
-                    entityModule: 'staff',
-                    entityType: 'team',
-                    entityId: teamId,
-                    previewData: { title: initialValues?.name ?? ''},
-                  }}
-                  viewHref={`/backend/staff/teams/${teamId}/edit`}
-                />
-              ) : undefined}
-            />
-          ) : (
-            <DataTable<TeamMemberRow>
-              title={memberLabels.title}
-              data={memberRows}
-              columns={memberColumns}
-              isLoading={membersLoading}
-              searchValue={memberSearch}
-              onSearchChange={handleMemberSearchChange}
-              searchPlaceholder={memberLabels.table.search}
-              emptyState={<p className="py-8 text-center text-sm text-muted-foreground">{memberLabels.table.empty}</p>}
-              actions={(
-                <Button asChild size="sm">
-                  <Link href={`/backend/staff/team-members/create?teamId=${encodeURIComponent(teamId ?? '')}`}>
-                    <Plus className="mr-2 h-4 w-4" aria-hidden />
-                    {memberLabels.actions.add}
-                  </Link>
-                </Button>
-              )}
-              refreshButton={{
-                label: memberLabels.actions.refresh,
-                onRefresh: handleMemberRefresh,
-                isRefreshing: membersLoading,
-              }}
-              sortable
-              sorting={memberSorting}
-              onSortingChange={setMemberSorting}
-              pagination={{
-                page: memberPage,
-                pageSize: TEAM_MEMBERS_PAGE_SIZE,
-                total: memberTotal,
-                totalPages: memberTotalPages,
-                onPageChange: setMemberPage,
-              }}
-              rowActions={(row) => (
-                <RowActions
-                  items={[
-                    { id: 'edit', label: memberLabels.actions.edit, onSelect: () => { router.push(`/backend/staff/team-members/${row.id}`) } },
-                    { id: 'unassign', label: memberLabels.actions.unassign, onSelect: () => { void handleUnassignMember(row) } },
-                  ]}
-                />
-              )}
-            />
-          )}
+          <TabsPanel value={activeTab}>
+            {activeTab === 'details' ? (
+              <TeamForm
+                title={t('staff.teams.form.editTitle', 'Edit Team')}
+                backHref="/backend/staff/teams"
+                cancelHref="/backend/staff/teams"
+                initialValues={initialValues ?? { name: '', description: '', isActive: true }}
+                onSubmit={handleSubmit}
+                onDelete={handleDelete}
+                isLoading={!initialValues}
+                loadingMessage={t('staff.teams.form.loading', 'Loading team...')}
+                extraActions={teamId ? (
+                  <SendObjectMessageDialog
+                    object={{
+                      entityModule: 'staff',
+                      entityType: 'team',
+                      entityId: teamId,
+                      previewData: { title: initialValues?.name ?? ''},
+                    }}
+                    viewHref={`/backend/staff/teams/${teamId}/edit`}
+                  />
+                ) : undefined}
+              />
+            ) : (
+              <DataTable<TeamMemberRow>
+                title={memberLabels.title}
+                data={memberRows}
+                columns={memberColumns}
+                isLoading={membersLoading}
+                searchValue={memberSearch}
+                onSearchChange={handleMemberSearchChange}
+                searchPlaceholder={memberLabels.table.search}
+                emptyState={<p className="py-8 text-center text-sm text-muted-foreground">{memberLabels.table.empty}</p>}
+                actions={(
+                  <Button asChild size="sm">
+                    <Link href={`/backend/staff/team-members/create?teamId=${encodeURIComponent(teamId ?? '')}`}>
+                      <Plus className="mr-2 h-4 w-4" aria-hidden />
+                      {memberLabels.actions.add}
+                    </Link>
+                  </Button>
+                )}
+                refreshButton={{
+                  label: memberLabels.actions.refresh,
+                  onRefresh: handleMemberRefresh,
+                  isRefreshing: membersLoading,
+                }}
+                sortable
+                sorting={memberSorting}
+                onSortingChange={setMemberSorting}
+                pagination={{
+                  page: memberPage,
+                  pageSize: TEAM_MEMBERS_PAGE_SIZE,
+                  total: memberTotal,
+                  totalPages: memberTotalPages,
+                  onPageChange: setMemberPage,
+                }}
+                rowActions={(row) => (
+                  <RowActions
+                    items={[
+                      { id: 'edit', label: memberLabels.actions.edit, onSelect: () => { router.push(`/backend/staff/team-members/${row.id}`) } },
+                      { id: 'unassign', label: memberLabels.actions.unassign, onSelect: () => { void handleUnassignMember(row) } },
+                    ]}
+                  />
+                )}
+              />
+            )}
+          </TabsPanel>
         </div>
       </PageBody>
     </Page>

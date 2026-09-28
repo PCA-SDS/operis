@@ -1,10 +1,10 @@
 'use client'
 
 import React from 'react'
-import { Page, PageBody } from '@open-mercato/ui/backend/Page'
+import { Page, PageBody, PageHeader } from '@open-mercato/ui/backend/Page'
 import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { Tabs, TabsList, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
+import { Tabs, TabsList, TabsPanel, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import type { ActionLogItem } from '../../components/AuditLogsActions'
 import { AuditLogsActions } from '../../components/AuditLogsActions'
@@ -182,14 +182,13 @@ export default function AuditLogsPage() {
 
   return (
     <Page>
+      <PageHeader title={t('audit_logs.nav.title', 'Audit Logs')} />
       <PageBody>
         <Tabs
           value={tab}
           onValueChange={(value) => setTab(value as TabOption)}
-          variant="underline"
-          className="mb-6"
         >
-          <TabsList className="w-full flex-wrap" aria-label={t('audit_logs.tabs.label')}>
+          <TabsList aria-label={t('audit_logs.tabs.label')}>
             <TabsTrigger value="actions">{t('audit_logs.actions.title')}</TabsTrigger>
             <TabsTrigger value="access">{t('audit_logs.access.title')}</TabsTrigger>
           </TabsList>
@@ -197,38 +196,40 @@ export default function AuditLogsPage() {
 
         {error && <div className="mb-4 rounded-md border border-status-error-border bg-status-error-bg p-3 text-sm text-status-error-text">{error}</div>}
 
-        {tab === 'actions' && (
-          <AuditLogsActions
-            items={actions}
-            onRefresh={() => loadWithState(actionsPage, actionsPageSize, accessPage, accessPageSize)}
-            isLoading={loading}
-            headerExtras={headerExtras}
-            onUndoError={handleUndoError}
-            onRedoError={handleRedoError}
-            pagination={{
-              page: actionsPage,
-              pageSize: actionsPageSize,
-              total: actionsTotal,
-              totalPages: actionsTotalPages,
-              onPageChange: handleActionsPageChange,
-            }}
-          />
-        )}
+        <TabsPanel value={tab}>
+          {tab === 'actions' && (
+            <AuditLogsActions
+              items={actions}
+              onRefresh={() => loadWithState(actionsPage, actionsPageSize, accessPage, accessPageSize)}
+              isLoading={loading}
+              headerExtras={headerExtras}
+              onUndoError={handleUndoError}
+              onRedoError={handleRedoError}
+              pagination={{
+                page: actionsPage,
+                pageSize: actionsPageSize,
+                total: actionsTotal,
+                totalPages: actionsTotalPages,
+                onPageChange: handleActionsPageChange,
+              }}
+            />
+          )}
 
-        {tab === 'access' && (
-          <AccessLogsTable
-            items={accessLogs}
-            isLoading={loading}
-            actions={renderRefreshButton()}
-            pagination={{
-              page: accessPage,
-              pageSize: accessPageSize,
-              total: accessTotal,
-              totalPages: accessTotalPages,
-              onPageChange: handleAccessPageChange,
-            }}
-          />
-        )}
+          {tab === 'access' && (
+            <AccessLogsTable
+              items={accessLogs}
+              isLoading={loading}
+              actions={renderRefreshButton()}
+              pagination={{
+                page: accessPage,
+                pageSize: accessPageSize,
+                total: accessTotal,
+                totalPages: accessTotalPages,
+                onPageChange: handleAccessPageChange,
+              }}
+            />
+          )}
+        </TabsPanel>
       </PageBody>
     </Page>
   )

@@ -26,15 +26,15 @@ export function getPriorityBadgeVariant(priority: MessagePriority): BadgeProps['
 export function getPriorityBadgeClassName(priority: MessagePriority): string {
   switch (priority) {
     case 'low':
-      return 'text-slate-600 bg-slate-100 border-slate-200'
+      return 'text-status-neutral-text bg-status-neutral-bg border-status-neutral-border'
     case 'normal':
-      return 'text-blue-600 bg-blue-100 border-blue-200'
+      return 'text-status-info-text bg-status-info-bg border-status-info-border'
     case 'high':
-      return 'text-orange-600 bg-orange-100 border-orange-200'
+      return 'text-status-warning-text bg-status-warning-bg border-status-warning-border'
     case 'urgent':
-      return 'text-red-600 bg-red-100 border-red-200'
+      return 'text-status-error-text bg-status-error-bg border-status-error-border'
     default:
-      return 'text-blue-600 bg-blue-100 border-blue-200'
+      return 'text-status-info-text bg-status-info-bg border-status-info-border'
   }
 }
 

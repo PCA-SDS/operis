@@ -130,7 +130,7 @@ const cellVariants = cva(
     variants: {
       selected: {
         true: 'bg-primary font-semibold text-primary-foreground',
-        false: 'border border-transparent bg-transparent text-muted-foreground hover:border-border hover:bg-surface-muted hover:text-foreground',
+        false: 'border border-transparent bg-transparent text-muted-foreground hover:bg-surface-muted hover:text-foreground',
       },
     },
     defaultVariants: { selected: false },
@@ -138,7 +138,7 @@ const cellVariants = cva(
 )
 
 const navButtonVariants = cva(
-  'inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-surface text-muted-foreground outline-none transition-colors ' +
+  'inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-transparent bg-transparent text-muted-foreground outline-none transition-colors ' +
     'hover:bg-surface-muted hover:text-foreground ' +
     'focus-visible:shadow-focus ' +
     'disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground',

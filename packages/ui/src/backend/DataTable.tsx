@@ -102,6 +102,8 @@ import { createLogger } from '@open-mercato/shared/lib/logger'
 import { clearAllPerspectiveState, PERSPECTIVE_COOKIE_PREFIX, PERSPECTIVE_STORAGE_PREFIX } from './perspectiveState'
 import { diffPerspectiveSettings } from './perspectiveDirty'
 import type { DataTableViewDirtyState, DataTableViewSettingKey } from './perspectiveDirty'
+import { PAGE_TITLE_CLASS } from './Page'
+import { LIST_SKELETON_ROW_COUNT, SkeletonBar } from './skeletons/PageSkeletons'
 
 // Re-exported so `@open-mercato/ui/backend/DataTable` stays the published import
 // path for the purge (BACKWARD_COMPATIBILITY: import paths are a contract surface).
@@ -594,6 +596,7 @@ function resolveExportSections(config: DataTableExportConfig | null | undefined)
 const DATATABLE_MAX_PAGE_SIZE = 100
 
 const STALE_ROWS_CLASS = 'pointer-events-none select-none opacity-70 transition-opacity'
+const FIRST_LOAD_BAR_WIDTHS = ['w-3/4', 'w-1/2', 'w-2/3', 'w-2/5', 'w-3/5']
 
 const COLUMN_MIN_WIDTH = 60
 const COLUMN_MAX_WIDTH = 900
@@ -977,7 +980,7 @@ function ExportMenu({ config, sections }: { config: DataTableExportConfig; secti
         <div
           ref={menuRef}
           role="menu"
-          className="absolute right-0 mt-2 w-60 max-w-[calc(100vw-1rem)] rounded-md border bg-surface py-2 shadow z-dropdown"
+          className="absolute right-0 mt-2 w-60 max-w-[calc(100vw-1rem)] rounded-xl bg-popover py-2 shadow-lg z-dropdown"
           style={menuOffsetX ? { transform: `translateX(${menuOffsetX}px)` } : undefined}
         >
           {sections.map((section, idx) => (
@@ -2995,14 +2998,20 @@ export function DataTable<T extends RowData>({
     : columnChooserConfig?.availableColumns ?? []
 
   const effectiveColumnChooserFields = React.useMemo<ColumnChooserField[]>(() => {
-    if (resolvedColumnChooserFields.length > 0) return resolvedColumnChooserFields
+    if (resolvedColumnChooserFields.length > 0) {
+      // A field the table has no column for (a custom field its host leaves out
+      // of the grid) would be a switch that does nothing, since
+      // handleColumnChooserToggle finds no column to show, so it is not offered.
+      const columnIds = new Set(table.getAllLeafColumns().map((column) => column.id))
+      return resolvedColumnChooserFields.filter((field) => columnIds.has(field.key))
+    }
     return table.getAllLeafColumns().map((col) => ({
       key: col.id,
       label: resolveColumnLabel(col),
       group: t('ui.columnChooser.defaultGroup', 'Columns'),
       alwaysVisible: !col.getCanHide(),
     }))
-  }, [resolvedColumnChooserFields, table, resolveColumnLabel, columns, t])
+  }, [resolvedColumnChooserFields, table, resolveColumnLabel, columns, mergedColumns, t])
 
   const visibleColumnKeys = React.useMemo(
     () => table.getAllLeafColumns().filter((c) => c.getIsVisible()).map((c) => c.id),
@@ -3224,7 +3233,7 @@ export function DataTable<T extends RowData>({
       supportsCustomFieldFilterFieldsets && resolvedEntityIds.length === 1
         ? (
           <div className="space-y-1">
-            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <div className="text-sm font-medium text-foreground">
               {t('ui.dataTable.fieldset.label', 'Fieldset')}
             </div>
             <Select
@@ -3407,21 +3416,18 @@ export function DataTable<T extends RowData>({
    * itself, and left detail pages and list pages with two unrelated header
    * treatments.
    *
-   * The card itself carries elevation instead of a border: a border plus a
-   * shadow reads as two competing edges. Toolbar (search / filters) stays
-   * inside the card, directly above the rows it filters. */
-  const containerClassName = embedded ? '' : 'flex flex-col gap-5'
-  /* In light the card is borderless and carries its edge with elevation, as the
-     design reference does. Dark mode is our own extension of that rule and a
-     shadow cannot describe an edge on a dark ground, so the card takes a
-     hairline there instead — same intent, the only mechanism available. */
+   * The card is every other card: white on the white ground, so a hairline
+   * (`card-edge`) is its edge in light, and in dark, where that token is
+   * transparent, the elevated surface colour is. Toolbar (search / filters)
+   * stays inside the card, directly above the rows it filters. */
+  const containerClassName = embedded ? '' : 'flex flex-col gap-6'
   const cardClassName = embedded
     ? ''
-    : 'overflow-hidden rounded-xl bg-surface shadow-md dark:border dark:border-border'
+    : 'overflow-hidden rounded-xl border border-card-edge bg-surface shadow-sm'
   const headerWrapperClassName = embedded ? 'pb-3' : ''
   const headerContentClassName =
     'flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4'
-  const toolbarWrapperClassName = embedded ? 'mt-2' : 'border-b border-table-border px-4 py-3 sm:px-5'
+  const toolbarWrapperClassName = embedded ? 'mt-2' : 'px-4 py-3 sm:px-5'
   const tableScrollWrapperClassName = embedded ? '' : 'overflow-auto'
   /* The table owns its vertical scroll. Without a cap, a 500-row page grows the
      document instead, so the header scrolls away and the pager sits an entire
@@ -3531,7 +3537,7 @@ export function DataTable<T extends RowData>({
         embedded ? (
           <h2 className="text-sm font-semibold leading-tight text-foreground">{title}</h2>
         ) : (
-          <h1 className="text-2xl font-normal leading-tight text-foreground sm:text-3xl">{title}</h1>
+          <h1 className={PAGE_TITLE_CLASS}>{title}</h1>
         )
       ) : (
         title
@@ -3591,8 +3597,11 @@ export function DataTable<T extends RowData>({
               ) : null}
             </div>
           )}
+          {/* The spot renders nothing until a widget is injected, and an empty
+              wrapper would still push the card 12px further from the title than
+              a page header's content sits. */}
           {headerInjectionSpotId ? (
-            <div className={embedded ? 'mt-2' : 'mt-3'}>
+            <div className={cn(embedded ? 'mt-2' : 'mt-3', 'empty:hidden')}>
               <InjectionSpot spotId={headerInjectionSpotId} context={resolvedInjectionContext} />
             </div>
           ) : null}
@@ -3764,20 +3773,42 @@ export function DataTable<T extends RowData>({
             className={showingStaleRows ? STALE_ROWS_CLASS : undefined}
           >
             {isFirstLoad ? (
-              <TableRow>
-                <TableCell
-                  colSpan={mergedColumns.length + (rowActions || injectedRowActions.length > 0 ? 1 : 0) + (hasInjectedBulkActions ? 1 : 0)}
-                  className="p-0"
-                >
-                  <div
-                    className={cn('sticky left-0 flex items-center justify-center gap-2 h-24', emptyStateViewportWidth ? '' : 'w-full')}
-                    style={emptyStateViewportWidth ? { width: emptyStateViewportWidth } : undefined}
-                  >
-                    <Spinner size="md" />
-                    <span className="text-muted-foreground">{t('ui.dataTable.loading', 'Loading data...')}</span>
-                  </div>
-                </TableCell>
-              </TableRow>
+              /* The first load draws rows, not a spinner: the table's own
+                 columns, cells and row-actions slot, each cell a bar in its
+                 20px line box, so they stand exactly as tall as the rows that
+                 replace them. A 96px spinner row grew into several rows on
+                 arrival and pushed the pager and everything below it down. */
+              Array.from({ length: LIST_SKELETON_ROW_COUNT }, (_, rowIndex) => (
+                <TableRow key={`first-load-${rowIndex}`} aria-hidden={rowIndex > 0 ? true : undefined} data-skeleton-row="">
+                  {hasInjectedBulkActions ? (
+                    <TableCell padding="control">
+                      <SkeletonBar className="size-4 rounded-sm" />
+                    </TableCell>
+                  ) : null}
+                  {visibleLeafColumns.map((column, columnIndex) => {
+                    const columnMeta = (column.columnDef as { meta?: ColumnTruncateMeta & { hidden?: boolean } }).meta
+                    return (
+                      <TableCell
+                        key={column.id}
+                        align={resolveColumnAlign(columnMeta)}
+                        className={responsiveClass(resolvePriority(column), columnMeta?.hidden)}
+                      >
+                        {rowIndex === 0 && columnIndex === 0 ? (
+                          <span className="sr-only">{t('ui.dataTable.loading', 'Loading data...')}</span>
+                        ) : null}
+                        <span aria-hidden="true" className="flex h-5 w-full items-center">
+                          <SkeletonBar className={cn('h-3.5', FIRST_LOAD_BAR_WIDTHS[(rowIndex + columnIndex) % FIRST_LOAD_BAR_WIDTHS.length])} />
+                        </span>
+                      </TableCell>
+                    )
+                  })}
+                  {rowActions || injectedRowActions.length > 0 ? (
+                    <TableCell align={actionsColumnAlign} padding="control">
+                      <SkeletonBar className="size-8 rounded-lg" />
+                    </TableCell>
+                  ) : null}
+                </TableRow>
+              ))
             ) : error ? (
               <TableRow>
                 <TableCell

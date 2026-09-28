@@ -6,6 +6,7 @@ export const metadata = {
   pageGroup: 'Customers',
   pageGroupKey: 'customers.nav.group',
   navHidden: true,
+  loadingSkeleton: 'detail',
   breadcrumb: [
     { label: 'Companies', labelKey: 'customers.nav.companies', href: '/backend/customers/companies' },
   ],

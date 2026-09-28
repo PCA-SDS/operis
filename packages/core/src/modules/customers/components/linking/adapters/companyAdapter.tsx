@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Building2, CalendarDays, Globe, Link2, Users } from 'lucide-react'
+import { Building2, CalendarDays, Globe, Users } from 'lucide-react'
 import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { Avatar } from '@open-mercato/ui/primitives/avatar'
 import { cn } from '@open-mercato/shared/lib/utils'
@@ -36,7 +36,6 @@ type CompanyAdapterOptions = {
   pageSize?: number
   addNew?: LinkEntityAdapter<CompanyDetails>['addNew']
   industryOptions?: Array<{ id: string; label: string }>
-  headerIcon?: React.ReactNode
 }
 
 const DEFAULT_PAGE_SIZE = 20
@@ -386,7 +385,6 @@ export function createCompanyLinkAdapter(
     selectedEmptyHint: options.selectedEmptyHint,
     confirmButtonLabel: options.confirmButtonLabel,
     defaultAvatarIcon: options.defaultAvatarIcon,
-    headerIcon: options.headerIcon ?? <Link2 className="size-5" />,
     filters,
     renderRow,
     renderPreview,

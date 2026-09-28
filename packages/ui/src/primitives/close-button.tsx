@@ -5,25 +5,22 @@ import { cn } from '@open-mercato/shared/lib/utils'
 
 /**
  * The one close affordance for dismissible chrome — dialogs, drawers, side
- * panels. A disabled-foreground `X` that scales 1.25x and recolours to
- * `foreground` on hover over 300ms.
+ * panels. The close control of an Apple sheet: a filled grey circle holding a
+ * small secondary-grey mark, the same control fill and hover step as a grey
+ * `Button`, so it reads as a control at rest rather than appearing on hover.
+ * It never scales: motion explains a change, it does not decorate a hover.
  *
  * The box is a fixed `h-* w-*`, not padding-derived, so a Close placed beside
  * another icon affordance takes the same `size` and the pair matches at rest
- * and under the shared hover scale.
+ * and on hover. The mark is half the box, as in Apple's filled close.
  */
 
 export type CloseButtonSize = 'sm' | 'md' | 'lg'
 
 const SIZE_CLASSES: Record<CloseButtonSize, { button: string; icon: string }> = {
-  sm: { button: 'h-6 w-6', icon: 'size-3.5' },
-  md: { button: 'h-7 w-7', icon: 'size-4' },
-  /* `lg` grew the box but kept `md`'s glyph, so asking for the large close
-     bought a wider hit target and a mark that looked identical — the ladder
-     read 3.5 / 4 / 4. `size-5` makes the third step an actual step. No call
-     site was affected: every one of the 14 uses took the `md` default, so
-     this size had never rendered. */
-  lg: { button: 'h-8 w-8', icon: 'size-5' },
+  sm: { button: 'h-6 w-6', icon: 'size-3' },
+  md: { button: 'h-7 w-7', icon: 'size-3.5' },
+  lg: { button: 'h-8 w-8', icon: 'size-4' },
 }
 
 export type CloseButtonProps = Omit<
@@ -43,10 +40,10 @@ export const CloseButton = React.forwardRef<HTMLButtonElement, CloseButtonProps>
         data-slot="close-button"
         aria-label={ariaLabel ?? 'Close'}
         className={cn(
-          'inline-flex shrink-0 items-center justify-center rounded-md text-disabled-foreground transition-all duration-300',
-          'hover:scale-125 hover:text-foreground',
+          'inline-flex shrink-0 items-center justify-center rounded-full bg-primary-soft text-muted-foreground transition-colors duration-150',
+          'hover:bg-primary-border/60 hover:text-foreground active:bg-primary-border',
           'focus-visible:outline-none focus-visible:shadow-focus',
-          'disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100',
+          'disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-primary-soft',
           button,
           className,
         )}

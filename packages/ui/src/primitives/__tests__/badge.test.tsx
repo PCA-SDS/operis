@@ -51,7 +51,8 @@ describe('Badge (Phase B.8)', () => {
     expect(root.getAttribute('data-variant')).toBe('brand')
     expect(root.className).toContain('bg-brand-violet/10')
     expect(root.className).toContain('text-brand-violet')
-    expect(root.className).toContain('border-brand-violet/30')
+    expect(root.className).toContain('border-transparent')
+    expect(root.className).not.toContain('border-brand-violet/30')
   })
 
   it('applies size variants (sm / default / lg)', () => {

@@ -1,12 +1,21 @@
 "use client"
 
 import * as React from 'react'
-import { AlertTriangle, Check, ChevronDown } from 'lucide-react'
+import { Check, ChevronDown } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { cn } from '@open-mercato/shared/lib/utils'
 import { loadDictionaryEntriesByKey } from '@open-mercato/core/modules/dictionaries/lib/clientEntries'
 import { Alert, AlertDescription, AlertTitle } from '@open-mercato/ui/primitives/alert'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@open-mercato/ui/primitives/dialog'
+import {
+  DIALOG_BODY_CLASS,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@open-mercato/ui/primitives/dialog'
 import { Textarea } from '@open-mercato/ui/primitives/textarea'
 import { useDialogKeyHandler } from '@open-mercato/ui/hooks/useDialogKeyHandler'
 import { createLogger } from '@open-mercato/shared/lib/logger'
@@ -135,26 +144,19 @@ export function ConfirmDealLostDialog({
         className="flex max-h-[min(90vh,720px)] flex-col overflow-hidden p-0 sm:max-w-[560px]"
         onKeyDown={handleKeyDown}
       >
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg bg-card">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          {/* The destructive intent is carried by the red confirm button and the
+              copy, not by a tinted badge beside the title. */}
           <DialogHeader>
-            <div className="flex items-start gap-4">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-md bg-destructive/10 text-destructive">
-                <AlertTriangle className="size-5" />
-              </div>
-              <div className="min-w-0">
-                <DialogTitle className="text-lg font-bold leading-none tracking-tight text-foreground">
-                  {t('customers.deals.detail.lost.title', 'Mark deal as Lost?')}
-                </DialogTitle>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {dealTitle}
-                  {dealValue ? ` · ${dealValue}` : ''}
-                  {companyName ? ` · ${companyName}` : ''}
-                </p>
-              </div>
-            </div>
+            <DialogTitle>{t('customers.deals.detail.lost.title', 'Mark deal as Lost?')}</DialogTitle>
+            <DialogDescription>
+              {dealTitle}
+              {dealValue ? ` · ${dealValue}` : ''}
+              {companyName ? ` · ${companyName}` : ''}
+            </DialogDescription>
           </DialogHeader>
 
-          <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-7 py-6">
+          <div className={cn('min-h-0 flex-1 space-y-6 overflow-y-auto', DIALOG_BODY_CLASS)}>
             <Alert status="warning" className="rounded-md">
               <AlertTitle>
                 {t('customers.deals.detail.lost.warningTitle', 'This action closes the deal')}

@@ -7,15 +7,26 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { CloseButton, type CloseButtonSize } from './close-button'
+import { SIDE_PANEL_MOTION, SIDE_PANEL_SCRIM_MOTION } from './side-panel-motion'
 
 /**
  * Modal dialog primitive. Chrome follows the canonical borderless scheme:
- * a `rounded-2xl bg-surface shadow-xl` panel on a `bg-foreground/40` overlay,
- * with the vertical rhythm carried entirely by the padding trio —
- * header `px-5 py-4 sm:px-6`, body `px-5 pt-3 pb-5 sm:px-6`, footer
- * `px-5 pt-1.5 pb-4 sm:px-6` — and NO divider under the header or above the
- * footer. Don't reintroduce chrome dividers. Content-level hairlines (table
- * rows, card caption strips) are not chrome and are fine.
+ * a `rounded-2xl bg-surface shadow-xl` panel on a `bg-scrim` overlay,
+ * with the vertical rhythm carried entirely by the padding trio (header,
+ * body, footer below) and NO divider under the header or above the footer.
+ * Don't reintroduce chrome dividers. Content-level hairlines (table rows, card
+ * caption strips) are not chrome and are fine.
+ *
+ * The panel's outer margin is the same on all four sides, 20px on a phone and
+ * 24px from `sm`: the title sits as far below the top edge as it is in from the
+ * left, the buttons as far above the bottom edge as they are in from the right,
+ * and the close button on the title's centre line, as far in from the right.
+ *
+ * Sizing is desktop-first: a plain `max-w-*`, `h-*`, `max-h-*` or `top-*` on
+ * `DialogContent` sizes the centred panel, as it reads, and `sm:`-prefixed
+ * classes still work. The phone bottom sheet lives entirely under `max-sm:`,
+ * so those overrides never reach it. It used to be the other way round, and a
+ * plain `max-w-3xl` silently lost to the base's `sm:max-w-lg`.
  *
  * Body padding is slot-owned, so `DialogContent` groups any children that
  * aren't a Header/Footer/Body into a `DialogBody` automatically. Wrap content
@@ -28,6 +39,49 @@ import { CloseButton, type CloseButtonSize } from './close-button'
  *   DialogFooter:  `layout` ('default' | 'equal'), `leading` slot, `bordered`
  *     (opt-in rule — off by default per the borderless chrome above)
  */
+
+/** Title type for every modal surface: dialog, sheet, drawer and the confirm
+ *  alert. One class, so the surfaces cannot drift apart again. */
+export const DIALOG_TITLE_CLASS = 'text-lg font-semibold tracking-tight text-foreground'
+
+export const DIALOG_DESCRIPTION_CLASS = 'text-sm text-muted-foreground'
+
+/** Header insets: the top inset matches the side inset. Directly above a
+ *  footer the header gives up its bottom padding, because the footer owns
+ *  the gap above its buttons. */
+export const DIALOG_HEADER_INSET_CLASS = 'px-5 pt-5 pb-3 sm:px-6 sm:pt-6 [&:has(+[data-slot$=footer])]:pb-0'
+
+/** Header: the insets above, and a 4px step between title and description. */
+export const DIALOG_HEADER_CLASS = `flex shrink-0 flex-col gap-1 text-left ${DIALOG_HEADER_INSET_CLASS}`
+
+/** Body: when it is the last slot its bottom padding is the panel's bottom
+ *  inset. Above a footer it gives that padding up, because a body that
+ *  scrolls hides its own padding at the end of the scroll, and the buttons
+ *  used to sit 4px under the last visible field. A bordered footer keeps the
+ *  body's padding above its rule. */
+export const DIALOG_BODY_CLASS =
+  'px-5 pt-3 pb-5 sm:px-6 sm:pb-6 [&:has(+[data-slot$=footer]:not([data-bordered]))]:pb-0'
+
+/** Footer: 20px above the buttons whatever sits above them, scrolling or
+ *  not, and a bottom inset that matches the side inset. */
+export const DIALOG_FOOTER_CLASS = 'shrink-0 px-5 pt-5 pb-5 sm:px-6 sm:pb-6'
+
+/** The close button on the title's 28px centre line, as far in from the right
+ *  edge as the title is from the left; a smaller or larger box is nudged so its
+ *  centre stays on that line. */
+export const DIALOG_CLOSE_POSITION_CLASS: Record<CloseButtonSize, string> = {
+  sm: 'absolute right-5 top-5.5 z-10 sm:right-6 sm:top-6.5',
+  md: 'absolute right-5 top-5 z-10 sm:right-6 sm:top-6',
+  lg: 'absolute right-5 top-4.5 z-10 sm:right-6 sm:top-5.5',
+}
+
+/** Room a header keeps clear of the close button: its inset, its box and an
+ *  8px gap, so a long title wraps before it reaches the button. */
+export const DIALOG_CLOSE_GUTTER_CLASS: Record<CloseButtonSize, string> = {
+  sm: 'pr-13 sm:pr-14',
+  md: 'pr-14 sm:pr-15',
+  lg: 'pr-15 sm:pr-16',
+}
 
 const Dialog = DialogPrimitive.Root
 
@@ -43,13 +97,18 @@ const DialogOverlay = React.forwardRef<
     /** Render above popovers (z-modal-elevated, 55) instead of the default z-modal (40).
      *  Use when this dialog is opened from inside a popover so it isn't occluded. */
     elevated?: boolean
+    /** Fade on a side panel's timing, for the scrim behind a side sheet. */
+    panel?: boolean
   }
->(({ className, elevated, ...props }, ref) => (
+>(({ className, elevated, panel = false, ...props }, ref) => (
   <DialogPrimitive.Overlay
     ref={ref}
     data-slot="dialog-overlay"
     className={cn(
-      'fixed inset-0 bg-foreground/40 animate-fadeIn transition-opacity data-[state=closed]:animate-out',
+      'fixed inset-0 bg-scrim',
+      // `animate-fadeIn` is declared outside Tailwind's layers, so it would
+      // beat the scrim motion's layered classes: the two are alternatives.
+      panel ? SIDE_PANEL_SCRIM_MOTION : 'animate-fadeIn transition-opacity data-[state=closed]:animate-out',
       elevated ? 'z-modal-elevated' : 'z-modal',
       className,
     )}
@@ -59,25 +118,42 @@ const DialogOverlay = React.forwardRef<
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 
 const dialogContentVariants = cva(
-  'fixed inset-x-0 bottom-0 flex max-h-[92dvh] w-full translate-x-0 translate-y-0 flex-col overflow-y-auto rounded-t-2xl bg-surface shadow-xl animate-fadeInUp sm:inset-auto sm:left-1/2 sm:top-1/2 sm:min-h-0 sm:h-auto sm:w-full sm:max-h-[calc(100dvh-4rem)] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl focus-visible:outline-none data-[state=closed]:animate-out',
+  'fixed flex w-full flex-col overflow-y-auto bg-surface shadow-xl focus-visible:outline-none',
   {
     variants: {
+      /**
+       * `center` is the modal: in the middle of the screen, a bottom sheet on a
+       * phone, rising in. `right` / `left` is a side sheet: the full height of
+       * the screen against that edge, sliding in from it on the motion every
+       * side panel shares, and full screen on a phone.
+       */
+      side: {
+        center: [
+          'left-1/2 top-1/2 h-auto max-h-[calc(100dvh-4rem)] -translate-x-1/2 -translate-y-1/2 rounded-2xl animate-fadeInUp data-[state=closed]:animate-out',
+          'max-sm:inset-x-0 max-sm:top-auto max-sm:bottom-0 max-sm:max-h-[92dvh] max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-b-none',
+        ].join(' '),
+        right: `inset-y-0 right-0 max-sm:max-w-none sm:rounded-l-2xl ${SIDE_PANEL_MOTION.right}`,
+        left: `inset-y-0 left-0 max-sm:max-w-none sm:rounded-r-2xl ${SIDE_PANEL_MOTION.left}`,
+      },
       size: {
-        sm: 'sm:max-w-sm',
-        default: 'sm:max-w-lg',
-        lg: 'sm:max-w-2xl',
-        xl: 'sm:max-w-4xl',
+        sm: 'max-w-sm',
+        default: 'max-w-lg',
+        lg: 'max-w-2xl',
+        xl: 'max-w-4xl',
       },
     },
     defaultVariants: {
+      side: 'center',
       size: 'default',
     },
   },
 )
 
-/** Lets DialogHeader reserve the close-button gutter only when one renders. */
-const DialogChromeContext = React.createContext<{ dismissible: boolean }>({
+/** Lets DialogHeader reserve the close-button gutter only when one renders,
+ *  sized for the button that does. */
+const DialogChromeContext = React.createContext<{ dismissible: boolean; closeSize: CloseButtonSize }>({
   dismissible: false,
+  closeSize: 'md',
 })
 
 export type DialogContentProps = React.ComponentPropsWithoutRef<
@@ -177,6 +253,7 @@ const DialogContent = React.forwardRef<
       closeAriaLabel,
       disableBodyWrap = false,
       closeSize,
+      side,
       ...props
     },
     ref,
@@ -194,7 +271,11 @@ const DialogContent = React.forwardRef<
       }
     }, [])
 
-    const chrome = React.useMemo(() => ({ dismissible }), [dismissible])
+    const resolvedCloseSize = closeSize ?? 'md'
+    const chrome = React.useMemo(
+      () => ({ dismissible, closeSize: resolvedCloseSize }),
+      [dismissible, resolvedCloseSize],
+    )
     const body = React.useMemo(
       () => (disableBodyWrap ? children : applyDialogSlots(children)),
       [children, disableBodyWrap],
@@ -202,14 +283,15 @@ const DialogContent = React.forwardRef<
 
     return (
       <DialogPortal>
-        <DialogOverlay elevated={elevated} />
+        <DialogOverlay elevated={elevated} panel={side === 'right' || side === 'left'} />
         <DialogPrimitive.Content
           ref={ref}
           data-dialog-content=""
           data-slot="dialog-content"
           data-size={size ?? 'default'}
+          data-side={side ?? 'center'}
           className={cn(
-            dialogContentVariants({ size }),
+            dialogContentVariants({ side, size }),
             elevated ? 'z-modal-elevated' : 'z-modal',
             className,
           )}
@@ -218,9 +300,9 @@ const DialogContent = React.forwardRef<
           {dismissible ? (
             <DialogClose asChild data-dialog-close="">
               <CloseButton
-                size={closeSize}
+                size={resolvedCloseSize}
                 data-slot="dialog-close-button"
-                className="absolute right-5 top-4 z-10 sm:right-6"
+                className={DIALOG_CLOSE_POSITION_CLASS[resolvedCloseSize]}
                 aria-label={closeAriaLabel ?? t('ui.dialog.close.ariaLabel', 'Close')}
               />
             </DialogClose>
@@ -254,16 +336,13 @@ const DialogHeader = ({
   children,
   ...props
 }: DialogHeaderProps) => {
-  const { dismissible } = React.useContext(DialogChromeContext)
+  const { dismissible, closeSize } = React.useContext(DialogChromeContext)
   return (
     <div
       data-slot="dialog-header"
       className={cn(
-        'shrink-0 px-5 py-4 text-left sm:px-6',
-        // Reserve the close-button gutter (28px box + the 16px gap it sits on)
-        // so a long title never runs under it.
-        dismissible ? 'pr-11 sm:pr-12' : '',
-        'flex flex-col gap-0.5',
+        DIALOG_HEADER_CLASS,
+        dismissible ? DIALOG_CLOSE_GUTTER_CLASS[closeSize] : '',
         className,
       )}
       {...props}
@@ -280,7 +359,7 @@ const DialogBody = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     data-slot="dialog-body"
-    className={cn('px-5 pt-3 pb-5 sm:px-6', className)}
+    className={cn(DIALOG_BODY_CLASS, className)}
     {...props}
   />
 )
@@ -302,7 +381,7 @@ export type DialogFooterProps = React.HTMLAttributes<HTMLDivElement> & {
   leading?: React.ReactNode
 }
 
-const DIALOG_FOOTER_BASE = 'shrink-0 px-5 pt-1.5 pb-4 sm:px-6'
+const DIALOG_FOOTER_BASE = DIALOG_FOOTER_CLASS
 
 const DialogFooter = ({
   className,
@@ -389,7 +468,7 @@ const DialogTitle = React.forwardRef<
   <DialogPrimitive.Title
     ref={ref}
     data-slot="dialog-title"
-    className={cn('text-xl font-semibold tracking-tight text-foreground', className)}
+    className={cn(DIALOG_TITLE_CLASS, className)}
     {...props}
   />
 ))
@@ -402,7 +481,7 @@ const DialogDescription = React.forwardRef<
   <DialogPrimitive.Description
     ref={ref}
     data-slot="dialog-description"
-    className={cn('text-sm text-muted-foreground', className)}
+    className={cn(DIALOG_DESCRIPTION_CLASS, className)}
     {...props}
   />
 ))

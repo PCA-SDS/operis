@@ -552,7 +552,7 @@ export function AddressTiles<C = unknown>({
             return (
               <div
                 key={address.id}
-                className="group rounded-lg border border-border/70 bg-card p-4 text-sm transition hover:border-border"
+                className="group rounded-xl border border-transparent bg-card p-4 text-sm shadow-sm transition hover:shadow-md"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="space-y-1">

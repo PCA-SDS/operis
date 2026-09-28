@@ -3,12 +3,13 @@
 import * as React from 'react'
 import { Plus, X } from 'lucide-react'
 import { cn } from '@open-mercato/shared/lib/utils'
+import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { FormFieldLabel } from '@open-mercato/ui/backend/forms/FormSection'
 import { Avatar } from '@open-mercato/ui/primitives/avatar'
+import { Button } from '@open-mercato/ui/primitives/button'
 import { DatePicker } from '@open-mercato/ui/primitives/date-picker'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@open-mercato/ui/primitives/select'
-import { Switch } from '@open-mercato/ui/primitives/switch'
 
 /**
  * The editor's field chrome, matching the PCA modal reference rather than the
@@ -31,11 +32,11 @@ export const CONTROL_BOX = 'rounded-lg border border-transparent bg-surface-mute
 /** Every control in the editor is one height, the same 36px as the app chrome. */
 export const CONTROL_HEIGHT = 'h-9'
 /**
- * The field micro-label. Same typography as the shared `FORM_FIELD_LABEL` but
- * without its `mb-2.5`: these labels sit in flex columns that own the spacing,
+ * The field label. Same typography as the shared `FORM_FIELD_LABEL` but
+ * without its `mb-2`: these labels sit in flex columns that own the spacing,
  * so carrying the margin too would double it.
  */
-export const LABEL_CLASS = 'block text-xs font-bold uppercase tracking-wide text-muted-foreground'
+export const LABEL_CLASS = 'block text-sm font-medium text-foreground'
 
 export function Field({
   label,
@@ -80,14 +81,42 @@ export function UppercaseBadge({ style, className, children }: { style?: React.C
   )
 }
 
-export function AllDayToggle({ checked, onCheckedChange, label }: { checked: boolean; onCheckedChange(next: boolean): void; label: string }) {
+const WEEKDAYS = [
+  { letterKey: 'customers.calendar.editor.repeat.days.mon', letterFallback: 'M', ariaKey: 'customers.calendar.day.mon', ariaFallback: 'MON' },
+  { letterKey: 'customers.calendar.editor.repeat.days.tue', letterFallback: 'T', ariaKey: 'customers.calendar.day.tue', ariaFallback: 'TUE' },
+  { letterKey: 'customers.calendar.editor.repeat.days.wed', letterFallback: 'W', ariaKey: 'customers.calendar.day.wed', ariaFallback: 'WED' },
+  { letterKey: 'customers.calendar.editor.repeat.days.thu', letterFallback: 'T', ariaKey: 'customers.calendar.day.thu', ariaFallback: 'THU' },
+  { letterKey: 'customers.calendar.editor.repeat.days.fri', letterFallback: 'F', ariaKey: 'customers.calendar.day.fri', ariaFallback: 'FRI' },
+  { letterKey: 'customers.calendar.editor.repeat.days.sat', letterFallback: 'S', ariaKey: 'customers.calendar.day.sat', ariaFallback: 'SAT' },
+  { letterKey: 'customers.calendar.editor.repeat.days.sun', letterFallback: 'S', ariaKey: 'customers.calendar.day.sun', ariaFallback: 'SUN' },
+]
+
+/**
+ * The weekday picker for a weekly repeat, Monday first, one toggle per day.
+ *
+ * Both dialogs that create a calendar entry repeat weekly, and each used to
+ * draw its own row: square blue-filled letters in one, round blue-filled
+ * two-letter English abbreviations in the other. One component keeps them the
+ * same shape, the same labels and the same pressed look as every other toggle.
+ */
+export function WeekdayToggles({ days, onToggle }: { days: boolean[]; onToggle(index: number): void }) {
+  const t = useT()
   return (
-    <Switch
-      checked={checked}
-      aria-label={label}
-      onCheckedChange={onCheckedChange}
-      className="h-6 w-10"
-    />
+    <div className="flex items-start gap-1.5">
+      {WEEKDAYS.map((day, index) => (
+        <Button
+          key={day.ariaKey}
+          type="button"
+          variant="toggle"
+          size="icon"
+          aria-pressed={Boolean(days[index])}
+          aria-label={t(day.ariaKey, day.ariaFallback)}
+          onClick={() => onToggle(index)}
+        >
+          {t(day.letterKey, day.letterFallback)}
+        </Button>
+      ))}
+    </div>
   )
 }
 

@@ -65,21 +65,26 @@ const tabsEntry: GalleryEntry = {
   importPath: '@open-mercato/ui/primitives/tabs',
   usage: {
     do: [
-      'variant="underline" is the canon for page-level tab strips; pill only for small embedded switchers.',
+      'Every tab strip is Tabs: one look, a hairline rail, and a bar that glides to the selected tab.',
       'TabsList always carries an aria-label; use count and leading to add context to triggers.',
+      'Render the selected panel with TabsContent, or with TabsPanel when the page draws it, so it fades in on a switch.',
     ],
-    dont: ['No hand-rolled tab strips from buttons and border classes — lint flags raw tab lists.'],
+    dont: [
+      'No hand-rolled tab strips from buttons and border classes — lint flags raw tab lists.',
+      'No restyled triggers or count chips; a control that picks a mode rather than a panel is a SegmentedControl.',
+    ],
   },
   docsAnchor: '#tabs',
   figmaNodeId: '553:734',
   variants: [
     {
-      id: 'underline',
-      title: 'underline',
-      // Underline is the DS canon for page-level tab strips — flat rail
-      // with an accent underline, per-tab `leading` icon and `count` badge.
+      id: 'horizontal',
+      title: 'horizontal (default)',
+      // The page-level strip: text tabs in one weight over a hairline rail,
+      // the selected one in full ink with an accent bar that glides between
+      // tabs, and an optional leading icon and quiet count.
       render: () => (
-        <Tabs defaultValue="orders" variant="underline" className="w-full">
+        <Tabs defaultValue="orders" className="w-full">
           <TabsList aria-label="Customer sections">
             <TabsTrigger value="overview" leading={<LayoutGrid className="size-4" />}>
               Overview
@@ -105,7 +110,7 @@ const tabsEntry: GalleryEntry = {
       code: `import { LayoutGrid, Settings, ShoppingCart } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
 
-<Tabs defaultValue="orders" variant="underline">
+<Tabs defaultValue="orders">
   <TabsList aria-label="Customer sections">
     <TabsTrigger value="overview" leading={<LayoutGrid className="size-4" />}>Overview</TabsTrigger>
     <TabsTrigger value="orders" leading={<ShoppingCart className="size-4" />} count={12}>Orders</TabsTrigger>
@@ -117,42 +122,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@open-mercato/ui/primi
 </Tabs>`,
     },
     {
-      id: 'pill',
-      title: 'pill (default)',
-      render: () => (
-        <Tabs defaultValue="preview">
-          <TabsList aria-label="Editor view">
-            <TabsTrigger value="preview">Preview</TabsTrigger>
-            <TabsTrigger value="code">Code</TabsTrigger>
-            <TabsTrigger value="logs">Logs</TabsTrigger>
-          </TabsList>
-          <TabsContent value="preview">
-            <p className="text-sm text-muted-foreground">Rendered preview.</p>
-          </TabsContent>
-          <TabsContent value="code">
-            <p className="text-sm text-muted-foreground">Source code panel.</p>
-          </TabsContent>
-          <TabsContent value="logs">
-            <p className="text-sm text-muted-foreground">Runtime logs panel.</p>
-          </TabsContent>
-        </Tabs>
-      ),
-      code: `import { Tabs, TabsContent, TabsList, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
-
-<Tabs defaultValue="preview">
-  <TabsList aria-label="Editor view">
-    <TabsTrigger value="preview">Preview</TabsTrigger>
-    <TabsTrigger value="code">Code</TabsTrigger>
-    <TabsTrigger value="logs">Logs</TabsTrigger>
-  </TabsList>
-  <TabsContent value="preview">…</TabsContent>
-  <TabsContent value="code">…</TabsContent>
-  <TabsContent value="logs">…</TabsContent>
-</Tabs>`,
-    },
-    {
-      id: 'pill-vertical',
-      title: 'pill, vertical',
+      id: 'vertical',
+      title: 'vertical',
       render: () => (
         <Tabs defaultValue="profile" orientation="vertical" className="w-full">
           <TabsList aria-label="Account settings">

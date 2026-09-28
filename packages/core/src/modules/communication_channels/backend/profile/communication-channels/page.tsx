@@ -4,7 +4,7 @@ import * as React from 'react'
 import { extensionPoints } from '@open-mercato/core/modules/communication_channels/extension-points'
 import type { LegacyColumnDef as ColumnDef } from '@tanstack/react-table/legacy'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Page, PageBody } from '@open-mercato/ui/backend/Page'
+import { Page, PageBody, PageHeader } from '@open-mercato/ui/backend/Page'
 import { DataTable } from '@open-mercato/ui/backend/DataTable'
 import { Tag } from '@open-mercato/ui/primitives/tag'
 import { Button } from '@open-mercato/ui/primitives/button'
@@ -503,30 +503,25 @@ export default function ProfileCommunicationChannelsPage() {
 
   return (
     <Page>
-      <PageBody>
-        <header className="mb-4 flex items-baseline justify-between">
-          <div>
-            <h2 className="text-2xl font-semibold">
-              {t('communication_channels.profile.title', 'My Communication Channels')}
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              {t(
-                'communication_channels.profile.subtitle',
-                'Connect your communication channels so outbound messages come from your own account and inbound messages land in your unified inbox.',
-              )}
-            </p>
-          </div>
-          {/* Provider connect entry points injected by each channel-* package
-              (channel-gmail, channel-imap) via UMES. */}
+      <PageHeader
+        title={t('communication_channels.profile.title', 'My Communication Channels')}
+        description={t(
+          'communication_channels.profile.subtitle',
+          'Connect your communication channels so outbound messages come from your own account and inbound messages land in your unified inbox.',
+        )}
+        actions={(
+          /* Provider connect entry points injected by each channel-* package
+             (channel-gmail, channel-imap) via UMES. */
           <InjectionSpot
             spotId={extensionPoints.hosts.profileConnect.spotId}
             context={{ reload: () => setReloadKey((k) => k + 1) }}
             data={{}}
           />
-        </header>
-
+        )}
+      />
+      <PageBody>
         {reauthRows.length > 0 ? (
-          <Alert status="warning" className="mb-4">
+          <Alert status="warning">
             <AlertDescription>
               {t(
                 'communication_channels.profile.alerts.requiresReauth',
@@ -538,7 +533,7 @@ export default function ProfileCommunicationChannelsPage() {
         ) : null}
 
         <DataTable<ChannelRow>
-          title={t('communication_channels.profile.tableTitle', 'Your channels')}
+          title={<h2 className="text-xl font-semibold text-foreground">{t('communication_channels.profile.tableTitle', 'Your channels')}</h2>}
           extensionTableId={extensionPoints.hosts.profileChannelsTable.tableId}
           columns={columns}
           data={rows}

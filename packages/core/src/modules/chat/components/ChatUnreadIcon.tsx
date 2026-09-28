@@ -77,7 +77,7 @@ export function ChatUnreadIcon({ className }: ChatUnreadIconProps) {
           aria-label={label}
           className={cn('relative', className)}
         >
-          <MessageSquare className="size-5" aria-hidden="true" />
+          <MessageSquare className="size-4" aria-hidden="true" />
           <NotificationCountBadge count={unreadCount} />
         </IconButton>
       </PopoverTrigger>

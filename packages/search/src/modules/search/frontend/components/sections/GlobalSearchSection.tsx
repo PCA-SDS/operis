@@ -56,7 +56,7 @@ export function GlobalSearchSection({
                   {t('search.settings.globalSearch.fulltext', 'Full-Text Search')}
                 </span>
                 {!fulltextConfigured && (
-                  <span className="text-xs text-status-warning-icon dark:text-status-warning-icon">
+                  <span className="text-xs text-status-warning-icon">
                     {t('search.settings.globalSearch.notConfigured', '(Not configured)')}
                   </span>
                 )}
@@ -84,7 +84,7 @@ export function GlobalSearchSection({
                   {t('search.settings.globalSearch.vector', 'Semantic Search (AI)')}
                 </span>
                 {!vectorConfigured && (
-                  <span className="text-xs text-status-warning-icon dark:text-status-warning-icon">
+                  <span className="text-xs text-status-warning-icon">
                     {t('search.settings.globalSearch.notConfigured', '(Not configured)')}
                   </span>
                 )}

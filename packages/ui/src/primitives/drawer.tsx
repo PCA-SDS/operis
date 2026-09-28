@@ -6,6 +6,16 @@ import { cva, type VariantProps } from 'class-variance-authority'
 
 import { cn } from '@open-mercato/shared/lib/utils'
 import { CloseButton } from './close-button'
+import {
+  DIALOG_BODY_CLASS,
+  DIALOG_CLOSE_GUTTER_CLASS,
+  DIALOG_CLOSE_POSITION_CLASS,
+  DIALOG_DESCRIPTION_CLASS,
+  DIALOG_FOOTER_CLASS,
+  DIALOG_HEADER_INSET_CLASS,
+  DIALOG_TITLE_CLASS,
+} from './dialog'
+import { SIDE_PANEL_MOTION, SIDE_PANEL_SCRIM_MOTION } from './side-panel-motion'
 
 /**
  * Side-sheet primitive — slides in from `right` (default), `left`,
@@ -72,9 +82,8 @@ const DrawerOverlay = React.forwardRef<
     ref={ref}
     data-slot="drawer-overlay"
     className={cn(
-      'fixed inset-0 z-overlay bg-foreground/40',
-      'data-[state=open]:animate-in data-[state=closed]:animate-out',
-      'data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0',
+      'fixed inset-0 z-overlay bg-scrim',
+      SIDE_PANEL_SCRIM_MOTION,
       className,
     )}
     {...props}
@@ -86,26 +95,18 @@ const drawerContentVariants = cva(
   // Base layout — fixed position, flex column so DrawerHeader / Body
   // / Footer compose vertically with the body filling free space.
   // Per Figma the panel has rounded corners on the inner (viewport-
-  // facing) edges only, no border on the seam, and a generous shadow.
-  'fixed z-popover flex flex-col gap-0 bg-surface shadow-2xl outline-none ' +
-    'data-[state=open]:animate-in data-[state=closed]:animate-out ' +
-    'data-[state=open]:duration-200 data-[state=closed]:duration-150',
+  // facing) edges only, no border on the seam, and a generous shadow. The
+  // motion is the one every side panel shares (`side-panel-motion.ts`).
+  'fixed z-popover flex flex-col gap-0 bg-surface shadow-2xl outline-none',
   {
     variants: {
       side: {
         right:
           // Figma Drawer [1.1] width: 400px (not the Tailwind max-w-md 448px)
-          'inset-y-0 right-0 h-full w-full max-w-[400px] rounded-l-2xl ' +
-          'data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right',
-        left:
-          'inset-y-0 left-0 h-full w-full max-w-[400px] rounded-r-2xl ' +
-          'data-[state=open]:slide-in-from-left data-[state=closed]:slide-out-to-left',
-        top:
-          'inset-x-0 top-0 max-h-[80dvh] w-full rounded-b-2xl ' +
-          'data-[state=open]:slide-in-from-top data-[state=closed]:slide-out-to-top',
-        bottom:
-          'inset-x-0 bottom-0 max-h-[80dvh] w-full rounded-t-2xl ' +
-          'data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom',
+          `inset-y-0 right-0 h-full w-full max-w-[400px] rounded-l-2xl ${SIDE_PANEL_MOTION.right}`,
+        left: `inset-y-0 left-0 h-full w-full max-w-[400px] rounded-r-2xl ${SIDE_PANEL_MOTION.left}`,
+        top: `inset-x-0 top-0 max-h-[80dvh] w-full rounded-b-2xl ${SIDE_PANEL_MOTION.top}`,
+        bottom: `inset-x-0 bottom-0 max-h-[80dvh] w-full rounded-t-2xl ${SIDE_PANEL_MOTION.bottom}`,
       },
     },
     defaultVariants: { side: 'right' },
@@ -152,7 +153,7 @@ const DrawerContent = React.forwardRef<
             <CloseButton
               data-slot="drawer-close-button"
               aria-label={closeAriaLabel}
-              className="absolute right-6 top-5 z-10"
+              className={DIALOG_CLOSE_POSITION_CLASS.md}
             />
           </DrawerClose>
         ) : null}
@@ -178,9 +179,11 @@ const DrawerHeader = React.forwardRef<HTMLDivElement, DrawerHeaderProps>(
       ref={ref}
       data-slot="drawer-header"
       className={cn(
-        // Per Figma: no chrome border below the header. Padding-right
-        // reserves room for the auto-close button at top-right.
-        'flex items-start gap-3 px-6 pt-5 pb-4 pr-14',
+        // No chrome border below the header. The insets are the dialog's,
+        // and the right padding reserves room for the auto-close button.
+        'flex shrink-0 items-start gap-3',
+        DIALOG_HEADER_INSET_CLASS,
+        DIALOG_CLOSE_GUTTER_CLASS.md,
         className,
       )}
       {...props}
@@ -189,7 +192,7 @@ const DrawerHeader = React.forwardRef<HTMLDivElement, DrawerHeaderProps>(
         <span
           data-slot="drawer-header-leading"
           aria-hidden="true"
-          className="inline-flex size-10 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-muted-foreground"
+          className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-muted text-muted-foreground"
         >
           {leading}
         </span>
@@ -207,7 +210,7 @@ const DrawerBody = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDiv
     <div
       ref={ref}
       data-slot="drawer-body"
-      className={cn('flex-1 overflow-y-auto px-6 py-2', className)}
+      className={cn('flex-1 overflow-y-auto', DIALOG_BODY_CLASS, className)}
       {...props}
     />
   ),
@@ -244,9 +247,10 @@ const DrawerFooter = React.forwardRef<HTMLDivElement, DrawerFooterProps>(
           data-slot="drawer-footer"
           data-layout="equal"
           className={cn(
-            // Per Figma: no chrome top-border separator; equal-stretch
-            // children share the row (50/50 for two buttons).
-            'flex flex-row items-center gap-3 px-6 pt-4 pb-5 [&>*]:flex-1',
+            // No chrome top-border separator; equal-stretch children share
+            // the row (50/50 for two buttons). Insets and gap are the dialog's.
+            'flex flex-row items-center gap-2 [&>*]:flex-1',
+            DIALOG_FOOTER_CLASS,
             className,
           )}
           {...props}
@@ -261,9 +265,10 @@ const DrawerFooter = React.forwardRef<HTMLDivElement, DrawerFooterProps>(
         data-slot="drawer-footer"
         data-layout="default"
         className={cn(
-          // Per Figma: no chrome top-border. Optional `leading` anchors
-          // left (mr-auto sibling), buttons stay right-aligned.
-          'flex flex-row items-center gap-3 px-6 pt-4 pb-5',
+          // No chrome top-border. Optional `leading` anchors left (mr-auto
+          // sibling), buttons stay right-aligned. Insets are the dialog's.
+          'flex flex-row items-center gap-2',
+          DIALOG_FOOTER_CLASS,
           className,
         )}
         {...props}
@@ -280,7 +285,7 @@ const DrawerFooter = React.forwardRef<HTMLDivElement, DrawerFooterProps>(
           <div
             data-slot="drawer-footer-trailing"
             className={cn(
-              'inline-flex items-center gap-3',
+              'inline-flex items-center gap-2',
               leading ? '' : 'ml-auto',
             )}
           >
@@ -300,7 +305,7 @@ const DrawerTitle = React.forwardRef<
   <DialogPrimitive.Title
     ref={ref}
     data-slot="drawer-title"
-    className={cn('text-xl font-semibold tracking-tight text-foreground', className)}
+    className={cn(DIALOG_TITLE_CLASS, className)}
     {...props}
   />
 ))
@@ -313,7 +318,7 @@ const DrawerDescription = React.forwardRef<
   <DialogPrimitive.Description
     ref={ref}
     data-slot="drawer-description"
-    className={cn('text-sm text-muted-foreground', className)}
+    className={cn(DIALOG_DESCRIPTION_CLASS, className)}
     {...props}
   />
 ))

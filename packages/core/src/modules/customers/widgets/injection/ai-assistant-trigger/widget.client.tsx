@@ -593,20 +593,9 @@ export default function AiAssistantTriggerWidget({ context }: AiAssistantTrigger
       </ButtonGroup>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent
-        disableBodyWrap
-          className={cn(
-            // Mobile: full-screen sheet (no rounded corners, fills the
-            // viewport). Desktop (≥sm): right-anchored side sheet.
-            // The Dialog primitive ships a centering transform at the sm
-            // breakpoint (`sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2
-            // sm:-translate-y-1/2 sm:inset-auto`); each must be overridden
-            // at the same `sm:` breakpoint or the panel renders half off
-            // the viewport.
-            'top-0 left-0 right-0 bottom-0 translate-x-0 translate-y-0 max-w-none w-screen h-svh max-h-svh rounded-none',
-            'sm:top-0 sm:bottom-0 sm:right-0 sm:left-auto sm:translate-x-0 sm:translate-y-0',
-            'sm:max-w-xl sm:w-[36rem] sm:rounded-l-2xl sm:h-screen sm:max-h-screen',
-            'flex flex-col gap-3 p-4 z-banner',
-          )}
+          side="right"
+          disableBodyWrap
+          className="max-w-xl gap-3 p-4 z-banner"
           data-ai-customers-inject-sheet=""
         >
           <DialogHeader>

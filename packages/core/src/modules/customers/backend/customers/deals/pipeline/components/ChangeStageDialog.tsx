@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from 'react'
-import { Workflow } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -65,8 +64,7 @@ export function ChangeStageDialog({
     >
       <DialogContent className="sm:max-w-md" onKeyDown={handleKeyDown}>
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Workflow className="size-4" aria-hidden="true" />
+          <DialogTitle>
             {translateWithFallback(
               t,
               'customers.deals.kanban.bulk.changeStage.title',

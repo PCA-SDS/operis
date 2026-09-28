@@ -74,6 +74,19 @@ describe('ButtonGroup', () => {
     expect(def.container.querySelector('[data-slot="button-group"]')?.className).toContain('rounded-md')
   })
 
+  it('holds a row group to its control height, border included, with segments filling it', () => {
+    // The border used to sit outside full-height buttons, so a default group
+    // was 38px beside 36px controls and grew any toolbar holding one.
+    const heights = { '2xs': 'h-6', sm: 'h-8', default: 'h-9' } as const
+    for (const [size, height] of Object.entries(heights)) {
+      const classes = buttonGroupVariants({ orientation: 'horizontal', size: size as keyof typeof heights }).split(/\s+/)
+      expect(classes).toEqual(expect.arrayContaining([height, '[&>*]:h-full']))
+    }
+    const vertical = buttonGroupVariants({ orientation: 'vertical', size: 'default' }).split(/\s+/)
+    expect(vertical).not.toContain('h-9')
+    expect(vertical).not.toContain('[&>*]:h-full')
+  })
+
   it('forwards className to the wrapper without dropping variant classes', () => {
     const { container } = render(
       <ButtonGroup className="custom-class">

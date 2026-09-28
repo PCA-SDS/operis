@@ -7,6 +7,7 @@ import { Button } from '@open-mercato/ui/primitives/button'
 import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
 import { Pagination } from '@open-mercato/ui/primitives/pagination'
 import { SearchInput } from '@open-mercato/ui/primitives/search-input'
+import { PAGE_TITLE_CLASS } from '@open-mercato/ui/backend/Page'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useT, type TranslateFn } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
@@ -175,7 +176,7 @@ export function MyTasksView({ view }: { view: MyTaskView }) {
     <div className="flex h-full min-h-0 w-full flex-col">
       <div className="flex shrink-0 items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">{title}</h1>
+          <h1 className={PAGE_TITLE_CLASS}>{title}</h1>
           {data && (
             <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
               <CheckCircle2 className="size-4" aria-hidden="true" />

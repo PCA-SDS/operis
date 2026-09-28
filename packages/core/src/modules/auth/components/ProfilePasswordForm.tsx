@@ -8,6 +8,7 @@ import { apiCall, readApiResultOrThrow } from '@open-mercato/ui/backend/utils/ap
 import { createCrudFormError } from '@open-mercato/ui/backend/utils/serverErrors'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { LoadingMessage, ErrorMessage } from '@open-mercato/ui/backend/detail'
+import { PageHeader } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { buildPasswordSchema, formatPasswordRequirements, getPasswordPolicy } from '@open-mercato/shared/lib/auth/passwordPolicy'
@@ -185,44 +186,56 @@ export function ProfilePasswordForm({ title, className }: ProfilePasswordFormPro
     router.refresh()
   }, [email, router, t])
 
+  const description = t('auth.profile.subtitle', 'Change password')
+
   if (loading) {
-    return <LoadingMessage label={t('auth.profile.form.loading', 'Loading profile...')} />
+    return (
+      <div className={cn('space-y-6', className)}>
+        <PageHeader title={title} description={description} />
+        <LoadingMessage label={t('auth.profile.form.loading', 'Loading profile...')} />
+      </div>
+    )
   }
 
   if (error) {
-    return <ErrorMessage label={error} />
+    return (
+      <div className={cn('space-y-6', className)}>
+        <PageHeader title={title} description={description} />
+        <ErrorMessage label={error} />
+      </div>
+    )
   }
 
   return (
-    <section className={cn('space-y-6 rounded-lg border bg-surface p-6', className)}>
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-1">
-          <h2 className="text-lg font-semibold">{title}</h2>
-          <p className="text-sm text-muted-foreground">
-            {t('auth.profile.subtitle', 'Change password')}
-          </p>
-        </div>
-        <Button type="submit" form={formId}>
-          <Save className="size-4 mr-2" />
-          {t('auth.profile.form.save', 'Save changes')}
-        </Button>
-      </header>
-      <CrudForm<ProfileFormValues>
-        key={formKey}
-        formId={formId}
-        schema={schema}
-        fields={fields}
-        initialValues={{
-          email,
-          currentPassword: '',
-          password: '',
-          confirmPassword: '',
-        }}
-        submitLabel={t('auth.profile.form.save', 'Save changes')}
-        onSubmit={handleSubmit}
-        embedded
-        hideFooterActions
+    <div className={cn('space-y-6', className)}>
+      <PageHeader
+        title={title}
+        description={description}
+        actions={(
+          <Button type="submit" form={formId}>
+            <Save className="size-4 mr-2" />
+            {t('auth.profile.form.save', 'Save changes')}
+          </Button>
+        )}
       />
-    </section>
+      <div className="rounded-xl border border-card-edge bg-surface p-6 shadow-sm">
+        <CrudForm<ProfileFormValues>
+          key={formKey}
+          formId={formId}
+          schema={schema}
+          fields={fields}
+          initialValues={{
+            email,
+            currentPassword: '',
+            password: '',
+            confirmPassword: '',
+          }}
+          submitLabel={t('auth.profile.form.save', 'Save changes')}
+          onSubmit={handleSubmit}
+          embedded
+          hideFooterActions
+        />
+      </div>
+    </div>
   )
 }

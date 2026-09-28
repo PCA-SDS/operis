@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from 'react'
+import { PAGE_TITLE_CLASS } from '@open-mercato/ui/backend/Page'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
@@ -29,6 +30,7 @@ import { OverviewTab } from './OverviewTab'
 import { TaskPanel } from './TaskPanel'
 import { TasksListTab } from './TasksListTab'
 import { useTasksShellControls } from './TasksShell'
+import { TabsPanel } from '@open-mercato/ui/primitives/tabs'
 import { ErrorState, SkeletonBlock, TasksTabs, type TabDef } from './ui-bits'
 import { NEW_TASK_PARAM } from './useNewTaskFlash'
 import { useProject, useProjectMutations, useTaskError } from './hooks'
@@ -149,7 +151,7 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
             {project.icon}
           </span>
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-normal text-foreground sm:text-3xl">{project.name}</h1>
+            <h1 className={PAGE_TITLE_CLASS}>{project.name}</h1>
             <span className="font-mono text-sm text-muted-foreground">{project.key}</span>
             {isArchived && (
               <StatusBadge variant="neutral">{t('tasks.projects.archived', 'Archived')}</StatusBadge>
@@ -202,7 +204,7 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
       </div>
 
       <div className="min-h-0 flex-1">
-        <div className="-mx-1 flex h-full min-h-0 flex-col overflow-y-auto px-1 pb-1">
+        <TabsPanel value={tab} className="-mx-1 flex h-full min-h-0 flex-col overflow-y-auto px-1 pb-1">
           {tab === 'overview' && <OverviewTab project={project} />}
           {tab === 'board' && (
             <KanbanBoard projectId={project.id} onOpenTask={openTask} onCreateTask={openCreate} />
@@ -225,7 +227,7 @@ export function ProjectDetailView({ projectId }: { projectId: string }) {
             spotId={extensionPoints.hosts.projectDetailFooter.spotId}
             context={{ entityId: 'tasks:tasks_project', recordId: project.id }}
           />
-        </div>
+        </TabsPanel>
       </div>
 
       {selectedTaskId && (

@@ -136,7 +136,7 @@ export function ScheduleToolbar({
   const timezoneOptions = React.useMemo(() => getTimezoneOptions(timezone), [timezone])
 
   return (
-    <div className={cn('flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-border bg-surface shadow-sm p-3', className)}>
+    <div className={cn('flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-card-edge bg-surface shadow-sm p-3', className)}>
       <SegmentedControl
         value={view}
         onValueChange={(value) => {
@@ -146,6 +146,7 @@ export function ScheduleToolbar({
           onRangeChange(deriveRangeForView(new Date(), nextView))
         }}
         aria-label={t('schedule.view.label', 'Schedule view')}
+        tone="inset"
         className="shrink-0"
       >
         {VIEW_OPTIONS.map((option) => (

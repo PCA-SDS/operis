@@ -4,6 +4,7 @@ import * as React from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Loader2, Save, Shield, Trash2, ShieldCheck } from 'lucide-react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { PageHeader } from '@open-mercato/ui/backend/Page'
 import { Alert, AlertDescription, AlertTitle } from '@open-mercato/ui/primitives/alert'
 import { Badge } from '@open-mercato/ui/primitives/badge'
 import { Button } from '@open-mercato/ui/primitives/button'
@@ -99,23 +100,18 @@ export function AiTenantAllowlistPageClient(): React.JSX.Element {
   }, [settingsQuery.data])
 
   const pageHeader = (
-    <div className="space-y-1">
-      <h1 className="flex items-center gap-2 text-2xl font-bold">
-        <Shield className="size-6" />
-        {t('ai_assistant.allowlist.title', 'AI provider & model allowlist')}
-      </h1>
-      <p className="text-muted-foreground">
-        {t(
-          'ai_assistant.allowlist.subtitle',
-          'Limit which providers and models the runtime, settings, and chat picker may use for this tenant. The env allowlist is the outer constraint — tenant picks narrow it further.',
-        )}
-      </p>
-    </div>
+    <PageHeader
+      title={t('ai_assistant.allowlist.title', 'AI provider & model allowlist')}
+      description={t(
+        'ai_assistant.allowlist.subtitle',
+        'Limit which providers and models the runtime, settings, and chat picker may use for this tenant. The env allowlist is the outer constraint — tenant picks narrow it further.',
+      )}
+    />
   )
 
   if (settingsQuery.isLoading) {
     return (
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-6">
         {pageHeader}
         <div className="flex w-fit items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm text-muted-foreground" role="status">
           <Loader2 className="size-4 animate-spin" />
@@ -127,7 +123,7 @@ export function AiTenantAllowlistPageClient(): React.JSX.Element {
 
   if (settingsQuery.isError || !settingsQuery.data) {
     return (
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-6">
         {pageHeader}
         <Alert status="error">
           <AlertTitle>{t('ai_assistant.allowlist.loadError.title', 'Failed to load allowlist')}</AlertTitle>
@@ -316,7 +312,7 @@ export function AiTenantAllowlistPageClient(): React.JSX.Element {
         </Alert>
       ) : null}
 
-      <div className="rounded-xl border border-border bg-surface shadow-sm p-6 space-y-6">
+      <div className="rounded-xl border border-card-edge bg-surface shadow-sm p-6 space-y-6">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-1">
             <h2 className="text-lg font-semibold">{t('ai_assistant.allowlist.providers.title', 'Providers')}</h2>

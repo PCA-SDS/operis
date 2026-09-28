@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { CloseButton } from '@open-mercato/ui/primitives/close-button'
+import { SIDE_PANEL_MOTION, useSidePanelPresence } from '@open-mercato/ui/primitives/side-panel-motion'
+import { Tabs, TabsList, TabsPanel, TabsTrigger } from '@open-mercato/ui/primitives/tabs'
 import { useUmesDevTools } from './useUmesDevTools'
 import { ExtensionPointList } from './components/ExtensionPointList'
 import { ConflictWarnings } from './components/ConflictWarnings'
@@ -24,6 +26,7 @@ const TABS: { id: TabId; label: string }[] = [
 
 export function UmesDevToolsPanel() {
   const [isOpen, setIsOpen] = useState(false)
+  const { present, state } = useSidePanelPresence(isOpen)
   const [activeTab, setActiveTab] = useState<TabId>('extensions')
   const data = useUmesDevTools(isOpen)
 
@@ -40,13 +43,15 @@ export function UmesDevToolsPanel() {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [handleKeyDown])
 
-  if (!isDevToolsEnabled || !isOpen) return null
+  if (!isDevToolsEnabled || !present) return null
 
   const conflictCount = data.conflicts.length
   const hasErrors = data.conflicts.some((c) => c.severity === 'error')
 
   return (
-    <div className="fixed inset-y-0 right-0 z-top flex w-[440px] flex-col border-l bg-surface text-foreground shadow-lg"
+    <div
+      data-state={state}
+      className={`fixed inset-y-0 right-0 z-top flex w-[440px] flex-col border-l bg-surface text-foreground shadow-lg ${SIDE_PANEL_MOTION.right}`}
       style={{ fontSize: '13px' }}
     >
       {/* Header */}
@@ -76,34 +81,26 @@ export function UmesDevToolsPanel() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex shrink-0 border-b bg-muted/50">
-        {TABS.map((tab) => (
-          <Button
-            key={tab.id}
-            type="button"
-            variant="ghost"
-            size="sm"
-            className={`h-auto flex-1 rounded-none border-b-2 px-1 py-2 text-overline hover:bg-transparent ${
-              activeTab === tab.id
-                ? 'border-primary font-semibold text-primary'
-                : 'border-transparent text-muted-foreground'
-            }`}
-            onClick={() => setActiveTab(tab.id)}
-          >
-            {tab.label}
-          </Button>
-        ))}
-      </div>
+      <Tabs
+        value={activeTab}
+        onValueChange={(next) => setActiveTab(TABS.find((tab) => tab.id === next)?.id ?? 'extensions')}
+      >
+        <TabsList aria-label="UMES DevTools" className="shrink-0 gap-1 px-2">
+          {TABS.map((tab) => (
+            <TabsTrigger key={tab.id} value={tab.id}>
+              {tab.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
 
-      {/* Content */}
-      <div className="flex-1 overflow-auto p-3 px-4">
+      <TabsPanel value={activeTab} className="flex-1 overflow-auto p-3 px-4">
         {activeTab === 'extensions' && <ExtensionPointList extensions={data.extensions} />}
         {activeTab === 'conflicts' && <ConflictWarnings conflicts={data.conflicts} />}
         {activeTab === 'timing' && <EnricherTiming entries={data.enricherTimings} />}
         {activeTab === 'interceptors' && <InterceptorActivity entries={data.interceptorActivity} />}
         {activeTab === 'events' && <EventFlow entries={data.eventFlow} />}
-      </div>
+      </TabsPanel>
 
       {/* Footer */}
       <div className="shrink-0 border-t bg-muted/50 px-4 py-1.5 text-center text-overline text-muted-foreground">

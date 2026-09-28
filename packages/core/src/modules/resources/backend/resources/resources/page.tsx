@@ -1194,7 +1194,7 @@ export default function ResourcesResourcesPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="ghost" onClick={() => setMoveDialog(null)}>
+            <Button type="button" variant="soft" onClick={() => setMoveDialog(null)}>
               {t('common.cancel', 'Cancel')}
             </Button>
           </DialogFooter>

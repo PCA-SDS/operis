@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { PageHeader } from '@open-mercato/ui/backend/Page'
 import { apiCall, readApiResultOrThrow, withScopedApiRequestHeaders } from '@open-mercato/ui/backend/utils/apiCall'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { surfaceRecordConflict } from '@open-mercato/ui/backend/conflicts'
@@ -315,23 +316,28 @@ export function NotificationSettingsPageClient() {
     }
   }
 
+  const pageHeader = (
+    <PageHeader
+      title={t('notifications.settings.pageTitle', 'Notification Delivery')}
+      description={t('notifications.settings.pageDescription', 'Configure delivery strategies for in-app notifications.')}
+    />
+  )
+
   if (loading || !settings) {
     return (
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Spinner size="sm" />
-        {t('notifications.settings.loading', 'Loading notification settings...')}
+      <div className="flex flex-col gap-6">
+        {pageHeader}
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Spinner size="sm" />
+          {t('notifications.settings.loading', 'Loading notification settings...')}
+        </div>
       </div>
     )
   }
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold">{t('notifications.settings.pageTitle', 'Notification Delivery')}</h1>
-        <p className="text-muted-foreground text-sm">
-          {t('notifications.settings.pageDescription', 'Configure delivery strategies for in-app notifications.')}
-        </p>
-      </div>
+      {pageHeader}
 
       <Card>
         <CardHeader>

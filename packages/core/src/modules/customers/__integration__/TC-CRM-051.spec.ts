@@ -20,7 +20,7 @@ import {
  *     when querying `/api/customers/interactions`, which meant even API-created tasks
  *     never reached the UI.
  *
- * This test guards the visible regression: the Task chip is rendered in the filter row,
+ * This test guards the visible regression: the Task type is offered in the history's Filter popover,
  * and selecting it surfaces task interactions whose `status === 'done'`.
  */
 test.describe('TC-CRM-051: Task type chip surfaces tasks in the Activity history filter (#1805)', () => {
@@ -63,12 +63,15 @@ test.describe('TC-CRM-051: Task type chip surfaces tasks in the Activity history
       // Open the Activity log tab (label "Activity log" — see CompanyDetailTabs.tsx).
       await page.getByRole('tab', { name: /Activity log/i }).click()
 
-      // The Task chip MUST render alongside Call/Email/Meeting/Note.
-      const taskChip = page.getByRole('button', { name: /^Task( \d+)?$/ })
-      await expect(taskChip).toBeVisible({ timeout: 15_000 })
+      // The history's types live behind its Filter button; Task MUST be offered
+      // alongside Call/Email/Meeting/Note.
+      await page.getByRole('button', { name: 'Filter' }).click()
+      const taskType = page.getByRole('checkbox', { name: /^Task( \d+)?$/ })
+      await expect(taskType).toBeVisible({ timeout: 15_000 })
 
       // Selecting the Task filter narrows the API request and surfaces the task.
-      await taskChip.click()
+      await taskType.click()
+      await page.keyboard.press('Escape')
 
       await expect(page.getByText(taskTitle).first()).toBeVisible({ timeout: 15_000 })
     } finally {

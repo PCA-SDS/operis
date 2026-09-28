@@ -32,11 +32,18 @@ import {
 import { flash } from './FlashMessages'
 import { FormHeader } from './forms/FormHeader'
 import {
+  FORM_COLUMNS,
+  FORM_FIELD_GRID,
+  FORM_FIELD_GRID_CONTAINER,
+  FORM_FIELD_GRID_SPLIT,
+  FORM_FIELD_SPAN,
   FORM_SECTION_ATTR,
   FORM_SECTION_PANEL,
+  FORM_SECTION_STACK,
 } from './forms/formChrome'
 import { FormFieldLabel, FormSection } from './forms/FormSection'
 import { FormFooter } from './forms/FormFooter'
+import { FormSkeleton, type FormSkeletonField, type FormSkeletonSection } from './skeletons/PageSkeletons'
 import { Button } from '../primitives/button'
 import { IconButton } from '../primitives/icon-button'
 import {
@@ -95,7 +102,7 @@ import { withScopedApiRequestHeaders } from './utils/apiCall'
 import { buildOptimisticLockHeader, extractOptimisticLockConflict } from './utils/optimisticLock'
 import { surfaceRecordConflict } from './conflicts'
 import type { CustomFieldDefLike } from '@open-mercato/shared/modules/entities/validation'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../primitives/dialog'
+import { DIALOG_FOOTER_CLASS, Dialog, DialogContent, DialogHeader, DialogTitle } from '../primitives/dialog'
 import { FieldDefinitionsManager, type FieldDefinitionsManagerHandle } from './custom-fields/FieldDefinitionsManager'
 import { useConfirmDialog } from './confirm-dialog'
 import { useInjectionSpotEvents, InjectionSpot, useInjectionWidgets } from './injection/InjectionSpot'
@@ -131,6 +138,23 @@ function SectionPanel({ enabled, children }: { enabled: boolean; children: React
       {children}
     </div>
   )
+}
+
+function describeFieldForSkeleton(field: CrudField, split: boolean): FormSkeletonField {
+  return {
+    span: split ? field.layout ?? 'full' : undefined,
+    control:
+      field.type === 'checkbox'
+        ? 'checkbox'
+        : field.type === 'textarea'
+          ? 'textarea'
+          : field.type === 'richtext'
+            ? 'editor'
+            : 'input',
+    rows: field.type === 'textarea' ? field.rows : undefined,
+    label: field.label,
+    hint: Boolean(field.description),
+  }
 }
 
 // Stable empty options array to avoid creating a new [] every render
@@ -1426,10 +1450,15 @@ export function CrudForm<TValues extends Record<string, unknown>>({
     setIsInDialog(Boolean(root.closest('[data-dialog-content]')))
   }, [])
   const fixedDialogBody = Boolean(dialogBodyClassName)
+  // Inside a dialog the footer takes the dialog's own insets. A fixed body sits
+  // above a plain dialog footer; otherwise the footer is a bar pinned to the
+  // bottom of the scrolling panel, edge to edge across the body's padding (and
+  // down over its bottom padding), with a hairline because content scrolls
+  // under it.
   const dialogFooterClass = fixedDialogBody
-    ? 'shrink-0 px-5 pt-1.5 pb-4 sm:px-6'
+    ? DIALOG_FOOTER_CLASS
     : isInDialog
-      ? 'sticky bottom-0 left-0 right-0 z-20 -mx-6 px-6 bg-card border-t border-border/70 py-2 sm:-mx-6 sm:px-6'
+      ? 'sticky bottom-0 z-20 -mx-5 -mb-5 border-t border-border bg-surface px-5 pt-4 pb-5 sm:-mx-6 sm:-mb-6 sm:px-6 sm:pb-6'
       : ''
   const renderDialogBody = (content: React.ReactNode) =>
     fixedDialogBody ? (
@@ -3343,20 +3372,20 @@ export function CrudForm<TValues extends Record<string, unknown>>({
     (field) => field.layout === 'half' || field.layout === 'third'
   )
   const grid = twoColumn
-    ? 'grid grid-cols-1 lg:grid-cols-[7fr_3fr] gap-4'
+    ? 'grid grid-cols-1 lg:grid-cols-[7fr_3fr] gap-6'
     : usesResponsiveLayout
-      ? 'grid grid-cols-1 gap-4 md:grid-cols-6'
-      : 'grid grid-cols-1 gap-4'
+      ? FORM_FIELD_GRID_SPLIT
+      : FORM_FIELD_GRID
 
   // Helper to render a list of field configs
   const resolveLayoutClass = (layout?: CrudFieldBase['layout']) => {
     switch (layout) {
       case 'half':
-        return 'md:col-span-3'
+        return FORM_FIELD_SPAN.half
       case 'third':
-        return 'md:col-span-2'
+        return FORM_FIELD_SPAN.third
       default:
-        return 'md:col-span-6'
+        return FORM_FIELD_SPAN.full
     }
   }
 
@@ -3367,40 +3396,84 @@ export function CrudForm<TValues extends Record<string, unknown>>({
     const usesResponsive = visibleFieldList.some(
       (field) => field.layout === 'half' || field.layout === 'third'
     )
-    const gridClass = usesResponsive ? 'grid grid-cols-1 gap-4 md:grid-cols-6' : 'grid grid-cols-1 gap-4'
+    const gridClass = usesResponsive ? FORM_FIELD_GRID_SPLIT : FORM_FIELD_GRID
     return (
-      <div className={gridClass}>
-        {visibleFieldList.map((f) => {
-          const layout = f.layout ?? 'full'
-          const wrapperClassName = usesResponsive ? resolveLayoutClass(layout) : undefined
-          return (
-            <FieldControl
-              key={f.id}
-              field={f}
-              value={readRenderedFieldValue(values as Record<string, unknown>, f.id)}
-              error={errors[f.id]}
-              errors={errors}
-              options={fieldOptionsById.get(f.id) || EMPTY_OPTIONS}
-              setValue={setValue}
-              onBlurRequest={onBlurRequest}
-              values={values}
-              loadFieldOptions={loadFieldOptions}
-                autoFocus={!disableInitialFocus && !formReadOnly && Boolean(firstFieldId && f.id === firstFieldId)}
-              onSubmitRequest={requestSubmit}
-              wrapperClassName={wrapperClassName}
-              entityIdForField={primaryEntityId ?? undefined}
-              recordId={recordId}
-              embedded={embedded}
-              markRequired={widgetRequiredFieldIds.has(f.id)}
-            />
-          )
-        })}
+      <div className={FORM_FIELD_GRID_CONTAINER}>
+        <div className={gridClass}>
+          {visibleFieldList.map((f) => {
+            const layout = f.layout ?? 'full'
+            const wrapperClassName = usesResponsive ? resolveLayoutClass(layout) : undefined
+            return (
+              <FieldControl
+                key={f.id}
+                field={f}
+                value={readRenderedFieldValue(values as Record<string, unknown>, f.id)}
+                error={errors[f.id]}
+                errors={errors}
+                options={fieldOptionsById.get(f.id) || EMPTY_OPTIONS}
+                setValue={setValue}
+                onBlurRequest={onBlurRequest}
+                values={values}
+                loadFieldOptions={loadFieldOptions}
+                  autoFocus={!disableInitialFocus && !formReadOnly && Boolean(firstFieldId && f.id === firstFieldId)}
+                onSubmitRequest={requestSubmit}
+                wrapperClassName={wrapperClassName}
+                entityIdForField={primaryEntityId ?? undefined}
+                recordId={recordId}
+                embedded={embedded}
+                markRequired={widgetRequiredFieldIds.has(f.id)}
+              />
+            )
+          })}
+        </div>
       </div>
     )
   }
 
   const flatCustomSections = flatCustomFieldSections && collapsibleGroupsEnabled
-  const customSectionPanelClass = flatCustomSections ? 'space-y-5' : FORM_SECTION_PANEL
+  const customSectionPanelClass = flatCustomSections ? 'space-y-6' : FORM_SECTION_PANEL
+
+  // While the record loads, the form is drawn as its own skeleton: the same
+  // sections, titles, labels, spans and control heights, with bars where the
+  // values go, so the fields land in place instead of replacing a spinner.
+  const describeFieldsForSkeleton = (fieldList: CrudField[]): Pick<FormSkeletonSection, 'grid' | 'fields'> => {
+    const visibleFieldList = fieldList.filter(
+      (field) => !hiddenBaseFieldIds.has(field.id) && !hiddenInjectedFieldIds.has(field.id)
+    )
+    const split = visibleFieldList.some((field) => field.layout === 'half' || field.layout === 'third')
+    return {
+      grid: split ? FORM_FIELD_GRID_SPLIT : FORM_FIELD_GRID,
+      fields: visibleFieldList.map((field) => describeFieldForSkeleton(field, split)),
+    }
+  }
+  const describeGroupsForSkeleton = (items: CrudFormGroup[]): FormSkeletonSection[] =>
+    items.flatMap((g): FormSkeletonSection[] => {
+      if (g.bare) return []
+      if (g.kind === 'customFields') {
+        const sections = isLoadingCustomFields
+          ? []
+          : customFieldLayout.flatMap((entityLayout) => entityLayout.sections)
+        if (!sections.length) return [{ title: null, block: true, panel: !flatCustomSections, fields: [] }]
+        return sections.map((section) => ({
+          title: section.title,
+          description: section.description,
+          panel: !flatCustomSections,
+          ...describeFieldsForSkeleton(
+            section.groups.flatMap((group) => group.fields.filter((field) => !placedCustomFieldIds.has(field.id))),
+          ),
+        }))
+      }
+      return [{
+        title: g.title ? t(g.title, g.title) : null,
+        description: g.description ? t(g.description, g.description) : undefined,
+        block: Boolean(g.component),
+        ...describeFieldsForSkeleton(resolveGroupFields(g)),
+      }]
+    })
+  const formStackClass = fixedDialogBody || embedded ? 'space-y-4' : 'space-y-5'
+  const footerSkeleton = hideFooterActions || formReadOnly
+    ? null
+    : { embedded, withDelete: !embedded && showDelete, withCancel: !embedded && Boolean(cancelHref) }
 
   const renderCustomFieldsContent = React.useCallback((): React.ReactNode[] => {
     if (!customFieldLayout.length) {
@@ -3436,7 +3509,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
         nodes.push(
           <div key={`custom-fields-selector-${entityLayout.entityId}`} className={customSectionPanelClass}>
             <div className="flex flex-wrap items-center gap-2 text-sm">
-              <label className="text-xs uppercase tracking-wide text-muted-foreground">
+              <label className="text-sm font-medium text-foreground">
                 {fieldsetSelectorLabel}
               </label>
               <Select
@@ -3678,7 +3751,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
           const customFieldsInnerNodes: React.ReactNode[] = []
           if (g.component) {
             customFieldsInnerNodes.push(
-              <div key={`${g.id}-component`} className="rounded-xl border border-border bg-surface px-5 py-4 shadow-sm">
+              <div key={`${g.id}-component`} className="rounded-xl border border-card-edge bg-surface px-5 py-4 shadow-sm">
                 {g.component({ values, setValue, errors, requiredFieldIds: widgetRequiredFieldIds })}
               </div>,
             )
@@ -3716,7 +3789,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
                 fieldCount={customFieldCount}
                 chevronPosition={collapsibleChevronPosition}
               >
-                <div className="space-y-3">
+                <div className={FORM_SECTION_STACK}>
                   {customFieldsInnerNodes}
                 </div>
               </CollapsibleGroup>,
@@ -3740,7 +3813,7 @@ export function CrudForm<TValues extends Record<string, unknown>>({
 
         const groupContent = (
           <>
-            {g.description ? <div className="text-xs text-muted-foreground">{t(g.description, g.description)}</div> : null}
+            {g.description ? <div className="text-sm text-muted-foreground">{t(g.description, g.description)}</div> : null}
             {componentNode ? (
               <div>{componentNode}</div>
             ) : null}
@@ -3819,14 +3892,23 @@ export function CrudForm<TValues extends Record<string, unknown>>({
             }}
           />
         ) : headerExtraActions ? (
-          <div className="flex justify-end gap-2 mb-2">{headerExtraActions}</div>
+          <div className="mb-2 flex justify-end gap-2 empty:hidden">{headerExtraActions}</div>
         ) : null}
         {contentHeader}
         <DataLoader
           isLoading={isLoading}
           loadingMessage={resolvedLoadingMessage}
           spinnerSize="md"
-          className={embedded ? 'min-h-[1px]' : 'min-h-[400px]'}
+          className={embedded ? 'min-h-px' : 'min-h-100'}
+          showSkeleton
+          skeletonComponent={isLoading ? (
+            <FormSkeleton
+              columns={[describeGroupsForSkeleton(col1), describeGroupsForSkeleton(col2)]}
+              footer={footerSkeleton}
+              className={formStackClass}
+              label={resolvedLoadingMessage}
+            />
+          ) : null}
         >
           {wrapFormBody(
             <form id={formId} noValidate={disableNativeValidation} onSubmit={handleSubmit} onKeyDown={handleFormKeyDown} className={`${fixedDialogBody ? '' : embedded ? 'space-y-4' : 'space-y-5'} ${dialogFormPadding}`}>
@@ -3843,19 +3925,19 @@ export function CrudForm<TValues extends Record<string, unknown>>({
             ) : null}
             <div
               className={hasSecondaryColumn
-                ? 'grid grid-cols-1 lg:grid-cols-[7fr_3fr] gap-4'
-                : 'grid grid-cols-1 gap-4'}
+                ? FORM_COLUMNS
+                : 'grid grid-cols-1 gap-8'}
             >
               {sortableGroupsEnabled ? (
                 <DndContext sensors={sortableSensors} collisionDetection={closestCenter} onDragEnd={handleGroupDragEnd}>
                   <SortableContext items={col1Ids} strategy={verticalListSortingStrategy}>
-                    <div className="space-y-3">{col1Content}</div>
+                    <div className={FORM_SECTION_STACK}>{col1Content}</div>
                   </SortableContext>
                 </DndContext>
               ) : (
-                <div className="space-y-3">{col1Content}</div>
+                <div className={FORM_SECTION_STACK}>{col1Content}</div>
               )}
-              {hasSecondaryColumn ? <div className="space-y-3" data-crud-injection-region>{col2Content}</div> : null}
+              {hasSecondaryColumn ? <div className={FORM_SECTION_STACK} data-crud-injection-region>{col2Content}</div> : null}
             </div>
             {formErrorSummary}
             </>)}
@@ -3903,14 +3985,30 @@ export function CrudForm<TValues extends Record<string, unknown>>({
           }}
         />
       ) : headerExtraActions ? (
-        <div className="flex justify-end gap-2 mb-2">{headerExtraActions}</div>
+        <div className="mb-2 flex justify-end gap-2 empty:hidden">{headerExtraActions}</div>
       ) : null}
       {contentHeader}
       <DataLoader
         isLoading={isLoading}
         loadingMessage={resolvedLoadingMessage}
         spinnerSize="md"
-        className={embedded ? 'min-h-[1px]' : 'min-h-[400px]'}
+        className={embedded ? 'min-h-px' : 'min-h-100'}
+        showSkeleton
+        skeletonComponent={isLoading ? (
+          <FormSkeleton
+            columns={[[{
+              title: null,
+              panel: !embedded,
+              grid,
+              fields: allFields
+                .filter((field) => !hiddenBaseFieldIds.has(field.id) && !hiddenInjectedFieldIds.has(field.id))
+                .map((field) => describeFieldForSkeleton(field, usesResponsiveLayout)),
+            }]]}
+            footer={footerSkeleton}
+            className={formStackClass}
+            label={resolvedLoadingMessage}
+          />
+        ) : null}
       >
         {wrapFormBody(
           <div>
@@ -3933,33 +4031,35 @@ export function CrudForm<TValues extends Record<string, unknown>>({
               />
             ) : null}
             <SectionPanel enabled={!embedded}>
-            <div className={grid}>
-              {allFields.map((f) => {
-                if (hiddenBaseFieldIds.has(f.id) || hiddenInjectedFieldIds.has(f.id)) return null
-                const layout = f.layout ?? 'full'
-                const wrapperClassName = usesResponsiveLayout ? resolveLayoutClass(layout) : undefined
-                return (
-                  <FieldControl
-                    key={f.id}
-                    field={f}
-                    value={values[f.id]}
-                    error={errors[f.id]}
-                    errors={errors}
-                    options={fieldOptionsById.get(f.id) || EMPTY_OPTIONS}
-                    setValue={setValue}
-                    onBlurRequest={onBlurRequest}
-                    values={values}
-                    loadFieldOptions={loadFieldOptions}
-                    autoFocus={!disableInitialFocus && !formReadOnly && Boolean(firstFieldId && f.id === firstFieldId)}
-                    onSubmitRequest={requestSubmit}
-                    wrapperClassName={wrapperClassName}
-                    entityIdForField={primaryEntityId ?? undefined}
-                    recordId={recordId}
-                    embedded={embedded}
-                    markRequired={widgetRequiredFieldIds.has(f.id)}
-                  />
-                )
-              })}
+            <div className={FORM_FIELD_GRID_CONTAINER}>
+              <div className={grid}>
+                {allFields.map((f) => {
+                  if (hiddenBaseFieldIds.has(f.id) || hiddenInjectedFieldIds.has(f.id)) return null
+                  const layout = f.layout ?? 'full'
+                  const wrapperClassName = usesResponsiveLayout ? resolveLayoutClass(layout) : undefined
+                  return (
+                    <FieldControl
+                      key={f.id}
+                      field={f}
+                      value={values[f.id]}
+                      error={errors[f.id]}
+                      errors={errors}
+                      options={fieldOptionsById.get(f.id) || EMPTY_OPTIONS}
+                      setValue={setValue}
+                      onBlurRequest={onBlurRequest}
+                      values={values}
+                      loadFieldOptions={loadFieldOptions}
+                      autoFocus={!disableInitialFocus && !formReadOnly && Boolean(firstFieldId && f.id === firstFieldId)}
+                      onSubmitRequest={requestSubmit}
+                      wrapperClassName={wrapperClassName}
+                      entityIdForField={primaryEntityId ?? undefined}
+                      recordId={recordId}
+                      embedded={embedded}
+                      markRequired={widgetRequiredFieldIds.has(f.id)}
+                    />
+                  )
+                })}
+              </div>
             </div>
             </SectionPanel>
             {formErrorSummary}

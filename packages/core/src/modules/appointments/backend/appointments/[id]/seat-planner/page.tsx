@@ -27,10 +27,12 @@ import {
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
+import { CloseButton } from '@open-mercato/ui/primitives/close-button'
 import { Input } from '@open-mercato/ui/primitives/input'
 import { Skeleton } from '@open-mercato/ui/primitives/skeleton'
 import { Tag } from '@open-mercato/ui/primitives/tag'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@open-mercato/ui/primitives/dialog'
+import { SIDE_PANEL_SCRIM_MOTION, SIDE_PANEL_TRANSITION, useSidePanelPresence } from '@open-mercato/ui/primitives/side-panel-motion'
+import { DIALOG_TITLE_CLASS, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@open-mercato/ui/primitives/dialog'
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
@@ -911,14 +913,14 @@ function StaffSheet(props: {
   }, [query, staff])
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-foreground/20" onClick={onClose}>
-      <aside className="flex h-full w-full max-w-md flex-col bg-surface shadow-lg" onClick={(event) => event.stopPropagation()}>
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-4 py-3">
+    <div className="fixed inset-0 z-modal flex justify-end bg-scrim" onClick={onClose}>
+      <aside className="flex h-full w-full max-w-md flex-col bg-surface shadow-xl" onClick={(event) => event.stopPropagation()}>
+        <div className="flex shrink-0 items-start justify-between gap-3 px-4 pt-4 pb-3">
           <div className="min-w-0">
-            <h2 className="text-base font-semibold">{t('appointments.seatPlanner.assignStaff', 'Assign staff')}</h2>
+            <h2 className={DIALOG_TITLE_CLASS}>{t('appointments.seatPlanner.assignStaff', 'Assign staff')}</h2>
             <p className="mt-1 text-sm text-muted-foreground">{t('appointments.seatPlanner.assignStaffHint', 'Choose staff for this selected seat and time window.')}</p>
           </div>
-          <IconButton type="button" variant="ghost" aria-label={t('common.close', 'Close')} onClick={onClose}><X className="size-4" /></IconButton>
+          <CloseButton aria-label={t('common.close', 'Close')} onClick={onClose} />
         </div>
 
         <div className="shrink-0 border-b border-border bg-muted/20 px-4 py-2">
@@ -1001,9 +1003,17 @@ function StaffSheet(props: {
   )
 }
 
+/**
+ * The planner fills the pane edge to edge: it undoes the shell's gutter on every
+ * side, including the bottom gap a locked page keeps. It grows into the undone
+ * gutter as a flex item; a page's usual `h-full` would only shift it up and
+ * leave the gap under it. The loading skeleton takes the same frame.
+ */
+const SEAT_PLANNER_FRAME = '!gap-0 !space-y-0 h-auto flex-1 -mx-4 -mb-4 -mt-4 overflow-hidden md:-mx-6 md:-mt-6 xl:-mx-8'
+
 function SeatPlannerLoadingSkeleton() {
   return (
-    <Page fill className="!gap-0 !space-y-0">
+    <Page fill className={SEAT_PLANNER_FRAME}>
       <PageBody fill className="!space-y-0 overflow-hidden p-0">
         <div className="flex h-full min-h-0 flex-col overflow-hidden bg-surface" aria-busy="true">
           <div className="flex h-14 shrink-0 items-center justify-between border-b border-border px-4 py-3">
@@ -1080,6 +1090,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
   const [hoveredInsertion, setHoveredInsertion] = React.useState<HoveredInsertion | null>(null)
   const [isCoarsePointer, setIsCoarsePointer] = React.useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false)
+  const mobileSidebarScrim = useSidePanelPresence(mobileSidebarOpen)
   const [popoverState, setPopoverState] = React.useState<PopoverState | null>(null)
   const [staffSheetTarget, setStaffSheetTarget] = React.useState<StaffSheetTarget | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false)
@@ -1786,7 +1797,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
   }
 
   return (
-    <Page fill className="!gap-0 !space-y-0 -mx-4 -mb-1 -mt-4 overflow-hidden">
+    <Page fill className={SEAT_PLANNER_FRAME}>
       <PageBody fill className="!space-y-0 overflow-hidden p-0">
         <div className="flex h-full min-h-0 flex-col overflow-hidden bg-surface">
           <header className="shrink-0 border-b border-border bg-surface">
@@ -1831,8 +1842,8 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
           </header>
 
           <div className="flex min-h-0 flex-1">
-            {mobileSidebarOpen ? <div className="fixed inset-0 z-40 bg-foreground/20 lg:hidden" onClick={() => setMobileSidebarOpen(false)} /> : null}
-            <aside className={`fixed inset-y-0 left-0 z-50 flex flex-col min-h-0 w-full max-w-sm border-r border-border bg-surface shadow-lg transition-transform lg:static lg:z-auto lg:w-80 lg:translate-x-0 lg:shadow-none ${mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+            {mobileSidebarScrim.present ? <div data-state={mobileSidebarScrim.state} className={`fixed inset-0 z-40 bg-scrim lg:hidden ${SIDE_PANEL_SCRIM_MOTION}`} onClick={() => setMobileSidebarOpen(false)} /> : null}
+            <aside className={`fixed inset-y-0 left-0 z-50 flex flex-col min-h-0 w-full max-w-sm border-r border-border bg-surface shadow-lg lg:static lg:z-auto lg:w-80 lg:translate-x-0 lg:shadow-none ${mobileSidebarOpen ? `translate-x-0 ${SIDE_PANEL_TRANSITION.open}` : `-translate-x-full ${SIDE_PANEL_TRANSITION.closed}`}`}>
               <div className="flex h-12 shrink-0 items-center justify-between border-b border-border px-3 lg:hidden">
                 <p className="text-sm font-semibold">{t('appointments.seatPlanner.bookingDetails', 'Booking details')}</p>
                 <IconButton type="button" variant="ghost" aria-label={t('common.close', 'Close')} onClick={() => setMobileSidebarOpen(false)}><PanelLeftClose className="size-4" /></IconButton>

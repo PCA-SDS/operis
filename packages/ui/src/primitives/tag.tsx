@@ -8,14 +8,14 @@ const tagVariants = cva(
   {
     variants: {
       variant: {
-        default: 'border-border bg-surface text-muted-foreground',
-        success: 'border-status-success-border bg-status-success-bg text-status-success-text',
-        warning: 'border-status-warning-border bg-status-warning-bg text-status-warning-text',
-        error:   'border-status-error-border bg-status-error-bg text-status-error-text',
-        info:    'border-status-info-border bg-status-info-bg text-status-info-text',
-        neutral: 'border-status-neutral-border bg-status-neutral-bg text-status-neutral-text',
+        default: 'border-transparent bg-surface-muted text-muted-foreground',
+        success: 'border-transparent bg-status-success-bg text-status-success-text',
+        warning: 'border-transparent bg-status-warning-bg text-status-warning-text',
+        error:   'border-transparent bg-status-error-bg text-status-error-text',
+        info:    'border-transparent bg-status-info-bg text-status-info-text',
+        neutral: 'border-transparent bg-status-neutral-bg text-status-neutral-text',
         brand:   'border-brand-violet/30 bg-brand-violet/10 text-brand-violet',
-        pink:    'border-status-pink-border bg-status-pink-bg text-status-pink-text',
+        pink:    'border-transparent bg-status-pink-bg text-status-pink-text',
       },
       shape: {
         pill: 'rounded-full px-2.5 py-0.5',
@@ -96,7 +96,7 @@ export function Tag({
             onRemove()
           }}
           className={cn(
-            'inline-flex shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 disabled:pointer-events-none disabled:opacity-60',
+            'inline-flex shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:pointer-events-none disabled:opacity-60',
             shape === 'pill' ? 'size-3' : 'size-4',
           )}
           aria-label={removeAriaLabel}
@@ -132,14 +132,17 @@ export type TagMap<T extends string = string> = Record<T, TagVariant>
  *
  * These colours are DATA, not styling — a user chose them in settings, so they
  * cannot come from a token and must be applied inline. What *is* styling is the
- * recipe: full-strength for the text and border, and the same hue at 10% (hex
- * alpha `1A`) behind it. That recipe was written out at seven call sites, which
- * is seven chances for one chip to drift to a different tint.
+ * recipe: full-strength for the text, and the same hue at 10% (hex alpha `1A`)
+ * behind it, with no outline — the tint alone holds the chip's shape, as every
+ * other chip in the product does. The border is set transparent rather than
+ * left out, so a host carrying `border` keeps its box size without falling back
+ * to the neutral hairline. That recipe was written out at seven call sites,
+ * which is seven chances for one chip to drift to a different tint.
  *
  * Returns `undefined` when there is no colour, so a call site can spread it and
  * fall back to a `Tag`/`Badge` variant.
  */
 export function entityColorStyle(color: string | null | undefined): React.CSSProperties | undefined {
   if (!color) return undefined
-  return { color, borderColor: color, backgroundColor: `${color}1A` }
+  return { color, borderColor: 'transparent', backgroundColor: `${color}1A` }
 }

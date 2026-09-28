@@ -2,6 +2,8 @@
 import * as React from 'react'
 import { Button } from '../../primitives/button'
 import { CloseButton } from '../../primitives/close-button'
+import { Tabs, TabsList, TabsTrigger } from '../../primitives/tabs'
+import { SIDE_PANEL_MOTION, SIDE_PANEL_SCRIM_MOTION, useSidePanelPresence } from '../../primitives/side-panel-motion'
 import type { NotificationDto } from '@open-mercato/shared/modules/notifications/types'
 import type { TranslateFn } from '@open-mercato/shared/lib/i18n/context'
 
@@ -53,6 +55,7 @@ export function PortalNotificationPanel({
 }: PortalNotificationPanelProps) {
   const [tab, setTab] = React.useState<Tab>('all')
   const panelRef = React.useRef<HTMLDivElement>(null)
+  const { present, state } = useSidePanelPresence(open)
 
   // Close on Escape
   React.useEffect(() => {
@@ -64,7 +67,7 @@ export function PortalNotificationPanel({
     return () => window.removeEventListener('keydown', handler)
   }, [open, onClose])
 
-  if (!open) return null
+  if (!present) return null
 
   const filtered = tab === 'unread'
     ? notifications.filter((n) => n.status === 'unread')
@@ -84,12 +87,17 @@ export function PortalNotificationPanel({
   return (
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 z-modal bg-foreground/40" onClick={onClose} />
+      <div
+        data-state={state}
+        className={`fixed inset-0 z-modal bg-scrim ${SIDE_PANEL_SCRIM_MOTION}`}
+        onClick={onClose}
+      />
 
       {/* Panel */}
       <div
         ref={panelRef}
-        className="fixed right-0 top-0 z-modal flex h-full w-full max-w-md flex-col border-l bg-surface shadow-2xl"
+        data-state={state}
+        className={`fixed right-0 top-0 z-modal flex h-full w-full max-w-md flex-col border-l bg-surface shadow-2xl ${SIDE_PANEL_MOTION.right}`}
       >
         {/* Header */}
         <div className="flex h-16 items-center justify-between border-b px-5">
@@ -118,30 +126,21 @@ export function PortalNotificationPanel({
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-0 border-b px-5">
-          {(['all', 'unread'] as Tab[]).map((tabId) => (
-            <button
-              key={tabId}
-              type="button"
-              onClick={() => setTab(tabId)}
-              className={`border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
-                tab === tabId
-                  ? 'border-foreground text-foreground'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {tabId === 'all'
-                ? t('portal.notifications.tab.all', 'All')
-                : t('portal.notifications.tab.unread', 'Unread')}
-              {tabId === 'unread' && unreadCount > 0 ? (
-                <span className="ml-1.5 inline-flex size-5 items-center justify-center rounded-full bg-primary text-overline font-bold text-primary-foreground">
-                  {unreadCount}
-                </span>
-              ) : null}
-            </button>
-          ))}
-        </div>
+        <Tabs value={tab} onValueChange={(next) => setTab(next === 'unread' ? 'unread' : 'all')}>
+          <TabsList aria-label={t('portal.notifications.title', 'Notifications')} className="px-5">
+            {(['all', 'unread'] as Tab[]).map((tabId) => (
+              <TabsTrigger
+                key={tabId}
+                value={tabId}
+                count={tabId === 'unread' && unreadCount > 0 ? unreadCount : undefined}
+              >
+                {tabId === 'all'
+                  ? t('portal.notifications.tab.all', 'All')
+                  : t('portal.notifications.tab.unread', 'Unread')}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
 
         {/* List */}
         <div className="flex-1 overflow-y-auto">

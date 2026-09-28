@@ -47,9 +47,14 @@ const searchInputWrapperVariants = cva(
            `focus-within:shadow-focus` on top of `shadow-md` replaces the
            elevation instead of joining it, and the field visibly flattens the
            moment you click it. `--tw-ring-shadow` is a separate slot in the
-           same `box-shadow` list, so a ring composes with the drop shadow. */
+           same `box-shadow` list, so a ring composes with the drop shadow.
+
+           A white field on the white page ground, so it carries the card's
+           hairline (`card-edge`, transparent in dark) under the light
+           `shadow-xs`, and hovering does not change the fill: a medium shadow
+           made a field look taller than the 36px controls beside it. */
         raised:
-          'bg-surface shadow-md hover:bg-modal-muted focus-within:ring-2 focus-within:ring-focus-ring/30',
+          'border-card-edge bg-surface shadow-xs focus-within:ring-2 focus-within:ring-focus-ring/30',
         /* On navy a blue halo is invisible, so focus paints the edge instead —
            which is why the box keeps a transparent border at rest. */
         sidebar:
@@ -71,10 +76,10 @@ const searchInputWrapperVariants = cva(
   },
 )
 
-/* The value is `font-medium`, the placeholder `font-normal` — an empty field
-   reads as a prompt and a filled one as data, before colour does any work. */
+/* Regular weight for value and placeholder alike — colour separates a prompt
+   from data, the same rule as `Input`. */
 const searchInputElementVariants = cva(
-  'min-w-0 flex-1 border-0 bg-transparent font-medium outline-none placeholder:font-normal disabled:cursor-not-allowed disabled:bg-transparent disabled:text-text-disabled [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none',
+  'min-w-0 flex-1 border-0 bg-transparent font-normal outline-none disabled:cursor-not-allowed disabled:bg-transparent disabled:text-text-disabled [&::-webkit-search-cancel-button]:appearance-none [&::-webkit-search-decoration]:appearance-none',
   {
     variants: {
       size: {
@@ -306,7 +311,10 @@ export const SearchInput = React.forwardRef<HTMLInputElement, SearchInputProps>(
               {shortcut}
             </Kbd>
           ) : (
-            <span data-slot="search-input-shortcut" className="shrink-0">
+            /* A flex box, not a plain span: a block inherits the field's 24px
+               line box, and a key chip inside it sat on the text baseline,
+               1.5px below the centre every other part of the field is on. */
+            <span data-slot="search-input-shortcut" className="flex shrink-0 items-center">
               {shortcut}
             </span>
           )

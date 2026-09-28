@@ -238,7 +238,7 @@ export function ActionBuilder({
 
       {/* JSON Preview */}
       {showDebug && actions.length > 0 && (
-        <div className="p-3 bg-foreground dark:bg-foreground rounded text-xs font-mono overflow-x-auto border border-border">
+        <div className="p-3 bg-foreground rounded text-xs font-mono overflow-x-auto border border-border">
           <pre className="text-background">{JSON.stringify(actions, null, 2)}</pre>
         </div>
       )}

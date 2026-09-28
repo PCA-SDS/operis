@@ -75,12 +75,12 @@ function normalizeRange(
 
 function getEventStyles(item: ScheduleItem): React.CSSProperties {
   if (item.kind === 'event') {
-    return { backgroundColor: 'rgba(59, 130, 246, 0.15)', border: '1px solid rgba(59, 130, 246, 0.5)', color: '#1e3a8a' }
+    return { backgroundColor: 'var(--status-info-bg)', border: '1px solid var(--status-info-border)', color: 'var(--status-info-text)' }
   }
   if (item.kind === 'exception') {
-    return { backgroundColor: 'rgba(148, 163, 184, 0.2)', border: '1px solid rgba(100, 116, 139, 0.6)', color: '#334155' }
+    return { backgroundColor: 'var(--status-neutral-bg)', border: '1px solid var(--status-neutral-border)', color: 'var(--status-neutral-text)' }
   }
-  return { backgroundColor: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.5)', color: '#064e3b' }
+  return { backgroundColor: 'var(--status-success-bg)', border: '1px solid var(--status-success-border)', color: 'var(--status-success-text)' }
 }
 
 type ItemClickHandlerRef = React.MutableRefObject<((item: ScheduleItem) => void) | undefined>

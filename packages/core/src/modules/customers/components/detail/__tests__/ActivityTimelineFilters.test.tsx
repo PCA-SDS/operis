@@ -25,39 +25,51 @@ beforeEach(() => {
   readApiResultOrThrowMock.mockResolvedValue({ call: 18, email: 4, meeting: 2, note: 0, total: 24 })
 })
 
+function openFilters() {
+  fireEvent.click(screen.getByRole('button', { name: 'Filter' }))
+}
+
 describe('ActivityTimelineFilters', () => {
-  it('marks "All Activities" active when no type is selected', async () => {
+  it('is one quiet Filter button until something is filtered', async () => {
     renderWithProviders(
       <ActivityTimelineFilters {...baseProps} activeTypes={[]} onTypesChange={jest.fn()} />,
     )
 
-    const allChip = screen.getByRole('button', { name: /all activities/i })
-    expect(allChip.getAttribute('aria-pressed')).toBe('true')
+    const button = screen.getByRole('button', { name: 'Filter' })
+    expect(button).not.toHaveAttribute('data-filtered')
+    // No chip row: the types live in the popover.
+    expect(screen.queryByRole('checkbox')).toBeNull()
 
-    const callChip = screen.getByRole('button', { name: /^call/i })
-    expect(callChip.getAttribute('aria-pressed')).toBe('false')
+    openFilters()
+    for (const name of [/^note/i, /^call/i, /^meeting/i, /^email/i, /^task/i]) {
+      expect(await screen.findByRole('checkbox', { name })).not.toBeChecked()
+    }
+    expect(screen.getByRole('button', { name: /clear filters/i })).toBeDisabled()
   })
 
-  it('marks "All Activities" inactive when at least one type is selected', async () => {
+  it('marks the button and the chosen types while filtered', async () => {
     renderWithProviders(
       <ActivityTimelineFilters {...baseProps} activeTypes={['call']} onTypesChange={jest.fn()} />,
     )
 
-    expect(screen.getByRole('button', { name: /all activities/i }).getAttribute('aria-pressed')).toBe('false')
-    expect(screen.getByRole('button', { name: /^call/i }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByRole('button', { name: 'Filter' })).toHaveAttribute('data-filtered', 'true')
+    openFilters()
+    expect(await screen.findByRole('checkbox', { name: /^call/i })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: /^email/i })).not.toBeChecked()
   })
 
-  it('clicking "All Activities" clears the active type filter', async () => {
-    const onTypesChange = jest.fn()
+  it('clears every filter at once', async () => {
+    const onReset = jest.fn()
     renderWithProviders(
-      <ActivityTimelineFilters {...baseProps} activeTypes={['call', 'email']} onTypesChange={onTypesChange} />,
+      <ActivityTimelineFilters {...baseProps} onReset={onReset} activeTypes={['call', 'email']} onTypesChange={jest.fn()} />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /all activities/i }))
-    expect(onTypesChange).toHaveBeenCalledWith([])
+    openFilters()
+    fireEvent.click(await screen.findByRole('button', { name: /clear filters/i }))
+    expect(onReset).toHaveBeenCalledTimes(1)
   })
 
-  it('appends the count to the chip label when counts > 0 are returned', async () => {
+  it("shows each type's count for this record", async () => {
     renderWithProviders(
       <ActivityTimelineFilters {...baseProps} activeTypes={[]} onTypesChange={jest.fn()} />,
     )
@@ -69,26 +81,28 @@ describe('ActivityTimelineFilters', () => {
       )
     })
 
+    openFilters()
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /call 18/i })).toBeInTheDocument()
+      expect(screen.getByRole('checkbox', { name: /call 18/i })).toBeInTheDocument()
     })
-    expect(screen.getByRole('button', { name: /email 4/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /meeting 2/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^note$/i })).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: /email 4/i })).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: /meeting 2/i })).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: /^note$/i })).toBeInTheDocument()
   })
 
-  it('toggling a type chip calls onTypesChange with the new selection', async () => {
+  it('toggling a type calls onTypesChange with the new selection', async () => {
     const onTypesChange = jest.fn()
     const { rerender } = renderWithProviders(
       <ActivityTimelineFilters {...baseProps} activeTypes={[]} onTypesChange={onTypesChange} />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /^call/i }))
+    openFilters()
+    fireEvent.click(await screen.findByRole('checkbox', { name: /^call/i }))
     expect(onTypesChange).toHaveBeenLastCalledWith(['call'])
 
     rerender(<ActivityTimelineFilters {...baseProps} activeTypes={['call']} onTypesChange={onTypesChange} />)
 
-    fireEvent.click(screen.getByRole('button', { name: /^call/i }))
+    fireEvent.click(screen.getByRole('checkbox', { name: /^call/i }))
     expect(onTypesChange).toHaveBeenLastCalledWith([])
   })
 })

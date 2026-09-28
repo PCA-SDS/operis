@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { PageHeader } from '@open-mercato/ui/backend/Page'
 import { apiCall, readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
@@ -173,12 +174,10 @@ export function NotificationUserPreferencesAdminPageClient() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold">{t('notifications.preferences.admin.pageTitle', 'User Notification Preferences')}</h1>
-        <p className="text-muted-foreground text-sm">
-          {t('notifications.preferences.admin.pageDescription', "Search for a user to review and edit their notification channel preferences.")}
-        </p>
-      </div>
+      <PageHeader
+        title={t('notifications.preferences.admin.pageTitle', 'User Notification Preferences')}
+        description={t('notifications.preferences.admin.pageDescription', "Search for a user to review and edit their notification channel preferences.")}
+      />
 
       <LookupSelect
         value={selectedUserId}

@@ -72,7 +72,6 @@ export function AccessLogsTable({ items, isLoading, actions, pagination }: { ite
 
   return (
     <DataTable<AccessLogItem>
-      title={t('audit_logs.access.title')}
       data={accessItems}
       columns={columns}
       perspective={{ tableId: extensionPoints.hosts.accessLogsTable.tableId }}

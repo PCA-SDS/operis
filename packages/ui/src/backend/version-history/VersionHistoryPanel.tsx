@@ -1,9 +1,12 @@
 "use client"
 
 import * as React from 'react'
-import { ChevronLeft, Clock, Loader2, RotateCcw, Undo2, X } from 'lucide-react'
+import { ChevronLeft, Clock, Loader2, RotateCcw, Undo2 } from 'lucide-react'
 import type { TranslateFn } from '@open-mercato/shared/lib/i18n/context'
 import { Button } from '../../primitives/button'
+import { CloseButton } from '../../primitives/close-button'
+import { DIALOG_TITLE_CLASS } from '../../primitives/dialog'
+import { SIDE_PANEL_MOTION, SIDE_PANEL_SCRIM_MOTION, useSidePanelPresence } from '../../primitives/side-panel-motion'
 import type { VersionHistoryEntry } from './types'
 import { VersionHistoryDetail } from './VersionHistoryDetail'
 import { formatDate } from '@open-mercato/core/modules/audit_logs/lib/display-helpers'
@@ -44,6 +47,7 @@ export function VersionHistoryPanel({
   canUndoRedo,
   autoCheckAcl = true,
 }: VersionHistoryPanelProps) {
+  const { present, state } = useSidePanelPresence(open)
   const shouldAutoCheck = canUndoRedo === undefined && autoCheckAcl
   const permissions = useAuditPermissions(shouldAutoCheck && open)
 
@@ -136,7 +140,7 @@ export function VersionHistoryPanel({
     }
   }, [t])
 
-  if (!open) return null
+  if (!present) return null
 
   const isEmpty = visibleEntries.length === 0 && !isLoading && !error
   const isInitialLoading = visibleEntries.length === 0 && isLoading
@@ -145,18 +149,20 @@ export function VersionHistoryPanel({
   return (
     <>
       <div
-        className="fixed inset-0 z-overlay bg-black/20"
+        data-state={state}
+        className={`fixed inset-0 z-overlay bg-scrim ${SIDE_PANEL_SCRIM_MOTION}`}
         onClick={() => onOpenChange(false)}
         aria-hidden="true"
       />
       <div
-        className="fixed right-0 top-0 z-modal h-full w-full max-w-md border-l bg-surface shadow-lg"
+        data-state={state}
+        className={`fixed right-0 top-0 z-modal h-full w-full max-w-md bg-surface shadow-xl ${SIDE_PANEL_MOTION.right}`}
         role="dialog"
         aria-modal="true"
         aria-label={t('audit_logs.version_history.title')}
       >
         <div className="flex h-full flex-col">
-          <div className="flex items-center justify-between border-b px-4 py-3">
+          <div className="flex shrink-0 items-center justify-between gap-3 px-5 pt-5 pb-3 sm:px-6 sm:pt-6">
             <div className="flex items-center gap-2">
               {selectedEntry ? (
                 <Button
@@ -167,26 +173,20 @@ export function VersionHistoryPanel({
                 >
                   <ChevronLeft className="h-5 w-5" />
                 </Button>
-              ) : (
-                <Clock className="h-5 w-5" />
-              )}
-              <h2 className="font-semibold">
+              ) : null}
+              <h2 className={DIALOG_TITLE_CLASS}>
                 {selectedEntry
                   ? t('audit_logs.version_history.detail.title')
                   : t('audit_logs.version_history.title')}
               </h2>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
+            <CloseButton
               onClick={() => onOpenChange(false)}
               aria-label={t('audit_logs.version_history.close')}
-            >
-              <X className="h-5 w-5" />
-            </Button>
+            />
           </div>
 
-          <div className="flex-1 overflow-y-auto px-4 py-4">
+          <div className="flex-1 overflow-y-auto px-5 py-3 sm:px-6">
             {selectedEntry ? (
               <VersionHistoryDetail entry={selectedEntry} t={t} />
             ) : (

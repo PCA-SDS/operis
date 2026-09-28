@@ -9,6 +9,7 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { FormActionButtons, type FormActionButtonsProps } from './FormActionButtons'
 import { ActionsDropdown, type ActionItem } from './ActionsDropdown'
 import { InjectionSpot } from '../injection/InjectionSpot'
+import { PAGE_TITLE_CLASS } from '../Page'
 
 /** Base props shared by both modes */
 type FormHeaderBaseProps = {
@@ -154,9 +155,9 @@ function DetailHeader({
           ) : null}
           {title ? (
             typeof title === 'string' ? (
-              <h1 className="text-2xl font-normal leading-tight truncate sm:text-3xl">{title}</h1>
+              <h1 className={`${PAGE_TITLE_CLASS} truncate`}>{title}</h1>
             ) : (
-              <div className="text-2xl font-normal leading-tight sm:text-3xl">{title}</div>
+              <div className={PAGE_TITLE_CLASS}>{title}</div>
             )
           ) : null}
           {statusBadge}

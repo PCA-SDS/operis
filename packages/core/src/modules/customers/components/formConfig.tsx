@@ -14,6 +14,8 @@ import {
   Select,
   SelectContent,
   SelectItem,
+  SelectItemLeading,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from '@open-mercato/ui/primitives/select'
@@ -35,6 +37,7 @@ import { apiCall, apiCallOrThrow, readApiResultOrThrow } from '@open-mercato/ui/
 import { collectCustomFieldValues } from '@open-mercato/ui/backend/utils/customFieldValues'
 import { PhoneNumberField } from '@open-mercato/ui/backend/inputs/PhoneNumberField'
 import { isValidPhoneNumber } from '@open-mercato/shared/lib/phone'
+import { CUSTOMER_CUSTOM_ATTRIBUTES_IN_PRODUCT } from '@open-mercato/shared/lib/product-scope'
 import { resolvePhoneIdentity } from '../lib/contactIdentity'
 import { CUSTOMER_ORIGIN_OPTIONS } from '../data/constants'
 import type {
@@ -136,6 +139,18 @@ type DictionarySelectFieldProps = {
   showLabelInput?: boolean
   showActiveAppearance?: boolean
   addButtonVariant?: 'outline' | 'soft'
+  actionsPlacement?: 'buttons' | 'menu'
+}
+
+/**
+ * Options shared by the customer form field builders. `dictionaryActions`
+ * picks where each dictionary field keeps its add and manage actions: beside
+ * the field (`buttons`, the default) or as the last rows of its menu (`menu`,
+ * the record pages' details panel).
+ */
+export type CustomerFormFieldOptions = {
+  defaultCountryIso2?: string
+  dictionaryActions?: 'buttons' | 'menu'
 }
 
 export { CUSTOMER_DICTIONARIES_MANAGE_HREF, getCustomerDictionaryManageHref }
@@ -169,6 +184,7 @@ export function DictionarySelectField({
   showLabelInput = true,
   showActiveAppearance = true,
   addButtonVariant = 'outline',
+  actionsPlacement = 'buttons',
 }: DictionarySelectFieldProps) {
   const t = useT()
   const queryClient = useQueryClient()
@@ -285,6 +301,7 @@ export function DictionarySelectField({
       sortOptions="none"
       showActiveAppearance={showActiveAppearance}
       addButtonVariant={addButtonVariant}
+      actionsPlacement={actionsPlacement}
     />
   )
 }
@@ -510,7 +527,11 @@ type CompanySelectFieldProps = {
   value?: string
   onChange: (value: string | undefined) => void
   labels: CompanySelectLabels
+  /** Same as `DictionaryEntrySelect`: `menu` puts "Add company" at the end of the menu instead of a "+" beside the field. */
+  actionsPlacement?: 'buttons' | 'menu'
 }
+
+const ADD_COMPANY_ACTION_VALUE = '__om_company_add__'
 
 type CompanyOption = { value: string; label: string }
 
@@ -535,7 +556,9 @@ function normalizeCompanyOption(raw: unknown): CompanyOption | null {
   return { value: id, label: displayName }
 }
 
-export function CompanySelectField({ value, onChange, labels }: CompanySelectFieldProps) {
+export function CompanySelectField({ value, onChange, labels, actionsPlacement = 'buttons' }: CompanySelectFieldProps) {
+  const actionsInMenu = actionsPlacement === 'menu'
+  const triggerRef = React.useRef<HTMLButtonElement>(null)
   const [options, setOptions] = React.useState<CompanyOption[]>([])
   const [loading, setLoading] = React.useState(true)
   const [dialogOpen, setDialogOpen] = React.useState(false)
@@ -667,6 +690,95 @@ export function CompanySelectField({ value, onChange, labels }: CompanySelectFie
     disabled: saving || !newCompany.trim(),
   })
 
+  const createDialogContent = (
+    <DialogContent
+      className="sm:max-w-sm"
+      onKeyDown={handleDialogKeyDown}
+      onCloseAutoFocus={actionsInMenu ? (event) => {
+        event.preventDefault()
+        triggerRef.current?.focus()
+      } : undefined}
+    >
+      <DialogHeader>
+        <DialogTitle>{labels.dialogTitle}</DialogTitle>
+        {labels.addPrompt ? <DialogDescription>{labels.addPrompt}</DialogDescription> : null}
+      </DialogHeader>
+      {/* Tinted wells via `[data-dialog-form]`; the error line is always laid
+          out, so the message appearing never pushes the footer down. */}
+      <DialogBody data-dialog-form="true" className="space-y-6">
+        <div className="flex flex-col gap-2.5">
+          <FormFieldLabel htmlFor={newCompanyInputId} className="mb-0" required>{labels.inputLabel}</FormFieldLabel>
+          <Input
+            id={newCompanyInputId}
+            aria-required="true"
+            placeholder={labels.inputPlaceholder}
+            value={newCompany}
+            onChange={(event) => {
+              setNewCompany(event.target.value)
+              if (formError) setFormError(null)
+            }}
+            onKeyDown={handleInputKeyDown}
+            autoFocus
+            disabled={saving}
+          />
+        </div>
+        <p role="alert" className="min-h-5 text-sm text-status-error-text">{formError ?? ''}</p>
+      </DialogBody>
+      <DialogFooter>
+        <Button type="button" variant="soft" onClick={() => setDialogOpen(false)} disabled={saving}>
+          {labels.cancelLabel}
+        </Button>
+        <Button
+          type="button"
+          onClick={() => {
+            handleDialogSubmit().catch(() => {})
+          }}
+          disabled={saving || !newCompany.trim()}
+        >
+          {saving ? `${labels.saveLabel}…` : labels.saveLabel}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  )
+
+  if (actionsInMenu) {
+    return (
+      <div className="space-y-2">
+        <Select
+          value={value || undefined}
+          onValueChange={(next) => {
+            if (next === ADD_COMPANY_ACTION_VALUE) {
+              // Let the menu finish closing before the dialog takes focus.
+              window.setTimeout(() => handleDialogChange(true), 0)
+              return
+            }
+            onChange(next || undefined)
+          }}
+          disabled={disabled}
+        >
+          <SelectTrigger ref={triggerRef}>
+            <SelectValue placeholder={labels.placeholder}>{selectedOption?.label}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {options.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+            {options.length > 0 ? <SelectSeparator /> : null}
+            <SelectItem value={ADD_COMPANY_ACTION_VALUE}>
+              <SelectItemLeading><Plus className="text-muted-foreground" aria-hidden /></SelectItemLeading>
+              {labels.addLabel}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+        <Dialog open={dialogOpen} onOpenChange={handleDialogChange}>
+          {createDialogContent}
+        </Dialog>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
@@ -699,47 +811,7 @@ export function CompanySelectField({ value, onChange, labels }: CompanySelectFie
               <Plus className="size-4" aria-hidden />
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-sm" onKeyDown={handleDialogKeyDown}>
-            <DialogHeader>
-              <DialogTitle>{labels.dialogTitle}</DialogTitle>
-              {labels.addPrompt ? <DialogDescription>{labels.addPrompt}</DialogDescription> : null}
-            </DialogHeader>
-            {/* Tinted wells via `[data-dialog-form]`; the error line is always laid
-                out, so the message appearing never pushes the footer down. */}
-            <DialogBody data-dialog-form="true" className="space-y-6">
-              <div className="flex flex-col gap-2.5">
-                <FormFieldLabel htmlFor={newCompanyInputId} className="mb-0" required>{labels.inputLabel}</FormFieldLabel>
-                <Input
-                  id={newCompanyInputId}
-                  aria-required="true"
-                  placeholder={labels.inputPlaceholder}
-                  value={newCompany}
-                  onChange={(event) => {
-                    setNewCompany(event.target.value)
-                    if (formError) setFormError(null)
-                  }}
-                  onKeyDown={handleInputKeyDown}
-                  autoFocus
-                  disabled={saving}
-                />
-              </div>
-              <p role="alert" className="min-h-5 text-sm text-status-error-text">{formError ?? ''}</p>
-            </DialogBody>
-              <DialogFooter>
-                <Button type="button" variant="soft" onClick={() => setDialogOpen(false)} disabled={saving}>
-                  {labels.cancelLabel}
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => {
-                    handleDialogSubmit().catch(() => {})
-                  }}
-                  disabled={saving || !newCompany.trim()}
-                >
-                  {saving ? `${labels.saveLabel}…` : labels.saveLabel}
-                </Button>
-              </DialogFooter>
-          </DialogContent>
+          {createDialogContent}
         </Dialog>
       </div>
       {loading ? <div className="text-xs text-muted-foreground">{labels.loadingLabel}</div> : null}
@@ -911,8 +983,9 @@ export const createDisplayNameSection = (t: Translator) =>
     )
   }
 
-export const createPersonFormFields = (t: Translator, options?: { defaultCountryIso2?: string }): CrudField[] => {
+export const createPersonFormFields = (t: Translator, options?: CustomerFormFieldOptions): CrudField[] => {
   const defaultCountryIso2 = options?.defaultCountryIso2
+  const dictionaryActions = options?.dictionaryActions ?? 'buttons'
   const contactSection = createSectionHeadingField('__contactInformationSection', t('customers.people.form.sections.contactInformation'))
   const companySection = createSectionHeadingField('__companyInformationSection', t('customers.people.form.sections.companyInformation'))
   const dictionaryFields: CrudField[] = dictionaryFieldDefinitions.map((definition) => ({
@@ -923,6 +996,7 @@ export const createPersonFormFields = (t: Translator, options?: { defaultCountry
     component: ({ value, setValue }: CrudCustomFieldRenderProps) => (
       <DictionarySelectField
         addButtonVariant="soft"
+        actionsPlacement={dictionaryActions}
         kind={definition.kind}
         value={typeof value === 'string' ? value : undefined}
         onChange={(next) => setValue(next)}
@@ -946,6 +1020,7 @@ export const createPersonFormFields = (t: Translator, options?: { defaultCountry
       component: ({ value, setValue }: CrudCustomFieldRenderProps) => (
         <DictionarySelectField
           addButtonVariant="soft"
+          actionsPlacement={dictionaryActions}
           kind="salutations"
           value={typeof value === 'string' ? value : undefined}
           onChange={(next) => setValue(next)}
@@ -981,6 +1056,7 @@ export const createPersonFormFields = (t: Translator, options?: { defaultCountry
       component: ({ value, setValue }: CrudCustomFieldRenderProps) => (
         <DictionarySelectField
           addButtonVariant="soft"
+          actionsPlacement={dictionaryActions}
           kind="job-titles"
           value={typeof value === 'string' ? value : undefined}
           onChange={(next) => setValue(next)}
@@ -1009,8 +1085,8 @@ export const createPersonFormFields = (t: Translator, options?: { defaultCountry
       ),
     },
     contactSection,
-    createPrimaryEmailField(t),
-    createPrimaryPhoneField(t, defaultCountryIso2),
+    { ...createPrimaryEmailField(t), layout: 'half' },
+    { ...createPrimaryPhoneField(t, defaultCountryIso2), layout: 'half' },
     companySection,
     {
       id: 'companyEntityId',
@@ -1019,6 +1095,7 @@ export const createPersonFormFields = (t: Translator, options?: { defaultCountry
       layout: 'half',
       component: ({ value, setValue }) => (
         <CompanySelectField
+          actionsPlacement={dictionaryActions}
           value={typeof value === 'string' ? value : undefined}
           onChange={(next) => setValue(next)}
           labels={{
@@ -1130,6 +1207,11 @@ export const createPersonFormFields = (t: Translator, options?: { defaultCountry
   ]
 }
 
+/** The Custom attributes section, withheld while
+ *  `CUSTOMER_CUSTOM_ATTRIBUTES_IN_PRODUCT` is off (see `product-scope`). */
+const customAttributesGroup = (group: CrudFormGroup): CrudFormGroup[] =>
+  CUSTOMER_CUSTOM_ATTRIBUTES_IN_PRODUCT ? [group] : []
+
 export const createPersonFormGroups = (t: Translator): CrudFormGroup[] => [
   {
     id: 'details',
@@ -1163,12 +1245,12 @@ export const createPersonFormGroups = (t: Translator): CrudFormGroup[] => [
     column: 2,
     fields: ['description'],
   },
-  {
+  ...customAttributesGroup({
     id: 'customFields',
     title: t('customers.people.form.groups.custom'),
     column: 2,
     kind: 'customFields',
-  },
+  }),
 ]
 
 export function buildPersonPayload(
@@ -1381,8 +1463,9 @@ export const createCompanyFormSchema = () =>
     })
     .passthrough()
 
-export const createCompanyFormFields = (t: Translator, options?: { defaultCountryIso2?: string }): CrudField[] => {
+export const createCompanyFormFields = (t: Translator, options?: CustomerFormFieldOptions): CrudField[] => {
   const defaultCountryIso2 = options?.defaultCountryIso2
+  const dictionaryActions = options?.dictionaryActions ?? 'buttons'
   const dictionaryFields: CrudField[] = companyDictionaryFieldDefinitions.map((definition) => ({
     id: definition.id,
     label: t(definition.labelKey),
@@ -1391,6 +1474,7 @@ export const createCompanyFormFields = (t: Translator, options?: { defaultCountr
     component: ({ value, setValue }: CrudCustomFieldRenderProps) => (
       <DictionarySelectField
         addButtonVariant="soft"
+        actionsPlacement={dictionaryActions}
         kind={definition.kind}
         value={typeof value === 'string' ? value : undefined}
         onChange={(next) => setValue(next)}
@@ -1649,12 +1733,12 @@ export const createCompanyFormGroups = (t: Translator): CrudFormGroup[] => [
     column: 2,
     fields: ['description'],
   },
-  {
+  ...customAttributesGroup({
     id: 'customFields',
     title: t('customers.companies.form.groups.custom'),
     column: 2,
     kind: 'customFields',
-  },
+  }),
 ]
 
 export function buildCompanyPayload(
@@ -1885,8 +1969,9 @@ const buildIndustryLabels = (t: Translator): DictionarySelectLabels => ({
   manageTitle: t('customers.people.form.dictionary.manage'),
 })
 
-export const createCompanyEditFields = (t: Translator, options?: { defaultCountryIso2?: string }): CrudField[] => {
+export const createCompanyEditFields = (t: Translator, options?: CustomerFormFieldOptions): CrudField[] => {
   const baseFields = createCompanyFormFields(t, options)
+  const dictionaryActions = options?.dictionaryActions ?? 'buttons'
   const industryLabels = buildIndustryLabels(t)
 
   return baseFields.map((field) => {
@@ -1899,6 +1984,7 @@ export const createCompanyEditFields = (t: Translator, options?: { defaultCountr
         component: ({ value, setValue }: CrudCustomFieldRenderProps) => (
           <DictionarySelectField
             addButtonVariant="soft"
+            actionsPlacement={dictionaryActions}
             kind={'industries' as CustomerDictionaryKind}
             value={typeof value === 'string' ? value : undefined}
             onChange={(next) => setValue(next)}
@@ -1911,7 +1997,7 @@ export const createCompanyEditFields = (t: Translator, options?: { defaultCountr
   })
 }
 
-export const createPersonEditFields = (t: Translator, options?: { defaultCountryIso2?: string }): CrudField[] => {
+export const createPersonEditFields = (t: Translator, options?: CustomerFormFieldOptions): CrudField[] => {
   const baseFields = createPersonFormFields(t, options)
   return [
     ...baseFields,
@@ -1991,12 +2077,12 @@ export const createCompanyEditGroups = (t: Translator): CrudFormGroup[] => [
     column: 2,
     fields: ['description'],
   },
-  {
+  ...customAttributesGroup({
     id: 'customFields',
     title: t('customers.companies.form.groups.custom'),
     column: 2,
     kind: 'customFields',
-  },
+  }),
 ]
 
 /**
@@ -2007,25 +2093,25 @@ export const createCompanyEditGroups = (t: Translator): CrudFormGroup[] => [
 export const createCompanyDaneFiremyGroups = (t: Translator): CrudFormGroup[] => [
   {
     id: 'identity',
-    title: t('customers.companies.form.groups.identity', 'Tożsamość').toUpperCase(),
+    title: t('customers.companies.form.groups.identity', 'Tożsamość'),
     column: 1,
     fields: ['displayName', 'legalName', 'brandName'],
   },
   {
     id: 'contact',
-    title: t('customers.companies.form.groups.contact', 'Kontakt').toUpperCase(),
+    title: t('customers.companies.form.groups.contact', 'Kontakt'),
     column: 1,
     fields: ['primaryEmail', 'primaryPhone', 'domain', 'websiteUrl'],
   },
   {
     id: 'classification',
-    title: t('customers.companies.form.groups.classification', 'Klasyfikacja').toUpperCase(),
+    title: t('customers.companies.form.groups.classification', 'Klasyfikacja'),
     column: 1,
     fields: ['status', 'lifecycleStage', 'source'],
   },
   {
     id: 'businessProfile',
-    title: t('customers.companies.form.groups.businessProfile', 'Profil biznesowy').toUpperCase(),
+    title: t('customers.companies.form.groups.businessProfile', 'Profil biznesowy'),
     column: 1,
     fields: ['industry', 'sizeBucket', 'annualRevenue'],
   },
@@ -2035,12 +2121,12 @@ export const createCompanyDaneFiremyGroups = (t: Translator): CrudFormGroup[] =>
     column: 1,
     fields: ['description'],
   },
-  {
+  ...customAttributesGroup({
     id: 'customFields',
     title: t('customers.companies.form.groups.customAttributes', 'Atrybuty niestandardowe'),
     column: 1,
     kind: 'customFields',
-  },
+  }),
 ]
 
 export const createPersonEditGroups = (t: Translator): CrudFormGroup[] => [
@@ -2090,12 +2176,12 @@ export const createPersonEditGroups = (t: Translator): CrudFormGroup[] => [
     column: 2,
     fields: ['description'],
   },
-  {
+  ...customAttributesGroup({
     id: 'customFields',
     title: t('customers.people.form.groups.custom'),
     column: 2,
     kind: 'customFields',
-  },
+  }),
 ]
 
 /**
@@ -2115,12 +2201,12 @@ export const createPersonPersonalDataGroups = (t: Translator): CrudFormGroup[] =
     column: 1,
     fields: ['companyEntityId', 'status', 'lifecycleStage', 'source'],
   },
-  {
+  ...customAttributesGroup({
     id: 'customFields',
     title: t('customers.people.form.groups.customAttributes', 'Custom attributes'),
     column: 1,
     kind: 'customFields',
-  },
+  }),
 ]
 
 // ---------------------------------------------------------------------------

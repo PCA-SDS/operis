@@ -148,6 +148,39 @@ describe('DashboardScreen', () => {
     expect(await screen.findByText('Widget body')).toBeInTheDocument()
   })
 
+  it('stands in its own shape while the layout and then each widget load', async () => {
+    const layout = deferred<unknown>()
+    const widgetModule = deferred<unknown>()
+    ;(apiCall as jest.Mock).mockReturnValue(layout.promise)
+    ;(loadDashboardWidgetModule as jest.Mock).mockReturnValue(widgetModule.promise)
+
+    const { container } = renderWithProviders(<DashboardScreen />, { dict })
+
+    // The greeting, the Customize button and a row of cards, not a spinner.
+    const skeleton = container.querySelector('[data-slot="page-skeleton"]')
+    expect(skeleton).not.toBeNull()
+    expect(skeleton?.querySelectorAll('.grid > .rounded-xl')).toHaveLength(3)
+    expect(container.querySelector('.animate-spin')).toBeNull()
+
+    await act(async () => {
+      layout.resolve(successfulApiCall(widgetResponse))
+    })
+    expect(await screen.findByText('Widget Foo')).toBeInTheDocument()
+    expect(container.querySelector('[data-slot="page-skeleton"]')).toBeNull()
+    // The real card holds the same placeholder rows until its module arrives.
+    expect(container.querySelector('.animate-spin')).toBeNull()
+    expect(container.querySelectorAll('[class*="animate-pulse"]').length).toBeGreaterThan(0)
+
+    await act(async () => {
+      widgetModule.resolve({
+        Widget: MockWidget,
+        hydrateSettings: (value: unknown) => value,
+        dehydrateSettings: (value: unknown) => value,
+      })
+    })
+    expect(await screen.findByText('Widget body')).toBeInTheDocument()
+  })
+
   it('reloads the dashboard when the organization scope changes', async () => {
     ;(apiCall as jest.Mock).mockResolvedValue({
       ok: true,
@@ -222,6 +255,62 @@ describe('DashboardScreen', () => {
       firstSave.resolve(successfulApiCall(null))
     })
     await waitFor(() => expect(putCount).toBe(2))
+  })
+
+  describe('the add-widget panel', () => {
+    const withAvailableWidget = {
+      ...widgetResponse,
+      widgets: [widgetResponse.widgets[0], secondWidget],
+      allowedWidgetIds: ['foo', 'bar'],
+    }
+
+    function renderWithAvailableWidget() {
+      ;(getDashboardWidgets as jest.Mock).mockReturnValue([
+        { key: 'foo.loader', loader: jest.fn() },
+        { key: 'bar.loader', loader: jest.fn() },
+      ])
+      ;(apiCall as jest.Mock).mockImplementation((_url: string, options?: RequestInit) =>
+        Promise.resolve(successfulApiCall(options?.method === 'PUT' ? null : withAvailableWidget)),
+      )
+      return renderWithProviders(<DashboardScreen />, { dict })
+    }
+
+    it('stays mounted and folded shut until Customize, so it can animate open', async () => {
+      renderWithAvailableWidget()
+      await screen.findByRole('button', { name: 'Customize' })
+      const panel = screen.getByTestId('dashboard-add-widget')
+      expect(panel).toHaveAttribute('data-state', 'closed')
+      expect(panel.style.gridTemplateRows).toBe('0fr')
+      expect(panel).toHaveAttribute('inert')
+      expect(panel).toHaveAttribute('aria-hidden', 'true')
+      expect(screen.queryByRole('button', { name: 'Widget Bar' })).toBeNull()
+    })
+
+    it('folds open on Customize and shut again on Done, never jumping the grid below', async () => {
+      renderWithAvailableWidget()
+      fireEvent.click(await screen.findByRole('button', { name: 'Customize' }))
+      const panel = screen.getByTestId('dashboard-add-widget')
+      expect(panel).toHaveAttribute('data-state', 'open')
+      expect(panel.style.gridTemplateRows).toBe('1fr')
+      expect(panel).not.toHaveAttribute('inert')
+      expect(screen.getByRole('button', { name: 'Widget Bar' })).toBeInTheDocument()
+
+      const tokens = panel.className.split(/\s+/)
+      expect(tokens).toEqual(expect.arrayContaining(['grid', 'transition-[grid-template-rows,opacity]', 'duration-300', 'ease-out', 'mb-0']))
+      expect(panel.querySelector('.pb-6')).not.toBeNull()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Done' }))
+      expect(panel).toHaveAttribute('data-state', 'closed')
+      expect(panel.style.gridTemplateRows).toBe('0fr')
+      expect(panel.className.split(/\s+/)).toEqual(expect.arrayContaining(['duration-200', 'ease-in']))
+    })
+
+    it('folds shut by itself once the last available widget is added', async () => {
+      renderWithAvailableWidget()
+      fireEvent.click(await screen.findByRole('button', { name: 'Customize' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Widget Bar' }))
+      expect(screen.getByTestId('dashboard-add-widget')).toHaveAttribute('data-state', 'closed')
+    })
   })
 
   it('shows an error when the layout request fails', async () => {

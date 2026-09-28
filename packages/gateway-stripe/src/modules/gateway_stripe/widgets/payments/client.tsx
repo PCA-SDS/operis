@@ -15,6 +15,7 @@ import {
 } from '@open-mercato/shared/modules/payment_gateways/client'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Spinner } from '@open-mercato/ui/primitives/spinner'
+import { useTheme } from '@open-mercato/ui/theme'
 import type { StripePaymentElementSettings } from '../../lib/shared'
 
 type StripeRendererPayload = {
@@ -31,21 +32,31 @@ function readStripePayload(payload: Record<string, unknown> | undefined): Stripe
   }
 }
 
+/* Stripe renders the form in its own iframe, so it cannot read the app's CSS
+   variables: the theme tokens are resolved to concrete values here. The literal
+   fallbacks are the light theme's values, used during SSR. */
+const APPEARANCE_FALLBACK = {
+  foreground: '#1D1D1F',
+  destructive: '#E30000',
+  mutedForeground: '#6E6E73',
+}
+
 function resolveAppearanceVariables(): Record<string, string> {
   if (typeof window === 'undefined') {
     return {
-      colorPrimary: '#111827',
-      colorText: '#111827',
-      colorDanger: '#dc2626',
-      colorTextPlaceholder: '#6b7280',
+      colorPrimary: APPEARANCE_FALLBACK.foreground,
+      colorText: APPEARANCE_FALLBACK.foreground,
+      colorDanger: APPEARANCE_FALLBACK.destructive,
+      colorTextPlaceholder: APPEARANCE_FALLBACK.mutedForeground,
     }
   }
   const styles = window.getComputedStyle(document.documentElement)
+  const token = (name: string, fallback: string) => styles.getPropertyValue(name).trim() || fallback
   return {
-    colorPrimary: `hsl(${styles.getPropertyValue('--foreground').trim() || '222.2 84% 4.9%'})`,
-    colorText: `hsl(${styles.getPropertyValue('--foreground').trim() || '222.2 84% 4.9%'})`,
-    colorDanger: `hsl(${styles.getPropertyValue('--destructive').trim() || '0 84.2% 60.2%'})`,
-    colorTextPlaceholder: `hsl(${styles.getPropertyValue('--muted-foreground').trim() || '215.4 16.3% 46.9%'})`,
+    colorPrimary: token('--foreground', APPEARANCE_FALLBACK.foreground),
+    colorText: token('--foreground', APPEARANCE_FALLBACK.foreground),
+    colorDanger: token('--destructive', APPEARANCE_FALLBACK.destructive),
+    colorTextPlaceholder: token('--muted-foreground', APPEARANCE_FALLBACK.mutedForeground),
   }
 }
 
@@ -176,9 +187,10 @@ function StripeEmbeddedPaymentRenderer(props: EmbeddedPaymentGatewayRendererProp
     () => (payload.publishableKey ? loadStripe(payload.publishableKey) : null),
     [payload.publishableKey],
   )
+  const { resolvedTheme } = useTheme()
   const appearance = React.useMemo(
     () => ({
-      theme: 'stripe' as const,
+      theme: resolvedTheme === 'dark' ? ('night' as const) : ('stripe' as const),
       variables: resolveAppearanceVariables(),
       rules: {
         '.Input': {
@@ -186,7 +198,7 @@ function StripeEmbeddedPaymentRenderer(props: EmbeddedPaymentGatewayRendererProp
         },
       },
     }),
-    [],
+    [resolvedTheme],
   )
 
   React.useEffect(() => {
@@ -200,7 +212,7 @@ function StripeEmbeddedPaymentRenderer(props: EmbeddedPaymentGatewayRendererProp
   }
 
   return (
-    <div className="space-y-3 rounded-xl border border-border/70 bg-white/80 p-4 shadow-sm backdrop-blur">
+    <div className="space-y-3 rounded-xl border border-border/70 bg-surface/80 p-4 shadow-sm backdrop-blur">
       <div className="space-y-1">
         <p className="text-sm font-semibold">{t('gateway_stripe.payments.title', 'Secure Stripe payment')}</p>
         <p className="text-sm text-muted-foreground">

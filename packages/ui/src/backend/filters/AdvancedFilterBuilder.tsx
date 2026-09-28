@@ -255,7 +255,7 @@ function DragGhost({
     if (typeof node.value === 'string' && node.value) labelParts.push(`"${node.value}"`)
   }
   return (
-    <div className="inline-flex items-center gap-2 rounded-md border border-border bg-popover px-3 py-1.5 text-sm shadow-md cursor-grabbing">
+    <div className="inline-flex items-center gap-2 rounded-md bg-popover px-3 py-1.5 text-sm shadow-lg cursor-grabbing">
       <GripVertical className="size-4 text-muted-foreground" />
       <span className="text-muted-foreground">{parent.combinator === 'and' ? t('ui.advancedFilter.connector.and', 'and') : t('ui.advancedFilter.connector.or', 'or')}</span>
       <span className="font-medium">{labelParts.join(' ')}</span>
@@ -285,11 +285,12 @@ function GroupView({
   t: Translator
 }) {
   const isRoot = level === 1
-  // Sub-groups render as a card so the nesting boundary is visible; root group stays
-  // flush with the popover so it doesn't double-up the dialog's own card chrome.
+  // Sub-groups render on the muted fill so the nesting boundary is visible without a
+  // hairline; the root group stays flush with the popover so it doesn't double-up the
+  // dialog's own card chrome.
   const containerClass = isRoot
     ? 'space-y-3'
-    : 'space-y-3 rounded-lg border border-border bg-muted/30 p-3'
+    : 'space-y-3 rounded-lg bg-surface-muted p-3'
 
   // Toolbar-first layout (Kendo React Filter pattern): one [And]/[Or] toggle per group
   // is the only combinator UI. Mixing AND with OR requires `Add subgroup`. Matches
@@ -335,7 +336,7 @@ function AndOrToggle({
   const orLabel = t('ui.advancedFilter.combinator.or', 'Or')
   const baseBtn = 'h-8 px-3 text-sm font-medium outline-none focus-visible:shadow-focus disabled:cursor-not-allowed'
   const selBtn = 'bg-brand-violet text-brand-violet-foreground hover:bg-brand-violet/90'
-  const unselBtn = 'bg-background text-foreground hover:bg-accent'
+  const unselBtn = 'bg-muted text-foreground hover:bg-surface-strong'
   return (
     <div
       role="group"

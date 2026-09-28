@@ -1273,6 +1273,7 @@
         "secondary",
         "ghost",
         "muted",
+        "toggle",
         "link",
         "sizes"
       ],
@@ -4022,9 +4023,8 @@
       "implementationSource": "node_modules/@open-mercato/ui/src/primitives/tabs.tsx",
       "localTokenSource": null,
       "variantIds": [
-        "underline",
-        "pill",
-        "pill-vertical"
+        "horizontal",
+        "vertical"
       ],
       "route": "/backend/design-system?family=navigation&entry=tabs",
       "availabilityByPreset": {

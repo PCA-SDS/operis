@@ -1,9 +1,8 @@
 'use client'
 
 import * as React from 'react'
-import { Check, Plus, SearchX, SlidersHorizontal, Tag, X } from 'lucide-react'
+import { Check, Plus, SearchX, SlidersHorizontal, X } from 'lucide-react'
 import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
-import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn, slugifyTagLabel } from '@open-mercato/shared/lib/utils'
 import { useDialogKeyHandler } from '@open-mercato/ui/hooks/useDialogKeyHandler'
@@ -11,12 +10,13 @@ import { apiCall, apiCallOrThrow, readApiResultOrThrow } from '@open-mercato/ui/
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
 import { Button } from '@open-mercato/ui/primitives/button'
-import { CloseButton } from '@open-mercato/ui/primitives/close-button'
 import { entityColorStyle } from '@open-mercato/ui/primitives/tag'
 import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
+  DialogHeader,
   DialogTitle,
 } from '@open-mercato/ui/primitives/dialog'
 import type { TagSummary } from './types'
@@ -342,7 +342,7 @@ function TagChip({
         active
           ? activeColorStyle
             ? 'hover:opacity-90'
-            : 'bg-primary text-primary-foreground hover:bg-primary-hover'
+            : 'bg-sidebar text-sidebar-foreground hover:bg-sidebar'
           : 'bg-input-bg text-foreground hover:bg-primary-soft',
       )}
       style={activeColorStyle}
@@ -1133,36 +1133,25 @@ export function EntityTagsDialog({
           lengths, and a content-sized dialog moved its footer every time. */}
       <DialogContent
         disableBodyWrap
-        className="flex h-[min(85vh,40rem)] flex-col sm:h-[min(85vh,40rem)] overflow-hidden border-border bg-surface p-0 shadow-xl sm:max-w-[760px] sm:rounded-xl [&>[data-dialog-close]]:hidden"
+        className="flex h-[min(85vh,40rem)] flex-col overflow-hidden sm:max-w-[760px]"
         aria-describedby={undefined}
         onKeyDown={handleDialogKeyDown}
+        closeAriaLabel={t('customers.personTags.close', 'Close')}
       >
-        <VisuallyHidden>
+        {/* The settings button is 36px against the title's 28px line; `-mt-1`
+            centres it on that line, level with the close button. */}
+        <DialogHeader className="flex-row items-start justify-between gap-3">
           <DialogTitle>{t('customers.personTags.title', 'Edit tags')}</DialogTitle>
-        </VisuallyHidden>
-
-        <div className="flex shrink-0 items-center justify-between px-5 py-4 sm:px-6">
-          <div className="flex items-center gap-2">
-            <Tag className="size-4 text-foreground" />
-            <span className="text-sm font-bold text-foreground">
-              {t('customers.personTags.title', 'Edit tags')}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="soft"
-              onClick={() => setManageTagsOpen(true)}
-            >
-              <SlidersHorizontal className="size-4" />
-              {t('customers.personTags.settingsButton', 'Tag settings')}
-            </Button>
-            <CloseButton
-              onClick={onClose}
-              aria-label={t('customers.personTags.close', 'Close')}
-            />
-          </div>
-        </div>
+          <Button
+            type="button"
+            variant="soft"
+            className="-mt-1"
+            onClick={() => setManageTagsOpen(true)}
+          >
+            <SlidersHorizontal className="size-4" />
+            {t('customers.personTags.settingsButton', 'Tag settings')}
+          </Button>
+        </DialogHeader>
 
         <div className="min-h-0 flex-1 overflow-hidden" data-dialog-form="true">
           {loading ? (
@@ -1170,7 +1159,7 @@ export function EntityTagsDialog({
               {t('customers.personTags.loading', 'Loading...')}
             </div>
           ) : (
-            <div className="flex h-full flex-col gap-4 px-5 py-4 md:flex-row">
+            <div className="flex h-full flex-col gap-4 px-5 pt-3 sm:px-6 md:flex-row">
               <div className="flex gap-2 overflow-x-auto pb-1 md:w-[220px] md:shrink-0 md:flex-col md:overflow-x-visible md:pb-0">
                 {categories.map((category) => {
                   const count = selectedValues[category.kind]?.size ?? 0
@@ -1179,7 +1168,7 @@ export function EntityTagsDialog({
                     <Button
                       key={category.kind}
                       type="button"
-                      variant={isActive ? 'default' : 'soft'}
+                      variant="toggle"
                       aria-pressed={isActive}
                       className="min-w-[140px] justify-between text-left md:w-full"
                       onClick={() => setActiveCategoryKind(category.kind)}
@@ -1363,11 +1352,13 @@ export function EntityTagsDialog({
           )}
         </div>
 
-        <div className="flex shrink-0 items-center justify-between px-5 pt-1.5 pb-4 sm:px-6">
-          <span className="text-xs text-muted-foreground">
-            {t('customers.personTags.activeCount', '{{count}} selected', { count: activeCount })}
-          </span>
-          <div className="flex items-center gap-2">
+        <DialogFooter
+          leading={
+            <span className="text-xs text-muted-foreground">
+              {t('customers.personTags.activeCount', '{{count}} selected', { count: activeCount })}
+            </span>
+          }
+        >
             <Button
               type="button"
               variant="soft"
@@ -1385,8 +1376,7 @@ export function EntityTagsDialog({
                 ? t('customers.personTags.saving', 'Saving...')
                 : t('customers.personTags.save', 'Save')}
             </Button>
-          </div>
-        </div>
+        </DialogFooter>
       </DialogContent>
 
       <ManageTagsDialog

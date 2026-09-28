@@ -11,6 +11,11 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from '@open-mercato/ui/primitives/drawer'
+import {
+  SIDE_PANEL_EASE,
+  SIDE_PANEL_ENTER_SECONDS,
+  SIDE_PANEL_EXIT_SECONDS,
+} from '@open-mercato/ui/primitives/side-panel-motion'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { CHAT_PANEL_WIDTH, clampPanelWidth, maxPanelWidthFor } from './contextPanel'
@@ -67,11 +72,11 @@ export function ChatContextPanel({
   const [resizing, setResizing] = React.useState(false)
 
   if (!split) {
-    if (!open) return null
     // The drawer animates itself: Radix drives the slide off `data-state`, the
-    // way every other overlay in the system does.
+    // way every other overlay in the system does. It stays mounted and follows
+    // `open`, so closing plays the slide out instead of cutting it.
     return (
-      <Drawer open onOpenChange={(next) => (next ? undefined : onClose())}>
+      <Drawer open={open} onOpenChange={(next) => (next ? undefined : onClose())}>
         <DrawerContent side="right" className="flex flex-col" closeAriaLabel={t('chat.panel.close', 'Close panel')}>
           <DrawerHeader>
             <DrawerTitle>{title}</DrawerTitle>
@@ -116,12 +121,16 @@ export function ChatContextPanel({
           // reader chose.
           initial={{ width: 0, opacity: 0 }}
           animate={{ width, opacity: 1 }}
-          exit={{ width: 0, opacity: 0 }}
+          exit={{
+            width: 0,
+            opacity: 0,
+            transition: reduceMotion ? { duration: 0 } : { duration: SIDE_PANEL_EXIT_SECONDS, ease: SIDE_PANEL_EASE },
+          }}
           transition={
             // Instant while dragging, and for a reader who has asked for less
-            // motion. 180ms otherwise — enough to read as movement, short
-            // enough that opening a panel never feels like waiting (§13).
-            resizing || reduceMotion ? { duration: 0 } : { duration: 0.18, ease: 'easeOut' }
+            // motion. Otherwise the motion every side panel shares: 500ms in,
+            // 300ms out, on the sheet curve that starts quick and settles.
+            resizing || reduceMotion ? { duration: 0 } : { duration: SIDE_PANEL_ENTER_SECONDS, ease: SIDE_PANEL_EASE }
           }
           // The panel's own left border is the divider, and the two panes meet
           // flush against it — so the rule under this header and the rule under

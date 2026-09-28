@@ -45,7 +45,7 @@ import { apiCall, withScopedApiRequestHeaders } from '../utils/apiCall'
 import { buildOptimisticLockHeader } from '../utils/optimisticLock'
 import { surfaceRecordConflict } from '../conflicts'
 import { flash } from '../FlashMessages'
-import { Page, PageBody } from '../Page'
+import { Page, PageBody, PageHeader } from '../Page'
 import { useBackendChrome } from '../BackendChromeProvider'
 import { useConfirmDialog } from '../confirm-dialog'
 import { useGuardedMutation } from '../injection/useGuardedMutation'
@@ -881,17 +881,21 @@ export function SidebarCustomizationEditor({
 
   const isBusy = saving || deleting
 
+  const pageHeader = (
+    <PageHeader
+      title={t('appShell.sidebarCustomizationHeading')}
+      description={t('appShell.sidebarCustomizationHint', { locale: localeLabel })}
+    />
+  )
+
   if (loading && !draft) {
     return (
       <>
         {ConfirmDialogElement}
-        <div className="space-y-6">
-          <div className="space-y-2">
-            <div className="h-7 w-64 animate-pulse rounded bg-muted" />
-            <div className="h-4 w-96 animate-pulse rounded bg-muted/60" />
-          </div>
+        <Page>
+          {pageHeader}
           <div className="h-64 animate-pulse rounded-lg border bg-muted/30" />
-        </div>
+        </Page>
       </>
     )
   }
@@ -903,11 +907,14 @@ export function SidebarCustomizationEditor({
     return (
       <>
         {ConfirmDialogElement}
-        <div className="rounded-lg border border-dashed bg-muted/30 p-6 text-sm text-muted-foreground">
-          {stillLoading
-            ? t('appShell.sidebarCustomizationLoading', 'Loading…')
-            : (error ?? t('appShell.sidebarCustomizationLoadError'))}
-        </div>
+        <Page>
+          {pageHeader}
+          <div className="rounded-lg border border-dashed bg-muted/30 p-6 text-sm text-muted-foreground">
+            {stillLoading
+              ? t('appShell.sidebarCustomizationLoading', 'Loading…')
+              : (error ?? t('appShell.sidebarCustomizationLoadError'))}
+          </div>
+        </Page>
       </>
     )
   }
@@ -1003,14 +1010,7 @@ export function SidebarCustomizationEditor({
         </DialogContent>
       </Dialog>
       <Page>
-        <header className="space-y-1">
-          <h1 className="text-xl sm:text-2xl font-semibold leading-tight">
-            {t('appShell.sidebarCustomizationHeading')}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {t('appShell.sidebarCustomizationHint', { locale: localeLabel })}
-          </p>
-        </header>
+        {pageHeader}
 
         {error ? (
           <div className="rounded-lg border border-status-error-border bg-status-error-bg px-4 py-3 text-sm text-status-error-text">

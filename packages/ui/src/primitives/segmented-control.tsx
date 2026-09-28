@@ -30,12 +30,26 @@ import { cn } from '@open-mercato/shared/lib/utils'
  * roving tabindex) for free. No new dependency — Radix RadioGroup is
  * already installed via the `Radio` primitive.
  *
- * **Geometry.** The track owns the height and the inset; items stretch to the
- * track's content box rather than carrying their own height. That is what makes
- * the selected pill sit an equal distance from the rail on all four sides — a
- * fixed item height would leave a different gap vertically than horizontally,
- * which is visible as soon as the pill is a filled colour. The inset is 4px at
- * `default` and 2px at `sm`, matching the reference toggle.
+ * **One look, everywhere.** Every switcher in the product is drawn the same
+ * way, on a page, in a toolbar or in a dialog: the selected segment is the
+ * near-black pill (the sidebar family) with light ink, filling the track edge to
+ * edge, so it stands exactly as tall as a `Button` or field of the same size;
+ * the unselected segments are near-black text with a quiet fill on hover. Two
+ * looks (a black pill on the page, a white pill inset on grey in dialogs) read
+ * as two different controls.
+ *
+ * **Tone picks the rail, nothing else.** `default` is the rail for the page
+ * ground and `inset` the field well for a raised surface (a card, a dialog, a
+ * popover). In light both are the grey control fill, since a white rail
+ * vanished once the ground turned white; in dark the ground's rail is the
+ * raised surface, so the raised-grey pill stands off it, and the well steps
+ * off a card. Inside a grey form section both turn white with the fields
+ * (`globals.css`). The pill and the labels do not change.
+ *
+ * **Geometry.** The track owns the height; items stretch to it rather than
+ * carrying their own. `flush` (the default) lets the pill fill the track.
+ * `flush={false}` brings back a pill inset 4px (2px at `sm`) inside a bordered
+ * rail; nothing in the product uses it.
  *
  * **Motion.** The selected fill is a single shared element that slides
  * between segments rather than a class that blinks on and off, so the
@@ -65,9 +79,9 @@ import { cn } from '@open-mercato/shared/lib/utils'
 
 type SegmentedControlContextValue = {
   size: 'sm' | 'default'
-  /** See the `tone` variant — the pill has to know which fill to paint. */
-  tone: 'default' | 'inset'
   fullWidth: boolean
+  /** See the `flush` variant — the pill's radius follows it. */
+  flush: boolean
   disabled?: boolean
   /** Scopes the sliding pill to this control — see `indicatorId` below. */
   indicatorId: string
@@ -75,8 +89,8 @@ type SegmentedControlContextValue = {
 
 const SegmentedControlContext = React.createContext<SegmentedControlContextValue>({
   size: 'default',
-  tone: 'default',
   fullWidth: false,
+  flush: true,
   disabled: false,
   indicatorId: 'segmented-control',
 })
@@ -91,39 +105,43 @@ const INDICATOR_TRANSITION = {
   mass: 0.8,
 } as const
 
+/** The pill's corner radius, inline for the reason given at the indicator, so
+ *  keep it in step with the radius tokens by hand. Inset, the pill sits a notch
+ *  inside the track's `rounded-lg`; flush, it IS the track's edge and takes
+ *  `--radius-lg` (10px) itself. */
+const INDICATOR_RADIUS = { inset: 6, flush: 10 } as const
+
 const trackVariants = cva(
-  // A bordered `surface` rail holding one filled item, matching the reference's
-  // filter toggle. The track is NOT the muted step — inverting that (muted rail,
-  // raised white pill) made the control read as a group of buttons rather than
-  // as one control with a chosen segment.
-  //
-  // `items-stretch` is load-bearing: items derive their height from the track's
-  // content box, so the pill's inset is the track's padding on every side. That
-  // padding IS the gap between the selected pill and the rail wrapping it, and
-  // it belongs to the size rather than to the base — the reference gives its
-  // roomy size twice the inset of its dense one, and a single value made the
-  // default read tight against its rail.
-  //   default → h-9 (36px) − 2px border − 8px padding = 26px item, 4px all round
-  //   sm      → h-8 (32px) − 2px border − 4px padding = 26px item, 2px all round
+  // One rail holding one filled item. `items-stretch` is load-bearing: items
+  // derive their height from the track's content box, so a flush pill fills the
+  // track and an inset one sits the track's padding in from it on every side.
+  //   flush   → the pill is the track's full height, 36px (32px at `sm`)
+  //   inset   → h-9 (36px) − 2px border − 8px padding = 26px item, 4px all round
   'items-stretch gap-0 rounded-lg transition-colors',
   {
     variants: {
       /**
-       * `default` — a bordered `surface` rail with the sidebar navy as the
-       * selected pill. The product default; do not change it.
+       * The rail only; the pill and the labels are the same in both.
        *
-       * `inset` — the inverse, for a control sitting IN a form beside filled
-       * fields rather than on page chrome: the rail takes the field fill so it
-       * reads as part of the form, and the pill is `surface` so the selection
-       * lifts out of it. Opt in per call site.
+       * `default` — the page ground's rail (`--segmented-rail`).
+       *
+       * `inset` — the field well, for a card, a dialog or a popover, where in
+       * dark the ground's rail would match the surface.
        */
       tone: {
-        default: 'border border-border bg-surface',
+        default: 'border border-transparent bg-segmented-rail',
         inset: 'border border-transparent bg-input-bg',
       },
       size: {
         sm: 'h-8 p-0.5',
         default: 'h-9 p-1',
+      },
+      // Declared after `size` on purpose: `cn()` keeps the later of two
+      // conflicting utilities, so `p-0` and `border-0` here win over the size's
+      // inset and the tone's border.
+      flush: {
+        true: 'border-0 p-0',
+        false: '',
       },
       // Display lives in the variant rather than the base so the two cases never
       // depend on which `display` utility Tailwind happens to emit last.
@@ -139,6 +157,7 @@ const trackVariants = cva(
     defaultVariants: {
       tone: 'default',
       size: 'default',
+      flush: true,
       fullWidth: false,
       disabled: false,
     },
@@ -146,12 +165,12 @@ const trackVariants = cva(
 )
 
 const itemVariants = cva(
-  // The track is a bordered `surface` rail; the SELECTED item is the sidebar
-  // navy plus a hairline lift — both painted by the sliding pill, not by a class
-  // on the item, so only the text treatment lives here. Selected ink is the
-  // sidebar's own foreground, which is what keeps the label legible once the
-  // pill is a saturated fill. Unselected text is muted and hover only nudges
-  // colour, so the rail stays flat and the single filled item is the whole signal.
+  // The SELECTED item is the near-black pill plus a soft lift, painted by the
+  // sliding pill rather than by a class on the item, so only the text treatment
+  // lives here. Selected ink is the sidebar's own foreground, legible on the
+  // pill. Unselected labels are full ink, like every other control's label, and
+  // a hover lays a quiet fill over the segment, so the one filled item stays the
+  // whole signal.
   //
   // `relative` is load-bearing: the pill is positioned against the item.
   // The 200ms colour window matches the pill's travel so ink and fill land
@@ -161,16 +180,10 @@ const itemVariants = cva(
     'transition-colors duration-200 motion-reduce:transition-none ' +
     'outline-none focus-visible:shadow-focus ' +
     'disabled:cursor-not-allowed disabled:opacity-50 ' +
-    'data-[state=checked]:font-semibold ' +
-    'data-[state=unchecked]:bg-transparent data-[state=unchecked]:text-muted-foreground data-[state=unchecked]:hover:text-foreground',
+    'data-[state=checked]:font-semibold data-[state=checked]:text-sidebar-foreground ' +
+    'data-[state=unchecked]:bg-transparent data-[state=unchecked]:text-foreground data-[state=unchecked]:hover:bg-foreground/5',
   {
     variants: {
-      tone: {
-        default: 'data-[state=checked]:text-sidebar-foreground',
-        // The `inset` pill is `surface`, so selected ink is the normal
-        // foreground — sidebar ink would be near-invisible on it.
-        inset: 'data-[state=checked]:text-foreground',
-      },
       size: {
         sm: 'gap-1.5 px-2 text-xs',
         default: 'gap-2 px-3 text-sm',
@@ -181,11 +194,17 @@ const itemVariants = cva(
         true: 'min-w-0 flex-1 basis-0',
         false: '',
       },
+      // A flush item fills the track, so it (and the focus ring drawn on it)
+      // takes the track's radius rather than the inset pill's.
+      flush: {
+        true: 'rounded-lg',
+        false: '',
+      },
     },
     defaultVariants: {
-      tone: 'default',
       size: 'default',
       fullWidth: false,
+      flush: true,
     },
   },
 )
@@ -202,7 +221,7 @@ export type SegmentedControlProps = Omit<
 export const SegmentedControl = React.forwardRef<
   React.ElementRef<typeof RadioGroupPrimitive.Root>,
   SegmentedControlProps
->(({ className, size, tone, fullWidth, disabled, children, ...props }, ref) => {
+>(({ className, size, tone, fullWidth, flush, disabled, children, ...props }, ref) => {
   // The sliding pill is a shared layout element keyed by `layoutId`. That key
   // is global to framer-motion, so two segmented controls on one page sharing
   // a key would animate their pills into each other across the screen. A
@@ -211,12 +230,12 @@ export const SegmentedControl = React.forwardRef<
   const ctx = React.useMemo<SegmentedControlContextValue>(
     () => ({
       size: size ?? 'default',
-      tone: tone ?? 'default',
       fullWidth: fullWidth ?? false,
+      flush: flush ?? true,
       disabled: disabled ?? false,
       indicatorId: `segmented-control-indicator-${instanceId}`,
     }),
-    [size, tone, fullWidth, disabled, instanceId],
+    [size, fullWidth, flush, disabled, instanceId],
   )
   return (
     <SegmentedControlContext.Provider value={ctx}>
@@ -225,7 +244,7 @@ export const SegmentedControl = React.forwardRef<
         orientation="horizontal"
         disabled={disabled ?? undefined}
         data-slot="segmented-control"
-        className={cn(trackVariants({ size, tone, fullWidth, disabled }), className)}
+        className={cn(trackVariants({ size, tone, fullWidth, flush, disabled }), className)}
         {...props}
       >
         {children}
@@ -249,8 +268,8 @@ export const SegmentedControlItem = React.forwardRef<
 >(({ className, children, icon, ...props }, ref) => {
   const {
     size,
-    tone,
     fullWidth,
+    flush,
     disabled: groupDisabled,
     indicatorId,
   } = React.useContext(SegmentedControlContext)
@@ -261,7 +280,7 @@ export const SegmentedControlItem = React.forwardRef<
       ref={ref}
       data-slot="segmented-control-item"
       className={cn(
-        itemVariants({ size, tone, fullWidth }),
+        itemVariants({ size, fullWidth, flush }),
         // Disabling the root dims the track AND disables every item, so both
         // dimmers apply and multiply out to ~0.3 opacity — far fainter than
         // either intends, and below what a disabled control should still be
@@ -293,13 +312,8 @@ export const SegmentedControlItem = React.forwardRef<
           // it always scales. framer-motion counter-scales the radius per
           // frame to keep corners circular, but only when it can read a
           // numeric radius off `style`; it cannot parse it out of a class.
-          // Keep this in step with `--radius-md` (6px), which is what
-          // `rounded-md` resolves to.
-          style={{ borderRadius: 6 }}
-          className={cn(
-            'absolute inset-0 z-0 shadow-sm',
-            tone === 'inset' ? 'bg-surface' : 'bg-sidebar',
-          )}
+          style={{ borderRadius: flush ? INDICATOR_RADIUS.flush : INDICATOR_RADIUS.inset }}
+          className="absolute inset-0 z-0 bg-sidebar shadow-sm"
         />
       </RadioGroupPrimitive.Indicator>
 

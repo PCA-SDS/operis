@@ -32,7 +32,7 @@ type ImplProps = Pick<
 const CHART_MARGIN = { top: 5, right: 30, left: 20, bottom: 5 }
 const X_AXIS_TICK = { fontSize: 11 }
 const Y_AXIS_TICK = { fontSize: 10 }
-const TOOLTIP_CURSOR = { fill: 'hsl(var(--muted))', opacity: 0.2 }
+const TOOLTIP_CURSOR = { fill: 'var(--muted)', opacity: 0.2 }
 
 function BarChartImpl({
   data,
@@ -75,7 +75,7 @@ function BarChartImpl({
         margin={CHART_MARGIN}
       >
         {showGridLines && (
-          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
         )}
         <XAxis
           type={isHorizontal ? 'number' : 'category'}

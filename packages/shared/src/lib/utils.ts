@@ -14,11 +14,14 @@ import { extendTailwindMerge } from "tailwind-merge"
  * This is the single place that knowledge belongs — a local workaround (an
  * arbitrary `text-[11px]`, or raising the utility's specificity in CSS) would
  * have to be repeated at every call site and would drift.
+ *
+ * `text-large-title` (the page-title step of the type scale) is registered for
+ * the same reason.
  */
 const twMerge = extendTailwindMerge({
   extend: {
     classGroups: {
-      'font-size': ['text-overline'],
+      'font-size': ['text-overline', 'text-large-title'],
     },
   },
 })

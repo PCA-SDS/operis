@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { Building2, CalendarDays, Link2, Mail, Phone } from 'lucide-react'
+import { Building2, CalendarDays, Mail, Phone } from 'lucide-react'
 import { readApiResultOrThrow } from '@open-mercato/ui/backend/utils/apiCall'
 import { Avatar } from '@open-mercato/ui/primitives/avatar'
 import { cn } from '@open-mercato/shared/lib/utils'
@@ -40,7 +40,6 @@ type PersonAdapterOptions = {
   addNew?: LinkEntityAdapter<PersonDetails, PersonLinkSettings>['addNew']
   showLinkSettings?: boolean
   roleOptions?: Array<{ id: string; label: string }>
-  headerIcon?: React.ReactNode
 }
 
 const DEFAULT_PAGE_SIZE = 20
@@ -456,7 +455,7 @@ export function createPersonLinkAdapter(
                 <select
                   value={currentRole}
                   onChange={(event) => onChange({ ...settings, role: event.target.value || null })}
-                  className="h-9 rounded-md border border-border bg-card px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring/40"
+                  className="h-9 rounded-md border border-border bg-card px-3 text-sm text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                 >
                   <option value="">—</option>
                   {roleOptions.map((role) => (
@@ -498,7 +497,6 @@ export function createPersonLinkAdapter(
     selectedEmptyHint: options.selectedEmptyHint,
     confirmButtonLabel: options.confirmButtonLabel,
     defaultAvatarIcon: options.defaultAvatarIcon,
-    headerIcon: options.headerIcon ?? <Link2 className="size-5" />,
     filters,
     renderRow,
     renderPreview,

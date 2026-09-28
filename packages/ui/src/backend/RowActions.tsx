@@ -5,6 +5,8 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { IconButton } from '../primitives/icon-button'
 import { Button } from '../primitives/button'
 import { Spinner } from '../primitives/spinner'
+import { MENU_ROW_HOVER, MENU_ROW_SPACING, menuRowVariants } from '../primitives/menu'
+import { cn } from '@open-mercato/shared/lib/utils'
 
 export type RowActionItem = {
   id?: string
@@ -167,7 +169,7 @@ export function RowActions({ items = [], size = 'default' }: RowActionsProps) {
         <div
           ref={menuRef}
           role="menu"
-          className="fixed flex w-44 max-w-[calc(100vw-1rem)] flex-col gap-1 rounded-md border bg-surface p-1 shadow focus-visible:outline-none z-dropdown"
+          className="fixed flex w-44 max-w-[calc(100vw-1rem)] flex-col rounded-xl bg-popover p-1.5 shadow-lg focus-visible:outline-none z-dropdown"
           style={{
             top: direction === 'down' ? anchorRect.bottom + 8 : anchorRect.top - 8,
             left: Math.min(anchorRect.right, window.innerWidth - 8),
@@ -184,7 +186,12 @@ export function RowActions({ items = [], size = 'default' }: RowActionsProps) {
               <a
                 key={idx}
                 href={it.href}
-                className={`block w-full text-left px-2 py-1 text-sm rounded-md hover:bg-accent ${it.destructive ? 'text-destructive' : ''} ${isDisabled ? 'pointer-events-none opacity-60' : ''}`}
+                className={cn(
+                  menuRowVariants({ size: 'compact', tone: it.destructive ? 'destructive' : 'default' }),
+                  'px-3',
+                  it.destructive ? 'hover:bg-status-error-bg' : MENU_ROW_HOVER,
+                  isDisabled && 'pointer-events-none opacity-60',
+                )}
                 role="menuitem"
                 aria-disabled={isDisabled ? true : undefined}
                 tabIndex={isDisabled ? -1 : undefined}
@@ -205,7 +212,11 @@ export function RowActions({ items = [], size = 'default' }: RowActionsProps) {
                 type="button"
                 variant="ghost"
                 size="sm"
-                className={`w-full justify-start font-normal ${it.destructive ? 'text-destructive' : ''}`}
+                className={cn(
+                  MENU_ROW_SPACING,
+                  'w-full justify-start font-normal text-foreground',
+                  it.destructive ? 'text-destructive hover:bg-status-error-bg hover:text-destructive' : MENU_ROW_HOVER,
+                )}
                 role="menuitem"
                 disabled={isDisabled}
                 aria-busy={isLoading ? true : undefined}

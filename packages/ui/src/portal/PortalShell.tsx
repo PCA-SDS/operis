@@ -409,7 +409,7 @@ export function PortalShell({
 
       {mobileOpen ? (
         <div className="fixed inset-0 z-modal lg:hidden">
-          <div className="absolute inset-0 bg-foreground/40" onClick={closeMobile} />
+          <div className="absolute inset-0 bg-scrim" onClick={closeMobile} />
           <aside className="relative z-10 h-full w-[280px] bg-surface shadow-2xl">
             <div className="absolute right-3 top-4 z-20">
               <CloseButton onClick={closeMobile} aria-label="Close menu" />

@@ -463,7 +463,6 @@ export function MessagesInboxPageClient() {
             createLabel={t('messages.compose', 'Compose message')}
           />
         )}
-        embedded
       />
       {ConfirmDialogElement}
     </div>

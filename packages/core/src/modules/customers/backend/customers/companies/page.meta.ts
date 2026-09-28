@@ -8,5 +8,6 @@ export const metadata = {
   pagePriority: 10,
   pageOrder: 110,
   icon: 'building2',
+  loadingSkeleton: 'list',
   breadcrumb: [{ label: 'Companies', labelKey: 'customers.nav.companies' }],
 }

@@ -4,6 +4,15 @@ import { createPortal } from "react-dom";
 import { useT } from "@open-mercato/shared/lib/i18n/context";
 import { Button } from "@open-mercato/ui/primitives/button";
 import { CloseButton } from "../../primitives/close-button";
+import {
+  DIALOG_BODY_CLASS,
+  DIALOG_CLOSE_GUTTER_CLASS,
+  DIALOG_CLOSE_POSITION_CLASS,
+  DIALOG_DESCRIPTION_CLASS,
+  DIALOG_FOOTER_CLASS,
+  DIALOG_HEADER_CLASS,
+  DIALOG_TITLE_CLASS,
+} from "../../primitives/dialog";
 import { cn } from "@open-mercato/shared/lib/utils";
 import { Loader2 } from "lucide-react";
 
@@ -193,6 +202,11 @@ export function ConfirmDialog({
     }
   };
 
+  // An alert offers its way out as Cancel, as Apple's do; a close button beside
+  // Cancel is a second control for the same act. It returns only when a caller
+  // hides Cancel, so the dialog still has a visible way out besides Escape.
+  const showCloseButton = resolvedCancelText === false;
+
   const dialogElement = (
     <dialog
       ref={dialogRef}
@@ -204,55 +218,52 @@ export function ConfirmDialog({
         // Reset dialog defaults
         "m-0 p-0 max-w-none bg-transparent border-none pointer-events-auto",
         // Backdrop — the canonical modal scrim (no blur).
-        "backdrop:bg-foreground/40 backdrop:transition-opacity",
+        "backdrop:bg-scrim backdrop:transition-opacity",
         // Mobile: bottom sheet
         "fixed inset-x-0 bottom-0 top-auto w-full",
         // Desktop: centered
-        "sm:inset-auto sm:mx-auto sm:my-auto sm:max-w-md sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2",
-        // Animation with reduced motion support
-        "motion-safe:open:animate-in motion-safe:open:fade-in-0 motion-safe:open:slide-in-from-bottom-4",
-        "sm:motion-safe:open:slide-in-from-bottom-0 sm:motion-safe:open:zoom-in-95",
-        // Duration
-        "motion-safe:open:duration-300"
+        "sm:inset-auto sm:mx-auto sm:my-auto sm:max-w-md sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2"
       )}
     >
       <div
         role="document"
         className={cn(
-          // Panel — canonical borderless chrome: the rhythm comes from the
-          // header/body/footer padding trio, never from divider lines.
-          "relative flex flex-col rounded-t-2xl bg-surface text-foreground shadow-xl",
+          // Panel — the dialog's chrome and its entrance: the rhythm comes from
+          // the shared header/body/footer insets, never from divider lines.
+          "relative flex flex-col rounded-t-2xl bg-surface text-foreground shadow-xl animate-fadeInUp",
           "sm:rounded-2xl"
         )}
       >
-        <CloseButton
-          onClick={handleCancel}
-          disabled={loading}
-          aria-label={closeAriaLabel}
-          className="absolute right-5 top-4 z-10 sm:right-6"
-        />
+        {showCloseButton ? (
+          <CloseButton
+            onClick={handleCancel}
+            disabled={loading}
+            aria-label={closeAriaLabel}
+            className={DIALOG_CLOSE_POSITION_CLASS.md}
+          />
+        ) : null}
 
         {/* Header */}
-        <div className="shrink-0 px-5 py-4 pr-11 text-left sm:px-6 sm:pr-12">
-          <h2
-            id={titleId}
-            className="text-xl font-semibold tracking-tight text-foreground"
-          >
+        <div className={cn(DIALOG_HEADER_CLASS, showCloseButton && DIALOG_CLOSE_GUTTER_CLASS.md)}>
+          <h2 id={titleId} className={DIALOG_TITLE_CLASS}>
             {resolvedTitle}
           </h2>
         </div>
 
         {/* Body (optional) */}
         {text && (
-          <div className="shrink-0 px-5 pt-3 pb-5 sm:px-6">
-            <p id={descriptionId} className="text-sm text-muted-foreground">
+          <div className={cn("shrink-0", DIALOG_BODY_CLASS)}>
+            <p id={descriptionId} className={DIALOG_DESCRIPTION_CLASS}>
               {text}
             </p>
           </div>
         )}
 
         {/* Actions */}
-        <div className="flex shrink-0 flex-col-reverse gap-2 px-5 pt-1.5 pb-4 sm:flex-row sm:justify-end sm:px-6">
+        <div
+          data-slot="confirm-dialog-footer"
+          className={cn(DIALOG_FOOTER_CLASS, "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end")}
+        >
           {resolvedCancelText !== false && (
             <Button
               ref={cancelButtonRef}

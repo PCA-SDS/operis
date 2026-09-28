@@ -135,6 +135,7 @@ export function classifyValue(name, value) {
   if (value.startsWith('calc(')) return 'expression'
   if (/^-?\d+(\.\d+)?(rem|px|em)$/.test(value)) return 'dimension'
   if (name.startsWith('font-geist-')) return 'fontStack'
+  if (/^cubic-bezier\(/i.test(value)) return 'easing'
   throw new ParseError(`cannot classify value of --${name}: "${value}"`)
 }
 
@@ -205,7 +206,8 @@ function rgbToHex(r, g, b, alpha) {
 // Figma naming — deterministic prefix table. Snapshot-only tokens get null.
 
 export function figmaFor(name, kind) {
-  if (kind === 'shadow' || kind === 'fontStack' || kind === 'reference') return null
+  // Easing curves have no Figma variable type; they live in the snapshot only.
+  if (kind === 'shadow' || kind === 'fontStack' || kind === 'reference' || kind === 'easing') return null
   // Structural patterns, not enumerated values — a brand-new status hue or
   // chart color groups correctly with zero code changes.
   const statusMatch = name.match(/^status-([a-z0-9]+)-(bg|text|border|icon)$/)
