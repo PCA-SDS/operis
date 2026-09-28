@@ -1,18 +1,9 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
-import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
-import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
-import type { CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
 import { resolveTranslations, detectLocale } from '@open-mercato/shared/lib/i18n/server'
 import { CrudHttpError, isCrudHttpError, notFound } from '@open-mercato/shared/lib/crud/errors'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
-import {
-  bridgeLegacyGuard,
-  runMutationGuards,
-  type MutationGuard,
-  type MutationGuardInput,
-} from '@open-mercato/shared/lib/crud/mutation-guard-registry'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import crypto from 'node:crypto'
 import { withScopedPayload } from '../../utils'
@@ -26,85 +17,13 @@ import { QuoteSentEmail } from '../../../emails/QuoteSentEmail'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { resolveGrantedFeatures } from '@open-mercato/shared/lib/auth/grantedFeatures'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
+import { resolveRequestContext } from '../requestContext'
+import { emailSchema } from '@open-mercato/shared/lib/validation'
 
 const logger = createLogger('sales')
 
 export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['sales.quotes.manage'] },
-}
-
-type RequestContext = {
-  ctx: CommandRuntimeContext
-}
-
-async function runGuards(
-  ctx: CommandRuntimeContext,
-  input: MutationGuardInput,
-): Promise<{
-  ok: boolean
-  errorBody?: Record<string, unknown>
-  errorStatus?: number
-  afterSuccessCallbacks: Array<{ guard: MutationGuard; metadata: Record<string, unknown> | null }>
-}> {
-  const legacyGuard = bridgeLegacyGuard(ctx.container)
-  if (!legacyGuard) {
-    return { ok: true, afterSuccessCallbacks: [] }
-  }
-
-  return runMutationGuards([legacyGuard], input, {
-    userFeatures: await resolveGrantedFeatures(ctx.container, ctx.auth, input.organizationId),
-  })
-}
-
-async function runGuardAfterSuccessCallbacks(
-  callbacks: Array<{ guard: MutationGuard; metadata: Record<string, unknown> | null }>,
-  input: {
-    tenantId: string
-    organizationId: string | null
-    userId: string
-    resourceKind: string
-    resourceId: string
-    operation: 'create' | 'update' | 'delete'
-    requestMethod: string
-    requestHeaders: Headers
-  },
-): Promise<void> {
-  for (const callback of callbacks) {
-    if (!callback.guard.afterSuccess) continue
-    await callback.guard.afterSuccess({
-      ...input,
-      metadata: callback.metadata ?? null,
-    })
-  }
-}
-
-async function resolveRequestContext(req: Request): Promise<RequestContext> {
-  const container = await createRequestContainer()
-  const auth = await getAuthFromRequest(req)
-  const { translate } = await resolveTranslations()
-
-  if (!auth || !auth.tenantId) {
-    throw new CrudHttpError(401, { error: translate('sales.documents.errors.unauthorized', 'Unauthorized') })
-  }
-
-  const scope = await resolveOrganizationScopeForRequest({ container, auth, request: req })
-  const organizationId = scope?.selectedId ?? auth.orgId ?? null
-  if (!organizationId) {
-    throw new CrudHttpError(400, {
-      error: translate('sales.documents.errors.organization_required', 'Organization context is required'),
-    })
-  }
-
-  const ctx: CommandRuntimeContext = {
-    container,
-    auth,
-    organizationScope: scope,
-    selectedOrganizationId: organizationId,
-    organizationIds: scope?.filterIds ?? (auth.orgId ? [auth.orgId] : null),
-    request: req,
-  }
-
-  return { ctx }
 }
 
 function resolveQuoteEmail(quote: SalesQuote): string | null {
@@ -118,7 +37,7 @@ function resolveQuoteEmail(quote: SalesQuote): string | null {
     (typeof metadata?.customerEmail === 'string' && metadata.customerEmail.trim()) ||
     null
   if (!candidate) return null
-  const parsed = z.string().email().safeParse(candidate)
+  const parsed = emailSchema().safeParse(candidate)
   return parsed.success ? parsed.data : null
 }
 
@@ -129,19 +48,19 @@ export async function POST(req: Request) {
     const payload = await readJsonSafe(req, {})
     const scoped = withScopedPayload(payload ?? {}, ctx, translate)
     const input = quoteSendSchema.parse(scoped)
-    const guardResult = await runGuards(ctx, {
-      tenantId: ctx.auth?.tenantId ?? '',
-      organizationId: ctx.selectedOrganizationId ?? ctx.auth?.orgId ?? null,
-      userId: ctx.auth?.sub ?? '',
-      resourceKind: 'sales.quote',
-      resourceId: input.quoteId,
-      operation: 'update',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
+    const organizationId = ctx.selectedOrganizationId ?? ctx.auth?.orgId ?? null
+    const guardResult = await runRouteMutationGuards({
+      container: ctx.container,
+      req,
+      auth: {
+        userId: ctx.auth?.sub ?? '',
+        tenantId: ctx.auth?.tenantId ?? '',
+        organizationId,
+        userFeatures: await resolveGrantedFeatures(ctx.container, ctx.auth, organizationId),
+      },
+      input: { resourceKind: 'sales.quote', resourceId: input.quoteId, operation: 'update' },
     })
-    if (!guardResult.ok) {
-      return NextResponse.json(guardResult.errorBody ?? { error: 'Operation blocked by guard' }, { status: guardResult.errorStatus ?? 422 })
-    }
+    if (!guardResult.ok) return guardResult.response
 
     const em = (ctx.container.resolve('em') as EntityManager).fork()
     const tenantScope = ctx.auth?.tenantId ? { tenantId: ctx.auth.tenantId } : undefined
@@ -214,18 +133,7 @@ export async function POST(req: Request) {
       react: QuoteSentEmail({ url, copy }),
     })
 
-    if (guardResult.afterSuccessCallbacks.length) {
-      await runGuardAfterSuccessCallbacks(guardResult.afterSuccessCallbacks, {
-        tenantId: ctx.auth?.tenantId ?? '',
-        organizationId: ctx.selectedOrganizationId ?? ctx.auth?.orgId ?? null,
-        userId: ctx.auth?.sub ?? '',
-        resourceKind: 'sales.quote',
-        resourceId: input.quoteId,
-        operation: 'update',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
-      })
-    }
+    await guardResult.runAfterSuccess()
 
     return NextResponse.json({ ok: true })
   } catch (err) {

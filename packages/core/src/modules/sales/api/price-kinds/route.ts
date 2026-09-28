@@ -1,11 +1,13 @@
 import { z } from 'zod'
 import { makeCrudRoute } from '@open-mercato/shared/lib/crud/factory'
 import { CatalogPriceKind } from '@open-mercato/core/modules/catalog/data/entities'
-import { sanitizeSearchTerm, parseBooleanFlag } from '@open-mercato/core/modules/catalog/api/helpers'
 import { E } from '#generated/entities.ids.generated'
 import * as F from '#generated/entities/catalog_price_kind'
 import { createPagedListResponseSchema, createSalesCrudOpenApi } from '../openapi'
 import { buildAggregateSearchFilter } from '../utils'
+import { sanitizeSearchTerm } from '@open-mercato/shared/lib/query/sanitizeSearchTerm'
+import { parseBooleanFlag } from '@open-mercato/shared/lib/boolean'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 const routeMetadata = {
   GET: { requireAuth: true, requireFeatures: ['sales.channels.manage'] },
@@ -15,8 +17,7 @@ export const metadata = routeMetadata
 
 const listSchema = z
   .object({
-    page: z.coerce.number().int().min(1).default(1),
-    pageSize: z.coerce.number().int().min(1).max(100).default(50),
+    ...paginationQuerySchema().shape,
     search: z.string().optional(),
     isActive: z.string().optional(),
   })

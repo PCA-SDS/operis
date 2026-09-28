@@ -13,6 +13,7 @@ import * as F from '#generated/entities/sales_return'
 import { createPagedListResponseSchema } from '../openapi'
 import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
+import { amountToNumber } from '../amounts'
 
 const rawBodySchema = z.object({}).passthrough()
 
@@ -33,15 +34,6 @@ const routeMetadata = {
   POST: { requireAuth: true, requireFeatures: ['sales.returns.create'] },
   PUT: { requireAuth: true, requireFeatures: ['sales.returns.manage'] },
   DELETE: { requireAuth: true, requireFeatures: ['sales.returns.manage'] },
-}
-
-const toNumber = (value: unknown): number => {
-  if (typeof value === 'number') return value
-  if (typeof value === 'string') {
-    const parsed = Number(value)
-    if (!Number.isNaN(parsed)) return parsed
-  }
-  return 0
 }
 
 const crud = makeCrudRoute({
@@ -143,8 +135,8 @@ const crud = makeCrudRoute({
         const returnId = typeof line.salesReturn === 'string' ? line.salesReturn : line.salesReturn?.id ?? null
         if (!returnId) return acc
         const current = acc.get(returnId) ?? { net: 0, gross: 0 }
-        current.net += toNumber(line.totalNetAmount)
-        current.gross += toNumber(line.totalGrossAmount)
+        current.net += amountToNumber(line.totalNetAmount)
+        current.gross += amountToNumber(line.totalGrossAmount)
         acc.set(returnId, current)
         return acc
       }, new Map())

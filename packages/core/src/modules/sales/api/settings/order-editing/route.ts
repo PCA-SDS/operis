@@ -13,13 +13,10 @@ import { loadSalesSettings } from '../../../commands/settings'
 import { DEFAULT_ORDER_NUMBER_FORMAT, DEFAULT_QUOTE_NUMBER_FORMAT } from '../../../lib/documentNumberTokens'
 import { withScopedPayload } from '../../utils'
 import { readJsonSafe } from '@open-mercato/shared/lib/http/readJsonSafe'
-import {
-  runCrudMutationGuardAfterSuccess,
-  validateCrudMutationGuard,
-} from '@open-mercato/shared/lib/crud/mutation-guard'
 import { ensureSalesDictionary } from '../../../lib/dictionaries'
 import { DictionaryEntry } from '@open-mercato/core/modules/dictionaries/data/entities'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
 const logger = createLogger('sales')
 
@@ -126,19 +123,19 @@ export async function PUT(req: Request) {
     const scoped = withScopedPayload(payload, ctx, translate)
     const parsed = salesEditingSettingsSchema.parse(scoped)
 
-    const guardResult = await validateCrudMutationGuard(ctx.container, {
-      tenantId,
-      organizationId,
-      userId: ctx.auth!.sub,
-      resourceKind: 'sales.settings',
-      resourceId: organizationId,
-      operation: 'update',
-      requestMethod: req.method,
-      requestHeaders: req.headers,
-      mutationPayload: parsed,
+    const guardResult = await runRouteMutationGuards({
+      container: ctx.container,
+      req,
+      auth: { userId: ctx.auth!.sub, tenantId, organizationId },
+      input: {
+        resourceKind: 'sales.settings',
+        resourceId: organizationId,
+        operation: 'update',
+        mutationPayload: parsed,
+      },
     })
-    if (guardResult && !guardResult.ok) {
-      return NextResponse.json(guardResult.body, { status: guardResult.status })
+    if (!guardResult.ok) {
+      return NextResponse.json(guardResult.errorBody, { status: guardResult.errorStatus })
     }
 
     const current = await loadSalesSettings(em, { tenantId, organizationId })
@@ -154,19 +151,7 @@ export async function PUT(req: Request) {
     const response = await commandBus.execute('sales.settings.save', { input: commandInput, ctx })
     const result = (response as { result?: { orderCustomerEditableStatuses?: string[] | null; orderAddressEditableStatuses?: string[] | null } }).result
 
-    if (guardResult?.ok && guardResult.shouldRunAfterSuccess) {
-      await runCrudMutationGuardAfterSuccess(ctx.container, {
-        tenantId,
-        organizationId,
-        userId: ctx.auth!.sub,
-        resourceKind: 'sales.settings',
-        resourceId: organizationId,
-        operation: 'update',
-        requestMethod: req.method,
-        requestHeaders: req.headers,
-        metadata: guardResult.metadata ?? null,
-      })
-    }
+    await guardResult.runAfterSuccess()
 
     const orderStatuses = await loadStatusOptions(em, tenantId, organizationId)
 

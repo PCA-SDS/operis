@@ -28,6 +28,7 @@ import { parseIdsParam } from '@open-mercato/shared/lib/crud/ids'
 import type { RbacService } from '@open-mercato/core/modules/auth/services/rbacService'
 import { recalculateOrderTotalsForDisplay } from '../../commands/returns'
 import { parseDecryptedFieldValue } from '@open-mercato/shared/lib/encryption/tenantDataEncryptionService'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 type DocumentKind = 'order' | 'quote'
 
@@ -86,8 +87,7 @@ const resolveCustomerEmail = (snapshot: Record<string, unknown> | null) => {
 
 const listSchema = z
   .object({
-    page: z.coerce.number().int().min(1).default(1),
-    pageSize: z.coerce.number().int().min(1).max(100).default(50),
+    ...paginationQuerySchema().shape,
     search: z.string().optional(),
     id: z.string().uuid().optional(),
     customerId: z.string().uuid().optional(),

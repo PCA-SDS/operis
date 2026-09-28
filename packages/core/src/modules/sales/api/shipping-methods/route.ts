@@ -13,13 +13,13 @@ import {
   defaultDeleteRequestSchema,
 } from '../openapi'
 import { parseBooleanToken } from '@open-mercato/shared/lib/boolean'
+import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
 
 const rawBodySchema = z.object({}).passthrough()
 
 const listSchema = z
   .object({
-    page: z.coerce.number().int().min(1).default(1),
-    pageSize: z.coerce.number().int().min(1).max(100).default(50),
+    ...paginationQuerySchema().shape,
     search: z.string().optional(),
     currency: z.string().optional(),
     id: z.string().uuid().optional(),
