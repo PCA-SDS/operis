@@ -67,6 +67,19 @@ describe('collectQueryIndexReindexEntityTypes', () => {
     expect(collected).toEqual(['customers:customer_dictionary_entry', 'workflows:workflow_definition'])
   })
 
+  it('imports a working-directory-relative migration path as an absolute path', async () => {
+    const relativePath = path.join('..', '..', 'packages', 'core', 'src', 'modules', 'customers', 'migrations', 'Migration20260901120000_x.ts')
+    const importModule = jest.fn(async () => ({ queryIndexReindexEntityTypes: ['customers:customer_pipeline_stage'] }))
+
+    const collected = await collectQueryIndexReindexEntityTypes(
+      [migration('Migration20260901120000_x', { filePath: relativePath })],
+      { importModule, fileExists },
+    )
+
+    expect(importModule).toHaveBeenCalledWith(path.resolve(relativePath))
+    expect(collected).toEqual(['customers:customer_pipeline_stage'])
+  })
+
   it('warns and keeps going when a migration file cannot be imported', async () => {
     const onWarn = jest.fn()
     const collected = await collectQueryIndexReindexEntityTypes(

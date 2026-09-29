@@ -58,7 +58,7 @@ export async function collectQueryIndexReindexEntityTypes(
     if (!filePath) continue
     let moduleExports: unknown
     try {
-      moduleExports = await deps.importModule(filePath)
+      moduleExports = await deps.importModule(path.resolve(filePath))
     } catch (error) {
       deps.onWarn?.(
         `[query_index] Could not read reindex declarations from ${migration.moduleId}/${migration.name}: ${
