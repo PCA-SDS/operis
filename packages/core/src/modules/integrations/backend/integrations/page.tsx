@@ -14,7 +14,7 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { FilterBar, type FilterValues } from '@open-mercato/ui/backend/FilterBar'
-import { Bell, Cog, CreditCard, HardDrive, LayoutGrid, MessageSquare, RefreshCw, Search, Sparkles, Truck, Webhook } from 'lucide-react'
+import { Bell, Cog, CreditCard, HardDrive, LayoutGrid, MessageSquare, RefreshCw, Search, Settings2, Sparkles, Truck, Webhook } from 'lucide-react'
 import {
   buildIntegrationMarketplaceFilterDefs,
   getIntegrationMarketplaceCategory,
@@ -22,6 +22,14 @@ import {
   INTEGRATION_MARKETPLACE_CATEGORIES,
   normalizeIntegrationMarketplaceFilterValues,
 } from './filters'
+import {
+  DEFAULT_PINNED_INTEGRATION_IDS,
+  clearPinnedIntegrationIds,
+  readPinnedIntegrationIds,
+  togglePinnedIntegrationId,
+  writePinnedIntegrationIds,
+} from './pinned'
+import { IntegrationVisibilityDialog } from '../../components/IntegrationVisibilityDialog'
 
 type IntegrationAnalytics = {
   lastActivityAt: string | null
@@ -145,11 +153,30 @@ export default function IntegrationsMarketplacePage() {
   const [sortOrder, setSortOrder] = React.useState<'asc' | 'desc'>('asc')
   const [page, setPage] = React.useState(1)
   const [togglingIds, setTogglingIds] = React.useState<Set<string>>(new Set())
+  const [pinnedIds, setPinnedIds] = React.useState<string[]>(() => [...DEFAULT_PINNED_INTEGRATION_IDS])
+  const [customizeOpen, setCustomizeOpen] = React.useState(false)
   const scopeVersion = useOrganizationScopeVersion()
   const t = useT()
   const { runMutation, retryLastMutation } = useGuardedMutation<Record<string, unknown>>({
     contextId: 'integrations.marketplace',
   })
+
+  React.useEffect(() => {
+    setPinnedIds(readPinnedIntegrationIds())
+  }, [])
+
+  const handleTogglePinned = React.useCallback((id: string, pinned: boolean) => {
+    setPinnedIds((prev) => {
+      const next = togglePinnedIntegrationId(prev, id, pinned)
+      writePinnedIntegrationIds(next)
+      return next
+    })
+  }, [])
+
+  const handleResetPinned = React.useCallback(() => {
+    clearPinnedIntegrationIds()
+    setPinnedIds([...DEFAULT_PINNED_INTEGRATION_IDS])
+  }, [])
 
   React.useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(searchInput.trim()), 300)
@@ -260,12 +287,20 @@ export default function IntegrationsMarketplacePage() {
     }
   }, [retryLastMutation, runMutation, t])
 
+  const pinnedSet = React.useMemo(() => new Set(pinnedIds), [pinnedIds])
+
+  const hiddenCount = React.useMemo(
+    () => (data ? data.items.filter((item) => !pinnedSet.has(item.id)).length : 0),
+    [data, pinnedSet],
+  )
+
   const grouped = React.useMemo(() => {
     if (!data) return { bundles: [] as Array<BundleItem & { integrations: IntegrationItem[] }>, standalone: [] as IntegrationItem[] }
 
     const bundled = new Map<string, IntegrationItem[]>()
     const standalone: IntegrationItem[] = []
     for (const item of data.items) {
+      if (!pinnedSet.has(item.id)) continue
       if (item.bundleId) {
         const list = bundled.get(item.bundleId) ?? []
         list.push(item)
@@ -280,7 +315,7 @@ export default function IntegrationsMarketplacePage() {
       .map((b) => ({ ...b, integrations: bundled.get(b.id) ?? [] }))
 
     return { bundles, standalone }
-  }, [data])
+  }, [data, pinnedSet])
 
   const renderCategoryIcon = React.useCallback((category: string | undefined, className: string) => {
     if (!category) return null
@@ -336,6 +371,10 @@ export default function IntegrationsMarketplacePage() {
             <option value="asc">{t('integrations.marketplace.sort.asc', 'Ascending')}</option>
             <option value="desc">{t('integrations.marketplace.sort.desc', 'Descending')}</option>
           </select>
+          <Button type="button" variant="outline" onClick={() => setCustomizeOpen(true)}>
+            <Settings2 className="mr-1.5 h-4 w-4" />
+            {t('integrations.marketplace.customize.action', 'Customize')}
+          </Button>
         </>
       )}
     />
@@ -562,10 +601,30 @@ export default function IntegrationsMarketplacePage() {
 
           {grouped.bundles.length === 0 && grouped.standalone.length === 0 && !isLoading && (
             <div className="text-center py-12 text-muted-foreground">
-              {t('integrations.marketplace.noResults')}
+              {hiddenCount > 0
+                ? t('integrations.marketplace.customize.noneShown', 'No integrations are shown here. Use Customize to choose which ones appear.')
+                : t('integrations.marketplace.noResults')}
             </div>
           )}
+
+          {hiddenCount > 0 && !isLoading ? (
+            <div className="flex flex-wrap items-center justify-center gap-2 border-t pt-4 text-sm text-muted-foreground">
+              <span>
+                {t('integrations.marketplace.customize.hiddenCount', '{{count}} more integrations are hidden.', { count: hiddenCount })}
+              </span>
+              <Button type="button" variant="link" size="sm" onClick={() => setCustomizeOpen(true)}>
+                {t('integrations.marketplace.customize.showMore', 'Choose what to show')}
+              </Button>
+            </div>
+          ) : null}
         </section>
+        <IntegrationVisibilityDialog
+          open={customizeOpen}
+          onOpenChange={setCustomizeOpen}
+          pinnedIds={pinnedIds}
+          onTogglePinned={handleTogglePinned}
+          onReset={handleResetPinned}
+        />
       </PageBody>
     </Page>
   )
