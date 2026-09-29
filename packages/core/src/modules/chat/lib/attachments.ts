@@ -1,5 +1,6 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { Attachment } from '@open-mercato/core/modules/attachments/data/entities'
+import type { ChatActor } from './participants'
 import type { ChatScope } from './scope'
 
 /**
@@ -38,8 +39,11 @@ export const CHAT_DRAFT_ATTACHMENT_ENTITY_ID = 'chat:chat_message_draft'
  * what decide who may see a draft, and no other module has that question.
  */
 export type ChatAttachmentMetadata = {
-  uploaderUserId: string
   conversationId: string
+  /** The colleague who uploaded it — the only uploader an HTTP route can name. */
+  uploaderUserId?: string
+  /** The outsider whose file the transport brought in. Exactly one is set. */
+  uploaderExternalContactId?: string
 }
 
 const METADATA_KEY = 'chat'
@@ -56,10 +60,13 @@ export function readChatAttachmentMetadata(
   const raw = storageMetadata?.[METADATA_KEY]
   if (!raw || typeof raw !== 'object') return null
   const value = raw as Partial<ChatAttachmentMetadata>
-  if (typeof value.uploaderUserId !== 'string' || typeof value.conversationId !== 'string') {
-    return null
-  }
-  return { uploaderUserId: value.uploaderUserId, conversationId: value.conversationId }
+  if (typeof value.conversationId !== 'string') return null
+  const byUser = typeof value.uploaderUserId === 'string'
+  const byContact = typeof value.uploaderExternalContactId === 'string'
+  if (byUser === byContact) return null
+  return byUser
+    ? { uploaderUserId: value.uploaderUserId, conversationId: value.conversationId }
+    : { uploaderExternalContactId: value.uploaderExternalContactId, conversationId: value.conversationId }
 }
 
 export class ChatAttachmentError extends Error {
@@ -90,12 +97,13 @@ export class ChatAttachmentError extends Error {
 export async function linkDraftAttachmentsToMessage(input: {
   em: EntityManager
   scope: ChatScope
-  uploaderUserId: string
+  /** Who is sending — the draft must be theirs, whichever kind of person they are. */
+  uploader: ChatActor
   conversationId: string
   messageId: string
   attachmentIds: string[]
 }): Promise<Attachment[]> {
-  const { em, scope, uploaderUserId, conversationId, messageId, attachmentIds } = input
+  const { em, scope, uploader, conversationId, messageId, attachmentIds } = input
   if (attachmentIds.length === 0) return []
 
   const drafts = await em.find(Attachment, {
@@ -115,7 +123,11 @@ export async function linkDraftAttachmentsToMessage(input: {
     }
 
     const meta = readChatAttachmentMetadata(draft.storageMetadata)
-    if (!meta || meta.uploaderUserId !== uploaderUserId || meta.conversationId !== conversationId) {
+    const uploadedBySender =
+      uploader.kind === 'user'
+        ? meta?.uploaderUserId === uploader.userId
+        : meta?.uploaderExternalContactId === uploader.externalContactId
+    if (!meta || !uploadedBySender || meta.conversationId !== conversationId) {
       // Same answer as a missing row on purpose: someone probing ids should not
       // be able to tell "that is not yours" from "that does not exist".
       throw new ChatAttachmentError('[internal] chat attachment is not an available draft', 'not_found')

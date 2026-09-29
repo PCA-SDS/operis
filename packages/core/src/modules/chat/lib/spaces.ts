@@ -2,6 +2,7 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import { badRequest, forbidden, notFound } from '@open-mercato/shared/lib/crud/errors'
 import { ChatConversation, ChatParticipant } from '../data/entities'
 import { loadChatMessages } from './messages'
+import { loadParticipant, type ChatActor } from './participants'
 import type { ChatScope } from './scope'
 
 /**
@@ -25,14 +26,25 @@ export async function loadSpaceContext(
   conversationId: string,
   userId: string,
 ): Promise<SpaceContext> {
+  return loadConversationContext(em, scope, conversationId, { kind: 'user', userId })
+}
+
+/**
+ * The same two rows for any actor, colleague or outsider.
+ *
+ * An outsider is answered only inside an external conversation. The database
+ * already refuses an outsider's row anywhere else; refusing here too means a
+ * lookup can never admit one, with the same 404 a stranger gets.
+ */
+export async function loadConversationContext(
+  em: EntityManager,
+  scope: ChatScope,
+  conversationId: string,
+  actor: ChatActor,
+): Promise<SpaceContext> {
   const messages = await loadChatMessages()
 
-  const participant = await em.findOne(ChatParticipant, {
-    conversationId,
-    userId,
-    tenantId: scope.tenantId,
-    organizationId: scope.organizationId,
-  })
+  const participant = await loadParticipant(em, scope, conversationId, actor)
   if (!participant) throw notFound(messages.conversationNotFound)
 
   const conversation = await em.findOne(ChatConversation, {
@@ -42,6 +54,9 @@ export async function loadSpaceContext(
     deletedAt: null,
   })
   if (!conversation) throw notFound(messages.conversationNotFound)
+  if (actor.kind === 'external' && conversation.kind !== 'external') {
+    throw notFound(messages.conversationNotFound)
+  }
 
   return { conversation, participant }
 }
@@ -112,6 +127,7 @@ export function conversationTitle(
   counterpartName: string | null,
   fallback: string,
 ): string {
+  if (conversation.kind === 'direct') return counterpartName ?? fallback
   if (conversation.kind === 'space') return conversation.title ?? fallback
-  return counterpartName ?? fallback
+  return conversation.title ?? counterpartName ?? fallback
 }

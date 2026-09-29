@@ -8,6 +8,7 @@ import {
   Bell,
   BellOff,
   ChevronRight,
+  Globe,
   ListChecks,
   MoreHorizontal,
   Paperclip,
@@ -51,6 +52,10 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@open-mercato/ui/primitives/popover'
 import { TranslateControl } from './TranslateControl'
 import { SpaceDetailsDialog } from './SpaceDetailsDialog'
+import { ExternalMembersDialog } from './ExternalMembersDialog'
+import { networkLabel } from './externalNetwork'
+import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
+import { Alert, AlertDescription } from '@open-mercato/ui/primitives/alert'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import {
   useCanSendChat,
@@ -564,6 +569,7 @@ export function ConversationView({
     [confirm, deleteMessage, t],
   )
   const isSpace = conversation?.kind === 'space'
+  const isExternal = conversation?.kind === 'external'
 
   /**
    * Who this conversation lets you name.
@@ -657,12 +663,13 @@ export function ConversationView({
             {
               conversationId,
               isSpace,
+              kind: conversation?.kind,
               /** Called by the command once the work is done, never before. */
               onConsumed: () => setCommandConsumedToken((current) => current + 1),
             },
           ),
       })),
-    [composerCommandActions, conversationId, isSpace],
+    [composerCommandActions, conversationId, isSpace, conversation?.kind],
   )
 
   const openSectionId = panelSectionId(contextPanel.kind)
@@ -702,9 +709,10 @@ export function ConversationView({
   }, [isSpace, members, t, typingPeers])
   // Only a DIRECT conversation can become one-way. A space with a departed
   // member is still a live room for everyone else, so it must not disable the
-  // composer for them.
+  // composer for them — and an external conversation has no counterpart to
+  // lose, so asking "not a space" would disable it for everyone.
   const counterpartLeft =
-    Boolean(conversation) && !isSpace && conversation?.counterpart == null
+    conversation?.kind === 'direct' && conversation.counterpart == null
 
   /**
    * The header renders in every state, including loading and error.
@@ -748,11 +756,24 @@ export function ConversationView({
             <Avatar
               label={conversation ? conversationTitle : ''}
               size="sm"
-              icon={isSpace ? <Users className="size-4" aria-hidden="true" /> : undefined}
+              icon={
+                isSpace ? (
+                  <Users className="size-4" aria-hidden="true" />
+                ) : isExternal ? (
+                  <Globe className="size-4" aria-hidden="true" />
+                ) : undefined
+              }
             />
             <span className="min-w-0 text-left">
-              <span className="block truncate text-sm font-semibold text-foreground">
-                {conversation ? conversationTitle : t('chat.conversation.loading', 'Loading conversation…')}
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="block truncate text-sm font-semibold text-foreground">
+                  {conversation ? conversationTitle : t('chat.conversation.loading', 'Loading conversation…')}
+                </span>
+                {isExternal ? (
+                  <span className="shrink-0" data-testid="chat-external-badge">
+                    <StatusBadge variant="warning">{t('chat.external.badge', 'External')}</StatusBadge>
+                  </span>
+                ) : null}
               </span>
               {/* Suppressed once the conversation can no longer be read. The
                   cached copy survives a failed refetch, so a member count from
@@ -760,7 +781,11 @@ export function ConversationView({
                   this conversation" — the header asserting membership the body
                   is denying. The name stays: it is what you clicked, and losing
                   it too would leave the pane unlabelled. */}
-              {conversationError ? null : isSpace && conversation ? (
+              {conversationError ? null : isExternal && conversation ? (
+                <span className="block truncate text-xs text-muted-foreground">
+                  {networkLabel(t, conversation.external?.network)}
+                </span>
+              ) : isSpace && conversation ? (
                 <span className="block truncate text-xs text-muted-foreground">
                   {tc('chat.space.memberCount', conversation.memberCount, '{count} members')}
                 </span>
@@ -781,7 +806,7 @@ export function ConversationView({
         // client people already use — rather than a separate button competing
         // for the same 56px. A direct has no details, so it stays plain text
         // instead of becoming a control that opens nothing.
-        return isSpace ? (
+        return isSpace || isExternal ? (
           <button
             type="button"
             onClick={() => setDetailsOpen(true)}
@@ -796,7 +821,11 @@ export function ConversationView({
               className="size-4 shrink-0 text-muted-foreground"
               aria-hidden="true"
             />
-            <span className="sr-only">{t('chat.space.details', 'Space details')}</span>
+            <span className="sr-only">
+              {isExternal
+                ? t('chat.external.details', 'People in this conversation')
+                : t('chat.space.details', 'Space details')}
+            </span>
           </button>
         ) : (
           <div className="flex min-w-0 flex-1 items-center gap-3">{identity}</div>
@@ -1157,6 +1186,7 @@ export function ConversationView({
           currentUserId={currentUserId}
           conversationTitle={conversationTitle}
           isSpace={Boolean(isSpace)}
+          isExternal={Boolean(isExternal)}
           onReply={canSend ? setReplyTarget : undefined}
           isLoading={isLoadingMessages}
           hasOlder={hasOlder}
@@ -1176,6 +1206,23 @@ export function ConversationView({
           data-testid="chat-typing-indicator"
         >
           {typingLabel}
+        </div>
+      ) : null}
+
+      {isExternal && conversation ? (
+        <div className="px-4 pb-2">
+          {/* Persistent on purpose: this is the moment before somebody types an
+              internal detail to a customer, and a warning they could dismiss
+              once would be gone for every message after. */}
+          <Alert status="warning" size="sm" data-testid="chat-external-warning">
+            <AlertDescription>
+              {t(
+                'chat.external.composerWarning',
+                'Messages here go to {name} ({network}). Keep internal information out of this conversation.',
+                { name: conversationTitle, network: networkLabel(t, conversation.external?.network) },
+              )}
+            </AlertDescription>
+          </Alert>
         </div>
       ) : null}
 
@@ -1219,6 +1266,13 @@ export function ConversationView({
             currentUserId={currentUserId}
           />
         ) : null}
+        {isExternal && conversation ? (
+          <ExternalMembersDialog
+            open={detailsOpen}
+            onClose={() => setDetailsOpen(false)}
+            conversation={conversation}
+          />
+        ) : null}
 
         {/* Mounted once here rather than per message row: the menu that raises
             it is a leaf inside the transcript, and one dialog for the whole view
@@ -1234,6 +1288,7 @@ export function ConversationView({
           context={{
             conversationId,
             isSpace,
+            kind: conversation?.kind,
             currentUserId,
             onJumpToMessage: jumpToMessage,
           }}
@@ -1277,6 +1332,7 @@ export function ConversationView({
               sectionId: openSectionId,
               conversationId,
               isSpace,
+              kind: conversation?.kind,
               onJumpToMessage: handlePanelJump,
             }}
           />

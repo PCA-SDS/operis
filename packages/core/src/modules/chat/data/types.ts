@@ -33,11 +33,32 @@ export type ChatMemberDto = ChatParticipantDto & {
   joinedAt: string
 }
 
+/**
+ * An outsider in an external conversation, as the members panel lists them.
+ *
+ * Not a `ChatMemberDto`: an outsider has no email, no role and no user id, and
+ * nothing a colleague can do to a member — promote, remove — applies to them.
+ */
+export type ChatExternalMemberDto = {
+  /** The external contact's id — never a user id. */
+  id: string
+  name: string
+  /** The network label, such as `whatsapp`. */
+  network: string
+  joinedAt: string
+}
+
 export type ChatMemberListDto = {
   items: ChatMemberDto[]
   /** Total members, so the header can say "8 members" without loading all of them. */
   total: number
   hasMore: boolean
+  /**
+   * The outsiders in an external conversation; empty everywhere else. Separate
+   * from `items` so nothing written for colleagues can mistake one for a member,
+   * and unpaginated because a conversation holds a handful at most.
+   */
+  externalMembers: ChatExternalMemberDto[]
 }
 
 export type ChatConversationDto = {
@@ -55,6 +76,15 @@ export type ChatConversationDto = {
   viewerRole: ChatParticipantRole
   /** The other person in a direct conversation; null for a space, and null when they left the organization. */
   counterpart: ChatParticipantDto | null
+  /**
+   * Who in an external conversation is outside the organization, and on which
+   * network; null for a direct or a space. What the header and the composer
+   * warning name.
+   */
+  external: {
+    network: string
+    contacts: Array<{ id: string; name: string }>
+  } | null
   lastMessageAt: string | null
   lastMessagePreview: string | null
   lastMessageSenderUserId: string | null
@@ -95,7 +125,8 @@ export type ChatConversationDto = {
  */
 export type ChatReplyTargetDto = {
   id: string
-  senderUserId: string
+  /** Null when the original was written by an outsider (an external contact). */
+  senderUserId: string | null
   /** The original author's display name, resolved with the page. */
   senderName: string
   /** Truncated to a single preview line. Empty when the target was deleted. */
@@ -127,7 +158,8 @@ export type ChatPinnedMessageDto = {
   pinnedByUserId: string
   pinnedByName: string
   pinnedAt: string
-  senderUserId: string
+  /** Null when the pinned message was written by an outsider. */
+  senderUserId: string | null
   senderName: string
   /** Truncated for the panel — a pin is a pointer, not a second transcript. */
   preview: string
@@ -155,7 +187,13 @@ export type ChatAttachmentDto = {
 export type ChatMessageDto = {
   id: string
   conversationId: string
-  senderUserId: string
+  /**
+   * The colleague who wrote it, or null when an outsider did — never compare it
+   * alone to decide "same author": two outsiders both carry null.
+   */
+  senderUserId: string | null
+  /** The outsider who wrote it — an external contact — or null when a colleague did. */
+  senderExternalContactId: string | null
   /**
    * The sender's display name, resolved server-side with the page.
    *
@@ -164,6 +202,8 @@ export type ChatMessageDto = {
    * and would still be wrong for a message from someone who has since left.
    */
   senderName: string
+  /** An outsider's network label (`whatsapp`, …), or null for a colleague. */
+  senderNetwork: string | null
   kind: ChatMessageKind
   body: string
   createdAt: string
@@ -281,8 +321,9 @@ export type ChatSearchHitDto = {
   conversationId: string
   /** Null for a direct conversation, whose name is the other person. */
   conversationTitle: string | null
-  conversationKind: 'direct' | 'space'
-  senderUserId: string
+  conversationKind: ChatConversationKind
+  /** Null when the message was written by an outsider. */
+  senderUserId: string | null
   senderName: string
   /** A window of the ORIGINAL text around the match, never the folded form. */
   snippet: string
@@ -311,7 +352,9 @@ export type ChatSharedFileDto = {
   fileName: string
   mimeType: string
   fileSize: number
-  uploaderUserId: string
+  /** Null when an outsider sent the file; `uploaderName` names them either way. */
+  uploaderUserId: string | null
+  uploaderExternalContactId: string | null
   uploaderName: string
   createdAt: string
 }
@@ -322,7 +365,9 @@ export type ChatSharedLinkDto = {
   messageId: string
   url: string
   host: string
-  sharedByUserId: string
+  /** Null when an outsider shared the link; `sharedByName` names them either way. */
+  sharedByUserId: string | null
+  sharedByExternalContactId: string | null
   sharedByName: string
   createdAt: string
 }

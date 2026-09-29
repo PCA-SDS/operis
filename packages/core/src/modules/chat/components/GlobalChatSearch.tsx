@@ -2,7 +2,7 @@
 
 import * as React from 'react'
 import { useRouter } from 'next/navigation'
-import { Hash, MessageSquare, Search } from 'lucide-react'
+import { Globe, Hash, MessageSquare, Search } from 'lucide-react'
 import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
 import { SearchInput } from '@open-mercato/ui/primitives/search-input'
 import { Skeleton } from '@open-mercato/ui/primitives/skeleton'
@@ -153,6 +153,8 @@ export function GlobalChatSearch() {
                 <h3 className="flex items-center gap-1.5 px-3 text-xs font-semibold text-muted-foreground">
                   {hits[0]!.conversationKind === 'space' ? (
                     <Hash className="size-3.5 shrink-0" aria-hidden="true" />
+                  ) : hits[0]!.conversationKind === 'external' ? (
+                    <Globe className="size-3.5 shrink-0" aria-hidden="true" />
                   ) : (
                     <MessageSquare className="size-3.5 shrink-0" aria-hidden="true" />
                   )}

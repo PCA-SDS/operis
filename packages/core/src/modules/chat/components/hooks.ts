@@ -525,6 +525,8 @@ export function useSpaceMembers(conversationId: string | undefined, search: stri
   })
   return {
     members: query.data?.items ?? [],
+    // Outsiders in an external conversation, listed apart from members.
+    externalMembers: query.data?.externalMembers ?? [],
     total: query.data?.total ?? 0,
     hasMore: query.data?.hasMore ?? false,
     isLoading: query.isLoading,

@@ -39,9 +39,10 @@ export const chatSendRateLimit = readEndpointRateLimitConfig('CHAT_SEND', {
  * Uploads, limited harder than sends.
  *
  * An upload costs storage and a scan, not just a row, so the ceiling that
- * matters is not the same one that governs typing. External participants are
- * counted by the same key as everyone else — the limiter keys on the verified
- * subject, so nothing about being external routes around it.
+ * matters is not the same one that governs typing. The limiter keys on the
+ * verified subject. Outsiders never reach this endpoint: a file of theirs
+ * arrives through the Matrix projector, which enforces the same size ceiling and
+ * the same scan.
  */
 export const chatAttachmentUploadRateLimit = readEndpointRateLimitConfig('CHAT_ATTACHMENT_UPLOAD', {
   points: 30,

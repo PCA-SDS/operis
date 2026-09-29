@@ -72,6 +72,8 @@ export async function loadChatMessages() {
     // longer an active member. Resolved server-side because the title is
     // computed there, so every surface renders the same words.
     formerColleague: t('chat.list.unknownPerson', 'Former colleague'),
+    // The same fallback for an outsider, who is never a "former colleague".
+    unknownContact: t('chat.external.unknownContact', 'Unknown contact'),
     /** How `<@everyone>` reads once resolved out of a stored body. */
     everyoneLabel: t('chat.mentions.everyone', 'everyone'),
     mentionNotAllowed: t(

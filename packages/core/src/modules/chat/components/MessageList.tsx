@@ -10,6 +10,7 @@ import { Separator } from '@open-mercato/ui/primitives/separator'
 import { Skeleton } from '@open-mercato/ui/primitives/skeleton'
 import { RowActions } from '@open-mercato/ui/backend/RowActions'
 import { useLocale, useT } from '@open-mercato/shared/lib/i18n/context'
+import { networkLabel } from './externalNetwork'
 import { getIso639Label } from '@open-mercato/shared/lib/i18n/iso639'
 import { cn } from '@open-mercato/shared/lib/utils'
 import type { ChatMessageDto, ChatTranslationDto } from '../data/types'
@@ -67,6 +68,8 @@ type MessageListProps = {
    * already says which — so the label would be noise.
    */
   isSpace: boolean
+  /** An external conversation, whose empty state must not greet a customer as a colleague. */
+  isExternal?: boolean
   /** Absent for a read-only member: there is no Reply action to offer them. */
   onReply?: (target: ReplyRequest) => void
   /** Absent for a read-only member — the picker and chips go with it. */
@@ -269,6 +272,17 @@ const SKELETON_ROWS = [
   { mine: true, width: 'w-1/3' },
   { mine: true, width: 'w-3/5' },
 ] as const
+
+
+/**
+ * Who wrote a message, as one comparable key. Comparing `senderUserId` alone
+ * would run two outsiders' messages together into one turn — both carry null.
+ */
+function senderKey(message: { senderUserId: string | null; senderExternalContactId?: string | null }): string {
+  return message.senderExternalContactId
+    ? `external:${message.senderExternalContactId}`
+    : `user:${message.senderUserId ?? ''}`
+}
 
 export function MessageListSkeleton() {
   return (
@@ -504,6 +518,7 @@ export function MessageList({
   currentUserId,
   conversationTitle,
   isSpace,
+  isExternal = false,
   onReply,
   onToggleReaction,
   onTogglePin,
@@ -798,7 +813,7 @@ export function MessageList({
       const continuesGroup =
         previous !== null &&
         isSameDay(new Date(previous.createdAt), createdAt) &&
-        previous.senderUserId === message.senderUserId &&
+        senderKey(previous) === senderKey(message) &&
         createdAt.getTime() - new Date(previous.createdAt).getTime() <
           GROUPING_WINDOW_MS &&
         // A turn cannot continue across the unread divider, or the divider would
@@ -1117,7 +1132,11 @@ export function MessageList({
                   icon={<MessageSquare className="size-5" aria-hidden="true" />}
                   title={t('chat.messages.emptyTitle', 'No messages yet')}
                   description={
-                    isSpace
+                    isExternal
+                      ? t('chat.external.emptyDescription', 'Nothing here yet. Messages with {name} will appear here.', {
+                          name: conversationTitle,
+                        })
+                      : isSpace
                       ? t(
                           'chat.messages.emptySpaceDescription',
                           'Start the conversation in {name}.',
@@ -1419,6 +1438,11 @@ export function MessageList({
                           >
                             {author}
                           </span>
+                          {row.message.senderNetwork ? (
+                            <span className="shrink-0 text-xs text-muted-foreground">
+                              {networkLabel(t, row.message.senderNetwork)}
+                            </span>
+                          ) : null}
                           <time
                             dateTime={row.message.createdAt}
                             title={fullTimestamp}

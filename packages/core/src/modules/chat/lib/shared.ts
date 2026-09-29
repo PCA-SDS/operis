@@ -30,7 +30,9 @@ export type SharedFileEntry = {
   fileName: string
   mimeType: string
   fileSize: number
-  uploaderUserId: string
+  /** Null when an outsider sent the file. */
+  uploaderUserId: string | null
+  uploaderExternalContactId: string | null
   createdAt: string
 }
 
@@ -40,7 +42,9 @@ export type SharedLinkEntry = {
   messageId: string
   url: string
   host: string
-  sharedByUserId: string
+  /** Null when an outsider shared the link. */
+  sharedByUserId: string | null
+  sharedByExternalContactId: string | null
   createdAt: string
 }
 
@@ -79,7 +83,8 @@ type SharedDatabase = {
     conversation_id: string
     tenant_id: string
     organization_id: string
-    sender_user_id: string
+    sender_user_id: string | null
+    sender_external_contact_id: string | null
     kind: string
     deleted_at: Date | null
   }
@@ -182,6 +187,7 @@ async function queryFiles(input: SharedQueryInput & { media: boolean }): Promise
       'a.file_size as fileSize',
       'a.created_at as createdAt',
       'm.sender_user_id as uploaderUserId',
+      'm.sender_external_contact_id as uploaderExternalContactId',
     ])
     .orderBy('a.created_at', 'desc')
     .orderBy('a.id', 'desc')
@@ -202,6 +208,7 @@ async function queryFiles(input: SharedQueryInput & { media: boolean }): Promise
       mimeType: row.mimeType,
       fileSize: Number(row.fileSize),
       uploaderUserId: row.uploaderUserId,
+      uploaderExternalContactId: row.uploaderExternalContactId,
       createdAt: new Date(row.createdAt).toISOString(),
     })),
     hasMore,
@@ -257,6 +264,7 @@ async function queryLinks(input: SharedQueryInput): Promise<SharedResult> {
       'l.host as host',
       'l.created_at as createdAt',
       'm.sender_user_id as sharedByUserId',
+      'm.sender_external_contact_id as sharedByExternalContactId',
     ])
     .orderBy('l.created_at', 'desc')
     .orderBy('l.id', 'desc')
@@ -275,6 +283,7 @@ async function queryLinks(input: SharedQueryInput): Promise<SharedResult> {
       url: row.url,
       host: row.host,
       sharedByUserId: row.sharedByUserId,
+      sharedByExternalContactId: row.sharedByExternalContactId,
       createdAt: new Date(row.createdAt).toISOString(),
     })),
     hasMore,

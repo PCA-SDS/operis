@@ -60,7 +60,11 @@ export class DefaultChatTaskAssignmentService implements ChatTaskAssignmentServi
       ChatParticipant,
       scopedWhere(ctx.scope, { conversationId }),
     )
-    const otherIds = participants.map((row) => row.userId).filter((id) => id !== ctx.userId)
+    // Colleagues only: an outsider in an external conversation is never a
+    // candidate assignee, and has no user id to offer anyway.
+    const otherIds = participants
+      .map((row) => row.userId)
+      .filter((id): id is string => typeof id === 'string' && id !== ctx.userId)
 
     // Two different questions about the same people, and both matter:
     //  - are they still an active member of this organization (chat's predicate)?
@@ -141,7 +145,7 @@ export class DefaultChatTaskAssignmentService implements ChatTaskAssignmentServi
 
     return {
       conversationId,
-      kind: 'space',
+      kind: conversation.kind,
       defaultAssignee: null,
       defaultAssigneeBlockedReason: null,
       requiresExplicitAssignee: true,

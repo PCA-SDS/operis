@@ -38,7 +38,13 @@ export const conversationSchema = z.object({
   unreadCount: z.number(),
   lastReadAt: z.string().nullable(),
   counterpartLastReadAt: z.string().nullable(),
-  kind: z.enum(['direct', 'space']),
+  kind: z.enum(['direct', 'space', 'external']),
+  external: z
+    .object({
+      network: z.string(),
+      contacts: z.array(z.object({ id: z.string().uuid(), name: z.string() })),
+    })
+    .nullable(),
   title: z.string(),
   memberCount: z.number(),
   hasUnreadMention: z.boolean(),
@@ -51,10 +57,18 @@ export const memberSchema = participantSchema.extend({
   joinedAt: z.string(),
 })
 
+export const externalMemberSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  network: z.string(),
+  joinedAt: z.string(),
+})
+
 export const memberListSchema = z.object({
   items: z.array(memberSchema),
   total: z.number(),
   hasMore: z.boolean(),
+  externalMembers: z.array(externalMemberSchema),
 })
 
 export const addMembersResponseSchema = z.object({ added: z.array(z.string().uuid()) })
@@ -69,7 +83,7 @@ export const memberRoleResponseSchema = z.object({
 
 export const replyTargetSchema = z.object({
   id: z.string().uuid(),
-  senderUserId: z.string(),
+  senderUserId: z.string().nullable(),
   senderName: z.string(),
   body: z.string(),
   deleted: z.boolean(),
@@ -101,7 +115,7 @@ export const pinnedMessageSchema = z.object({
   pinnedByUserId: z.string().uuid(),
   pinnedByName: z.string(),
   pinnedAt: z.string(),
-  senderUserId: z.string().uuid(),
+  senderUserId: z.string().uuid().nullable(),
   senderName: z.string(),
   preview: z.string(),
   createdAt: z.string(),
@@ -116,8 +130,10 @@ export const pinnedListSchema = z.object({
 export const messageSchema = z.object({
   id: z.string().uuid(),
   conversationId: z.string().uuid(),
-  senderUserId: z.string().uuid(),
+  senderUserId: z.string().uuid().nullable(),
+  senderExternalContactId: z.string().uuid().nullable(),
   senderName: z.string(),
+  senderNetwork: z.string().nullable(),
   body: z.string(),
   createdAt: z.string(),
   editedAt: z.string().nullable(),
@@ -171,8 +187,8 @@ export const searchHitSchema = z.object({
   messageId: z.string().uuid(),
   conversationId: z.string().uuid(),
   conversationTitle: z.string().nullable(),
-  conversationKind: z.enum(['direct', 'space']),
-  senderUserId: z.string().uuid(),
+  conversationKind: z.enum(['direct', 'space', 'external']),
+  senderUserId: z.string().uuid().nullable(),
   senderName: z.string(),
   snippet: z.string(),
   highlights: z.array(z.object({ start: z.number(), end: z.number() })),
@@ -207,7 +223,8 @@ const sharedFileEntrySchema = z.object({
   fileName: z.string(),
   mimeType: z.string(),
   fileSize: z.number(),
-  uploaderUserId: z.string().uuid(),
+  uploaderUserId: z.string().uuid().nullable(),
+  uploaderExternalContactId: z.string().uuid().nullable(),
   uploaderName: z.string(),
   createdAt: z.string(),
 })
@@ -218,7 +235,8 @@ const sharedLinkEntrySchema = z.object({
   messageId: z.string().uuid(),
   url: z.string(),
   host: z.string(),
-  sharedByUserId: z.string().uuid(),
+  sharedByUserId: z.string().uuid().nullable(),
+  sharedByExternalContactId: z.string().uuid().nullable(),
   sharedByName: z.string(),
   createdAt: z.string(),
 })

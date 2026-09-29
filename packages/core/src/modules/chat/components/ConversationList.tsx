@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from 'react'
-import { CirclePlus, MessageSquarePlus, Search, Users } from 'lucide-react'
+import { CirclePlus, Globe, MessageSquarePlus, Search, Users } from 'lucide-react'
 import { Avatar } from '@open-mercato/ui/primitives/avatar'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { SearchInput } from '@open-mercato/ui/primitives/search-input'
@@ -58,6 +58,7 @@ function ConversationRow({
   const name = conversation.title
   const unread = conversation.unreadCount
   const isSpace = conversation.kind === 'space'
+  const isExternal = conversation.kind === 'external'
 
   return (
     <ModuleSidebarLink
@@ -74,7 +75,13 @@ function ConversationRow({
           label={name}
           size="xs"
           variant={unread > 0 ? 'default' : 'monochrome'}
-          icon={isSpace ? <Users className="size-3" aria-hidden="true" /> : undefined}
+          icon={
+            isSpace ? (
+              <Users className="size-3" aria-hidden="true" />
+            ) : isExternal ? (
+              <Globe className="size-3" aria-hidden="true" />
+            ) : undefined
+          }
         />
       )}
       /* A dot, not a number: the count is on the section header above. Weight
@@ -174,8 +181,12 @@ export function ConversationList({
       // is not a member of is not in this array at all — the list comes from
       // their own participant rows — so this cannot surface a private space.
       const email = conversation.counterpart?.email ?? ''
+      // An external conversation is found by any of its outsiders' names too.
+      const contactNames = (conversation.external?.contacts ?? []).map((contact) => contact.name).join(' ')
       return (
-        conversation.title.toLowerCase().includes(needle) || email.toLowerCase().includes(needle)
+        conversation.title.toLowerCase().includes(needle) ||
+        email.toLowerCase().includes(needle) ||
+        contactNames.toLowerCase().includes(needle)
       )
     })
   }, [conversations, needle])
@@ -194,6 +205,12 @@ export function ConversationList({
   )
   const spaces = React.useMemo(
     () => visible.filter((conversation) => conversation.kind === 'space'),
+    [visible],
+  )
+  // People outside the organization get a section of their own, so a
+  // conversation that reaches a customer is never mistaken for a colleague's.
+  const externals = React.useMemo(
+    () => visible.filter((conversation) => conversation.kind === 'external'),
     [visible],
   )
 
@@ -314,6 +331,13 @@ export function ConversationList({
               label={t('chat.list.spaces', 'Spaces')}
               conversations={spaces}
               unread={unreadIn(spaces)}
+              activeConversationId={activeConversationId}
+            />
+            {(directs.length > 0 || spaces.length > 0) && externals.length > 0 ? <ModuleSidebarDivider /> : null}
+            <ConversationSection
+              label={t('chat.list.external', 'External')}
+              conversations={externals}
+              unread={unreadIn(externals)}
               activeConversationId={activeConversationId}
             />
 

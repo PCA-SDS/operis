@@ -92,6 +92,19 @@ export class FakeEntityManager {
     this.pending = []
   }
 
+  /** Conversation kinds by id, for the one raw lookup deciding who a sender is. */
+  readonly conversationKinds = new Map<string, string>()
+
+  getConnection() {
+    return {
+      execute: async (sql: string, params: unknown[]): Promise<Array<{ kind: string }>> => {
+        if (!/select kind from chat_conversations/.test(sql)) throw new Error(`fake: unexpected raw SQL: ${sql}`)
+        const kind = this.conversationKinds.get(String(params[0]))
+        return kind ? [{ kind }] : []
+      },
+    }
+  }
+
   /** The post-race re-read reaches for a fork; it sees what the winner wrote. */
   fork(): FakeEntityManager {
     const forked = new FakeEntityManager()
@@ -143,6 +156,15 @@ export class FakeMatrixClient {
   async joinedMembers(roomId: string, asUser: string): Promise<{ joined: Record<string, unknown> }> {
     this.record('joinedMembers', [roomId, asUser])
     return { joined: this.joinedByRoom[roomId] ?? {} }
+  }
+
+  powerLevelsByRoom: Record<string, Record<string, unknown>> = {}
+
+  async getStateEvent<T>(roomId: string, eventType: string, stateKey: string, asUser: string): Promise<T> {
+    this.record('getStateEvent', [roomId, eventType, stateKey, asUser])
+    const levels = eventType === 'm.room.power_levels' ? this.powerLevelsByRoom[roomId] : undefined
+    if (!levels) throw new Error(`fake: no ${eventType} state in ${roomId}`)
+    return levels as T
   }
 
   async invite(roomId: string, userId: string, asUser: string): Promise<void> {

@@ -1,5 +1,6 @@
-import { parseMatrixEvent } from '@open-mercato/matrix'
+import { parseMatrixEvent, type MatrixConfig } from '@open-mercato/matrix'
 import { projectEvent, projectReceipts, type ProjectionDeps } from '../lib/projection'
+import { externalContactIdFor } from '../lib/outsiders'
 import { ChatMatrixEvent, ChatMatrixRoom } from '../data/entities'
 import { FakeEntityManager, testConfig } from './fakes'
 
@@ -12,11 +13,19 @@ const ROOM = '!room:operis.local'
 const SENDER = '64097a24-ecb4-4795-80c2-bb466858f186'
 const SENDER_MXID = '@om_u_64097a24ecb4479580c2bb466858f186:operis.local'
 const PROJECTED_MESSAGE = '99999999-9999-4999-8999-999999999999'
+const GHOST = '@whatsapp_4915123456789:operis.local'
+const BRIDGED: MatrixConfig = { ...testConfig, bridgeGhosts: [{ network: 'whatsapp', prefix: 'whatsapp_' }] }
 
 type Executed = { id: string; input: Record<string, unknown>; ctx: Record<string, unknown> }
 
 function harness(
-  options: { withRoom?: boolean; refuse?: boolean; mediaFails?: boolean; container?: unknown } = {},
+  options: {
+    withRoom?: boolean
+    refuse?: boolean
+    mediaFails?: boolean
+    container?: unknown
+    config?: MatrixConfig
+  } = {},
 ) {
   const em = new FakeEntityManager()
   const executed: Executed[] = []
@@ -33,7 +42,7 @@ function harness(
     },
   }
 
-  /** Only what projection reaches for: the media download. */
+  /** Only what projection reaches for: the media download, and a bridged sender's name. */
   const downloads: string[] = []
   const client = {
     async downloadMedia(serverName: string, mediaId: string) {
@@ -41,12 +50,15 @@ function harness(
       if (options.mediaFails) throw new Error('the homeserver lost the file')
       return new Response(Buffer.from('probe-bytes')) as never
     },
+    async joinedMembers() {
+      return { joined: { [GHOST]: { display_name: 'Linh Tran' } } }
+    },
   } as unknown as ProjectionDeps['client']
 
   const deps: ProjectionDeps = {
     em: em.asEntityManager(),
     commandBus: commandBus as unknown as ProjectionDeps['commandBus'],
-    config: testConfig,
+    config: options.config ?? testConfig,
     container: options.container as ProjectionDeps['container'],
     client,
   }
@@ -161,9 +173,9 @@ describe('what it declines to project', () => {
     ['a real homeserver account', '@alice:operis.local'],
     ['a bridged external contact', '@whatsapp_6591234567:operis.local'],
   ])('skips a message from %s', async (_label, sender) => {
-    // Not an Operis identity. The bridged case is real work — it needs an
-    // external-participant model the chat schema does not have — and guessing
-    // would attribute somebody else's words to an employee.
+    // Not an Operis identity, and no bridge is configured here — so not an
+    // outsider either. Guessing would attribute somebody else's words to an
+    // employee; `projecting an outsider` covers a configured bridge.
     const { executed, deps } = harness()
     await expect(projectEvent(deps, event({ sender }), ROOM)).resolves.toEqual({
       kind: 'skipped',
@@ -792,3 +804,131 @@ describe('projecting a read receipt', () => {
   })
 })
 
+
+describe('projecting an outsider', () => {
+  const TARGET_EVENT = '$outsider-target'
+  const contactId = externalContactIdFor(scope, GHOST)
+
+  /** A linked room: the conversation behind it is external, and a bridge is configured. */
+  function linked(kind = 'external') {
+    const h = harness({ config: BRIDGED })
+    h.em.conversationKinds.set(CONVERSATION, kind)
+    h.em.seed(ChatMatrixEvent, {
+      ...scope,
+      eventId: TARGET_EVENT,
+      messageId: PROJECTED_MESSAGE,
+      conversationId: CONVERSATION,
+      roomId: ROOM,
+    })
+    return h
+  }
+
+  const origin = (call: Executed) => call.input.externalOrigin as Record<string, unknown>
+  const sub = (call: Executed) => (call.ctx.auth as { sub?: string } | undefined)?.sub
+
+  it('seats them on first contact, then replays the message as theirs', async () => {
+    const h = linked()
+    await expect(projectEvent(h.deps, event({ sender: GHOST }), ROOM)).resolves.toEqual({
+      kind: 'projected',
+      messageId: PROJECTED_MESSAGE,
+    })
+    expect(h.executed.map((call) => call.id)).toEqual([
+      'chat.externalContacts.ensure',
+      'chat.conversations.addExternalParticipant',
+      'chat.messages.send',
+    ])
+    expect(origin(h.executed[2])).toMatchObject({ eventId: '$abc', externalContactId: contactId })
+    // Nobody is logged in behind an outsider — not the loop, not a colleague.
+    expect(h.executed.every((call) => sub(call) === undefined)).toBe(true)
+  })
+
+  it('does not project a ghost speaking in an internal conversation', async () => {
+    const h = linked('space')
+    await expect(projectEvent(h.deps, event({ sender: GHOST }), ROOM)).resolves.toEqual({
+      kind: 'skipped',
+      reason: 'external-in-internal-room',
+    })
+    expect(h.executed).toHaveLength(0)
+  })
+
+  it('still reads a colleague in a linked room as the colleague', async () => {
+    const h = linked()
+    await projectEvent(h.deps, event(), ROOM)
+    expect(h.executed.map((call) => call.id)).toEqual(['chat.messages.send'])
+    expect(sub(h.executed[0])).toBe(SENDER)
+    expect(origin(h.executed[0]).externalContactId).toBeUndefined()
+  })
+
+  const reaction = parseMatrixEvent({
+    type: 'm.reaction',
+    event_id: '$outsider-annotation',
+    sender: GHOST,
+    origin_server_ts: 1_772_000_000_000,
+    room_id: ROOM,
+    content: { 'm.relates_to': { rel_type: 'm.annotation', event_id: TARGET_EVENT, key: '👍' } },
+  })!
+
+  const redaction = (sender: string) =>
+    parseMatrixEvent({
+      type: 'm.room.redaction',
+      event_id: '$outsider-redaction',
+      sender,
+      origin_server_ts: 1_772_000_001_000,
+      room_id: ROOM,
+      redacts: '$outsider-annotation',
+      content: {},
+    })!
+
+  it('claims their reaction under a key no colleague can share', async () => {
+    const h = linked()
+    await projectEvent(h.deps, reaction, ROOM)
+
+    const toggle = h.executed.find((call) => call.id === 'chat.messages.toggleReaction')!
+    expect(origin(toggle)).toMatchObject({ reacted: true, externalContactId: contactId })
+    expect(h.em.rowsOf(ChatMatrixEvent).map((row) => row.subjectKey)).toContain(
+      `reaction:${PROJECTED_MESSAGE}:ext-${contactId}:👍`,
+    )
+  })
+
+  it('lets them take back their own reaction, and nobody else', async () => {
+    const claimed = () => {
+      const h = linked()
+      h.em.seed(ChatMatrixEvent, {
+        ...scope,
+        eventId: '$outsider-annotation',
+        messageId: null,
+        subjectKey: `reaction:${PROJECTED_MESSAGE}:ext-${contactId}:👍`,
+        conversationId: CONVERSATION,
+        roomId: ROOM,
+      })
+      return h
+    }
+
+    const own = claimed()
+    await expect(projectEvent(own.deps, redaction(GHOST), ROOM)).resolves.toEqual({
+      kind: 'projected',
+      messageId: PROJECTED_MESSAGE,
+    })
+    const toggle = own.executed.find((call) => call.id === 'chat.messages.toggleReaction')!
+    expect(origin(toggle)).toMatchObject({ reacted: false, externalContactId: contactId })
+
+    const colleague = claimed()
+    await expect(projectEvent(colleague.deps, redaction(SENDER_MXID), ROOM)).resolves.toEqual({
+      kind: 'skipped',
+      reason: 'not-permitted',
+    })
+    expect(colleague.executed).toHaveLength(0)
+  })
+
+  it('advances their read cursor from a receipt, without seating them', async () => {
+    const h = linked()
+    const receipt = {
+      type: 'm.receipt',
+      content: { [TARGET_EVENT]: { 'm.read': { [GHOST]: { ts: 1_772_000_000_000 } } } },
+    }
+    await expect(projectReceipts(h.deps, receipt, ROOM)).resolves.toBe(1)
+    expect(h.executed.map((call) => call.id)).toEqual(['chat.conversations.markRead'])
+    expect(origin(h.executed[0])).toMatchObject({ eventId: TARGET_EVENT, externalContactId: contactId })
+    expect(sub(h.executed[0])).toBeUndefined()
+  })
+})

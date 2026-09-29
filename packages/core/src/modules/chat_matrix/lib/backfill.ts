@@ -95,7 +95,9 @@ export async function backfillConversations(
 
   // Conversations holding at least one message the homeserver does not have.
   // Ordered oldest-first so an interrupted run makes monotonic progress rather
-  // than revisiting the same recent rows.
+  // than revisiting the same recent rows. External conversations are excluded:
+  // their room belongs to whoever linked it, the transport never creates one,
+  // and an outsider's history already lives there.
   const conversations = await connection.execute<PendingConversation[]>(
     `select c.id as conversation_id, c.tenant_id, c.organization_id, c.kind, c.title,
             count(m.id)::text as pending
@@ -103,6 +105,7 @@ export async function backfillConversations(
        join chat_messages m on m.conversation_id = c.id
        left join chat_matrix_events e on e.message_id = m.id
       where c.deleted_at is null
+        and c.kind <> 'external'
         and m.kind = 'user'
         and m.deleted_at is null
         and e.id is null

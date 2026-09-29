@@ -15,6 +15,7 @@ import {
   ensureTenantScope,
   forkEm,
   requireMessageInConversation,
+  resolveChatActor,
 } from './shared'
 import { publishReactionSafely } from '../lib/transport'
 
@@ -36,6 +37,8 @@ export type ToggleReactionInput = {
   externalOrigin?: {
     eventId: string
     reacted: boolean
+    /** The outsider reacting, when it is one — set only by the projector. */
+    externalContactId?: string
   }
 }
 
@@ -67,14 +70,20 @@ const toggleReactionCommand: CommandHandler<
     ensureOrganizationScope(ctx, input.organizationId)
 
     const scope: ChatScope = { tenantId: input.tenantId, organizationId: input.organizationId }
-    const userId = await actingUserId(ctx)
+    const actor = await resolveChatActor(ctx, input.externalOrigin)
     const em = forkEm(ctx)
 
-    await requireMessageInConversation(em, scope, input.conversationId, input.messageId, userId)
+    await requireMessageInConversation(em, scope, input.conversationId, input.messageId, actor)
 
+    // Each kind of reactor is looked up by its own column: a `userId: null`
+    // filter would find an outsider's reaction and toggle it off.
+    const reactor =
+      actor.kind === 'user'
+        ? { userId: actor.userId, externalContactId: null }
+        : { userId: null, externalContactId: actor.externalContactId }
     const existing = await em.findOne(ChatMessageReaction, {
       messageId: input.messageId,
-      userId,
+      ...(actor.kind === 'user' ? { userId: actor.userId } : { externalContactId: actor.externalContactId }),
       emoji: input.emoji,
       tenantId: scope.tenantId,
       organizationId: scope.organizationId,
@@ -97,7 +106,7 @@ const toggleReactionCommand: CommandHandler<
             organizationId: scope.organizationId,
             messageId: input.messageId,
             conversationId: input.conversationId,
-            userId,
+            ...reactor,
             emoji: input.emoji,
             createdAt: now,
           }),
@@ -121,11 +130,11 @@ const toggleReactionCommand: CommandHandler<
     // message stream, so this is for the benefit of anything else reading the
     // room — a native client, or later a bridge — and is not something the
     // user's action depends on. With the default `local` transport it is a no-op.
-    if (!input.externalOrigin) {
+    if (!input.externalOrigin && actor.kind === 'user') {
       await publishReactionSafely(chatTransportFrom(ctx), { em: forkEm(ctx) }, scope, {
         conversationId: input.conversationId,
         messageId: input.messageId,
-        userId,
+        userId: actor.userId,
         emoji: input.emoji,
         added: reacted,
       })
@@ -147,7 +156,8 @@ const toggleReactionCommand: CommandHandler<
  * A pin changes what every member sees at the top of the conversation, which is
  * the same class of decision as renaming the space or changing who is in it —
  * and the module already has owners for exactly that. A direct conversation has
- * no owner and only two people, so either may pin.
+ * no owner and only two people, so either may pin; an external one has no owner
+ * either, so any colleague in it may. An outsider never pins.
  */
 async function requirePinPermission(
   em: EntityManager,
@@ -156,7 +166,7 @@ async function requirePinPermission(
   messageId: string,
   userId: string,
 ) {
-  const context = await requireMessageInConversation(em, scope, conversationId, messageId, userId)
+  const context = await requireMessageInConversation(em, scope, conversationId, messageId, { kind: 'user', userId })
   if (context.conversation.kind === 'space' && context.participant.role !== 'owner') {
     throw forbidden((await loadChatMessages()).notPinPermitted)
   }

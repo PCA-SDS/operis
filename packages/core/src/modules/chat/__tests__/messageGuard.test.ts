@@ -15,6 +15,9 @@ const scope = {
 const CONVERSATION = '33333333-3333-4333-8333-333333333333'
 const MESSAGE = '44444444-4444-4444-8444-444444444444'
 const USER = '55555555-5555-4555-8555-555555555555'
+const CONTACT = '66666666-6666-4666-8666-666666666666'
+
+const asUser = (userId: string) => ({ kind: 'user' as const, userId })
 
 type Row = Record<string, unknown>
 
@@ -60,7 +63,7 @@ describe('requireMessageInConversation', () => {
       scope,
       CONVERSATION,
       MESSAGE,
-      USER,
+      asUser(USER),
     )
     expect(context.message.id).toBe(MESSAGE)
     expect(context.conversation.id).toBe(CONVERSATION)
@@ -72,13 +75,13 @@ describe('requireMessageInConversation', () => {
     // against it, but as a 500 rather than the 404 it actually is — and an edit
     // writes to `chat_messages` itself, where no constraint would catch it.
     await expect(
-      requireMessageInConversation(harness(), scope, CONVERSATION, 'not-this-one', USER),
+      requireMessageInConversation(harness(), scope, CONVERSATION, 'not-this-one', asUser(USER)),
     ).rejects.toMatchObject({ status: 404 })
   })
 
   it('refuses a caller who is not in the conversation', async () => {
     await expect(
-      requireMessageInConversation(harness(), scope, CONVERSATION, MESSAGE, 'someone-else'),
+      requireMessageInConversation(harness(), scope, CONVERSATION, MESSAGE, asUser('someone-else')),
     ).rejects.toMatchObject({ status: 404 })
   })
 
@@ -89,7 +92,7 @@ describe('requireMessageInConversation', () => {
         { tenantId: 'other-tenant', organizationId: scope.organizationId },
         CONVERSATION,
         MESSAGE,
-        USER,
+        asUser(USER),
       ),
     ).rejects.toMatchObject({ status: 404 })
   })
@@ -100,7 +103,7 @@ describe('requireMessageInConversation', () => {
     /** Reacting to, pinning or rewriting something that is gone is a real 404. */
     it('is invisible by default', async () => {
       await expect(
-        requireMessageInConversation(deleted(), scope, CONVERSATION, MESSAGE, USER),
+        requireMessageInConversation(deleted(), scope, CONVERSATION, MESSAGE, asUser(USER)),
       ).rejects.toMatchObject({ status: 404 })
     })
 
@@ -115,7 +118,7 @@ describe('requireMessageInConversation', () => {
         scope,
         CONVERSATION,
         MESSAGE,
-        USER,
+        asUser(USER),
         { includeDeleted: true },
       )
       expect(context.message.id).toBe(MESSAGE)
@@ -130,20 +133,57 @@ describe('requireMessageInConversation', () => {
           { tenantId: 'other-tenant', organizationId: scope.organizationId },
           CONVERSATION,
           MESSAGE,
-          USER,
+          asUser(USER),
           { includeDeleted: true },
         ),
       ).rejects.toMatchObject({ status: 404 })
       await expect(
-        requireMessageInConversation(deleted(), scope, CONVERSATION, 'elsewhere', USER, {
+        requireMessageInConversation(deleted(), scope, CONVERSATION, 'elsewhere', asUser(USER), {
           includeDeleted: true,
         }),
       ).rejects.toMatchObject({ status: 404 })
       await expect(
-        requireMessageInConversation(deleted(), scope, CONVERSATION, MESSAGE, 'stranger', {
+        requireMessageInConversation(deleted(), scope, CONVERSATION, MESSAGE, asUser('stranger'), {
           includeDeleted: true,
         }),
       ).rejects.toMatchObject({ status: 404 })
     })
+  })
+})
+
+/**
+ * An outsider reaches a message only inside an external conversation. The
+ * database refuses their participant row anywhere else; the guard refuses too,
+ * with the same 404 a stranger gets, so no lookup can ever admit one.
+ */
+describe('requireMessageInConversation for an outsider', () => {
+  function outsiderHarness(kind: 'external' | 'space') {
+    const rows = new Map<unknown, Row[]>()
+    rows.set(ChatParticipant, [
+      { ...scope, conversationId: CONVERSATION, userId: null, externalContactId: CONTACT, role: 'member' },
+    ])
+    rows.set(ChatConversation, [{ ...scope, id: CONVERSATION, kind, deletedAt: null }])
+    rows.set(ChatMessage, [
+      { ...scope, id: MESSAGE, conversationId: CONVERSATION, senderUserId: null, senderExternalContactId: CONTACT, kind: 'user', deletedAt: null },
+    ])
+    return fakeEm(rows)
+  }
+  const outsider = { kind: 'external' as const, externalContactId: CONTACT }
+
+  it('admits an outsider to a message in an external conversation', async () => {
+    const context = await requireMessageInConversation(outsiderHarness('external'), scope, CONVERSATION, MESSAGE, outsider)
+    expect(context.participant.externalContactId).toBe(CONTACT)
+  })
+
+  it('refuses an outsider anywhere else, as a stranger', async () => {
+    await expect(
+      requireMessageInConversation(outsiderHarness('space'), scope, CONVERSATION, MESSAGE, outsider),
+    ).rejects.toMatchObject({ status: 404 })
+  })
+
+  it('never lets a colleague lookup match an outsider row', async () => {
+    await expect(
+      requireMessageInConversation(outsiderHarness('external'), scope, CONVERSATION, MESSAGE, asUser(USER)),
+    ).rejects.toMatchObject({ status: 404 })
   })
 })

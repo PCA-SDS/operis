@@ -221,6 +221,12 @@ route to weigh it against; the question is purely how to model somebody who is
 not an Operis user without letting one missed check leak an internal conversation
 to an outsider.
 
+**Designed 2026-09-29** in
+[`2026-09-29-chat-external-participants.md`](2026-09-29-chat-external-participants.md):
+a third conversation kind, `external`, and a chat-owned external contact. Room
+adoption and the WhatsApp product rules were split out into a separate bridge
+spec.
+
 ## Out of scope
 
 E2EE; federation; per-user Matrix tokens; native Matrix clients; voice/video;

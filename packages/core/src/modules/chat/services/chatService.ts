@@ -4,6 +4,7 @@ import { notFound } from '@open-mercato/shared/lib/crud/errors'
 import { ChatConversation, ChatMessage, ChatParticipant, ChatPinnedMessage } from '../data/entities'
 import type {
   ChatConversationDto,
+  ChatConversationKind,
   ChatConversationListDto,
   ChatMemberListDto,
   ChatMessageDto,
@@ -36,6 +37,14 @@ import { loadMessageExtras, loadUnreadMentionFlags, mentionNamesFor, type Messag
 import { extractMentionedUserIds, renderMentionsAsText } from '../lib/mentions'
 import { resolveReplyTargets } from '../lib/replies'
 import { loadOrganizationMembers, type ChatScope } from '../lib/scope'
+import { loadParticipant, requireIdentityId } from '../lib/participants'
+import {
+  loadExternalContacts,
+  loadExternalConversationSummaries,
+  senderNameOf,
+  senderNetworkOf,
+  type ChatContactEntry,
+} from '../lib/people'
 import { loadChatMessages } from '../lib/messages'
 
 /**
@@ -59,7 +68,8 @@ type ChatDatabase = {
   }
   chat_participants: {
     conversation_id: string
-    user_id: string
+    user_id: string | null
+    external_contact_id: string | null
     tenant_id: string
     organization_id: string
     role: string
@@ -74,7 +84,8 @@ type ChatDatabase = {
   }
   chat_messages: {
     conversation_id: string
-    sender_user_id: string
+    sender_user_id: string | null
+    sender_external_contact_id: string | null
     tenant_id: string
     organization_id: string
     kind: string
@@ -97,6 +108,19 @@ type ChatConversationRow = {
   last_message_at: Date | string
   last_message_preview: string | null
   last_message_sender_user_id: string | null
+}
+
+/**
+ * A conversation row's kind, checked rather than assumed.
+ *
+ * The list reads `kind` through Kysely as plain text. Collapsing it with
+ * `isSpace ? 'space' : 'direct'` is how a third kind would be reported as a
+ * direct — titled after a counterpart it does not have — so every kind the CHECK
+ * constraint admits is named, and anything else is a bug worth failing on.
+ */
+function conversationKindOf(kind: string): ChatConversationKind {
+  if (kind === 'direct' || kind === 'space' || kind === 'external') return kind
+  throw new Error(`[internal] unknown chat conversation kind: ${kind}`)
 }
 
 /**
@@ -133,12 +157,16 @@ function toMessageDto(
   names: ReadonlyMap<string, string>,
   fallbackName: string,
   extras: MessageExtras,
+  contacts: ReadonlyMap<string, ChatContactEntry>,
+  unknownContact: string,
 ): ChatMessageDto {
   return {
     id: message.id,
     conversationId: message.conversationId,
     senderUserId: message.senderUserId,
-    senderName: names.get(message.senderUserId) ?? fallbackName,
+    senderExternalContactId: message.senderExternalContactId ?? null,
+    senderName: senderNameOf(message, names, contacts, { colleague: fallbackName, contact: unknownContact }),
+    senderNetwork: senderNetworkOf(message, contacts),
     kind: message.kind,
     body: message.body,
     createdAt: message.createdAt.toISOString(),
@@ -255,12 +283,7 @@ export class DefaultChatService implements ChatService {
     conversationId: string,
   ): Promise<{ participant: ChatParticipant; conversation: ChatConversation }> {
     const messages = await loadChatMessages()
-    const participant = await ctx.em.findOne(ChatParticipant, {
-      conversationId,
-      userId: ctx.userId,
-      tenantId: ctx.scope.tenantId,
-      organizationId: ctx.scope.organizationId,
-    })
+    const participant = await loadParticipant(ctx.em, ctx.scope, conversationId, { kind: 'user', userId: ctx.userId })
     if (!participant) throw notFound(messages.conversationNotFound)
 
     // Membership alone is not enough: a conversation soft-deleted, or one whose
@@ -433,6 +456,12 @@ export class DefaultChatService implements ChatService {
       ),
     )
     const names = new Map([...people].map(([id, person]) => [id, person.name]))
+    // Outsiders are named from their contact rows — never as "former colleague".
+    const contacts = await loadExternalContacts(
+      ctx.em,
+      ctx.scope,
+      page.map((message) => message.senderExternalContactId),
+    )
 
     const extras = await loadMessageExtras(
       ctx.em,
@@ -450,6 +479,7 @@ export class DefaultChatService implements ChatService {
       page,
       names,
       fallbackName,
+      messages.unknownContact,
     )
 
     return page.map((message) =>
@@ -459,6 +489,8 @@ export class DefaultChatService implements ChatService {
         names,
         fallbackName,
         extras,
+        contacts,
+        messages.unknownContact,
       ),
     )
   }
@@ -550,7 +582,7 @@ export class DefaultChatService implements ChatService {
     }
     const referenced = new Set<string>()
     for (const hit of page) {
-      referenced.add(hit.senderUserId)
+      if (hit.senderUserId) referenced.add(hit.senderUserId)
       for (const id of extractMentionedUserIds(hit.body)) referenced.add(id)
     }
 
@@ -561,7 +593,7 @@ export class DefaultChatService implements ChatService {
     const directConversationIds = [
       ...new Set(
         page
-          .filter((hit) => hit.conversationKind !== 'space')
+          .filter((hit) => hit.conversationKind === 'direct')
           .map((hit) => hit.conversationId),
       ),
     ]
@@ -573,7 +605,7 @@ export class DefaultChatService implements ChatService {
         conversationId: { $in: directConversationIds },
       })
       for (const participant of participants) {
-        if (participant.userId === ctx.userId) continue
+        if (!participant.userId || participant.userId === ctx.userId) continue
         counterpartByConversation.set(participant.conversationId, participant.userId)
         // Resolved in the same lookup the senders use, not a second one.
         referenced.add(participant.userId)
@@ -585,6 +617,23 @@ export class DefaultChatService implements ChatService {
       [...members.entries()].map(([id, person]) => [id, person.name || person.email]),
     )
     const nameOf = (userId: string) => namesByUserId.get(userId) ?? ''
+    const contacts = await loadExternalContacts(
+      ctx.em,
+      ctx.scope,
+      page.map((hit) => hit.senderExternalContactId),
+    )
+    const externalSummaries = await loadExternalConversationSummaries(
+      ctx.em,
+      ctx.scope,
+      [
+        ...new Map(
+          page
+            .filter((hit) => hit.conversationKind === 'external')
+            .map((hit) => [hit.conversationId, { id: hit.conversationId, title: hit.conversationTitle }]),
+        ).values(),
+      ],
+      chatText.unknownContact,
+    )
 
     const plan = highlightPlan(parsed)
     const items: ChatSearchHitDto[] = page.map((hit) => {
@@ -597,16 +646,19 @@ export class DefaultChatService implements ChatService {
       })
       const snippet = buildSnippet(readable, ranges)
       const counterpartId = counterpartByConversation.get(hit.conversationId)
+      const kind = conversationKindOf(hit.conversationKind)
       return {
         messageId: hit.messageId,
         conversationId: hit.conversationId,
         conversationTitle:
-          hit.conversationKind === 'space'
-            ? hit.conversationTitle
-            : (counterpartId ? nameOf(counterpartId) : '') || hit.conversationTitle,
-        conversationKind: hit.conversationKind === 'space' ? 'space' : 'direct',
+          kind === 'external'
+            ? externalSummaries.get(hit.conversationId)?.title ?? hit.conversationTitle
+            : kind === 'space'
+              ? hit.conversationTitle
+              : (counterpartId ? nameOf(counterpartId) : '') || hit.conversationTitle,
+        conversationKind: kind,
         senderUserId: hit.senderUserId,
-        senderName: nameOf(hit.senderUserId),
+        senderName: senderNameOf(hit, namesByUserId, contacts, { colleague: '', contact: chatText.unknownContact }),
         snippet: snippet.text,
         highlights: snippet.ranges,
         truncatedStart: snippet.truncatedStart,
@@ -658,8 +710,10 @@ export class DefaultChatService implements ChatService {
       .where('m.tenant_id', '=', ctx.scope.tenantId)
       .where('m.organization_id', '=', ctx.scope.organizationId)
       .where('m.deleted_at', 'is', null)
-      // Your own messages are never unread to you.
-      .where('m.sender_user_id', '!=', ctx.userId)
+      // Your own messages are never unread to you. `is distinct from`, not `!=`:
+      // an outsider's message has a NULL sender, and `NULL != me` is never true,
+      // so `!=` would silently drop every one of them from the count.
+      .where('m.sender_user_id', 'is distinct from', ctx.userId)
       // Membership events are not unread. Being added to a space, or watching
       // someone else be added, is context rather than something addressed to
       // the reader — badging every member for it would make a space with active
@@ -726,13 +780,13 @@ export class DefaultChatService implements ChatService {
     // of every space on the page to pull one row out of each. Five 500-member
     // spaces cost 2,500 entities to answer a question about five.
     const directIds = conversations
-      .filter((conversation) => conversation.kind !== 'space')
+      .filter((conversation) => conversation.kind === 'direct')
       .map((conversation) => conversation.id)
     const participants = await ctx.em.find(ChatParticipant, {
       tenantId: ctx.scope.tenantId,
       organizationId: ctx.scope.organizationId,
       $or: [
-        { conversationId: { $in: conversationIds }, userId: ctx.userId },
+        { conversationId: { $in: conversationIds }, userId: requireIdentityId(ctx.userId) },
         ...(directIds.length > 0 ? [{ conversationId: { $in: directIds } }] : []),
       ],
     })
@@ -757,7 +811,7 @@ export class DefaultChatService implements ChatService {
     // counterpart of each direct conversation. A space of any size costs no name
     // lookups at all here; its header loads them when it is opened.
     const counterpartIds = conversations
-      .filter((conversation) => conversation.kind !== 'space')
+      .filter((conversation) => conversation.kind === 'direct')
       .map((conversation) => counterpartByConversation.get(conversation.id)?.userId)
       .filter((userId): userId is string => typeof userId === 'string')
 
@@ -765,6 +819,16 @@ export class DefaultChatService implements ChatService {
     const unreadCounts = await this.countUnreadPerConversation(ctx, conversationIds)
     const messages = await loadChatMessages()
     const unknownPerson = messages.formerColleague
+    // An external conversation is named after its outsiders when it has no
+    // title of its own, and one outsider's cursor is its read receipt.
+    const externalSummaries = await loadExternalConversationSummaries(
+      ctx.em,
+      ctx.scope,
+      conversations
+        .filter((conversation) => conversation.kind === 'external')
+        .map((conversation) => ({ id: conversation.id, title: conversation.title })),
+      messages.unknownContact,
+    )
 
     // Two more grouped reads for the whole page, not one per row.
     const [mentionFlags, pinnedCounts] = await Promise.all([
@@ -788,20 +852,32 @@ export class DefaultChatService implements ChatService {
     const mentionLabels = { everyone: messages.everyoneLabel, unknownPerson }
 
     return conversations.map((conversation) => {
-      const isSpace = conversation.kind === 'space'
-      const counterpartParticipant = isSpace ? null : counterpartByConversation.get(conversation.id) ?? null
-      const person = counterpartParticipant ? people.get(counterpartParticipant.userId) ?? null : null
+      const kind = conversationKindOf(conversation.kind)
+      const isDirect = kind === 'direct'
+      const counterpartParticipant = isDirect ? counterpartByConversation.get(conversation.id) ?? null : null
+      const person = counterpartParticipant?.userId ? people.get(counterpartParticipant.userId) ?? null : null
+      const external = kind === 'external' ? externalSummaries.get(conversation.id) ?? null : null
       const membership = membershipByConversation.get(conversation.id) ?? null
       return {
         id: conversation.id,
-        kind: isSpace ? 'space' : 'direct',
+        kind,
         // Resolved once, here, so the rail, the header, the topbar panel and the
         // page title all say the same thing without each one reimplementing the
         // "they left the organization" fallback.
-        title: isSpace ? conversation.title ?? unknownPerson : person?.name ?? unknownPerson,
-        memberCount: isSpace ? memberCounts.get(conversation.id) ?? 0 : 0,
+        title: isDirect
+          ? person?.name ?? unknownPerson
+          : external
+            ? external.title
+            : conversation.title ?? unknownPerson,
+        memberCount: isDirect ? 0 : memberCounts.get(conversation.id) ?? 0,
         viewerRole: membership?.role ?? 'member',
         counterpart: person ? { id: person.id, name: person.name, email: person.email } : null,
+        external: external
+          ? {
+              network: external.network,
+              contacts: external.contacts.map(({ id, name }) => ({ id, name })),
+            }
+          : null,
         lastMessageAt: toIsoString(conversation.last_message_at),
         lastMessagePreview: conversation.last_message_preview
           ? renderMentionsAsText(conversation.last_message_preview, previewNames, mentionLabels)
@@ -812,7 +888,11 @@ export class DefaultChatService implements ChatService {
         pinnedCount: pinnedCounts.get(conversation.id) ?? 0,
         muted: Boolean(membership?.mutedAt),
         lastReadAt: membership?.lastReadAt?.toISOString() ?? null,
-        counterpartLastReadAt: counterpartParticipant?.lastReadAt?.toISOString() ?? null,
+        counterpartLastReadAt: isDirect
+          ? counterpartParticipant?.lastReadAt?.toISOString() ?? null
+          : external && external.contacts.length === 1
+            ? external.contacts[0]?.lastReadAt?.toISOString() ?? null
+            : null,
       }
     })
   }
@@ -861,7 +941,7 @@ export class DefaultChatService implements ChatService {
     const needle = (options.query ?? '').trim().toLowerCase()
     const all = participants
       .map((participant) => {
-        const person = people.get(participant.userId)
+        const person = participant.userId ? people.get(participant.userId) : undefined
         if (!person) return null
         return {
           id: person.id,
@@ -879,7 +959,29 @@ export class DefaultChatService implements ChatService {
       )
 
     const page = all.slice(offset, offset + limit)
-    return { items: page, total: all.length, hasMore: offset + page.length < all.length }
+
+    // Outsiders are listed apart, never as members: they have no email, no role,
+    // and nothing a colleague does to a member applies to them.
+    const contacts = await loadExternalContacts(
+      ctx.em,
+      ctx.scope,
+      participants.map((participant) => participant.externalContactId),
+    )
+    const unknownContact = (await loadChatMessages()).unknownContact
+    const externalMembers = participants.flatMap((participant) => {
+      if (!participant.externalContactId) return []
+      const contact = contacts.get(participant.externalContactId)
+      return [
+        {
+          id: participant.externalContactId,
+          name: contact?.name ?? unknownContact,
+          network: contact?.network ?? 'other',
+          joinedAt: participant.createdAt.toISOString(),
+        },
+      ]
+    })
+
+    return { items: page, total: all.length, hasMore: offset + page.length < all.length, externalMembers }
   }
 
   async listPinned(ctx: ChatReadContext, conversationId: string): Promise<ChatPinnedListDto> {
@@ -917,11 +1019,16 @@ export class DefaultChatService implements ChatService {
     const wanted = new Set<string>()
     for (const pin of pins) wanted.add(pin.pinnedByUserId)
     for (const message of bodies) {
-      wanted.add(message.senderUserId)
+      if (message.senderUserId) wanted.add(message.senderUserId)
       for (const id of extractMentionedUserIds(message.body)) wanted.add(id)
     }
     const people = await loadOrganizationMembers(ctx.em, ctx.scope, [...wanted])
     const names = new Map([...people].map(([id, person]) => [id, person.name]))
+    const contacts = await loadExternalContacts(
+      ctx.em,
+      ctx.scope,
+      bodies.map((message) => message.senderExternalContactId),
+    )
 
     const items = pins
       // A pin whose message is gone renders nothing rather than a broken row.
@@ -936,7 +1043,7 @@ export class DefaultChatService implements ChatService {
           pinnedByName: names.get(pin.pinnedByUserId) ?? fallbackName,
           pinnedAt: pin.pinnedAt.toISOString(),
           senderUserId: message.senderUserId,
-          senderName: names.get(message.senderUserId) ?? fallbackName,
+          senderName: senderNameOf(message, names, contacts, { colleague: fallbackName, contact: messages.unknownContact }),
           preview: buildPinPreview(renderMentionsAsText(message.body, names, mentionLabels)),
           createdAt: message.createdAt.toISOString(),
           isReply: Boolean(message.replyToMessageId),

@@ -44,6 +44,28 @@ export function parseMxid(userId: string): ParsedMxid | null {
 }
 
 /**
+ * The network a bridge ghost speaks for, or null when the sender is not one.
+ *
+ * A ghost lives on this homeserver, in a namespace its bridge registered, and
+ * its localpart carries the bridge's prefix plus something of its own — never
+ * the bare prefix. Anything else — a colleague's identity, the Operis bot, a
+ * bridge's own bot, an unconfigured namespace — is not an outsider here.
+ */
+export function bridgeGhostNetwork(
+  config: { serverName: string; bridgeGhosts?: readonly { network: string; prefix: string }[] },
+  userId: string,
+): string | null {
+  const parsed = parseMxid(userId)
+  if (!parsed || parsed.serverName !== config.serverName) return null
+  for (const ghost of config.bridgeGhosts ?? []) {
+    if (parsed.localpart.startsWith(ghost.prefix) && parsed.localpart.length > ghost.prefix.length) {
+      return ghost.network
+    }
+  }
+  return null
+}
+
+/**
  * Derive the Matrix localpart for an Operis user.
  *
  * Deterministic, so the mapping can be recomputed rather than only looked up —

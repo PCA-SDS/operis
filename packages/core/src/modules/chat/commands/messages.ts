@@ -13,13 +13,12 @@ import {
   ChatMessage,
   ChatMessageLink,
   ChatMessageMention,
-  ChatParticipant,
   ChatPinnedMessage,
 } from '../data/entities'
 import type { Attachment } from '@open-mercato/core/modules/attachments/data/entities'
 import type { ChatAttachmentDto, ChatMessageDto, ChatReplyTargetDto } from '../data/types'
 import { buildMessagePreview } from '../lib/conversations'
-import { extractMentionedUserIds, mentionsEveryone } from '../lib/mentions'
+import { extractMentionedUserIds, mentionsEveryone, neutralizeMentionSyntax } from '../lib/mentions'
 import { extractLinks } from '../lib/links'
 import { resolveReplyTarget } from '../lib/replies'
 import { loadChatMessages } from '../lib/messages'
@@ -29,9 +28,9 @@ import { ChatAttachmentError, linkDraftAttachmentsToMessage } from '../lib/attac
 import { checkAttachmentCounts } from '../lib/attachmentPolicy'
 import { toChatAttachmentDto } from '../lib/attachmentDto'
 import { getAttachmentsForMessages } from '../lib/attachments'
-import { loadOrganizationMember, loadOrganizationMembers, type ChatScope } from '../lib/scope'
+import { loadOrganizationMembers, type ChatScope } from '../lib/scope'
+import { isAuthorOf, loadParticipant } from '../lib/participants'
 import {
-  actingUserId,
   chatTransportFrom,
   conversationAudience,
   conversationRoster,
@@ -39,7 +38,9 @@ import {
   ensureOrganizationScope,
   ensureTenantScope,
   forkEm,
+  loadActorIdentity,
   requireMessageInConversation,
+  resolveChatActor,
 } from './shared'
 import {
   publishDeletionSafely,
@@ -74,6 +75,12 @@ export type SendChatMessageInput = {
     eventId: string
     messageId: string
     createdAt: Date
+    /**
+     * The outsider who wrote it, when the sender is an external contact rather
+     * than a colleague. Only an external conversation accepts one, and only
+     * this path can name one — no HTTP route builds `externalOrigin`.
+     */
+    externalContactId?: string
   }
 }
 
@@ -88,12 +95,15 @@ function toDto(
   senderName: string,
   mentionNames: Record<string, string> = {},
   attachments: ChatAttachmentDto[] = [],
+  senderNetwork: string | null = null,
 ): ChatMessageDto {
   return {
     id: message.id,
     conversationId: message.conversationId,
     senderUserId: message.senderUserId,
+    senderExternalContactId: message.senderExternalContactId ?? null,
     senderName,
+    senderNetwork,
     kind: message.kind,
     body: message.body,
     createdAt: message.createdAt.toISOString(),
@@ -154,18 +164,19 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
 
     const messages = await loadChatMessages()
     const scope: ChatScope = { tenantId: input.tenantId, organizationId: input.organizationId }
-    const senderUserId = await actingUserId(ctx)
+    const actor = await resolveChatActor(ctx, input.externalOrigin)
     const em = forkEm(ctx)
 
-    const sender = await loadOrganizationMember(em, scope, senderUserId)
-    if (!sender) throw badRequest(messages.notOrganizationMember)
+    // A colleague who has left is told so; an outsider this organization does
+    // not know is simply not here — the same 404 a stranger gets.
+    const sender = await loadActorIdentity(em, scope, actor)
+    if (!sender) {
+      throw actor.kind === 'user'
+        ? badRequest(messages.notOrganizationMember)
+        : notFound(messages.conversationNotFound)
+    }
 
-    const participant = await em.findOne(ChatParticipant, {
-      conversationId: input.conversationId,
-      userId: senderUserId,
-      tenantId: scope.tenantId,
-      organizationId: scope.organizationId,
-    })
+    const participant = await loadParticipant(em, scope, input.conversationId, actor)
     if (!participant) throw notFound(messages.conversationNotFound)
 
     const conversation = await em.findOne(ChatConversation, {
@@ -175,6 +186,15 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
       deletedAt: null,
     })
     if (!conversation) throw notFound(messages.conversationNotFound)
+    if (actor.kind === 'external' && conversation.kind !== 'external') {
+      throw notFound(messages.conversationNotFound)
+    }
+
+    const senderUserId = actor.kind === 'user' ? actor.userId : null
+    const senderExternalContactId = actor.kind === 'external' ? actor.externalContactId : null
+    // An outsider's text is prose, whatever it contains: mention syntax is made
+    // inert before anything below parses it, so they can name nobody.
+    const body = actor.kind === 'external' ? neutralizeMentionSyntax(input.body) : input.body
 
     if (input.clientMessageId) {
       const existing = await findByClientId(em, scope, conversation.id, input.clientMessageId)
@@ -226,10 +246,15 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
      * one person already reading it.
      */
     const { userIds: participantIds, ownerUserIds } = await conversationRoster(em, scope, conversation.id)
-    const mentionedUserIds = extractMentionedUserIds(input.body)
-    const everyone = mentionsEveryone(input.body)
+    const mentionedUserIds = extractMentionedUserIds(body)
+    const everyone = mentionsEveryone(body)
 
     if (everyone && conversation.kind !== 'space') throw badRequest(messages.everyoneNotAllowed)
+    // Nobody is mentioned in an external conversation: a token goes out to the
+    // room verbatim, so the customer would read a colleague's raw id.
+    if (conversation.kind === 'external' && mentionedUserIds.length > 0) {
+      throw badRequest(messages.mentionNotAllowed)
+    }
     if (mentionedUserIds.length > 0) {
       const inConversation = new Set(participantIds)
       const outsiders = mentionedUserIds.filter((userId) => !inConversation.has(userId))
@@ -261,7 +286,12 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
     if (conversation.kind === 'direct' && counterparts.size !== counterpartIds.length) {
       throw notFound(messages.recipientNotFound)
     }
-    const recipients = [senderUserId, ...counterpartIds.filter((userId) => counterparts.has(userId))]
+    // An outsider has no session, so they are never an SSE recipient — not even
+    // of their own message.
+    const recipients = [
+      ...(senderUserId ? [senderUserId] : []),
+      ...counterpartIds.filter((userId) => counterparts.has(userId)),
+    ]
     /**
      * Owners, narrowed to the people who are still here.
      *
@@ -297,7 +327,7 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
      */
     let publishedEventId: string | null = null
     let preCommitNow: Date | null = null
-    if (transport.mode === 'authoritative' && !input.externalOrigin) {
+    if (transport.mode === 'authoritative' && !input.externalOrigin && senderUserId) {
       preCommitNow = await dbNow(em)
       const publishEm = forkEm(ctx)
       await transport.ensureConversation({ em: publishEm, container: ctx.container }, scope, {
@@ -313,7 +343,7 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
         messageId,
         senderUserId,
         senderName: sender.name,
-        body: input.body,
+        body,
         createdAt: preCommitNow,
         replyToMessageId: input.replyToMessageId ?? null,
         clientMessageId: input.clientMessageId ?? null,
@@ -372,12 +402,13 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
           organizationId: scope.organizationId,
           conversationId: conversation.id,
           senderUserId,
-          body: input.body,
+          senderExternalContactId,
+          body,
           // Written in the same transaction as the body, so a message is
           // searchable the moment it is visible. Deriving it later would leave
           // a window in which a message exists and cannot be found — short,
           // but exactly when someone is looking for what was just said.
-          searchBody: buildSearchDocument(input.body),
+          searchBody: buildSearchDocument(body),
           clientMessageId: input.clientMessageId ?? null,
           replyToMessageId: input.replyToMessageId ?? null,
           mentionsEveryone: everyone,
@@ -412,7 +443,7 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
           attachments = await linkDraftAttachmentsToMessage({
             em: tx,
             scope: { tenantId: scope.tenantId, organizationId: scope.organizationId },
-            uploaderUserId: senderUserId,
+            uploader: actor,
             conversationId: conversation.id,
             messageId: message.id,
             attachmentIds: input.attachmentIds ?? [],
@@ -445,7 +476,7 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
         // Indexed in the same transaction as the message, exactly as mentions
         // are: a half-written send can never leave a link pointing at a message
         // that does not exist, or a message whose links were never recorded.
-        for (const link of extractLinks(input.body)) {
+        for (const link of extractLinks(body)) {
           tx.persist(
             tx.create(ChatMessageLink, {
               tenantId: scope.tenantId,
@@ -460,7 +491,7 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
         }
 
         target.lastMessageAt = now
-        target.lastMessagePreview = buildMessagePreview(input.body)
+        target.lastMessagePreview = buildMessagePreview(body)
         target.lastMessageSenderUserId = senderUserId
         // `updatedAt` is deliberately not set here: its `onUpdate` hook fires
         // unconditionally on flush and would overwrite anything assigned. That
@@ -516,7 +547,7 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
     //
     // With the default `local` transport this is three no-ops. In authoritative
     // mode the publish already happened, before the transaction.
-    if (transport.mode === 'shadow' && !input.externalOrigin) {
+    if (transport.mode === 'shadow' && !input.externalOrigin && senderUserId) {
       // A fresh fork: the send transaction has committed, and its manager is a
       // closed unit of work.
       const transportEm = forkEm(ctx)
@@ -533,7 +564,7 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
         messageId: stored.message.id,
         senderUserId,
         senderName: sender.name,
-        body: input.body,
+        body,
         createdAt: stored.message.createdAt,
         replyToMessageId: input.replyToMessageId ?? null,
         clientMessageId: input.clientMessageId ?? null,
@@ -556,7 +587,7 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
     await emitConversationEvent('chat.message.sent', scope, recipients, {
       conversationId: conversation.id,
       messageId: stored.message.id,
-      senderUserId,
+      ...(senderUserId ? { senderUserId } : { senderExternalContactId }),
       createdAt: stored.message.createdAt.toISOString(),
       // Enough for a client to know a file is coming without putting anything
       // fetchable in the frame (§82). The bytes are still reached only through
@@ -579,6 +610,7 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
         sender.name,
         mentionNames,
         stored.attachments.map(toChatAttachmentDto),
+        sender.network,
       ),
       deduplicated: false,
     }
@@ -597,7 +629,11 @@ registerCommand(sendChatMessageCommand)
  * from the event's sender and the command refuses exactly as it would for a
  * person.
  */
-export type ChatExternalChangeOrigin = { eventId: string }
+export type ChatExternalChangeOrigin = {
+  eventId: string
+  /** The outsider making the change, when it is one — see `SendChatMessageInput`. */
+  externalContactId?: string
+}
 
 export type EditChatMessageInput = {
   tenantId: string
@@ -714,25 +750,31 @@ const editChatMessageCommand: CommandHandler<EditChatMessageInput, EditChatMessa
 
     const messages = await loadChatMessages()
     const scope: ChatScope = { tenantId: input.tenantId, organizationId: input.organizationId }
-    const editorUserId = await actingUserId(ctx)
+    const actor = await resolveChatActor(ctx, input.externalOrigin)
     const em = forkEm(ctx)
 
     // The same membership re-check every send makes: a participant row outlives
     // the organization membership that created it, so someone who has left must
     // not still be able to rewrite what they said.
-    const editor = await loadOrganizationMember(em, scope, editorUserId)
-    if (!editor) throw badRequest(messages.notOrganizationMember)
+    const editor = await loadActorIdentity(em, scope, actor)
+    if (!editor) {
+      throw actor.kind === 'user'
+        ? badRequest(messages.notOrganizationMember)
+        : notFound(messages.conversationNotFound)
+    }
 
     const { conversation, message } = await requireMessageInConversation(
       em,
       scope,
       input.conversationId,
       input.messageId,
-      editorUserId,
+      actor,
     )
 
     if (message.kind !== 'user') throw badRequest(messages.systemMessageNotEditable)
-    if (message.senderUserId !== editorUserId) throw forbidden(messages.notEditPermitted)
+    if (!isAuthorOf(message, actor)) throw forbidden(messages.notEditPermitted)
+
+    const body = actor.kind === 'external' ? neutralizeMentionSyntax(input.body) : input.body
 
     // Mentions are re-validated against the conversation as they are on a send,
     // and for the same reason: a body is client input whichever verb delivered
@@ -740,10 +782,13 @@ const editChatMessageCommand: CommandHandler<EditChatMessageInput, EditChatMessa
     // stranger, address `@everyone` in a direct conversation, or point a
     // mention row at somebody who has since left.
     const participantIds = await conversationAudience(em, scope, conversation.id)
-    const mentionedUserIds = extractMentionedUserIds(input.body)
-    const everyone = mentionsEveryone(input.body)
+    const mentionedUserIds = extractMentionedUserIds(body)
+    const everyone = mentionsEveryone(body)
 
     if (everyone && conversation.kind !== 'space') throw badRequest(messages.everyoneNotAllowed)
+    if (conversation.kind === 'external' && mentionedUserIds.length > 0) {
+      throw badRequest(messages.mentionNotAllowed)
+    }
     if (mentionedUserIds.length > 0) {
       const inConversation = new Set(participantIds)
       const outsiders = mentionedUserIds.filter((userId) => !inConversation.has(userId))
@@ -791,8 +836,8 @@ const editChatMessageCommand: CommandHandler<EditChatMessageInput, EditChatMessa
         organizationId: scope.organizationId,
       })
 
-      target.body = input.body
-      target.searchBody = buildSearchDocument(input.body)
+      target.body = body
+      target.searchBody = buildSearchDocument(body)
       target.mentionsEveryone = everyone
       target.editedAt = now
 
@@ -817,7 +862,7 @@ const editChatMessageCommand: CommandHandler<EditChatMessageInput, EditChatMessa
         )
       }
 
-      for (const link of extractLinks(input.body)) {
+      for (const link of extractLinks(body)) {
         tx.persist(
           tx.create(ChatMessageLink, {
             tenantId: scope.tenantId,
@@ -834,7 +879,7 @@ const editChatMessageCommand: CommandHandler<EditChatMessageInput, EditChatMessa
       if (previewTarget) {
         // Only the text. An edit does not change when the message was written,
         // so it must not reorder the conversation list.
-        previewTarget.lastMessagePreview = buildMessagePreview(input.body)
+        previewTarget.lastMessagePreview = buildMessagePreview(body)
       }
 
       await tx.flush()
@@ -844,13 +889,13 @@ const editChatMessageCommand: CommandHandler<EditChatMessageInput, EditChatMessa
     // Mirrored after the commit and never fatally, in both modes. The row
     // already carries the new body, so a homeserver that refuses this leaves the
     // room showing older words — not Operis showing wrong ones.
-    if (!input.externalOrigin) {
+    if (!input.externalOrigin && actor.kind === 'user') {
       await publishEditSafely(chatTransportFrom(ctx), { em: forkEm(ctx) }, scope, {
         conversationId: conversation.id,
         messageId: message.id,
-        senderUserId: editorUserId,
+        senderUserId: actor.userId,
         senderName: editor.name,
-        body: input.body,
+        body,
         editedAt,
       })
     }
@@ -863,7 +908,7 @@ const editChatMessageCommand: CommandHandler<EditChatMessageInput, EditChatMessa
       editedAt: editedAt.toISOString(),
     })
 
-    return { messageId: message.id, body: input.body, editedAt: editedAt.toISOString() }
+    return { messageId: message.id, body, editedAt: editedAt.toISOString() }
   },
 }
 
@@ -899,11 +944,15 @@ const deleteChatMessageCommand: CommandHandler<DeleteChatMessageInput, DeleteCha
 
     const messages = await loadChatMessages()
     const scope: ChatScope = { tenantId: input.tenantId, organizationId: input.organizationId }
-    const actorUserId = await actingUserId(ctx)
+    const actor = await resolveChatActor(ctx, input.externalOrigin)
     const em = forkEm(ctx)
 
-    const actor = await loadOrganizationMember(em, scope, actorUserId)
-    if (!actor) throw badRequest(messages.notOrganizationMember)
+    const actorIdentity = await loadActorIdentity(em, scope, actor)
+    if (!actorIdentity) {
+      throw actor.kind === 'user'
+        ? badRequest(messages.notOrganizationMember)
+        : notFound(messages.conversationNotFound)
+    }
 
     // `includeDeleted`, because deleting something already deleted must converge
     // rather than report a failure for the state the caller asked for. The
@@ -914,13 +963,15 @@ const deleteChatMessageCommand: CommandHandler<DeleteChatMessageInput, DeleteCha
       scope,
       input.conversationId,
       input.messageId,
-      actorUserId,
+      actor,
       { includeDeleted: true },
     )
 
     if (message.kind !== 'user') throw badRequest(messages.systemMessageNotEditable)
-    const isAuthor = message.senderUserId === actorUserId
-    const isSpaceOwner = conversation.kind === 'space' && participant.role === 'owner'
+    // An external conversation has no owner, so there only the author may delete
+    // — which is also the only thing an outsider may ever delete.
+    const isAuthor = isAuthorOf(message, actor)
+    const isSpaceOwner = actor.kind === 'user' && conversation.kind === 'space' && participant.role === 'owner'
     if (!isAuthor && !isSpaceOwner) throw forbidden(messages.notDeletePermitted)
 
     // Already gone before we even opened a transaction — the common shape of a
@@ -985,12 +1036,12 @@ const deleteChatMessageCommand: CommandHandler<DeleteChatMessageInput, DeleteCha
       return { messageId: message.id, deletedAt: outcome.deletedAt.toISOString() }
     }
 
-    if (!input.externalOrigin) {
+    if (!input.externalOrigin && actor.kind === 'user') {
       await publishDeletionSafely(chatTransportFrom(ctx), { em: forkEm(ctx) }, scope, {
         conversationId: conversation.id,
         messageId: message.id,
-        actorUserId,
-        actorName: actor.name,
+        actorUserId: actor.userId,
+        actorName: actorIdentity.name,
       })
     }
 

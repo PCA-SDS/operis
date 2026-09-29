@@ -39,6 +39,18 @@ export function activeOrganizationMemberFilter(scope: ChatScope): Record<string,
   }
 }
 
+/**
+ * A name from a batch lookup, or the fallback. An absent id — an outsider's, or
+ * a colleague who has left — has no entry.
+ */
+export function nameOrFallback(
+  names: ReadonlyMap<string, string>,
+  id: string | null | undefined,
+  fallback: string,
+): string {
+  return (id ? names.get(id) : undefined) ?? fallback
+}
+
 /** `name` when the person set one, otherwise the address they sign in with. */
 export function chatDisplayName(user: { name?: string | null; email: string }): string {
   const trimmed = (user.name ?? '').trim()
@@ -50,13 +62,17 @@ export function chatDisplayName(user: { name?: string | null; email: string }): 
  * not one. Callers treat a missing id as "not a valid participant" rather than
  * as an error, so one stale id cannot fail a whole conversation list.
  *
+ * A null entry is an outsider — an external contact has no user id — and is
+ * dropped like any other non-member: this answers "is this an organization
+ * member", which an outsider never is.
+ *
  * `User.email` is encrypted at rest, so this goes through `findWithDecryption`
  * rather than `em.find`.
  */
 export async function loadOrganizationMembers(
   em: EntityManager,
   scope: ChatScope,
-  ids: readonly string[],
+  ids: readonly (string | null | undefined)[],
 ): Promise<Map<string, ChatPerson>> {
   const unique = [...new Set(ids.filter((id): id is string => typeof id === 'string' && id.length > 0))]
   const result = new Map<string, ChatPerson>()

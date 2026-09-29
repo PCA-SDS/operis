@@ -32,6 +32,12 @@ cannot quietly stop being true.
   send path writes a row inline; the sync loop finds it and skips. Bypass it and
   a redelivered transaction duplicates history permanently.
 - Derive an mxid with `@open-mercato/matrix`'s `mxidForUser`, never by hand.
+- Resolve every event sender through `resolveProjectionActor` (`lib/outsiders.ts`),
+  which holds the whole decision table — see "Who a sender is" below.
+- Treat `externalContactIdFor`'s key as frozen. An outsider's contact id is
+  derived from tenant, organization and mxid, never stored against the mxid:
+  change the derivation and every known outsider becomes someone new, their
+  history pointing at contacts no sender resolves to.
 
 ## Never
 
@@ -43,6 +49,9 @@ cannot quietly stop being true.
   and the readers already notified; `publishMessageSafely` logs and moves on.
 - Never publish inside the chat write transaction. A network call inside a
   database transaction holds locks for the duration of somebody else's outage.
+- Never provision a room for an external conversation. Its room belongs to the
+  bridge: `ensureRoom` never creates it, never changes power levels and never
+  removes anyone — it only seats colleagues' puppets in a room already linked.
 - Never order the transcript by `origin_server_ts`. Operis timestamps come from
   the database clock (`chat/lib/clock.ts`) and the keyset cursor is built on
   them; two clocks deciding one sort order is how a message goes missing from a
@@ -189,7 +198,21 @@ yarn mercato chat_matrix drift --tenant <uuid>
 yarn mercato chat_matrix backfill --dry-run       # what would be published
 yarn mercato chat_matrix backfill --limit 50      # publish what Matrix is missing
 yarn mercato chat_matrix sync                     # drain the /sync stream now
+yarn mercato chat_matrix link-room --room '!abc:server' --tenant <uuid> \
+  --organization <uuid> --members <userId>[,<userId>…] [--title 'Name']
+yarn mercato chat_matrix unlink-room --conversation <uuid>
 ```
+
+`link-room` turns a bridged room into an external conversation for the
+colleagues named. Every check runs before anything is written — a bridge
+configured, the room unmapped, the members active, the bot joined and able to
+invite, a ghost present, and contact names encryptable. That last one bites
+existing tenants: encryption maps are seeded per tenant at creation, so one
+created before this shipped needs `yarn mercato entities seed-encryption --tenant
+<uuid>` first. `unlink-room` closes the conversation and drops the mapping; the
+room stays with its bridge. Both **throw** on refusal (`💥 Failed: Refused
+(<reason>): …`, exit 1): the CLI dispatcher discards `process.exitCode`, so a
+command that only sets it still exits 0 — `drift` included, until that is fixed.
 
 **Raw SQL here binds with `?`, never `$n`.** `em.getConnection().execute()` goes
 through Knex. A `$1` reaches Postgres as a literal it has no parameter for, and
@@ -249,10 +272,25 @@ not to each revision — so an Operis edit echoed back cannot be caught by the
 It still skips, never throws, on: an event it already knows, a non-message, a
 redacted message, a room Operis never created, an empty body, a relation whose
 target has no mapping (`unmapped-target`), a command refusal (`not-permitted`)
-and **a sender that is not an Operis identity**. That last one is the bot today
-and a bridged WhatsApp contact tomorrow; attributing someone else's words to an
-employee would be worse than not showing them, and doing it properly needs an
-external-participant model the chat schema does not have.
+and **a sender it cannot name** (below).
+
+### Who a sender is
+
+| Sender | Conversation | Result |
+|---|---|---|
+| an Operis identity | any | a colleague |
+| a configured bridge ghost | `external` | an outsider — contact ensured, seated, then replayed |
+| a configured bridge ghost | `direct` / `space` | skip: `external-in-internal-room`, logged loudly |
+| anyone else — the bot, a bridge's own bot, an unconfigured namespace | any | skip: `external-sender` |
+
+A ghost is a sender on this homeserver whose localpart starts with a prefix in
+`OM_MATRIX_BRIDGE_GHOSTS`. An outsider replays under a context with no logged-in
+user, named in `externalOrigin.externalContactId`; seating goes through
+`chat.externalContacts.ensure` and `chat.conversations.addExternalParticipant`,
+both idempotent. A receipt never seats anyone. Attributing someone else's words
+to an employee would be worse than not showing them, which is why everything
+outside the table is still skipped. A ghost's mxid carries a phone number, so
+none of this logs one above debug.
 
 One refused event must never stall the stream: the cursor would stop advancing
 and everything behind it would be stuck too, over a permission decision that
@@ -369,15 +407,16 @@ everyone in the conversation except the person typing, then mirrors `m.typing`.
 The reader does **not** ask for `m.typing` on its filter, and that is a
 decision rather than an omission: every Operis user's keystrokes are already
 announced directly, so projecting them would duplicate a frame the recipients
-have — and a typist who is not an Operis identity cannot be attributed to
-anybody until the external-participant model exists. Asking for it would cost a
-notification per keystroke in every joined room and buy nothing.
+have. An outsider's typing would be new information, but asking for `m.typing`
+costs a notification per keystroke in every joined room; whether a customer's
+"typing…" is worth that is the bridge spec's call.
 
 **Receipts go both ways.** `markRead` resolves the cursor to the newest message
 at or before it and announces `m.read`; the reader projects an inbound one back
 through `markRead`, whose clamped, monotonic UPDATE is what makes a redelivered
-receipt free. The one case it serves is real: a colleague reading in Element
-should not still see the conversation unread in Operis. `m.read.private` is
+receipt free. It serves two real cases: a colleague reading in Element should
+not still see the conversation unread in Operis, and an outsider's receipt is
+how colleagues learn a reply was seen. `m.read.private` is
 deliberately not read — it exists so a client can advance its own marker without
 telling the room.
 

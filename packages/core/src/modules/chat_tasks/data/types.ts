@@ -1,4 +1,5 @@
 import type { TaskPriority, TaskRecurrenceDto, TaskStatus } from '@open-mercato/core/modules/tasks/data/types'
+import type { ChatConversationKind } from '@open-mercato/core/modules/chat/data/entities'
 
 /**
  * The wire shapes this module owns.
@@ -70,7 +71,7 @@ export type ChatTaskSourceDto = {
   conversationId: string
   /** The conversation's name for this viewer; a direct is named by its counterpart. */
   conversationTitle: string
-  kind: 'direct' | 'space'
+  kind: ChatConversationKind
   /** Present only when a source message was recorded AND is still readable. */
   messageId: string | null
   /** Where the conversation opens. */
@@ -89,7 +90,7 @@ export type ChatTaskSourceListDto = {
 /** What the composer needs before it can offer to create a task. */
 export type ChatTaskComposerContextDto = {
   conversationId: string
-  kind: 'direct' | 'space'
+  kind: ChatConversationKind
   /**
    * Who the assignee defaults to, resolved from server-verified membership.
    *

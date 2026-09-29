@@ -48,9 +48,12 @@ export default async function handle(payload: unknown, ctx: SubscriberContext): 
   const conversationId = readTrimmedString(record, 'conversationId')
   const messageId = readTrimmedString(record, 'messageId')
   const senderUserId = readTrimmedString(record, 'senderUserId')
+  const senderExternalContactId = readTrimmedString(record, 'senderExternalContactId')
   const tenantId = ctx.tenantId ?? null
   const organizationId = ctx.organizationId ?? null
-  if (!conversationId || !messageId || !senderUserId || !tenantId || !organizationId) return
+  if (!conversationId || !messageId || (!senderUserId && !senderExternalContactId) || !tenantId || !organizationId) {
+    return
+  }
 
   const scope = { tenantId, organizationId }
 
@@ -66,11 +69,24 @@ export default async function handle(payload: unknown, ctx: SubscriberContext): 
     const conversation = await em.findOne(ChatConversation, { id: conversationId, ...scope })
     if (!conversation) return
 
-    const participants = await em.find(ChatParticipant, { conversationId, ...scope })
+    const isExternal = conversation.kind === 'external'
+    // An outsider only ever writes in an external conversation. And there, a
+    // colleague's reply notifies nobody: mentions are refused, and telling the
+    // other handlers about every reply is the noise the unread count covers.
+    if (isExternal ? !senderExternalContactId : !senderUserId) return
+
+    // Colleagues only. An outsider has no user to notify, and a null recipient
+    // would throw inside this loop's single `try` and skip everyone after it.
+    const participants = (await em.find(ChatParticipant, { conversationId, ...scope })).filter(
+      (participant): participant is ChatParticipant & { userId: string } => typeof participant.userId === 'string',
+    )
     const isSpace = conversation.kind === 'space'
 
-    let candidates: ChatParticipant[]
-    if (isSpace) {
+    let candidates: Array<ChatParticipant & { userId: string }>
+    if (isExternal) {
+      // Somebody outside is waiting on an answer: every colleague here is told.
+      candidates = participants
+    } else if (isSpace) {
       if (message.mentionsEveryone) {
         candidates = participants
       } else {
@@ -91,12 +107,18 @@ export default async function handle(payload: unknown, ctx: SubscriberContext): 
     })
     if (recipients.length === 0) return
 
-    const typeId = isSpace ? 'chat.mention.received' : 'chat.direct.received'
+    const typeId = isExternal
+      ? 'chat.external.received'
+      : isSpace
+        ? 'chat.mention.received'
+        : 'chat.direct.received'
     const typeDef = notificationTypes.find((type) => type.type === typeId)
     if (!typeDef) return
 
     const notificationService = resolveNotificationService(container)
-    const senderName = await resolveSenderName(em, scope, senderUserId)
+    const senderName = senderExternalContactId
+      ? await resolveContactName(em, scope, senderExternalContactId)
+      : await resolveSenderName(em, scope, senderUserId ?? '')
 
     for (const recipient of recipients) {
       /**
@@ -135,6 +157,20 @@ export default async function handle(payload: unknown, ctx: SubscriberContext): 
  * A notification that says "Someone sent you a message" is still useful; one
  * that fails to be created because a directory lookup missed is not.
  */
+async function resolveContactName(
+  em: EntityManager,
+  scope: { tenantId: string; organizationId: string },
+  externalContactId: string,
+): Promise<string> {
+  try {
+    const { loadExternalContacts } = await import('../lib/people')
+    const contacts = await loadExternalContacts(em, scope, [externalContactId])
+    return contacts.get(externalContactId)?.name ?? 'Someone'
+  } catch {
+    return 'Someone'
+  }
+}
+
 async function resolveSenderName(
   em: EntityManager,
   scope: { tenantId: string; organizationId: string },
