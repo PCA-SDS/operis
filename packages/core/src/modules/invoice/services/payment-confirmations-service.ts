@@ -2,7 +2,6 @@ import { randomBytes } from 'node:crypto'
 import { UniqueConstraintViolationException } from '@mikro-orm/core'
 import type { EntityManager, FilterQuery } from '@mikro-orm/postgresql'
 import { badRequest, conflict, notFound, CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
-import { sendEmail } from '@open-mercato/shared/lib/email/send'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { getSecurityEmailBaseUrl } from '@open-mercato/shared/lib/url'
@@ -28,7 +27,7 @@ import { emitInvoiceEvent } from '../events'
 import type { InvoiceCompanyEmailsService } from './company-emails-service'
 import { createPaymentConfirmationEmail } from './invoice-email'
 import { InvoiceScopedPersistenceService } from './scoped-persistence-service'
-import type { InvoiceService } from './invoice-service'
+import type { InvoiceEmailSender, InvoiceService } from './invoice-service'
 
 /**
  * Money is stored as `numeric(18,4)` decimal strings. Compare at that scale rather than by
@@ -109,6 +108,7 @@ export class InvoicePaymentConfirmationsService {
     private readonly em: EntityManager,
     private readonly companyEmailsService: InvoiceCompanyEmailsService,
     private readonly invoiceService?: InvoiceService,
+    private readonly emailSender?: InvoiceEmailSender,
   ) {}
 
   private async findByPublicToken(rawToken: string) {
@@ -528,13 +528,15 @@ export class InvoicePaymentConfirmationsService {
         translate,
       })
       try {
-        await sendEmail({ to: input.recipientEmail, subject: email.subject, react: email.react })
-      } catch {
+        if (!this.emailSender) throw new Error('[internal] Resend email service is unavailable')
+        await this.emailSender.send(scope, { to: input.recipientEmail, subject: email.subject, react: email.react })
+      } catch (error) {
         logger.error('Payment confirmation email delivery failed', {
           confirmationId: confirmation.id,
           invoiceId: invoice.id,
           tenantId: scope.tenantId,
           organizationId: scope.organizationId,
+          err: error,
         })
         throw badRequest('[internal] Payment confirmation email delivery failed')
       }
@@ -587,6 +589,7 @@ export function createInvoicePaymentConfirmationsService(
   em: EntityManager,
   companyEmailsService: InvoiceCompanyEmailsService,
   invoiceService?: InvoiceService,
+  emailSender?: InvoiceEmailSender,
 ): InvoicePaymentConfirmationsService {
-  return new InvoicePaymentConfirmationsService(em, companyEmailsService, invoiceService)
+  return new InvoicePaymentConfirmationsService(em, companyEmailsService, invoiceService, emailSender)
 }

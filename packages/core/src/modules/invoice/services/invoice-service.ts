@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { EntityManager, FilterQuery } from '@mikro-orm/postgresql'
+import type { SendEmailOptions } from '@open-mercato/shared/lib/email/send'
 import type { QueryEngine } from '@open-mercato/shared/lib/query/types'
-import { sendEmail } from '@open-mercato/shared/lib/email/send'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { detectLocale, resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { E } from '#generated/entities.ids.generated'
@@ -81,6 +81,9 @@ export type InvoiceManualMutationResult = {
 export type InvoiceManualDeleteResult = {
   invoiceId: string
   deleted: true
+}
+export type InvoiceEmailSender = {
+  send(scope: InvoiceScope, message: Omit<SendEmailOptions, 'apiKey' | 'from'>): Promise<void>
 }
 export type InvoiceDueDateUpdateResult = InvoiceManualMutationResult
 export type InvoiceSettlementUpdateResult = InvoiceManualMutationResult
@@ -292,6 +295,7 @@ export class InvoiceService {
     private readonly scopedPersistence: InvoiceScopedPersistenceService,
     private readonly exchangeRatesService: InvoiceExchangeRatesService = createInvoiceExchangeRatesService(),
     private readonly companyEmailsService?: InvoiceCompanyEmailsService,
+    private readonly emailSender?: InvoiceEmailSender,
   ) {}
 
   forTransaction(em: EntityManager): InvoiceService {
@@ -301,6 +305,7 @@ export class InvoiceService {
       new InvoiceScopedPersistenceService(em),
       this.exchangeRatesService,
       this.companyEmailsService,
+      this.emailSender,
     )
   }
 
@@ -639,7 +644,8 @@ export class InvoiceService {
     })
 
     try {
-      await sendEmail({ to: input.email, subject: email.subject, react: email.react })
+      if (!this.emailSender) throw new Error('[internal] Resend email service is unavailable')
+      await this.emailSender.send(scope, { to: input.email, subject: email.subject, react: email.react })
     } catch (err) {
       logger.error('Invoice email delivery failed', {
         invoiceId: invoice.id,
@@ -1178,6 +1184,7 @@ export function createInvoiceService(
   scopedPersistence: InvoiceScopedPersistenceService,
   exchangeRatesService: InvoiceExchangeRatesService = createInvoiceExchangeRatesService(),
   companyEmailsService?: InvoiceCompanyEmailsService,
+  emailSender?: InvoiceEmailSender,
 ): InvoiceService {
-  return new InvoiceService(em, queryEngine, scopedPersistence, exchangeRatesService, companyEmailsService)
+  return new InvoiceService(em, queryEngine, scopedPersistence, exchangeRatesService, companyEmailsService, emailSender)
 }

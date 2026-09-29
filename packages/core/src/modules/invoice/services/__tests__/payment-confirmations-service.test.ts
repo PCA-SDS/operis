@@ -91,9 +91,12 @@ function buildService(invoice: Invoice | null) {
   const companyEmailsService = {
     record: jest.fn(async () => null),
   }
+  const emailSender = { send: jest.fn(async (_scope: typeof scope, options: Parameters<typeof sendEmail>[0]) => sendEmail(options)) }
   const service = new InvoicePaymentConfirmationsService(
     em as never,
     companyEmailsService as never,
+    undefined,
+    emailSender,
   )
 
   return {
@@ -299,7 +302,8 @@ function buildIncomingHarness(options: {
   const em = {
     transactional: jest.fn(async (work: (manager: typeof tx) => Promise<unknown>) => work(tx)),
   }
-  const service = new InvoicePaymentConfirmationsService(em as never, {} as never, invoiceService as never)
+  const emailSender = { send: jest.fn(async (_scope: typeof scope, options: Parameters<typeof sendEmail>[0]) => sendEmail(options)) }
+  const service = new InvoicePaymentConfirmationsService(em as never, {} as never, invoiceService as never, emailSender)
 
   return {
     service,
