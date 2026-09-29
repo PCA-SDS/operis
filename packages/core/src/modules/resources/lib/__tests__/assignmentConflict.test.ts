@@ -200,6 +200,66 @@ describe('AssignmentConflictService appointment availability', () => {
     })).resolves.toEqual({ valid: true })
   })
 
+  it('uses the custom resource schedule even when it extends beyond branch hours', async () => {
+    const resource = {
+      id: 'resource-1',
+      tenantId: 'tenant-1',
+      organizationId: 'organization-1',
+      isActive: true,
+      availabilityRuleSetId: null,
+      deletedAt: null,
+    }
+    const resourceRule = {
+      id: 'resource-rule',
+      subjectId: 'resource-1',
+      timezone: 'UTC',
+      rrule: 'DTSTART:20260925T090000Z\nDURATION:PT13H\nRRULE:FREQ=DAILY',
+      exdates: [],
+      kind: 'availability' as const,
+      lastCustomerAcceptanceMinutes: 22 * 60,
+      timeOverflowMinutes: 60,
+    }
+    const branchRule = {
+      id: 'branch-rule',
+      rrule: 'DTSTART:20260925T090000Z\nDURATION:PT11H\nRRULE:FREQ=DAILY',
+      exdates: [],
+      kind: 'availability' as const,
+      lastCustomerAcceptanceMinutes: 20 * 60,
+      timeOverflowMinutes: 0,
+    }
+    const settings = {
+      organizationId: 'organization-1',
+      operatingHoursRuleSetId: 'branch-ruleset',
+      timezone: 'UTC',
+      lastCustomerBeforeCloseMinutes: 0,
+      timeOverflowMinutes: 0,
+    }
+    const em = {
+      findOne: jest.fn().mockImplementation(async (_entity, where) => (
+        where.id === resource.id
+          ? resource
+          : where.id === 'branch-ruleset'
+            ? { id: 'branch-ruleset', tenantId: 'tenant-1', organizationId: 'organization-1', timezone: 'UTC', deletedAt: null }
+            : null
+      )),
+      find: jest.fn().mockImplementation(async (_entity, where) => {
+        if (where.subjectType === 'resource') return [resourceRule]
+        if (where.subjectType === 'ruleset') return [branchRule]
+        if (where.organizationId?.$in) return [settings]
+        return []
+      }),
+      count: jest.fn().mockResolvedValue(0),
+    }
+    const service = new AssignmentConflictService(em as never)
+
+    await expect(service.validateAssignment({
+      ...BASE_PARAMS,
+      startsAt: new Date('2026-09-25T21:45:00.000Z'),
+      endsAt: new Date('2026-09-25T22:30:00.000Z'),
+      availabilityMode: 'appointment',
+    })).resolves.toEqual({ valid: true })
+  })
+
   it('accepts an overlapping resource window that satisfies the full appointment range', async () => {
     const resource = {
       id: 'resource-1',
@@ -411,7 +471,7 @@ describe('AssignmentConflictService appointment availability', () => {
     })).resolves.toMatchObject({ valid: false, error: { code: 'OUTSIDE_AVAILABILITY' } })
   })
 
-  it('enforces an inherited organization policy during assignment validation', async () => {
+  it('uses a linked custom resource ruleset instead of the inherited organization policy', async () => {
     const resource = {
       id: 'resource-1',
       tenantId: 'tenant-1',
@@ -473,6 +533,6 @@ describe('AssignmentConflictService appointment availability', () => {
       endsAt: new Date('2026-09-25T23:30:00.000Z'),
       availabilityMode: 'appointment',
       availabilityAnchorStartAt: new Date('2026-09-25T20:00:00.000Z'),
-    })).resolves.toMatchObject({ valid: false, error: { code: 'OUTSIDE_AVAILABILITY' } })
+    })).resolves.toEqual({ valid: true })
   })
 })

@@ -113,9 +113,7 @@ export async function loadResourceAvailabilityWindows(
         })
       : null
     const resourceWindows = rawResourceWindows
-      ? directResourceRules.length > 0
-        ? resolveResourceWindowsWithOverrides(rawResourceWindows, directResourceRules)
-        : rawResourceWindows.map((window) => ({ ...window, operatingEnd: window.end, latestStartAt: null }))
+      ? resolveResourceWindowsWithOverrides(rawResourceWindows, resourceRules)
       : null
 
     const orderedOrganizationIds = [
@@ -127,13 +125,14 @@ export async function loadResourceAvailabilityWindows(
       organizationIds: orderedOrganizationIds,
     })
     if (!policy) {
+      const hasCustomResourceAvailability = directResourceRules.length > 0 || Boolean(resource.availabilityRuleSetId)
       windowsByResourceId.set(
         resource.id,
         resourceWindows?.map((window) => ({
           startsAt: window.start.toISOString(),
           endsAt: window.end.toISOString(),
           ...(window.latestStartAt ? { latestStartAt: window.latestStartAt.toISOString() } : {}),
-        })) ?? null,
+        })) ?? (hasCustomResourceAvailability ? [] : null),
       )
       return
     }
@@ -141,24 +140,20 @@ export async function loadResourceAvailabilityWindows(
     const organizationWindows = resolveOrganizationAvailabilityWindows(policy, params.range)
     const usesOfficialRuleSet = resource.availabilityRuleSetId === policy.operatingHoursRuleSetId
       && directResourceRules.length === 0
+    const hasCustomResourceAvailability = directResourceRules.length > 0
+      || Boolean(resource.availabilityRuleSetId && !usesOfficialRuleSet)
     const effectiveWindows = usesOfficialRuleSet
       ? organizationWindows.map((window) => ({
           start: window.start,
           end: window.end,
           latestStartAt: null,
         }))
-      : resourceWindows
-      ? resourceWindows.flatMap((resourceWindow) => organizationWindows.flatMap((organizationWindow) => {
-          const start = resourceWindow.start > organizationWindow.start ? resourceWindow.start : organizationWindow.start
-          const end = resourceWindow.end < organizationWindow.end ? resourceWindow.end : organizationWindow.end
-          if (start >= end) return []
-          const resourceLatestStartAt = resourceWindow.latestStartAt ?? resourceWindow.operatingEnd
-          const latestStartAt = new Date(Math.min(
-            resourceLatestStartAt.getTime(),
-            organizationWindow.latestNewBookingStart.getTime(),
-          ))
-          return [{ start, end, latestStartAt }]
-        }))
+      : hasCustomResourceAvailability
+        ? (resourceWindows ?? []).map((window) => ({
+            start: window.start,
+            end: window.end,
+            latestStartAt: window.latestStartAt ?? window.operatingEnd,
+          }))
       : organizationWindows.map((window) => ({
           start: window.start,
           end: window.end,

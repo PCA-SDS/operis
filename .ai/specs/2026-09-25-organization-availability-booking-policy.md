@@ -26,11 +26,13 @@ Add nullable per-rule fields on `PlannerAvailabilityRule`:
 The effective resource windows are:
 
 ```text
-organizationOperatingHours + window.timeOverflow
-  ∩ resourceAvailability
+if resource has explicitly configured availability:
+  resourceAvailability + its window cutoff/overflow
+otherwise:
+  organizationOperatingHours + its window cutoff/overflow
 ```
 
-The organization cutoff and operating-hours-plus-overflow remain the branch-wide limits. The first service must start no later than the effective booking cutoff. Later services in that same appointment may start after operating close, provided the appointment's original start met the cutoff and the service ends by the effective runtime end. A new appointment cannot start during overflow. An explicit resource cutoff cannot loosen the branch cutoff. Resource settings apply only to assignments on that resource; resources without explicit overrides continue to inherit branch behavior. A resource schedule can still constrain when that resource is physically available.
+When a resource has explicitly configured availability, that schedule—including its operating hours, last-customer cutoff, and overflow—is authoritative for that resource and replaces the branch schedule there. It is not intersected with the branch policy. Resources without explicit resource availability inherit the branch schedule and its cutoff/overflow. The first service must start no later than the effective booking cutoff. Later services in that same appointment may start after operating close, provided the appointment's original start met the cutoff and the service ends by the effective runtime end. A new appointment cannot start during overflow. Resource-specific settings do not affect sibling resources or the branch policy.
 
 ## Architecture
 
@@ -52,12 +54,12 @@ Defaults: legacy organization-level offsets are `0` and are retained only as a c
 
 `PUT /api/planner/organization-availability-settings` saves the explicit ruleset link. The ruleset must belong to the selected tenant and organization. The explicit activation action sends the settings record's `updatedAt` as its optimistic-lock token. Weekly and date-specific availability endpoints accept and persist the two non-negative per-window minute values. Saving ruleset, resource, or member availability never changes the organization policy pointer.
 
-Resource availability responses expose effective windows and an optional resource-specific latest start. Appointment intake rejects starts after the branch cutoff; assignment validation additionally enforces an explicit resource cutoff and resource close-plus-overflow for the selected resource.
+Resource availability responses expose effective windows and an optional resource-specific latest start. Appointment intake without a selected resource uses the branch cutoff; assignment validation applies the selected resource's own schedule when configured, or the branch schedule when it is not.
 
 ## Risks & Impact Review
 
 - Existing tenants without an explicit organization policy are not assigned a guessed ruleset.
-- A blank resource cutoff means inherit the branch cutoff; it does not introduce a new restriction for other resources.
+- Resources without a selected/configured custom availability inherit branch operating hours, cutoff, and overflow.
 - `Standard Business Hours` data currently describes 09:00–22:00 in the migration; no last-customer or overflow value is inferred from conflicting legacy locale text.
 - A later migration may backfill the explicit link only after confirming the ruleset is unique for an organization.
 
@@ -81,5 +83,5 @@ Resource availability responses expose effective windows and an optional resourc
 ### 2026-09-28
 
 - Kept organization operating-hours activation explicit in the ruleset Details tab so reusable schedule edits cannot change the organization policy pointer.
-- Added optional per-resource last-customer cutoff and overflow fields in Availability; blank cutoff inherits branch behavior, and explicit resource values constrain only that resource.
+- Added optional resource-specific availability; an explicitly selected custom schedule replaces branch policy for that resource, while resources without one inherit branch behavior.
 - Allowed later services in an already-started appointment to use resource overflow while keeping the new-booking cutoff strict.

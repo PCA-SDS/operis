@@ -253,7 +253,7 @@ export class AssignmentConflictService {
           range: availabilityRange,
       })
       : null
-    const resourceRuleById = new Map(directRules.map((rule) => [rule.id, rule]))
+    const resourceRuleById = new Map(rules.map((rule) => [rule.id, rule]))
     const appointmentResourceWindows = resourceWindows?.map((window) => {
       const rule = resourceRuleById.get(window.ruleId ?? '')
       const hasAcceptanceOverride = rule?.lastCustomerAcceptanceMinutes != null
@@ -276,16 +276,18 @@ export class AssignmentConflictService {
       const organizationWindows = policy
         ? resolveOrganizationAvailabilityWindows(policy, availabilityRange)
         : null
-      const anchorStartAt = availabilityAnchorStartAt ?? startsAt
-      const organizationStartWindow = !organizationWindows || organizationWindows.some(
-        (window) => window.start <= anchorStartAt && window.latestNewBookingStart >= anchorStartAt,
-      )
-      const organizationRuntimeWindow = !organizationWindows || organizationWindows.some(
-        (window) => window.start <= startsAt && window.end >= endsAt,
-      )
       const usesOfficialRuleSet = Boolean(policy)
         && resource?.availabilityRuleSetId === policy?.operatingHoursRuleSetId
         && directRules.length === 0
+      const hasCustomResourceAvailability = directRules.length > 0
+        || Boolean(resource?.availabilityRuleSetId && !usesOfficialRuleSet)
+      const anchorStartAt = availabilityAnchorStartAt ?? startsAt
+      const organizationStartWindow = hasCustomResourceAvailability || !organizationWindows || organizationWindows.some(
+        (window) => window.start <= anchorStartAt && window.latestNewBookingStart >= anchorStartAt,
+      )
+      const organizationRuntimeWindow = hasCustomResourceAvailability || !organizationWindows || organizationWindows.some(
+        (window) => window.start <= startsAt && window.end >= endsAt,
+      )
       const resourceBookingStartAt = availabilityAnchorStartAt ?? startsAt
       const hasResourceStartWindow = appointmentResourceWindows?.some(
         (window) => window.start <= resourceBookingStartAt && window.operatingEnd >= resourceBookingStartAt,
@@ -301,9 +303,9 @@ export class AssignmentConflictService {
           && (!window.latestStartAt || resourceBookingStartAt <= window.latestStartAt)
           && window.runtimeEnd >= endsAt,
       )
-      const resourceStartWindow = usesOfficialRuleSet || !appointmentResourceWindows || hasResourceStartWindow
-      const resourceAcceptanceWindow = usesOfficialRuleSet || !appointmentResourceWindows || hasResourceAcceptanceWindow
-      const resourceRuntimeWindow = usesOfficialRuleSet || !appointmentResourceWindows || hasValidResourceWindow
+      const resourceStartWindow = !hasCustomResourceAvailability || hasResourceStartWindow
+      const resourceAcceptanceWindow = !hasCustomResourceAvailability || hasResourceAcceptanceWindow
+      const resourceRuntimeWindow = !hasCustomResourceAvailability || hasValidResourceWindow
 
       const startsAfterAnchor = !availabilityAnchorStartAt || startsAt >= availabilityAnchorStartAt
       if (!organizationStartWindow || !organizationRuntimeWindow || !resourceStartWindow || !resourceAcceptanceWindow || !startsAfterAnchor || !resourceRuntimeWindow) {
