@@ -11,9 +11,9 @@
 #   ./dc logs -f app            follow application logs
 #   ./dc restart app            restart just the app
 #
-# TLS and routing live in the pca-erp stack, not here:
-#   docker logs --tail 100 pca-erp-nginx
-#   docker exec pca-erp-certbot certbot certificates
+# TLS and routing live in the gateway stack (/opt/operis-gateway), not here:
+#   docker logs --tail 100 operis-gateway-nginx
+#   docker exec operis-gateway-certbot certbot certificates
 #   ./dc exec app sh            shell inside the app container
 #   ./dc exec postgres psql -U operis -d operis
 #   ./dc down                   stop everything (volumes and data survive)

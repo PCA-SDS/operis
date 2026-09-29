@@ -38,6 +38,7 @@ type ListResponse = {
   items: LinkRow[]
   total: number
   totalPages: number
+  totalIsCapped?: boolean
 }
 
 export default function CheckoutPayLinksPage() {
@@ -48,6 +49,7 @@ export default function CheckoutPayLinksPage() {
   const [filters, setFilters] = React.useState<FilterValues>({})
   const [total, setTotal] = React.useState(0)
   const [totalPages, setTotalPages] = React.useState(1)
+  const [totalIsCapped, setTotalIsCapped] = React.useState(false)
   const [loading, setLoading] = React.useState(true)
   const { runMutation } = useGuardedMutation<{
     entityType: string
@@ -92,6 +94,7 @@ export default function CheckoutPayLinksPage() {
     setRows(result.items ?? [])
     setTotal(result.total ?? 0)
     setTotalPages(result.totalPages ?? 1)
+    setTotalIsCapped(result?.totalIsCapped === true)
     setLoading(false)
   }, [filters.pricingMode, filters.status, page, search])
 
@@ -191,7 +194,7 @@ export default function CheckoutPayLinksPage() {
           filterValues={filters}
           onFiltersApply={(next) => { setFilters(next); setPage(1) }}
           onFiltersClear={() => { setFilters({}); setPage(1) }}
-          pagination={{ page, pageSize: 25, total, totalPages, onPageChange: setPage }}
+          pagination={{ page, pageSize: 25, total, totalPages, totalIsCapped, onPageChange: setPage }}
           isLoading={loading}
           perspective={{ tableId: extensionPoints.hosts.linksTable.tableId }}
           actions={(

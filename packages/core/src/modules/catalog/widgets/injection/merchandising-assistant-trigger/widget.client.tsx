@@ -33,6 +33,8 @@ interface HostInjectionContext {
   scopeVersion?: unknown
   total?: number | string
   totalMatching?: number | string
+  /** `totalMatching` is a floor, not an exact count (server-capped list count). */
+  totalIsCapped?: boolean
   /** Selected row IDs from DataTable (auto-enriched when bulk actions are present). */
   selectedRowIds?: string[]
   selectedCount?: number
@@ -72,6 +74,7 @@ export function computeCatalogMerchandisingPageContext(
   context: HostInjectionContext | undefined,
 ): MerchandisingPageContext {
   const totalMatching = readCount(context?.totalMatching ?? context?.total)
+  const totalMatchingIsCapped = context?.totalIsCapped === true
   const selectedRowIds = Array.isArray(context?.selectedRowIds) ? context.selectedRowIds : []
   const selectedCount = selectedRowIds.length > 0 ? selectedRowIds.length : readCount(context?.selectedCount)
   return {
@@ -82,6 +85,7 @@ export function computeCatalogMerchandisingPageContext(
     extra: {
       filter: normalizeFilters(context),
       totalMatching,
+      totalMatchingIsCapped,
       selectedCount,
     },
   }

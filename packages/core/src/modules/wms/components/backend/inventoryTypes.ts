@@ -3,6 +3,7 @@ export type PagedResponse<T> = {
   items: T[]
   total: number
   totalPages: number
+  totalIsCapped?: boolean
 }
 
 export type WarehouseOption = {

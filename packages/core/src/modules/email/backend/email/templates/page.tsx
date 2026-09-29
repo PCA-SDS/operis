@@ -27,6 +27,7 @@ type EmailTemplateListResponse = {
   items?: EmailTemplateRow[]
   total?: number
   totalPages?: number
+  totalIsCapped?: boolean
 }
 
 type StatusFilter = 'current' | 'draft' | 'published' | 'archived' | 'all'
@@ -44,6 +45,7 @@ export default function EmailTemplatesPage() {
   const [page, setPage] = React.useState(1)
   const [total, setTotal] = React.useState(0)
   const [totalPages, setTotalPages] = React.useState(1)
+  const [totalIsCapped, setTotalIsCapped] = React.useState(false)
   const [search, setSearch] = React.useState('')
   const [query, setQuery] = React.useState('')
   const [statusFilter, setStatusFilter] = React.useState<StatusFilter>('current')
@@ -71,12 +73,14 @@ export default function EmailTemplatesPage() {
         setRows([])
         setTotal(0)
         setTotalPages(1)
+        setTotalIsCapped(false)
         setError(body?.error ?? t('email.templates.errors.load', 'Failed to load email templates'))
       } else {
         const body = response.result ?? {}
         setRows(Array.isArray(body.items) ? body.items : [])
         setTotal(typeof body.total === 'number' ? body.total : 0)
         setTotalPages(typeof body.totalPages === 'number' ? body.totalPages : 1)
+        setTotalIsCapped(body.totalIsCapped === true)
       }
       setIsLoading(false)
     }
@@ -181,7 +185,7 @@ export default function EmailTemplatesPage() {
           )}
           onRowClick={(row) => router.push(`/backend/email/templates/${row.id}/edit`)}
           emptyState={statusFilter === 'archived' ? t('email.templates.empty.archived', 'No archived email templates found.') : t('email.templates.empty', 'No saved email templates yet. Create a tenant-owned template from scratch.')}
-          pagination={{ page, pageSize, total, totalPages, onPageChange: setPage }}
+          pagination={{ page, pageSize, total, totalPages, totalIsCapped, onPageChange: setPage }}
         />
       </PageBody>
     </Page>

@@ -75,6 +75,7 @@ type ResponsePayload = {
   total: number
   page: number
   totalPages: number
+  totalIsCapped?: boolean
 }
 
 type SyncOption = {
@@ -121,6 +122,7 @@ export default function SyncRunsDashboardPage() {
   const [page, setPage] = React.useState(1)
   const [total, setTotal] = React.useState(0)
   const [totalPages, setTotalPages] = React.useState(1)
+  const [totalIsCapped, setTotalIsCapped] = React.useState(false)
   const [search, setSearch] = React.useState('')
   const [filterValues, setFilterValues] = React.useState<FilterValues>({})
   const [isLoading, setIsLoading] = React.useState(true)
@@ -169,6 +171,7 @@ export default function SyncRunsDashboardPage() {
         setRows(Array.isArray(payload.items) ? payload.items : [])
         setTotal(payload.total || 0)
         setTotalPages(payload.totalPages || 1)
+        setTotalIsCapped(payload?.totalIsCapped === true)
         setIsLoading(false)
       }
     }
@@ -1036,7 +1039,7 @@ export default function SyncRunsDashboardPage() {
               }] : []),
             ]} />
           )}
-          pagination={{ page, pageSize: 20, total, totalPages, onPageChange: setPage }}
+          pagination={{ page, pageSize: 20, total, totalPages, totalIsCapped, onPageChange: setPage }}
           isLoading={isLoading}
         />
       </PageBody>

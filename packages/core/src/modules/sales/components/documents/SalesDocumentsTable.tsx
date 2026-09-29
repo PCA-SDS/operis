@@ -71,6 +71,7 @@ type DocumentsResponse = {
   items?: Array<Record<string, unknown>>
   total?: number
   totalPages?: number
+  totalIsCapped?: boolean
 }
 
 type SalesDocumentRow = {
@@ -145,6 +146,7 @@ export function SalesDocumentsTable({ kind }: { kind: SalesDocumentKind }) {
   const [page, setPage] = React.useState(1)
   const [total, setTotal] = React.useState(0)
   const [totalPages, setTotalPages] = React.useState(1)
+  const [totalIsCapped, setTotalIsCapped] = React.useState(false)
   const [sorting, setSorting] = React.useState<SortingState>([{ id: 'createdAt', desc: true }])
   const [search, setSearch] = React.useState('')
   const [filterValues, setFilterValues] = React.useState<FilterValues>({})
@@ -478,6 +480,7 @@ export function SalesDocumentsTable({ kind }: { kind: SalesDocumentKind }) {
         setRows([])
         setTotal(0)
         setTotalPages(1)
+        setTotalIsCapped(false)
         return
       }
       const payload = call.result ?? {}
@@ -489,6 +492,7 @@ export function SalesDocumentsTable({ kind }: { kind: SalesDocumentKind }) {
         ? payload.totalPages
         : Math.max(1, Math.ceil(count / PAGE_SIZE))
       setTotalPages(pages)
+      setTotalIsCapped(payload.totalIsCapped === true)
       setCacheStatus(call.cacheStatus ?? null)
     } catch (err) {
       logger.error('sales.documents.list', { err })
@@ -699,6 +703,7 @@ export function SalesDocumentsTable({ kind }: { kind: SalesDocumentKind }) {
             pageSize: PAGE_SIZE,
             total,
             totalPages,
+            totalIsCapped,
             onPageChange: setPage,
             cacheStatus,
           }}

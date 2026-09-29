@@ -300,6 +300,7 @@ function InventoryDataTableSection<T extends RowData>({
           pageSize: 20,
           total: query.data?.total ?? 0,
           totalPages: query.data?.totalPages ?? 1,
+          totalIsCapped: query.data?.totalIsCapped === true,
           onPageChange: setPage,
         }}
         perspective={{ tableId }}
