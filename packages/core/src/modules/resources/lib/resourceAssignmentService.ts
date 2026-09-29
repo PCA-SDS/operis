@@ -40,6 +40,7 @@ export interface AssignmentUpsertParams {
   organizationIds?: string[]
   availabilityMode?: AssignmentAvailabilityMode
   availabilityAnchorStartAt?: Date
+  isChainedService?: boolean
 
   // Conflict exclusion (e.g., same booking's other lines can stack)
   excludeSourceEntityIds?: string[]
@@ -121,6 +122,7 @@ export class ResourceAssignmentService {
     organizationIds?: string[]
     availabilityMode?: AssignmentAvailabilityMode
     availabilityAnchorStartAt?: Date
+    isChainedService?: boolean
   }) {
     return this.conflictService.validateAssignment(params)
   }
@@ -316,6 +318,7 @@ export class ResourceAssignmentService {
       organizationIds: params.organizationIds,
       availabilityMode: params.availabilityMode,
       availabilityAnchorStartAt: params.availabilityAnchorStartAt,
+      isChainedService: params.isChainedService,
       includeDrafts: params.includeDraftConflicts,
       excludeSourceEntityIds,
     })
@@ -462,6 +465,7 @@ export class ResourceAssignmentService {
     includeDraftConflicts?: boolean
     availabilityMode?: AssignmentAvailabilityMode
     availabilityAnchorStartAt?: Date
+    isChainedService?: boolean
   }): Promise<AssignmentDTO[]> {
     // Get all drafts for this source
     const drafts = await this.em.find(ResourcesAssignment, {
@@ -506,6 +510,7 @@ export class ResourceAssignmentService {
         organizationIds: params.organizationIds,
         availabilityMode: params.availabilityMode,
         availabilityAnchorStartAt: params.availabilityAnchorStartAt,
+        isChainedService: params.isChainedService,
         includeDrafts: params.includeDraftConflicts,
         excludeAssignmentId: draft.id,
         excludeSourceEntityIds: [

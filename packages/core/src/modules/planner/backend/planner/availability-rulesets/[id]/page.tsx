@@ -194,8 +194,12 @@ export default function PlannerAvailabilityRuleSetDetailPage({ params }: { param
           <Tabs
             value={activeTab}
             onValueChange={(value) => setActiveTab(value as 'details' | 'availability')}
+            variant="underline"
           >
-            <TabsList aria-label={translate('planner.availabilityRuleSets.tabs.label', 'Schedule sections')}>
+            <TabsList
+              className="w-full flex-wrap"
+              aria-label={translate('planner.availabilityRuleSets.tabs.label', 'Schedule sections')}
+            >
               {tabs.map((tab) => (
                 <TabsTrigger key={tab.id} value={tab.id}>
                   {tab.label}

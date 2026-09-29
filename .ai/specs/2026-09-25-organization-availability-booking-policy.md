@@ -2,11 +2,11 @@
 
 ## TLDR
 
-Organization operating hours are the only store-level baseline. A resource schedule is an additional constraint. `lastCustomerAcceptanceTime` controls the latest start time for a new booking, while `timeOverflowMinutes` controls how far an existing booking may continue after operating close and how far the timeline may extend.
+Organization operating hours are the branch-level baseline. A resource may optionally set its own last-customer cutoff and overflow in Availability; when omitted, it inherits the branch policy. `lastCustomerAcceptanceTime` controls the latest start time for a new booking, while `timeOverflowMinutes` controls how far an assigned booking may continue after that schedule's close and how far the timeline may extend.
 
 ## Overview
 
-The planner already stores reusable availability rulesets, and resources can reference one. That reference does not identify the official store schedule. This change adds an explicit organization policy that points to the official operating-hours ruleset; the two booking/timeline offsets are stored on each weekly or date-specific availability window in that ruleset.
+The planner already stores reusable availability rulesets, and resources can reference one. That reference does not identify the official store schedule. An organization policy points to the official operating-hours ruleset; activation remains an explicit action in the ruleset Details tab so editing a reusable schedule cannot silently change the branch baseline. The two booking/timeline offsets are stored on each weekly or date-specific availability window in that ruleset.
 
 ## Problem Statement
 
@@ -26,11 +26,13 @@ Add nullable per-rule fields on `PlannerAvailabilityRule`:
 The effective resource windows are:
 
 ```text
-organizationOperatingHours + window.timeOverflow
-  ∩ resourceAvailability
+if resource has explicitly configured availability:
+  resourceAvailability clipped to branch operating hours + its resource cutoff/overflow
+otherwise:
+  organizationOperatingHours + its window cutoff/overflow
 ```
 
-New bookings must start no later than `window.lastCustomerAcceptanceTime` and must end no later than `operatingEnd + window.timeOverflowMinutes`. The acceptance time must not be after operating close. Existing appointment assignments may finish in the overflow window, but may not start after operating close. Assignments using the official organization ruleset use the organization overflow as their runtime boundary; independent resource schedules remain hard constraints.
+When a resource has explicitly configured availability, its operating interval is clipped to the branch's operating interval. Its own cutoff and overflow are used for that resource; the resource overflow may let a valid booking continue past branch close, but only through that resource's runtime end. Resources without explicit resource availability inherit the branch schedule and its cutoff/overflow. The appointment's original start is checked against the applicable cutoff. A later service may use overflow only when an earlier service in that same appointment has an actual assignment ending before the later service starts; being scheduled later than the appointment anchor alone does not make a service chained. Each assigned service must fit the selected resource's actual window. A new/first service cannot start during overflow. Resource-specific settings do not affect sibling resources or the branch policy.
 
 ## Architecture
 
@@ -50,14 +52,14 @@ Defaults: legacy organization-level offsets are `0` and are retained only as a c
 
 `GET /api/planner/organization-availability-settings` returns `configured`, the official ruleset ID, both offsets, and `updatedAt`.
 
-`PUT /api/planner/organization-availability-settings` saves the explicit ruleset link. The ruleset must belong to the selected tenant and organization. Weekly and date-specific availability endpoints accept and persist the two non-negative per-window minute values.
+`PUT /api/planner/organization-availability-settings` saves the explicit ruleset link. The ruleset must belong to the selected tenant and organization. The explicit activation action sends the settings record's `updatedAt` as its optimistic-lock token. Weekly and date-specific availability endpoints accept and persist the two non-negative per-window minute values. Saving ruleset, resource, or member availability never changes the organization policy pointer.
 
-Resource availability responses expose effective windows. Appointment intake rejects starts after the last-customer cutoff and ends after the operating-hours-plus-overflow boundary.
+Resource availability responses expose effective windows and an optional resource-specific latest start. Appointment intake without a selected resource uses the branch cutoff; assignment validation applies the selected resource's own schedule when configured, or the branch schedule when it is not.
 
 ## Risks & Impact Review
 
 - Existing tenants without an explicit organization policy are not assigned a guessed ruleset.
-- Existing resource-only behavior is preserved until a policy is configured.
+- Resources without a selected/configured custom availability inherit branch operating hours, cutoff, and overflow.
 - `Standard Business Hours` data currently describes 09:00–22:00 in the migration; no last-customer or overflow value is inferred from conflicting legacy locale text.
 - A later migration may backfill the explicit link only after confirming the ruleset is unique for an organization.
 
@@ -66,8 +68,8 @@ Resource availability responses expose effective windows. Appointment intake rej
 - Tenant and organization scope: implemented in settings command and resolver.
 - Official schedule ambiguity: resolved with an explicit settings link.
 - Store close versus last customer: represented by an operating end time and a separate absolute acceptance time.
-- Overflow: applied to appointment assignment runtime, booking intake, and timeline bounds; it does not extend the start boundary for new or existing appointments.
-- Resource overrun: rejected when a linked resource ruleset exceeds the configured operating-hours boundary; overflow does not make new resource availability valid.
+- Overflow: applied to appointment assignment runtime and timeline bounds. It does not extend the start boundary for a new appointment, but later services in an already-started appointment can use the overflow period.
+- Resource-local cutoff and overflow are enforced only on that resource's assignments; they do not change sibling resources or branch settings.
 
 ## Changelog
 
@@ -77,3 +79,15 @@ Resource availability responses expose effective windows. Appointment intake rej
 - Added settings API and booking/resource enforcement paths.
 - Added organization-based timeline windows with overflow support.
 - Moved last-customer and overflow configuration into weekly/date-specific schedule windows; the organization settings record now only identifies the official schedule (with legacy offset fallback).
+
+### 2026-09-28
+
+- Kept organization operating-hours activation explicit in the ruleset Details tab so reusable schedule edits cannot change the organization policy pointer.
+- Added optional resource-specific availability; an explicitly selected custom schedule replaces branch policy for that resource, while resources without one inherit branch behavior.
+- Allowed later services in an already-started appointment to use resource overflow while keeping the new-booking cutoff strict.
+- Separated appointment-anchor cutoff validation from the selected resource's actual service-window validation, including split windows and later services assigned to another resource.
+
+### 2026-09-29
+
+- Capped custom resource operating windows at branch operating hours while retaining resource-specific overflow after close.
+- Derived chained-service eligibility from an earlier assigned service in the same appointment, not merely from a start time later than the appointment anchor.

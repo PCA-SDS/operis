@@ -434,6 +434,8 @@
   "resources.resources.availability.windows.errors.range": "Die Endzeit muss nach der Startzeit liegen.",
   "resources.resources.availability.windows.errors.required": "Start- und Endzeiten sind erforderlich.",
   "resources.resources.availability.windows.label": "Zu welchen Zeiten bist du verfügbar?",
+  "resources.resources.availability.windows.lastCustomerInheritedHelp": "Leer lassen, um den Annahmeschluss der Filiale zu verwenden.",
+  "resources.resources.availability.windows.lastCustomerInheritedPlaceholder": "Von Filiale übernehmen",
   "resources.resources.availability.windows.remove": "Entfernen",
   "resources.resources.detail.activities.add": "Protokollaktivität",
   "resources.resources.detail.activities.addTitle": "Aktivität hinzufügen",

@@ -111,7 +111,7 @@ export type AvailabilityRulesEditorProps = {
 type TimeWindow = {
   start: string
   end: string
-  lastCustomerAcceptanceTime: string
+  lastCustomerAcceptanceTime: string | null
   timeOverflowMinutes: number
 }
 type RuleSetFormValues = {
@@ -235,8 +235,11 @@ function resolveRuleReasonValue(rule?: AvailabilityRule | null): string | null {
   return typeof fallback === 'string' && fallback.length ? fallback : null
 }
 
-function createDefaultWindow(): TimeWindow {
-  return { ...DEFAULT_WINDOW }
+function createDefaultWindow(subjectType: AvailabilitySubjectType): TimeWindow {
+  return {
+    ...DEFAULT_WINDOW,
+    lastCustomerAcceptanceTime: subjectType === 'resource' ? null : DEFAULT_WINDOW.lastCustomerAcceptanceTime,
+  }
 }
 
 function formatClockFromMinutes(totalMinutes: number): string {
@@ -244,10 +247,11 @@ function formatClockFromMinutes(totalMinutes: number): string {
   return `${String(Math.floor(clamped / 60)).padStart(2, '0')}:${String(clamped % 60).padStart(2, '0')}`
 }
 
-function resolveRuleAcceptanceTime(rule: AvailabilityRule, endAt: Date): string {
+function resolveRuleAcceptanceTime(rule: AvailabilityRule, endAt: Date): string | null {
   if (typeof rule.lastCustomerAcceptanceMinutes === 'number') {
     return formatClockFromMinutes(rule.lastCustomerAcceptanceMinutes)
   }
+  if (rule.subjectType === 'resource' && rule.lastCustomerBeforeCloseMinutes == null) return null
   const endMinutes = endAt.getHours() * 60 + endAt.getMinutes()
   return formatClockFromMinutes(endMinutes - (rule.lastCustomerBeforeCloseMinutes ?? 0))
 }
@@ -267,20 +271,20 @@ function formatTimeFromMinutes(totalMinutes: number): string {
   return `${hours}:${minutes}`
 }
 
-function buildNextWindow(windows: TimeWindow[]): TimeWindow {
-  if (windows.length === 0) return createDefaultWindow()
+function buildNextWindow(windows: TimeWindow[], subjectType: AvailabilitySubjectType): TimeWindow {
+  if (windows.length === 0) return createDefaultWindow(subjectType)
   const lastWindow = windows[windows.length - 1]
   const end = parseTimeInput(lastWindow.end)
-  if (!end) return createDefaultWindow()
+  if (!end) return createDefaultWindow(subjectType)
   const startMinutes = end.hours * 60 + end.minutes
-  if (startMinutes >= 23 * 60 + 59) return createDefaultWindow()
+  if (startMinutes >= 23 * 60 + 59) return createDefaultWindow(subjectType)
   const durationMinutes = getDefaultWindowDurationMinutes()
   const endMinutes = Math.min(startMinutes + durationMinutes, 23 * 60 + 59)
-  if (endMinutes <= startMinutes) return createDefaultWindow()
+  if (endMinutes <= startMinutes) return createDefaultWindow(subjectType)
   return {
     start: formatTimeFromMinutes(startMinutes),
     end: formatTimeFromMinutes(endMinutes),
-    lastCustomerAcceptanceTime: formatTimeFromMinutes(endMinutes),
+    lastCustomerAcceptanceTime: subjectType === 'resource' ? null : formatTimeFromMinutes(endMinutes),
     timeOverflowMinutes: lastWindow.timeOverflowMinutes,
   }
 }
@@ -439,14 +443,14 @@ function buildWeeklyPayload(windows: WeeklyWindows): Array<{
   weekday: number
   start: string
   end: string
-  lastCustomerAcceptanceTime: string
+  lastCustomerAcceptanceTime: string | null
   timeOverflowMinutes: number
 }> {
   const payload: Array<{
     weekday: number
     start: string
     end: string
-    lastCustomerAcceptanceTime: string
+    lastCustomerAcceptanceTime: string | null
     timeOverflowMinutes: number
   }> = []
   const seen = new Set<string>()
@@ -532,7 +536,7 @@ export function AvailabilityRulesEditor({
   const [editorScope, setEditorScope] = React.useState<'date' | 'weekday'>('date')
   const [editorDates, setEditorDates] = React.useState<string[]>([])
   const [editorWeekday, setEditorWeekday] = React.useState<number>(new Date().getDay())
-  const [editorWindows, setEditorWindows] = React.useState<TimeWindow[]>([createDefaultWindow()])
+  const [editorWindows, setEditorWindows] = React.useState<TimeWindow[]>([createDefaultWindow(subjectType)])
   const [editorRules, setEditorRules] = React.useState<AvailabilityRule[]>([])
   const [editorUnavailable, setEditorUnavailable] = React.useState(false)
   const [editorNote, setEditorNote] = React.useState('')
@@ -622,6 +626,8 @@ export function AvailabilityRulesEditor({
       applyScopeWeekday: t(`${labelPrefix}.availability.scope.weekday`, 'Weekday:'),
       windowsLabel: t(`${labelPrefix}.availability.windows.label`, 'What hours are you available?'),
       lastCustomerLabel: t(`${labelPrefix}.availability.windows.lastCustomer`, 'Last customer acceptance time'),
+      lastCustomerInheritedHelp: t(`${labelPrefix}.availability.windows.lastCustomerInheritedHelp`, 'Leave empty to use the branch cutoff.'),
+      lastCustomerInheritedPlaceholder: t(`${labelPrefix}.availability.windows.lastCustomerInheritedPlaceholder`, 'Inherit from branch'),
       overflowLabel: t(`${labelPrefix}.availability.windows.overflow`, 'Timeline overflow after close (minutes)'),
       addWindow: t(`${labelPrefix}.availability.windows.add`, 'Add window'),
       removeWindow: t(`${labelPrefix}.availability.windows.remove`, 'Remove'),
@@ -924,11 +930,11 @@ export function AvailabilityRulesEditor({
     setWeeklyWindows((prev) => {
       const nextWindows = prev.map((dayWindows) => [...dayWindows])
       const list = nextWindows[day] ?? []
-      list.push(buildNextWindow(list))
+      list.push(buildNextWindow(list, subjectType))
       nextWindows[day] = list
       return nextWindows
     })
-  }, [])
+  }, [subjectType])
 
   const handleWeeklyWindowRemove = React.useCallback((day: number, index: number) => {
     weeklyDirtyRef.current = true
@@ -1408,20 +1414,20 @@ export function AvailabilityRulesEditor({
       const windows = buildWindowsFromRules(rules)
       setEditorDates([toLocalDateKey(date)])
       setEditorWeekday(date.getDay())
-      setEditorWindows(windows.length ? windows : [createDefaultWindow()])
+      setEditorWindows(windows.length ? windows : [createDefaultWindow(subjectType)])
     } else {
       const weekday = options?.weekday ?? new Date().getDay()
       const windows = buildWindowsFromRules(rules)
       setEditorWeekday(weekday)
       setEditorDates([])
-      setEditorWindows(windows.length ? windows : [createDefaultWindow()])
+      setEditorWindows(windows.length ? windows : [createDefaultWindow(subjectType)])
       setEditorUnavailable(false)
       setEditorNote('')
       setEditorReasonEntryId(null)
       setEditorReasonValue('')
     }
     setEditorOpen(true)
-  }, [isReadOnly])
+  }, [isReadOnly, subjectType])
 
   const handleEditorWindowChange = React.useCallback((index: number, window: TimeWindow) => {
     setEditorWindows((prev) => {
@@ -1432,8 +1438,8 @@ export function AvailabilityRulesEditor({
   }, [])
 
   const handleEditorWindowAdd = React.useCallback(() => {
-    setEditorWindows((prev) => [...prev, buildNextWindow(prev)])
-  }, [])
+    setEditorWindows((prev) => [...prev, buildNextWindow(prev, subjectType)])
+  }, [subjectType])
 
   const handleEditorWindowRemove = React.useCallback((index: number) => {
     setEditorWindows((prev) => prev.filter((_, idx) => idx !== index))
@@ -1785,7 +1791,7 @@ export function AvailabilityRulesEditor({
                                       <Trash2 className="size-4" aria-hidden />
                                     </Button>
                                   </div>
-                                  {subjectType === 'ruleset' ? (
+                                  {subjectType !== 'member' ? (
                                     <div className="grid gap-2 sm:grid-cols-2">
                                       <label className="space-y-1 text-xs text-muted-foreground">
                                         <span>{listLabels.lastCustomerLabel}</span>
@@ -1793,12 +1799,14 @@ export function AvailabilityRulesEditor({
                                           value={window.lastCustomerAcceptanceTime}
                                           onChange={(value) => handleWeeklyWindowChange(index, windowIndex, {
                                             ...window,
-                                            lastCustomerAcceptanceTime: value ?? window.end,
+                                            lastCustomerAcceptanceTime: subjectType === 'resource' ? value : value ?? window.end,
                                           })}
                                           className="w-full"
                                           disabled={usingRuleSet || isReadOnly}
-                                          showClearButton={false}
+                                          placeholder={subjectType === 'resource' ? listLabels.lastCustomerInheritedPlaceholder : undefined}
+                                          showClearButton={subjectType === 'resource'}
                                         />
+                                        {subjectType === 'resource' ? <span className="block text-xs text-muted-foreground">{listLabels.lastCustomerInheritedHelp}</span> : null}
                                       </label>
                                       <label className="space-y-1 text-xs text-muted-foreground">
                                         <span>{listLabels.overflowLabel}</span>
@@ -2129,7 +2137,7 @@ export function AvailabilityRulesEditor({
                                     <Trash2 className="size-4" aria-hidden />
                                   </Button>
                                 </div>
-                                {subjectType === 'ruleset' ? (
+                                {subjectType !== 'member' ? (
                                   <div className="grid gap-2 sm:grid-cols-2">
                                     <label className="space-y-1 text-xs text-muted-foreground">
                                       <span>{listLabels.lastCustomerLabel}</span>
@@ -2137,11 +2145,13 @@ export function AvailabilityRulesEditor({
                                         value={window.lastCustomerAcceptanceTime}
                                         onChange={(value) => handleEditorWindowChange(index, {
                                           ...window,
-                                          lastCustomerAcceptanceTime: value ?? window.end,
+                                          lastCustomerAcceptanceTime: subjectType === 'resource' ? value : value ?? window.end,
                                         })}
                                         className="w-full"
-                                        showClearButton={false}
+                                        placeholder={subjectType === 'resource' ? listLabels.lastCustomerInheritedPlaceholder : undefined}
+                                        showClearButton={subjectType === 'resource'}
                                       />
+                                      {subjectType === 'resource' ? <span className="block text-xs text-muted-foreground">{listLabels.lastCustomerInheritedHelp}</span> : null}
                                     </label>
                                       <label className="space-y-1 text-xs text-muted-foreground">
                                         <span>{listLabels.overflowLabel}</span>

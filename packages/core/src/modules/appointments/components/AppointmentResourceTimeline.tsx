@@ -30,7 +30,7 @@ export type AppointmentResourceTimelineResource = {
   capacityUnitColor?: string | null
   typeIcon?: string | null
   typeColor?: string | null
-  availabilityWindows?: Array<{ startsAt: string; endsAt: string }> | null
+  availabilityWindows?: Array<{ startsAt: string; endsAt: string; latestStartAt?: string }> | null
 }
 
 export type AppointmentResourceTimelineAppointment = {
@@ -114,7 +114,8 @@ function resourceSupportsStart(
   return resource.availabilityWindows.some((window) => {
     const windowStart = new Date(window.startsAt).getTime()
     const windowEnd = new Date(window.endsAt).getTime()
-    return start >= windowStart && start <= windowEnd
+    const latestStart = window.latestStartAt ? new Date(window.latestStartAt).getTime() : Number.POSITIVE_INFINITY
+    return start >= windowStart && start <= windowEnd && start <= latestStart
   })
 }
 
@@ -252,7 +253,7 @@ function TimelineAppointmentBlock({
         <span className="block min-w-0">
         <span className={cn('block truncate font-semibold', isCompact ? 'text-xs' : 'text-sm', hasRibbon ? 'pr-8' : '')}>{appointment.customerSalutation ? `${appointment.customerSalutation}. ` : ''}{appointment.customerName}</span>
         <span className={cn('block space-y-1 border-t border-current/15', isCompact ? 'mt-1 pt-1' : 'mt-1.5 pt-1.5')}>
-          {services.slice(0, isVeryCompact ? 1 : services.length).map((service) => (
+          {services.map((service) => (
             <span key={`${service.name}-${service.startsAt}`} className="block min-w-0">
               <span className="flex items-baseline justify-between gap-2">
                 <span className={cn('truncate font-semibold', isCompact ? 'text-[11px]' : 'text-xs')}>{service.name}</span>

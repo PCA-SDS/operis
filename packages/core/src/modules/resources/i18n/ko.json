@@ -434,6 +434,8 @@
   "resources.resources.availability.windows.errors.range": "종료 시간은 시작 시간 이후여야 합니다.",
   "resources.resources.availability.windows.errors.required": "시작 및 종료 시간이 필요합니다.",
   "resources.resources.availability.windows.label": "이용 가능한 시간은 언제인가요?",
+  "resources.resources.availability.windows.lastCustomerInheritedHelp": "비워 두면 지점의 마지막 접수 시간을 사용합니다.",
+  "resources.resources.availability.windows.lastCustomerInheritedPlaceholder": "지점 설정 사용",
   "resources.resources.availability.windows.remove": "제거",
   "resources.resources.detail.activities.add": "활동 기록",
   "resources.resources.detail.activities.addTitle": "활동 추가",

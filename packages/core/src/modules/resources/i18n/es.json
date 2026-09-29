@@ -434,6 +434,8 @@
   "resources.resources.availability.windows.errors.range": "La hora de fin debe ser posterior al inicio.",
   "resources.resources.availability.windows.errors.required": "Se requieren horas de inicio y fin.",
   "resources.resources.availability.windows.label": "¿En qué horas estás disponible?",
+  "resources.resources.availability.windows.lastCustomerInheritedHelp": "Déjalo vacío para usar el límite de la sucursal.",
+  "resources.resources.availability.windows.lastCustomerInheritedPlaceholder": "Heredar de la sucursal",
   "resources.resources.availability.windows.remove": "Eliminar",
   "resources.resources.detail.activities.add": "Actividad de registro",
   "resources.resources.detail.activities.addTitle": "Agregar actividad",

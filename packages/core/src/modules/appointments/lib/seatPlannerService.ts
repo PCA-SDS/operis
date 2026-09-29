@@ -26,6 +26,7 @@ import { resolveOrganizationAndAncestorIds } from '@open-mercato/core/modules/di
 
 export interface SeatPlannerLine {
   id: string
+  sortOrder: number
   productId: string
   productTitle: string
   productCategory: string | null
@@ -98,7 +99,7 @@ export interface SeatPlannerWorkspace {
     typeName?: string | null
     typeIcon?: string | null
     typeColor?: string | null
-    availabilityWindows: Array<{ startsAt: string; endsAt: string }> | null
+    availabilityWindows: Array<{ startsAt: string; endsAt: string; latestStartAt?: string }> | null
   }>
 }
 
@@ -109,6 +110,23 @@ export function resolveSeatPlannerAssignment(
   if (seatPlannerClearedAt) return undefined
   return assignments.find((assignment) => assignment.state === 'draft')
     ?? assignments.find((assignment) => assignment.state === 'confirmed')
+}
+
+export function hasPriorAppointmentServiceAssignment(params: {
+  lines: Array<{ id: string; sortOrder: number }>
+  assignments: Array<{ sourceEntityId: string; endsAt: Date; state: string; cancelledAt?: Date | null }>
+  lineId: string
+  startsAt: Date
+}): boolean {
+  const currentLine = params.lines.find((line) => line.id === params.lineId)
+  if (!currentLine) return false
+  return params.assignments.some((assignment) => {
+    const priorLine = params.lines.find((line) => line.id === assignment.sourceEntityId)
+    return Boolean(priorLine && priorLine.sortOrder < currentLine.sortOrder)
+      && (assignment.state === 'draft' || assignment.state === 'confirmed')
+      && !assignment.cancelledAt
+      && assignment.endsAt <= params.startsAt
+  })
 }
 
 export interface UpsertDraftParams {
@@ -236,12 +254,6 @@ export class AppointmentSeatPlannerService {
           end: scheduleDayEnd,
         })
       : []
-    const timelineWindows = organizationAvailabilityPolicy && organizationAvailabilityWindows.length > 0
-      ? organizationAvailabilityWindows.map((window) => ({
-          startsAt: window.start.toISOString(),
-          endsAt: window.end.toISOString(),
-        }))
-      : null
     const bookingAcceptanceWindows = organizationAvailabilityPolicy && organizationAvailabilityWindows.length > 0
       ? organizationAvailabilityWindows.map((window) => ({
           startsAt: window.start.toISOString(),
@@ -254,6 +266,16 @@ export class AppointmentSeatPlannerService {
         availabilityWindows: resourceAvailabilityWindows.get(resource.id) ?? null,
       }
     })
+    const resourceTimelineWindows = resourcesWithAvailability.flatMap((resource) => resource.availabilityWindows ?? [])
+    const timelineWindows = organizationAvailabilityWindows.length > 0 || resourceTimelineWindows.length > 0
+      ? [
+          ...organizationAvailabilityWindows.map((window) => ({
+            startsAt: window.start.toISOString(),
+            endsAt: window.end.toISOString(),
+          })),
+          ...resourceTimelineWindows.map((window) => ({ startsAt: window.startsAt, endsAt: window.endsAt })),
+        ]
+      : null
 
     // Load option snapshots for all lines (prefer snapshot tables, fallback to catalog)
     const productIds = lines.map((line) => line.productId)
@@ -410,6 +432,7 @@ export class AppointmentSeatPlannerService {
 
         return {
           id: line.id,
+          sortOrder: line.sortOrder,
           productId: line.productId,
           productTitle: line.productTitle,
           productCategory: line.productCategory ?? null,
@@ -534,8 +557,23 @@ export class AppointmentSeatPlannerService {
       tenantId: params.tenantId,
       organizationId: params.organizationId,
       deletedAt: null,
-    })
+    }, { orderBy: { sortOrder: 'asc' } })
     const excludeSourceEntityIds = appointmentLines.map((l) => l.id)
+    const priorAssignments = await this.em.find(ResourcesAssignment, {
+      tenantId: params.tenantId,
+      organizationId: params.organizationId,
+      sourceModule: 'appointment',
+      sourceEntityType: 'appointment_line',
+      sourceEntityId: { $in: excludeSourceEntityIds },
+      cancelledAt: null,
+      state: { $in: ['draft', 'confirmed'] },
+    })
+    const isChainedService = hasPriorAppointmentServiceAssignment({
+      lines: appointmentLines.map((entry) => ({ id: entry.id, sortOrder: entry.sortOrder })),
+      assignments: priorAssignments,
+      lineId: line.id,
+      startsAt: params.startsAt,
+    })
 
     // Use the assignment service
     return this.assignmentService.upsertDraft({
@@ -556,6 +594,7 @@ export class AppointmentSeatPlannerService {
       includeDraftConflicts: true,
       availabilityMode: 'appointment',
       availabilityAnchorStartAt: appointment?.requestedStartAt,
+      isChainedService,
       preserveState: params.preserveState,
       expectedUpdatedAt: params.expectedUpdatedAt,
     })
@@ -682,11 +721,21 @@ export class AppointmentSeatPlannerService {
         organizationId: params.organizationId,
         deletedAt: null,
       },
+      { orderBy: { sortOrder: 'asc' } },
     )
 
     const allAssignments: AssignmentDTO[] = []
     const resourceOrganizationIds = await resolveOrganizationAndAncestorIds(this.em, params.tenantId, params.organizationId)
     const allLineIds = lines.map((line) => line.id)
+    const existingLineAssignments = await this.em.find(ResourcesAssignment, {
+      tenantId: params.tenantId,
+      organizationId: params.organizationId,
+      sourceModule: 'appointment',
+      sourceEntityType: 'appointment_line',
+      sourceEntityId: { $in: allLineIds },
+      cancelledAt: null,
+      state: { $in: ['draft', 'confirmed'] },
+    })
     const expectedByLineId = new Map(
       (params.expectedAssignments ?? []).map((assignment) => [assignment.lineId, assignment]),
     )
@@ -728,6 +777,12 @@ export class AppointmentSeatPlannerService {
         includeDraftConflicts: true,
         availabilityMode: 'appointment',
         availabilityAnchorStartAt: appointment?.requestedStartAt,
+        isChainedService: hasPriorAppointmentServiceAssignment({
+          lines: lines.map((entry) => ({ id: entry.id, sortOrder: entry.sortOrder })),
+          assignments: existingLineAssignments,
+          lineId: line.id,
+          startsAt: existingLineAssignments.find((assignment) => assignment.sourceEntityId === line.id)?.startsAt ?? appointment?.requestedStartAt ?? new Date(),
+        }),
       })
       if (assignments.length > 0) {
         line.seatPlannerClearedAt = null

@@ -95,7 +95,7 @@ function resolveLocalDateParts(value: Date, timezone: string): { year: number; m
   }
 }
 
-function resolveTimeInTimezone(value: Date, totalMinutes: number, timezone: string): Date {
+export function resolveTimeInTimezone(value: Date, totalMinutes: number, timezone: string): Date {
   const localDate = resolveLocalDateParts(value, timezone)
   const localAsUtc = Date.UTC(
     localDate.year,
@@ -130,7 +130,7 @@ function resolveTimeInTimezone(value: Date, totalMinutes: number, timezone: stri
   return new Date(result)
 }
 
-function resolveLatestNewBookingStart(
+export function resolveLatestNewBookingStart(
   operatingEnd: Date,
   rule: OrganizationAvailabilityPolicy['rules'][number] | undefined,
   legacyFallbackMinutes: number,

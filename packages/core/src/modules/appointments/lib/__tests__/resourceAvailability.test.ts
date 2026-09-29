@@ -46,6 +46,7 @@ describe('loadResourceAvailabilityWindows', () => {
     expect(windows.get('resource-1')).toEqual([{
       startsAt: '2026-09-25T10:00:00.000Z',
       endsAt: '2026-09-25T12:00:00.000Z',
+      latestStartAt: '2026-09-25T12:00:00.000Z',
     }])
   })
 
@@ -103,6 +104,155 @@ describe('loadResourceAvailabilityWindows', () => {
     expect(windows.get('resource-1')).toEqual([{
       startsAt: '2026-09-25T09:00:00.000Z',
       endsAt: '2026-09-25T23:00:00.000Z',
+      latestStartAt: '2026-09-25T20:00:00.000Z',
+    }])
+  })
+
+  it('applies a resource cutoff and overflow only to that resource', async () => {
+    const resources = [
+      {
+        id: 'resource-a',
+        tenantId: 'tenant-1',
+        organizationId: 'organization-1',
+        availabilityRuleSetId: 'branch-ruleset',
+        deletedAt: null,
+      },
+      {
+        id: 'resource-b',
+        tenantId: 'tenant-1',
+        organizationId: 'organization-1',
+        availabilityRuleSetId: 'branch-ruleset',
+        deletedAt: null,
+      },
+    ]
+    const resourceRule = {
+      id: 'resource-a-rule',
+      subjectId: 'resource-a',
+      timezone: 'UTC',
+      rrule: 'DTSTART:20260925T090000Z\nDURATION:PT11H\nRRULE:FREQ=DAILY',
+      exdates: [],
+      kind: 'availability' as const,
+      lastCustomerAcceptanceMinutes: 19 * 60,
+      timeOverflowMinutes: 30,
+    }
+    const organizationRule = {
+      id: 'organization-rule',
+      rrule: 'DTSTART:20260925T090000Z\nDURATION:PT13H\nRRULE:FREQ=DAILY',
+      exdates: [],
+      kind: 'availability' as const,
+      lastCustomerAcceptanceMinutes: 21 * 60,
+      timeOverflowMinutes: 60,
+    }
+    const settings = {
+      organizationId: 'organization-1',
+      operatingHoursRuleSetId: 'branch-ruleset',
+      lastCustomerBeforeCloseMinutes: 0,
+      timeOverflowMinutes: 0,
+    }
+    const em = {
+      find: jest.fn().mockImplementation(async (_entity, where) => {
+        if (where.id?.$in) return resources
+        if (where.subjectType === 'resource') return [resourceRule]
+        if (where.subjectType === 'ruleset') return [organizationRule]
+        if (where.organizationId?.$in) return [settings]
+        return []
+      }),
+      findOne: jest.fn().mockResolvedValue({
+        id: 'branch-ruleset',
+        tenantId: 'tenant-1',
+        organizationId: 'organization-1',
+        timezone: 'UTC',
+        deletedAt: null,
+      }),
+    }
+
+    const windows = await loadResourceAvailabilityWindows(em as never, {
+      tenantId: 'tenant-1',
+      organizationIds: ['organization-1'],
+      resourceIds: ['resource-a', 'resource-b'],
+      range: {
+        start: new Date('2026-09-25T00:00:00.000Z'),
+        end: new Date('2026-09-26T00:00:00.000Z'),
+      },
+    })
+
+    expect(windows.get('resource-a')).toEqual([{
+      startsAt: '2026-09-25T09:00:00.000Z',
+      endsAt: '2026-09-25T20:30:00.000Z',
+      latestStartAt: '2026-09-25T19:00:00.000Z',
+    }])
+    expect(windows.get('resource-b')).toEqual([{
+      startsAt: '2026-09-25T09:00:00.000Z',
+      endsAt: '2026-09-25T23:00:00.000Z',
+      latestStartAt: '2026-09-25T21:00:00.000Z',
+    }])
+  })
+
+  it('caps explicitly linked resource operating hours at branch close but keeps resource overflow', async () => {
+    const resource = {
+      id: 'resource-1',
+      tenantId: 'tenant-1',
+      organizationId: 'organization-1',
+      availabilityRuleSetId: 'resource-ruleset',
+      deletedAt: null,
+    }
+    const branchRule = {
+      id: 'branch-rule',
+      rrule: 'DTSTART:20260925T090000Z\nDURATION:PT11H\nRRULE:FREQ=DAILY',
+      exdates: [],
+      kind: 'availability' as const,
+      lastCustomerAcceptanceMinutes: 20 * 60,
+      timeOverflowMinutes: 0,
+    }
+    const customRule = {
+      id: 'custom-rule',
+      subjectId: 'resource-ruleset',
+      timezone: 'UTC',
+      rrule: 'DTSTART:20260925T090000Z\nDURATION:PT13H\nRRULE:FREQ=DAILY',
+      exdates: [],
+      kind: 'availability' as const,
+      lastCustomerAcceptanceMinutes: 22 * 60,
+      timeOverflowMinutes: 30,
+    }
+    const settings = {
+      organizationId: 'organization-1',
+      operatingHoursRuleSetId: 'branch-ruleset',
+      lastCustomerBeforeCloseMinutes: 0,
+      timeOverflowMinutes: 0,
+    }
+    const em = {
+      find: jest.fn().mockImplementation(async (_entity, where) => {
+        if (where.id?.$in) return [resource]
+        if (where.subjectType === 'resource') return []
+        if (where.subjectType === 'ruleset') {
+          return where.subjectId?.$in?.includes('resource-ruleset') ? [customRule] : [branchRule]
+        }
+        if (where.organizationId?.$in) return [settings]
+        return []
+      }),
+      findOne: jest.fn().mockImplementation(async (_entity, where) => ({
+        id: where.id,
+        tenantId: 'tenant-1',
+        organizationId: 'organization-1',
+        timezone: 'UTC',
+        deletedAt: null,
+      })),
+    }
+
+    const windows = await loadResourceAvailabilityWindows(em as never, {
+      tenantId: 'tenant-1',
+      organizationIds: ['organization-1'],
+      resourceIds: ['resource-1'],
+      range: {
+        start: new Date('2026-09-25T00:00:00.000Z'),
+        end: new Date('2026-09-26T00:00:00.000Z'),
+      },
+    })
+
+    expect(windows.get('resource-1')).toEqual([{
+      startsAt: '2026-09-25T09:00:00.000Z',
+      endsAt: '2026-09-25T20:30:00.000Z',
+      latestStartAt: '2026-09-25T20:00:00.000Z',
     }])
   })
 })

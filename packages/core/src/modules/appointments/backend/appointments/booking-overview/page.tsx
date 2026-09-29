@@ -33,7 +33,7 @@ import { minutesToTime } from '../../../lib/timeOfDay'
 import { toLocalDateKey } from '@open-mercato/shared/lib/date/format'
 import { formatTime } from '@open-mercato/shared/lib/time'
 
-type Resource = { id: string; name: string; code: string | null; appearanceIcon: string | null; capacityUnitIcon: string | null; capacityUnitColor: string | null; typeIcon: string | null; typeColor: string | null; areaName: string | null; availabilityWindows: Array<{ startsAt: string; endsAt: string }> | null }
+type Resource = { id: string; name: string; code: string | null; appearanceIcon: string | null; capacityUnitIcon: string | null; capacityUnitColor: string | null; typeIcon: string | null; typeColor: string | null; areaName: string | null; availabilityWindows: Array<{ startsAt: string; endsAt: string; latestStartAt?: string }> | null }
 type Line = { id: string; productId: string; productTitle: string; productCategory: string | null; durationMinutes: number | null; options?: Array<{ groupName: string | null; name: string }> }
 type Appointment = {
   id: string
