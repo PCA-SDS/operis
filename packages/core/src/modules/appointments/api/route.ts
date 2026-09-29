@@ -26,6 +26,7 @@ import { compareAppointmentListRows } from '../lib/appointmentListSorting'
 import { getVisibleAppointmentExternalNotes } from '../lib/notes'
 import { buildIlikeTerm } from '@open-mercato/shared/lib/db/buildIlikeTerm'
 import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
+import { extractPhoneDigits } from '@open-mercato/shared/lib/phone'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['appointments.view'] },
@@ -264,6 +265,21 @@ export async function GET(req: Request) {
       }
       if (matchingOrganizations.length > 0) {
         searchFilters.push({ organizationId: { $in: matchingOrganizations.map((organization) => organization.id) } })
+      }
+      const phoneDigits = extractPhoneDigits(query.search)
+      if (/^[+\d\s().-]+$/.test(query.search) && phoneDigits.length >= 4) {
+        const matchingPhoneRows = await em.getConnection().execute<Array<{ id: string }>>(
+          `select id
+           from appointments
+           where tenant_id = ?
+             and deleted_at is null
+             and regexp_replace(coalesce(customer_phone, ''), '[^0-9]', '', 'g') like ?`,
+          [auth.tenantId, `%${phoneDigits}%`],
+        )
+        const matchingPhoneIds = matchingPhoneRows.map((row) => row.id)
+        if (matchingPhoneIds.length > 0) {
+          searchFilters.push({ id: { $in: matchingPhoneIds } })
+        }
       }
       where.$or = searchFilters
     }

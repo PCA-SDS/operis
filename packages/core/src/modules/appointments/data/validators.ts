@@ -59,7 +59,7 @@ export const appointmentPublicCreateSchema = appointmentCreateFieldsSchema.exten
 export const appointmentPublicCustomerLookupSchema = z.object({
   tenantId: uuid(),
   phone: z.string().trim().min(1).max(50),
-  email: emailSchema({ maxLength: 255 }),
+  email: emailSchema({ maxLength: 255 }).nullish(),
   phoneCountryCode: clearableString(8),
   phoneCountry: clearableString(120),
 })

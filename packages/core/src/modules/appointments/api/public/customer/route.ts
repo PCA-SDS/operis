@@ -101,7 +101,7 @@ export const openApi: OpenApiRouteDoc = {
   methods: {
     POST: {
       summary: 'Find a returning customer and latest appointment',
-      description: 'Matches phone and email within the tenant and returns the latest appointment service lines for repeat booking.',
+      description: 'Matches phone within the tenant and optionally verifies email, then returns the latest appointment service lines for repeat booking.',
       requestBody: { contentType: 'application/json', schema: appointmentPublicCustomerLookupSchema },
       responses: [
         { status: 200, description: 'Lookup result', schema: successSchema },

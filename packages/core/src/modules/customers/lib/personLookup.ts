@@ -3,7 +3,7 @@ import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { findOneWithDecryption, findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { Organization, Tenant } from '@open-mercato/core/modules/directory/data/entities'
 import { CustomerEntity, CustomerPersonProfile } from '../data/entities'
-import { phoneLookupHashCandidates, resolvePhoneIdentity } from './contactIdentity'
+import { emailLookupHashCandidates, phoneLookupHashCandidates, resolvePhoneIdentity } from './contactIdentity'
 import { normalizeEmail } from '@open-mercato/shared/lib/validation'
 import { findEntityIdsBySearchTokensCompat, type SearchTokenDatabase } from '@open-mercato/shared/lib/search/tokenLookup'
 import { extractPhoneDigits } from '@open-mercato/shared/lib/phone'
@@ -161,19 +161,15 @@ export async function findPersonByEmail(
   const normalizedEmail = normalizeEmail(email)
   if (!normalizedEmail) return null
 
-  const qb = em.createQueryBuilder(CustomerEntity, 'person')
-  qb.select(['person.id'])
-  qb.where({
+  const emailHashes = emailLookupHashCandidates(normalizedEmail)
+  if (emailHashes.length === 0) return null
+
+  const entity = await findOneWithDecryption(em, CustomerEntity, {
     tenantId: scope.tenantId,
     kind: 'person',
     deletedAt: null,
-  })
-  qb.andWhere('lower(person.primary_email) = ?', [normalizedEmail])
-  qb.limit(1)
-  const match = await qb.getSingleResult()
-  if (!match) return null
-
-  const entity = await findOneWithDecryption(em, CustomerEntity, { id: match.id })
+    primaryEmailHash: { $in: emailHashes },
+  }, undefined, scope)
   if (!entity) return null
   const profile = await loadPersonProfile(em, entity.id)
   return { entity, profile }
@@ -220,13 +216,16 @@ export async function findPersonByPhoneIdentity(
   })
   if (!identity.primaryPhone || !identity.phoneCountryCode) return null
 
+  const phoneHashes = phoneLookupHashCandidates(identity.primaryPhone)
+  if (phoneHashes.length === 0) return null
+
   const entity = await findOneWithDecryption(em, CustomerEntity, {
     tenantId: scope.tenantId,
     kind: 'person',
     deletedAt: null,
-    primaryPhone: identity.primaryPhone,
+    primaryPhoneHash: { $in: phoneHashes },
     phoneCountryCode: identity.phoneCountryCode,
-  })
+  }, undefined, scope)
   if (!entity) return null
   const profile = await loadPersonProfile(em, entity.id)
   return { entity, profile }

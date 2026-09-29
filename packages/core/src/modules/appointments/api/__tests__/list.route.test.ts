@@ -87,6 +87,37 @@ describe('appointments list route totals', () => {
     }), expect.anything())
   })
 
+  it('matches appointment phone snapshots by normalized partial digits', async () => {
+    const matchingAppointmentId = '66666666-6666-4666-8666-666666666666'
+    const execute = jest.fn(async () => [{ id: matchingAppointmentId }])
+    const em = {
+      find: jest.fn(async () => []),
+      findAndCount: jest.fn(async () => [[], 0]),
+      getConnection: jest.fn(() => ({ execute })),
+    }
+    mockCreateRequestContainer.mockResolvedValue({
+      resolve: () => ({ fork: () => em }),
+    })
+
+    const { GET } = await import('../route')
+    const response = await GET(new Request('http://localhost/api/appointments?search=%2B84%20276-119'))
+
+    expect(response.status).toBe(200)
+    expect(execute).toHaveBeenCalledWith(
+      expect.stringContaining("regexp_replace(coalesce(customer_phone, ''), '[^0-9]', '', 'g') like ?"),
+      [TENANT_ID, '%84276119%'],
+    )
+    expect(em.findAndCount).toHaveBeenCalledWith(
+      Appointment,
+      expect.objectContaining({
+        tenantId: TENANT_ID,
+        organizationId: { $in: [ORGANIZATION_ID] },
+        $or: expect.arrayContaining([{ id: { $in: [matchingAppointmentId] } }]),
+      }),
+      expect.anything(),
+    )
+  })
+
   it('rejects invalid requested start date ranges', async () => {
     const { GET } = await import('../route')
     const response = await GET(new Request(

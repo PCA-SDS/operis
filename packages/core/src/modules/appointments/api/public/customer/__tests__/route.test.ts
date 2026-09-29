@@ -88,6 +88,47 @@ describe('appointments public customer lookup route', () => {
     )
   })
 
+  it('looks up a returning customer by phone when email is unavailable', async () => {
+    mockLookupPublicCustomerForAppointment.mockResolvedValue({
+      exists: true,
+      customer: {
+        id: '44444444-4444-4444-8444-444444444444',
+        name: 'Subha',
+        salutation: 'Ms',
+        email: null,
+        phone: '+61 401193184',
+        phoneCountryCode: '61',
+        phoneCountry: 'AU',
+        source: 'other',
+        origin: 'local',
+        organizationId: '33333333-3333-4333-8333-333333333333',
+      },
+      lastBooking: null,
+    })
+
+    const { POST } = await import('../route')
+    const body = {
+      tenantId: validBody.tenantId,
+      phone: '+61 401193184',
+      phoneCountryCode: '+61',
+      phoneCountry: 'au',
+    }
+    const response = await POST(
+      new Request('http://localhost/api/appointments/public/customer', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      }),
+    )
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({ exists: true, customer: { email: null } })
+    expect(mockLookupPublicCustomerForAppointment).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining(body),
+    )
+  })
+
   it('maps identity conflicts to HTTP 409', async () => {
     mockLookupPublicCustomerForAppointment.mockRejectedValue(
       new CrudHttpError(409, { error: 'Phone and email match different people.', code: 'PERSON_IDENTITY_CONFLICT' }),

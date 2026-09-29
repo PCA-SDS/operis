@@ -10,7 +10,7 @@ import { Appointment, AppointmentLine, AppointmentStatus } from '../data/entitie
 import { ResourcesAssignment } from '@open-mercato/core/modules/resources/data/entities'
 import { DEFAULT_PUBLIC_APPOINTMENT_STATUS_CODE } from '../data/constants'
 import { ensureSystemAppointmentStatuses } from '../setup'
-import type { AppointmentPublicCreateInput, AppointmentStaffCreateInput } from '../data/validators'
+import type { AppointmentPublicCreateInput, AppointmentPublicCustomerLookupInput, AppointmentStaffCreateInput } from '../data/validators'
 import { toAppointmentPhoneSnapshot } from './phoneSnapshot'
 import {
   snapshotLineOptions,
@@ -54,13 +54,7 @@ export type PublicCustomerLookupResult = Omit<PersonCheckResult, 'lastBooking'> 
 
 export async function lookupPublicCustomerForAppointment(
   em: EntityManager,
-  input: {
-    tenantId: string
-    phone: string
-    email: string
-    phoneCountryCode?: string | null
-    phoneCountry?: string | null
-  },
+  input: AppointmentPublicCustomerLookupInput,
 ): Promise<PublicCustomerLookupResult> {
   const identity = await checkPersonIdentity(em, { tenantId: input.tenantId }, input)
   if (!identity.exists || !identity.customer) {
