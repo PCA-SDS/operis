@@ -25,7 +25,7 @@ import {
 import { EntityTranslation } from '@open-mercato/core/modules/translations/data/entities'
 import { randomUUID } from 'crypto'
 import { createLogger } from '@open-mercato/shared/lib/logger'
-import { parseTpsMigrateFlags } from './lib'
+import { parseTpsMigrateFlags, reindexTpsSearch } from './lib'
 import {
   slugifyTpsText,
   parseTpsPrice,
@@ -334,7 +334,7 @@ async function ensureServiceScheduleFieldsetConfig(
 export const migrateTpsProductsCommand: ModuleCli = {
   command: 'products',
   async run(rest) {
-    const { tenantId, organizationId, replace } = parseTpsMigrateFlags(rest)
+    const { tenantId, organizationId, replace, skipSearchReindex } = parseTpsMigrateFlags(rest)
     if (!tenantId || !organizationId) {
       logger.error('Missing tenantId or organizationId')
       logger.error('Usage: yarn mercato migrate_tps products <tenantId> <organizationId> [--replace]')
@@ -587,6 +587,17 @@ export const migrateTpsProductsCommand: ModuleCli = {
       logger.info(`Migration successful! ${summary}`)
     }
       })
+
+      if (!skipSearchReindex) {
+        logger.info('Rebuilding catalog query indexes...')
+        await reindexTpsSearch(tenantId, [
+          'catalog:catalog_product',
+          'catalog:catalog_product_variant',
+          'catalog:catalog_product_option_group',
+          'catalog:catalog_product_option',
+          'catalog:catalog_price_kind',
+        ])
+      }
     } catch (err) {
       logger.error('An error occurred during Product migration', { err })
       throw err instanceof Error ? err : new Error('Product migration failed')

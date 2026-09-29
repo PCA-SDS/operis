@@ -1,12 +1,95 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { spawn } from 'node:child_process'
 import * as pg from 'pg'
 
-export function parseTpsMigrateFlags(rest: string[]): { tenantId: string | undefined; organizationId: string | undefined; replace: boolean } {
+const TPS_SEARCH_ENTITY_TYPES = [
+  'catalog:catalog_product_category',
+  'catalog:catalog_product',
+  'catalog:catalog_product_variant',
+  'catalog:catalog_product_option_group',
+  'catalog:catalog_product_option',
+  'catalog:catalog_price_kind',
+  'customers:customer_entity',
+  'customers:customer_person_profile',
+  'resources:resources_resource_area_type',
+  'resources:resources_resource_type',
+  'resources:resources_resource_area',
+  'resources:resources_resource',
+  'planner:planner_availability_rule_set',
+  'planner:planner_availability_rule',
+  'staff:staff_team_role',
+  'staff:staff_team_member',
+  'auth:user',
+] as const
+
+export type TpsSearchEntityType = typeof TPS_SEARCH_ENTITY_TYPES[number]
+export const tpsSearchEntityTypes = [...TPS_SEARCH_ENTITY_TYPES] as TpsSearchEntityType[]
+
+export type TpsMercatoRunner = (args: string[], env?: Record<string, string>) => Promise<void>
+
+export function runMercato(args: string[], env?: Record<string, string>): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn('yarn', ['mercato', ...args], {
+      stdio: 'pipe',
+      env: { ...process.env, ...env },
+    })
+
+    let stderr = ''
+
+    proc.stdout.on('data', (data) => process.stdout.write(data.toString()))
+    proc.stderr.on('data', (data) => {
+      stderr += data.toString()
+      process.stderr.write(data.toString())
+    })
+
+    proc.on('close', (code) => {
+      if (code === 0) {
+        resolve()
+      } else {
+        reject(new Error(`Command failed with code ${code}\n${stderr}`))
+      }
+    })
+    proc.on('error', reject)
+  })
+}
+
+export function buildTpsSearchReindexArgs(
+  tenantId: string,
+  entityTypes: readonly string[] = TPS_SEARCH_ENTITY_TYPES,
+): string[][] {
+  return entityTypes.map((entityType) => [
+    'query_index',
+    'reindex',
+    '--tenant',
+    tenantId,
+    '--entity',
+    entityType,
+    '--force',
+  ])
+}
+
+export async function reindexTpsSearch(
+  tenantId: string,
+  entityTypes: readonly string[] = TPS_SEARCH_ENTITY_TYPES,
+  runCommand: TpsMercatoRunner = runMercato,
+): Promise<void> {
+  for (const args of buildTpsSearchReindexArgs(tenantId, entityTypes)) {
+    await runCommand(args)
+  }
+}
+
+export function parseTpsMigrateFlags(rest: string[]): {
+  tenantId: string | undefined
+  organizationId: string | undefined
+  replace: boolean
+  skipSearchReindex: boolean
+} {
   let tenantId: string | undefined
   let organizationId: string | undefined
   let replace = false
+  const skipSearchReindex = rest.includes('--skip-search-reindex')
 
   const positionalArgs: string[] = []
 
@@ -26,7 +109,7 @@ export function parseTpsMigrateFlags(rest: string[]): { tenantId: string | undef
   if (positionalArgs.length > 0) tenantId = positionalArgs[0]
   if (positionalArgs.length > 1) organizationId = positionalArgs[1]
 
-  return { tenantId, organizationId, replace }
+  return { tenantId, organizationId, replace, skipSearchReindex }
 }
 
 // ---------------------------------------------------------------------------

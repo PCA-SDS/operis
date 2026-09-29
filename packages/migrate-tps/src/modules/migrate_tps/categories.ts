@@ -7,7 +7,7 @@ import { rebuildCategoryHierarchyForOrganization } from '@open-mercato/core/modu
 import { randomUUID } from 'crypto'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { createLogger } from '@open-mercato/shared/lib/logger'
-import { parseTpsMigrateFlags } from './lib'
+import { parseTpsMigrateFlags, reindexTpsSearch } from './lib'
 import { buildTranslationsPayload } from './mapping'
 
 const logger = createLogger('migrate_tps')
@@ -15,7 +15,7 @@ const logger = createLogger('migrate_tps')
 export const migrateTpsCategoriesCommand: ModuleCli = {
   command: 'categories',
   async run(rest) {
-    const { tenantId, organizationId, replace } = parseTpsMigrateFlags(rest)
+    const { tenantId, organizationId, replace, skipSearchReindex } = parseTpsMigrateFlags(rest)
     if (!tenantId || !organizationId) {
       logger.error('Missing tenantId or organizationId')
       logger.error('Usage: yarn mercato migrate_tps categories <tenantId> <organizationId> [--replace]')
@@ -168,9 +168,14 @@ export const migrateTpsCategoriesCommand: ModuleCli = {
 
       logger.info('Rebuilding category hierarchy tree...')
       await rebuildCategoryHierarchyForOrganization(em, organizationId, tenantId)
-      
+
       logger.info(`Migration successful! Created ${addedCategories} Root Categories and ${addedSubcategories} Subcategories.`)
       })
+
+      if (!skipSearchReindex) {
+        logger.info('Rebuilding category query index...')
+        await reindexTpsSearch(tenantId, ['catalog:catalog_product_category'])
+      }
     } catch (err) {
       logger.error('An error occurred during Category migration', { err })
       throw err instanceof Error ? err : new Error('Category migration failed')
