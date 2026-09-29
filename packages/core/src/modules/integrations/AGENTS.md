@@ -170,7 +170,7 @@ Rules:
 
 - Background jobs carry only tenant, organization and record ids, and resolve at execution time.
 - Resolve before any side effect you cannot undo (for example, before marking a quote as sent).
-- `POST /api/integrations/:id/health` with `{ credentials }` tests unsaved values: it runs the provider health check, saves nothing, needs `integrations.credentials.manage`, and redacts submitted values from the probe message.
+- `POST /api/integrations/:id/health` with `{ credentials }` tests unsaved values: it runs the provider health check, saves nothing, needs `integrations.credentials.manage`, and redacts submitted values from the probe message. A masked secret is restored only when every non-secret field matches the stored values; otherwise it returns 422 `credentials.secret_reentry_required` and runs no probe.
 
 ## Per-User Credential Scoping
 

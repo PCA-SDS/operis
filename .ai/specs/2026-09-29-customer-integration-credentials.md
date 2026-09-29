@@ -110,6 +110,9 @@ No schema change. Fallback usage is recorded as `integration_logs` rows
 - `POST /api/integrations/:id/health`: optional body `{ credentials?: Record<string, unknown> }`.
   With credentials, requires `integrations.credentials.manage` (403 otherwise), validates like
   the save route (422), and persists nothing. Response shape unchanged. Rate limit 30 per minute.
+  A masked secret (`__om_secret_unchanged__`) is restored only when every non-secret field matches
+  the stored values; otherwise 422 `{ code: 'credentials.secret_reentry_required', fields }` and no
+  probe runs.
 - `GET /api/integrations/:id`: adds `hasHealthCheck`; the definition's `credentialResolution`
   (platform env names) is omitted from the response.
 - `POST /api/chat` (OpenCode): 409 `platform_fallback_prohibited` unless
@@ -131,6 +134,7 @@ No schema change. Fallback usage is recorded as `integration_logs` rows
 | Portal signup email skipped for an organization without a Resend key | Medium | The send runs after the response (as before) and logs the credential error | The signing-up customer gets no email until the organization adds a key |
 | Usage records are not billing | Low | Each platform use is an `integration_logs` row with operation and correlation id | Billing or quota enforcement is not implemented |
 | Test action used to probe providers with arbitrary keys | Low | Needs `integrations.credentials.manage`, rate limited, fixed provider endpoints only | None known |
+| Test action sends a stored secret to a caller-chosen host | High | A masked secret is restored only when all non-secret fields match the stored values; otherwise 422 and the secret must be typed again | Pre-existing: the save route still restores a masked secret after a host change (the change is persisted and emits `integrations.credentials.updated`) |
 
 ## Final Compliance Report — 2026-09-29
 
@@ -170,7 +174,11 @@ No schema change. Fallback usage is recorded as `integration_logs` rows
 - Passed: `build:packages` (27/27), `generate`, `build:packages`, `i18n:check-sync`, `i18n:check-usage` (advisory; no new key unused), `lint:check-graph`, `lint` (0 errors), `test:repo-wide-guards`, `test:scripts`, `audit:ci`, `check:time-bombs:fail`, `typecheck:serial` (27/27), `test:ci` (57/57 tasks; core 1,611 suites and 13,736 tests), ESLint on every changed file, `agents:check-budget`.
 - `test:ci` passed on attempt 3; attempts 1 and 2 lost a `packages/cli` worker to the known macOS V8 crash. Attempt 1 also exposed 3 real failures in `quotes.acceptance.test.ts`, fixed before attempt 2.
 - `ai-assistant` has no `typecheck` script; a scratch `tsc` over its sources reported 0 errors.
-- Pending: `build:app`, the Docker image build, the Playwright run of `integrations/__integration__` (including TC-INT-011), a browser check of the Integrations page, and the independent security review findings.
+- Follow-up run (Node 24): `build:packages`, `generate`, `i18n:check-sync`, `i18n:check-usage`, `typecheck:serial` and `build:app` passed; integrations unit tests 139/139.
+- Playwright `integrations/__integration__/TC-INT*`: 29 passed, 1 skipped (TC-INT-007 AND-filter test skips itself when no logs exist; pre-existing). TC-INT-011 passed.
+- Docker `runner` target built successfully.
+- Browser check of Settings > Integrations: AI category listed, Test connection returns Healthy, stored key shown masked after save, and changing the sender without retyping the key shows the re-entry message.
+- Independent security review: one confirmed issue (stored secret sent to a caller-chosen host through the Test action), fixed. Remaining pre-existing items: the save route restores a masked secret after a host change; URL fields without a provider guard accept private addresses; the messages email worker does not retry failed sends.
 
 ### Internal Consistency Check
 
@@ -185,3 +193,5 @@ The Overview, Proposed Solution, API Contracts and Risks sections were updated o
   email and AI migrations and execution-time job resolution. Docs: `.env.example`,
   `UPGRADE_NOTES.md`, the integrations and ai-assistant guides, the AI overview and the
   integrations user guide. Verification status is in the Final Compliance Report.
+- 2026-09-29: The Test action requires secrets to be typed again when other settings changed.
+  Verification completed (app build, Docker image, Playwright, browser check, security review).
