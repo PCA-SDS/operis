@@ -3,8 +3,8 @@
  *
  * Step 4.10 — Portal AiChat injection widget unit tests.
  *
- * Trigger-level coverage only; the Playwright integration spec
- * `TC-AI-INJECT-010-portal-inject.spec.ts` covers the sheet + chat flow.
+ * Trigger-level coverage only. The widget is not mapped to any portal
+ * spot; `TC-AI-INJECT-010-portal-inject.spec.ts` guards that.
  */
 import * as React from 'react'
 import { render, screen } from '@testing-library/react'

@@ -3,10 +3,10 @@
 /**
  * Step 4.10 — Portal AiChat injection widget (client).
  *
- * Renders an "Ask AI" trigger button + sheet inside the portal profile
- * page's `portal:profile:after` injection spot. Clicking the trigger
- * opens a right-side sheet embedding `<AiChat>` wired to
- * `customers.account_assistant`.
+ * Renders an "Ask AI" trigger button + sheet. Built for the portal
+ * profile page's `portal:profile:after` spot but not mapped there (see
+ * `widget.ts`). Clicking the trigger opens a right-side sheet embedding
+ * `<AiChat>` wired to `customers.account_assistant`.
  *
  * Feature-gating:
  *   - Declared in `widget.ts` metadata (`portal.account.manage`).
