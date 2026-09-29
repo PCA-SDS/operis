@@ -11,7 +11,7 @@
  * the raw key.
  */
 import * as React from 'react'
-import { act, fireEvent, waitFor } from '@testing-library/react'
+import { act, fireEvent, screen, waitFor } from '@testing-library/react'
 import { renderWithProviders } from '@open-mercato/shared/lib/testing/renderWithProviders'
 import { OPTIMISTIC_LOCK_CONFLICT_CODE } from '@open-mercato/shared/lib/crud/optimistic-lock-headers'
 
@@ -26,7 +26,18 @@ jest.mock('next/link', () => ({
 jest.mock('next/navigation', () => ({
   usePathname: () => '/backend/integrations/gateway_stripe',
   useRouter: () => ({ push: jest.fn(), replace: jest.fn(), refresh: jest.fn() }),
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => {
+    const ReactLocal = require('react') as typeof React
+    const [, forceRender] = ReactLocal.useState(0)
+
+    ReactLocal.useEffect(() => {
+      const handlePopState = () => forceRender((value) => value + 1)
+      window.addEventListener('popstate', handlePopState)
+      return () => window.removeEventListener('popstate', handlePopState)
+    }, [])
+
+    return new URLSearchParams(window.location.search)
+  },
 }))
 
 jest.mock('remark-gfm', () => ({ __esModule: true, default: {} }))
@@ -169,11 +180,13 @@ describe('Integration credentials — optimistic-lock conflict surfacing (#3676)
     apiCallMock.mockReset()
     flashMock.mockReset()
     dismissRecordConflict()
+    window.history.replaceState(null, '', '/backend/integrations/gateway_stripe')
     mockApiResponses()
   })
 
   afterEach(() => {
     dismissRecordConflict()
+    window.history.replaceState(null, '', '/backend/integrations/gateway_stripe')
   })
 
   it('surfaces a stale-save 409 on the unified conflict bar with a localized message (no raw record_modified toast)', async () => {
@@ -207,5 +220,36 @@ describe('Integration credentials — optimistic-lock conflict surfacing (#3676)
       ([, init]) => (init as RequestInit | undefined)?.method === 'PUT',
     )
     expect(putCall).toBeTruthy()
+  })
+
+  it('keeps the selected tab synchronized with search params during browser navigation', async () => {
+    window.history.pushState(null, '', '/backend/integrations/gateway_stripe?tab=health')
+
+    renderWithProviders(
+      <IntegrationDetailPage params={{ id: 'gateway_stripe' }} />,
+      { dict },
+    )
+
+    const healthTab = await screen.findByRole('tab', { name: /Health/i })
+    const logsTab = await screen.findByRole('tab', { name: /Logs/i })
+
+    await waitFor(() => expect(healthTab).toHaveAttribute('data-state', 'active'))
+
+    fireEvent.click(logsTab)
+
+    await waitFor(() => {
+      expect(window.location.search).toBe('?tab=logs')
+      expect(logsTab).toHaveAttribute('data-state', 'active')
+    })
+
+    act(() => {
+      window.history.pushState(null, '', '/backend/integrations/gateway_stripe?tab=health')
+      window.dispatchEvent(new PopStateEvent('popstate'))
+    })
+
+    await waitFor(() => {
+      expect(window.location.search).toBe('?tab=health')
+      expect(healthTab).toHaveAttribute('data-state', 'active')
+    })
   })
 })
