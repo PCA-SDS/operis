@@ -3,7 +3,7 @@
 import * as React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { MessageSquare } from 'lucide-react'
+import { MessageSquare, Users } from 'lucide-react'
 import { Avatar } from '@open-mercato/ui/primitives/avatar'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { EmptyState } from '@open-mercato/ui/primitives/empty-state'
@@ -31,8 +31,8 @@ export type ChatUnreadIconProps = {
  * the same affordance rather than a new one.
  *
  * A popover rather than the `Sheet` the notification bell uses: this is a short
- * list of people with one action each, not a triaging surface with tabs and
- * undo. `NotificationCountBadge` is still the shared primitive, so the count
+ * list of conversations with one action each, not a triaging surface with tabs
+ * and undo. `NotificationCountBadge` is still the shared primitive, so the count
  * looks and truncates identically to every other badge in the shell.
  */
 export function ChatUnreadIcon({ className }: ChatUnreadIconProps) {
@@ -146,9 +146,12 @@ export function ChatUnreadIcon({ className }: ChatUnreadIconProps) {
           ) : (
             <ul className="flex flex-col gap-0.5">
               {unread.map((conversation) => {
+                // The server-resolved title, the one the rail and the header
+                // use. A space has no counterpart, so naming the row from one
+                // called every unread space a former colleague.
                 const name =
-                  conversation.counterpart?.name ??
-                  t('chat.list.unknownPerson', 'Former colleague')
+                  conversation.title || t('chat.list.unknownPerson', 'Former colleague')
+                const isSpace = conversation.kind === 'space'
                 return (
                   <li key={conversation.id}>
                     {/* Opening the conversation is what clears it, exactly as it
@@ -159,7 +162,11 @@ export function ChatUnreadIcon({ className }: ChatUnreadIconProps) {
                       href={`/backend/chat/${conversation.id}`}
                       className="flex items-start gap-2 rounded-md px-2 py-2 outline-none transition-colors hover:bg-surface-muted focus-visible:shadow-focus"
                     >
-                      <Avatar label={name} size="sm" />
+                      <Avatar
+                        label={name}
+                        size="sm"
+                        icon={isSpace ? <Users className="size-4" aria-hidden="true" /> : undefined}
+                      />
                       <span className="min-w-0 flex-1">
                         <span className="flex items-baseline justify-between gap-2">
                           <span className="min-w-0 truncate text-sm font-semibold text-foreground">
