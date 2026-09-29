@@ -1,75 +1,65 @@
-# Domain change to pca-sds.com and an Operis-owned gateway
+# Operis-owned gateway, pca_erp removal, and the move to pca-sds.com
 
-> Status: **In progress.** Repo changes on `feat/domain-change`. Server steps not run;
-> they wait on the read-only inventory in step 0.
+> Status: **Phase 1 done on the server 2026-09-29** (Operis on its own gateway, pca_erp
+> removed). **Phase 2 (move to pca-sds.com) not started.**
 > Related: `deploy/README.md`, `deploy/gateway/`, `2026-09-09-matrix-communications-foundation.md`
 
 ## TLDR
 
-- Operis moves from `operis.faheemkamel.com` / `operis-staging.faheemkamel.com` to
-  `operis.pca-sds.com` / `staging-operis.pca-sds.com`.
-- pca_erp is retired from the VPS. Its nginx and certbot were Operis's only way in, so
-  Operis gets its own gateway (`deploy/gateway/`: nginx + certbot). The existing vhost
-  files move there with only the hostname changed.
-- The old hostnames answer with a 308 to the new ones until they are retired.
-- No application code, schema, API, ACL, event or permission change.
+- pca_erp is gone from the VPS. Its nginx and certbot were Operis's only way in, so Operis
+  now runs its own gateway (`deploy/gateway/`: nginx + certbot) on :80/:443. The public
+  names are unchanged: `operis.faheemkamel.com`, `operis-staging.faheemkamel.com`.
+- Phase 2, separately: move to `operis.pca-sds.com` / `staging-operis.pca-sds.com`, with
+  308 redirects from the old names.
+- No application code, schema, API, ACL, event or permission change in either phase.
 
 ## Overview
 
-| | Before | After |
-|---|---|---|
-| :80/:443 | `pca-erp-nginx` (pca_erp's stack) | `operis-gateway-nginx` (`/opt/operis-gateway`) |
-| Certificates | volume `pca-erp-certbot-certs`, renewed by `pca-erp-certbot` | volume `operis-gateway-certs`, renewed by `operis-gateway-certbot` |
-| Vhosts | hand-copied into `/opt/pca-erp/docker/nginx/templates/` | `deploy/gateway/nginx/*.conf` in `/opt/operis-gateway/nginx/` |
-| Edge network | `pca-erp-network` (owned by pca_erp) | `operis-edge` (external, created once) |
-| Production | `operis.faheemkamel.com` (Vercel DNS) | `operis.pca-sds.com` (PA Vietnam DNS) |
-| Staging | `operis-staging.faheemkamel.com` | `staging-operis.pca-sds.com` |
+| | Before | Now (Phase 1) | After Phase 2 |
+|---|---|---|---|
+| :80/:443 | `pca-erp-nginx` | `operis-gateway-nginx` (`/opt/operis-gateway`) | same |
+| Certificates | volume `pca-erp-certbot-certs` | volume `operis-gateway-certs`, renewed by `operis-gateway-certbot` | same, plus the two pca-sds.com names |
+| Site files | hand-copied into `/opt/pca-erp/docker/nginx/templates/` | `deploy/gateway/nginx/*.conf` in `/opt/operis-gateway/nginx/` | same files, new hostnames, plus `legacy-redirects.conf` |
+| Edge network | `pca-erp-network` (owned by pca_erp) | `operis-edge` (external, created once) | same |
+| Names | faheemkamel.com (Vercel DNS) | unchanged | pca-sds.com (PA Vietnam DNS); old names 308 |
 
 ## Problem Statement
 
-Operis is served through another product's gateway. Tearing down pca_erp removes the
-process on :80/:443, the certificates, the renewal loop and the Docker network the app
-containers join. Doing it without a replacement takes both Operis environments offline.
+Operis was served through another product's gateway. Removing pca_erp removed the process
+on :80/:443, the certificates, the renewal loop and the Docker network the app containers
+joined. Removing it without a replacement takes both Operis environments offline.
 
 ## Proposed Solution
 
-1. A small Operis gateway stack reproduces exactly what the vhosts inherited from
-   pca_erp's `default.conf.template`: the TLS policy, Docker's resolver, the `:80`
-   server that serves ACME challenges for any hostname and redirects to https, the 6h
-   nginx reload and the twice-daily blanket `certbot renew`. It adds a `:443` default
-   server that refuses unknown names (`ssl_reject_handshake`) instead of pca_erp's app.
-2. Certificates for the new names are issued **through the current gateway** (its `:80`
-   webroot) **into the new volume**, so the new gateway starts with valid certificates
-   and the cutover needs no ACME step.
-3. Cutover is one short maintenance window: edit both `.env` files, stop
-   `pca-erp-nginx`, start the new gateway, recreate the two app containers.
-4. pca_erp is torn down only after Operis has run on the new gateway for a few days,
-   after a final backup is copied off the box. Volume deletion is a separate, later step.
+- **Phase 1:** a small Operis gateway reproduces what the vhosts inherited from pca_erp's
+  `default.conf.template` (TLS policy, Docker's resolver, a `:80` server that answers ACME
+  challenges for any name and redirects to https, the 6h nginx reload, the twice-daily
+  blanket `certbot renew`) and adds a `:443` default server that refuses unknown names
+  (`ssl_reject_handshake`). Certificates were issued through the old gateway into the new
+  volume, so the switch needed no ACME step. Then pca_erp was removed.
+- **Phase 2:** change hostnames in the two site files, add redirect blocks for the old
+  names, edit the two `.env` files, reload the gateway and recreate the apps.
 
-Traefik (`docker-compose.fullapp.traefik.yml`) was not reused: it is upstream's overlay
-for the single-app `fullapp` stack and would mean porting the reviewed nginx tuning
-(SSE buffering, static-asset buffering, query-string redaction) to labels.
+Traefik (`docker-compose.fullapp.traefik.yml`) was not reused: it is upstream's overlay for
+the single-app `fullapp` stack and would mean porting the reviewed nginx tuning (SSE
+buffering, static-asset buffering, query-string redaction) to labels.
 
 ## Architecture
 
 ```
-internet ─:80/:443─> operis-gateway-nginx ─(operis-edge)─┬─> operis-app          operis.pca-sds.com
-                     operis-gateway-certbot (renew)      └─> operis-staging-app  staging-operis.pca-sds.com
-                     308: operis.faheemkamel.com, operis-staging.faheemkamel.com -> pca-sds.com names
+internet ─:80/:443─> operis-gateway-nginx ─(operis-edge)─┬─> operis-app          operis.faheemkamel.com
+                     operis-gateway-certbot (renew)      └─> operis-staging-app  operis-staging.faheemkamel.com
 ```
 
-- `deploy/gateway/docker-compose.yml`: project `operis-gateway`. Network and both volumes
-  are `external`, so no `down` can delete certificates or detach the apps.
+- `deploy/gateway/docker-compose.yml`: project `operis-gateway`. The network and both
+  volumes are `external`, so no `down` can delete certificates or detach the apps.
 - `deploy/gateway/nginx/00-gateway.conf`: http-context policy, default `:80` and `:443`.
 - `deploy/gateway/nginx/operis.conf`, `operis-staging.conf`: the former
   `deploy/nginx/*.conf.template`, location blocks unchanged.
-- `deploy/gateway/nginx/legacy-redirects.conf`: one certificate `operis-legacy` for both
-  old names.
 - `deploy/docker-compose.prod.yml` and `deploy/deploy.sh` default `EDGE_NETWORK` to
-  `operis-edge`. An explicit `EDGE_NETWORK` in a server `.env` still wins, so merging
-  before the cutover is safe; a server with no value fails `deploy.sh`'s network check
-  before anything is pulled or restarted.
-- The gateway is not synced by CI, as the vhosts were not before.
+  `operis-edge`; both server `.env` files also set it explicitly.
+- The gateway is installed by hand and not synced by CI. After any change to
+  `deploy/gateway/`, sync the server (command below); `nginx -t` gates every reload.
 
 ## Data Models
 
@@ -77,282 +67,178 @@ None.
 
 ## API Contracts
 
-None. Only the public base URL changes. Links in mail are built from `APP_URL` and
-`PLATFORM_PORTAL_BASE_URL`; request origins are checked against `APP_URL`,
-`NEXT_PUBLIC_APP_URL` and `APP_ALLOWED_ORIGINS` (`packages/shared/src/lib/url.ts`), which
-is why those change in the same window as the gateway.
+None. Phase 2 changes only the public base URL. Links in mail are built from `APP_URL`
+and `PLATFORM_PORTAL_BASE_URL`; request origins are checked against `APP_URL`,
+`NEXT_PUBLIC_APP_URL` and `APP_ALLOWED_ORIGINS` (`packages/shared/src/lib/url.ts`), which is
+why those change in the same window as the site files.
 
-## Runbook
+## Phase 1 record (done 2026-09-29)
 
-`ubuntu@148.113.44.174` has passwordless sudo and is in the `docker` group. The `operis`
-account is CI-only; humans reach it with `sudo -u operis`.
+All commands ran from the laptop as `ubuntu@148.113.44.174`.
 
-### 0. Read-only inventory (changes nothing)
+1. Read-only check: `pca-erp-network` held only pca_erp's containers plus `operis-app` and
+   `operis-staging-app`; `pca-erp-nginx` served pca_erp's four names plus the two Operis
+   names; no timer or cron job referenced pca_erp.
+2. `docker network create operis-edge`; volumes `operis-gateway-certs` and
+   `operis-gateway-webroot`; `deploy/gateway` installed at `/opt/operis-gateway`.
+3. ECDSA certificates for `operis.faheemkamel.com` and `operis-staging.faheemkamel.com`,
+   issued through `pca-erp-nginx`'s `:80` webroot into `operis-gateway-certs`.
+4. Site files: at the time, copies of the pca_erp-hosted templates. The production one was
+   the 2026-08-24 version, without the `/_next/static/` block added on 2026-08-31 (staging
+   already had it). The sync below replaces both with the repo's files.
+5. `EDGE_NETWORK=operis-edge` in both `.env` files (copies kept as `.env.bak-gateway`),
+   `pca-erp-nginx` stopped, gateway started, both apps recreated with `--no-deps`. Both
+   became healthy.
+6. Verified from outside: both health URLs 200, the new certificates served, `/login` 200,
+   `http://` 301 to `https://`, `erp.pca-sds.com` refused at TLS.
+7. pca_erp removed: 14 containers, `pca-erp-network`, its 8 volumes, its images,
+   `/opt/pca-erp`. Its GitHub workflow disabled. Its deploy key (`github-actions-deploy`,
+   matched by fingerprint) removed from `ubuntu`'s `authorized_keys` (copy kept as
+   `authorized_keys.bak-pca-erp`). Operis and the other stacks (ports 8088, 8090, 8091)
+   answered afterwards.
 
-Run from the laptop and review the output before step 1:
+Still to do after Phase 1: sync the server's site files with the repo (below), and delete
+the `auth`, `erp`, `files` and `cloud` A records at PA Vietnam.
+
+**Syncing the gateway with the repo.** Zero downtime: validates the new files in a
+throwaway container, keeps a copy of the live ones, then `nginx -t` and a graceful reload.
+
+```bash
+git -C /path/to/operis fetch origin && git -C /path/to/operis archive origin/main deploy/gateway | ssh ubuntu@148.113.44.174 'set -e; rm -rf /tmp/operis-gateway-sync; mkdir /tmp/operis-gateway-sync; tar -x -C /tmp/operis-gateway-sync --strip-components=2; docker run --rm --network operis-edge -v /tmp/operis-gateway-sync/nginx:/etc/nginx/conf.d:ro -v operis-gateway-certs:/etc/letsencrypt:ro -v operis-gateway-webroot:/var/www/certbot:ro nginx:1.30-alpine nginx -t; sudo rm -rf /opt/operis-gateway/nginx.bak-sync; sudo cp -a /opt/operis-gateway/nginx /opt/operis-gateway/nginx.bak-sync; sudo install -m 644 /tmp/operis-gateway-sync/nginx/*.conf /opt/operis-gateway/nginx/; sudo install -m 644 /tmp/operis-gateway-sync/docker-compose.yml /opt/operis-gateway/; docker exec operis-gateway-nginx nginx -t; docker exec operis-gateway-nginx nginx -s reload; echo synced'
+```
+
+Never replace `/opt/operis-gateway/nginx` itself: it is bind-mounted, and a new directory
+in its place is invisible to the running container. Copy files into it.
+
+## Phase 2 runbook: move to pca-sds.com (not started)
+
+**In a new branch:**
+- `deploy/gateway/nginx/operis.conf` and `operis-staging.conf`: `server_name` and both
+  certificate paths to `operis.pca-sds.com` / `staging-operis.pca-sds.com`.
+- New `deploy/gateway/nginx/legacy-redirects.conf`: one `listen 443 ssl` server per old
+  name, each using its existing certificate (`/etc/letsencrypt/live/<old name>/`),
+  `access_log ... gateway_access`, and `return 308 https://<new name>$request_uri;`.
+- `deploy/env.*.example`, `deploy/README.md` and the diagrams to the new names.
+- The Matrix spec already plans `chat.operis.pca-sds.com`.
+
+**On the server**, after that branch is pushed:
+
+1. DNS at PA Vietnam: `A operis 148.113.44.174 TTL 300` and
+   `A staging-operis 148.113.44.174 TTL 300`. Check with
+   `dig +short @ns1.pavietnam.vn operis.pca-sds.com A` (the zone has no wildcard).
+2. Certificates through the gateway itself (its Let's Encrypt account already exists):
 
 ```bash
 ssh ubuntu@148.113.44.174 'bash -s' <<'EOF'
-echo "== compose projects";  docker compose ls -a
-echo "== containers";        docker ps -a --format '{{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}'
-echo "== on :80/:443";       sudo ss -ltnpH '( sport = :80 or sport = :443 )'
-echo "== networks";          docker network ls --format '{{.Name}}'
-echo "== on pca-erp-network"; docker network inspect pca-erp-network --format '{{range .Containers}}{{.Name}} {{end}}'
-echo "== volumes";           docker volume ls --format '{{.Name}}'
-echo "== gateway templates"; ls -la /opt/pca-erp/docker/nginx/templates/
-echo "== hostnames served";  docker exec pca-erp-nginx nginx -T 2>/dev/null | grep -E '^\s*server_name' | sort -u
-echo "== certificates";      docker exec pca-erp-certbot certbot certificates 2>/dev/null | grep -E 'Certificate Name|Domains|Expiry'
-echo "== /opt";              ls -la /opt
-echo "== pca-erp backups";   sudo ls -la /opt/pca-erp/backups 2>/dev/null | tail -8
-echo "== other .env files mentioning pca-erp services (key names only)"
-for f in $(sudo find /opt -maxdepth 3 -name '.env*' -type f 2>/dev/null | grep -v '^/opt/pca-erp/'); do
-  k=$(sudo grep -iE 'pca-sds\.com|pca-erp|zitadel|minio|nextcloud' "$f" | cut -d= -f1 | tr '\n' ' ')
-  [ -n "$k" ] && echo "$f: $k"
+set -e
+for n in operis.pca-sds.com staging-operis.pca-sds.com; do
+  docker run --rm -v operis-gateway-certs:/etc/letsencrypt -v operis-gateway-webroot:/var/www/certbot certbot/certbot:v3.1.0 certonly --webroot -w /var/www/certbot --non-interactive --agree-tos --key-type ecdsa -d "$n"
 done
-echo "== timers and cron mentioning pca"
-systemctl list-timers --all --no-pager | grep -iE 'pca|erp'
-sudo crontab -l 2>/dev/null | grep -iE 'pca|erp'
-sudo grep -rlE 'pca-erp|pca_erp' /etc/cron* /etc/systemd/system 2>/dev/null
+docker run --rm -v operis-gateway-certs:/etc/letsencrypt certbot/certbot:v3.1.0 certificates
+EOF
+```
+
+3. Stage and validate the branch's site files without touching the live ones:
+
+```bash
+git -C /path/to/operis archive <phase-2-branch> deploy/gateway/nginx | ssh ubuntu@148.113.44.174 'set -e; rm -rf /tmp/gw-new; mkdir /tmp/gw-new; tar -x -C /tmp/gw-new --strip-components=3; docker run --rm --network operis-edge -v /tmp/gw-new:/etc/nginx/conf.d:ro -v operis-gateway-certs:/etc/letsencrypt:ro -v operis-gateway-webroot:/var/www/certbot:ro nginx:1.30-alpine nginx -t'
+```
+
+4. Switch (Operis down for 1 to 2 minutes while the apps restart). The mail sender is left
+   alone on purpose: it changes only after a pca-sds.com sender is verified in Resend.
+
+```bash
+ssh ubuntu@148.113.44.174 'bash -s' <<'EOF'
+set -e
 for d in /opt/operis /opt/operis-staging; do
-  echo "== $d/.env (domain, network and mail keys only)"
-  sudo grep -E '^(STACK_NAME|APP_DOMAIN|APP_URL|NEXT_PUBLIC_APP_URL|APP_ALLOWED_ORIGINS|EDGE_NETWORK|EMAIL_FROM|NOTIFICATIONS_EMAIL_FROM|ADMIN_EMAIL|PLATFORM_[A-Z_]*|CUSTOM_DOMAIN_[A-Z_]*|MCP_[A-Z_]*URL|MCP_OAUTH_ISSUER|OM_ENABLE_STORAGE_S3|OM_CHAT_TRANSPORT|OM_MATRIX_[A-Z_]*URL|OM_MATRIX_SERVER_NAME|OM_GMAIL_PUBSUB_AUDIENCE)=' "$d/.env"
-  echo "RESEND_API_KEY set: $(sudo grep -cE '^RESEND_API_KEY=.+' "$d/.env")"
-  echo "other keys mentioning faheemkamel/pca-erp/minio/zitadel: $(sudo grep -iE 'faheemkamel|pca-erp|minio|zitadel' "$d/.env" | cut -d= -f1 | tr '\n' ' ')"
-  echo "integrations with saved credentials:"
-  sudo -u operis bash -c "cd $d && ./dc exec -T postgres sh -c 'psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -Atc \"select integration_id, count(*) from integration_credentials where deleted_at is null group by 1 order by 1\"'"
+  sudo -u operis bash -s "$d" <<'INNER'
+cd "$1"
+cp -p .env .env.bak-domain
+sed -i -E \
+  -e '/^(EMAIL_FROM|NOTIFICATIONS_EMAIL_FROM|RESEND_FROM|ADMIN_EMAIL)=/!s/operis-staging\.faheemkamel\.com/staging-operis.pca-sds.com/g' \
+  -e '/^(EMAIL_FROM|NOTIFICATIONS_EMAIL_FROM|RESEND_FROM|ADMIN_EMAIL)=/!s/operis\.faheemkamel\.com/operis.pca-sds.com/g' .env
+chmod 600 .env
+diff .env.bak-domain .env || true
+INNER
+done
+sudo rm -rf /opt/operis-gateway/nginx.bak-domain
+sudo cp -a /opt/operis-gateway/nginx /opt/operis-gateway/nginx.bak-domain
+sudo install -m 644 /tmp/gw-new/*.conf /opt/operis-gateway/nginx/
+docker exec operis-gateway-nginx nginx -t
+docker exec operis-gateway-nginx nginx -s reload
+sudo -u operis bash -c 'cd /opt/operis && ./dc up -d --no-deps app'
+sudo -u operis bash -c 'cd /opt/operis-staging && ./dc up -d --no-deps app'
+for c in operis-app operis-staging-app; do
+  s=starting
+  for i in $(seq 120); do
+    s=$(docker inspect -f '{{.State.Health.Status}}' "$c" 2>/dev/null || echo missing)
+    [ "$s" = healthy ] && break
+    sleep 5
+  done
+  [ "$s" = healthy ] || { echo "$c is not healthy after 10 minutes. Roll back."; exit 1; }
+  echo "$c healthy"
 done
 EOF
 ```
 
-Stop and re-plan if any of these hold:
-- a container outside the `pca-erp` project is attached to `pca-erp-network`;
-- `nginx -T` serves a hostname that is neither pca_erp's four nor Operis's two;
-- another stack's `.env` references `auth.pca-sds.com`, Zitadel, MinIO or Nextcloud;
-- a timer or cron job outside `pca-erp` runs against it.
+5. Verify: `https://operis.pca-sds.com/api/configs/health` and
+   `https://staging-operis.pca-sds.com/api/configs/health` return 200;
+   `https://operis.faheemkamel.com/login` returns `308` to `https://operis.pca-sds.com/login`.
+6. GitHub variables (CI's post-deploy checks curl `https://$APP_DOMAIN` without following
+   redirects): `gh variable set APP_DOMAIN --env production --body operis.pca-sds.com`,
+   the same for `--env staging` with `staging-operis.pca-sds.com`, and the repository-level
+   `APP_DOMAIN`. Add `-R PCA-SDS/operis`: the repo has two remotes.
+7. Merge the branch. Update external services that hold the old URL: Resend (sender and
+   webhook), Google OAuth and the Gmail push endpoint if `channel_gmail` is configured,
+   Stripe webhooks if `gateway_stripe` is configured, the uptime monitor.
 
-### 1. DNS (PA Vietnam, zone `pca-sds.com`)
+**Rollback (Phase 2):** copy the files from `/opt/operis-gateway/nginx.bak-domain/` back
+into `/opt/operis-gateway/nginx/` (remove `legacy-redirects.conf`), `nginx -t`, reload;
+restore each `.env.bak-domain`; `./dc up -d --no-deps app` in both stacks; put the GitHub
+variables back.
 
-| Host | Type | Value | TTL |
-|---|---|---|---|
-| `operis` | A | `148.113.44.174` | 300 |
-| `staging-operis` | A | `148.113.44.174` | 300 |
-
-Leave `erp`, `auth`, `files`, `cloud` in place until step 8. Verify against the
-authoritative server (the zone has no wildcard):
-
-```bash
-dig +short @ns1.pavietnam.vn operis.pca-sds.com A          # 148.113.44.174
-dig +short @ns1.pavietnam.vn staging-operis.pca-sds.com A  # 148.113.44.174
-```
-
-### 2. Stop pca_erp redeploying itself
-
-Its `ci.yml` deploys to this box on every push to its `main`. After step 5 that would
-restart its stack and try to take :80/:443 back.
-
-```bash
-gh workflow disable ci.yml -R PCA-SDS/pca_erp
-```
-
-### 3. Certificates, through the current gateway (no downtime)
-
-`pca-erp-nginx` serves `/.well-known/acme-challenge/` from `pca-erp-certbot-webroot` for
-any hostname. The challenge goes there; the certificates land in the new volume.
-Replace `YOUR_EMAIL`.
-
-```bash
-docker network create operis-edge
-docker volume create operis-gateway-certs
-docker volume create operis-gateway-webroot
-
-# rehearsal against Let's Encrypt staging; saves nothing
-docker run --rm -v operis-gateway-certs:/etc/letsencrypt -v pca-erp-certbot-webroot:/var/www/certbot certbot/certbot:v3.1.0 certonly --webroot -w /var/www/certbot -d operis.pca-sds.com -d staging-operis.pca-sds.com --dry-run --email YOUR_EMAIL --agree-tos --no-eff-email --key-type ecdsa --non-interactive
-
-docker run --rm -v operis-gateway-certs:/etc/letsencrypt -v pca-erp-certbot-webroot:/var/www/certbot certbot/certbot:v3.1.0 certonly --webroot -w /var/www/certbot -d operis.pca-sds.com --email YOUR_EMAIL --agree-tos --no-eff-email --key-type ecdsa --non-interactive
-docker run --rm -v operis-gateway-certs:/etc/letsencrypt -v pca-erp-certbot-webroot:/var/www/certbot certbot/certbot:v3.1.0 certonly --webroot -w /var/www/certbot -d staging-operis.pca-sds.com --email YOUR_EMAIL --agree-tos --no-eff-email --key-type ecdsa --non-interactive
-docker run --rm -v operis-gateway-certs:/etc/letsencrypt -v pca-erp-certbot-webroot:/var/www/certbot certbot/certbot:v3.1.0 certonly --webroot -w /var/www/certbot --cert-name operis-legacy -d operis.faheemkamel.com -d operis-staging.faheemkamel.com --email YOUR_EMAIL --agree-tos --no-eff-email --key-type ecdsa --non-interactive
-
-docker run --rm -v operis-gateway-certs:/etc/letsencrypt certbot/certbot:v3.1.0 certificates
-```
-
-Renewal later runs in the new gateway's certbot with its own webroot at the same path
-(`/var/www/certbot`), which the new nginx serves.
-
-### 4. Stage the gateway (no downtime, binds no port)
-
-```bash
-# laptop, in the worktree on feat/domain-change
-scp -r deploy/gateway ubuntu@148.113.44.174:/tmp/operis-gateway-new
-
-# server
-sudo install -d -m 755 /opt/operis-gateway /opt/operis-gateway/nginx
-sudo install -m 644 /tmp/operis-gateway-new/docker-compose.yml /opt/operis-gateway/
-sudo install -m 644 /tmp/operis-gateway-new/nginx/*.conf /opt/operis-gateway/nginx/
-docker compose -f /opt/operis-gateway/docker-compose.yml pull
-docker run --rm --network operis-edge -v /opt/operis-gateway/nginx:/etc/nginx/conf.d:ro -v operis-gateway-certs:/etc/letsencrypt:ro -v operis-gateway-webroot:/var/www/certbot:ro nginx:1.30-alpine nginx -t
-```
-
-The last line must print `test is successful`. It checks the real certificates.
-
-### 5. Cutover (maintenance window; Operis is down for about 1 to 2 minutes)
-
-Before starting: no Operis workflow running, nothing merged to Operis `main` until step 6.
-
-5a. Both `.env` files, keeping a copy:
-
-```bash
-ssh -t ubuntu@148.113.44.174 'sudo -u operis bash -c "cd /opt/operis && exec bash"'
-cp -p .env .env.bak-2026-09-29
-nano .env
-```
-
-Set, adding any line that is missing:
-
-```
-APP_DOMAIN=operis.pca-sds.com
-APP_URL=https://operis.pca-sds.com
-EDGE_NETWORK=operis-edge
-```
-
-plus every other value step 0 showed on `faheemkamel.com`, except the mail sender (step
-7). Repeat in `/opt/operis-staging` with `staging-operis.pca-sds.com`.
-
-5b. Swap the gateway, then recreate both apps on the new network with the new env:
-
-```bash
-docker stop pca-erp-nginx
-docker compose -f /opt/operis-gateway/docker-compose.yml up -d
-sudo -u operis bash -c 'cd /opt/operis && ./dc up -d app'
-sudo -u operis bash -c 'cd /opt/operis-staging && ./dc up -d app'
-until [ "$(docker inspect -f '{{.State.Health.Status}}' operis-app)" = healthy ]; do sleep 5; done; echo production healthy
-until [ "$(docker inspect -f '{{.State.Health.Status}}' operis-staging-app)" = healthy ]; do sleep 5; done; echo staging healthy
-```
-
-5c. Verify from the laptop, then sign in, open a record, upload a file and confirm live
-notifications arrive:
-
-```bash
-curl -sS -o /dev/null -w '%{http_code}\n' https://operis.pca-sds.com/api/configs/health
-curl -sS -o /dev/null -w '%{http_code}\n' https://staging-operis.pca-sds.com/api/configs/health
-curl -sS -o /dev/null -w '%{http_code} %{redirect_url}\n' https://operis.faheemkamel.com/login
-```
-
-Expected: `200`, `200`, `308 https://operis.pca-sds.com/login`.
-
-### 6. GitHub variables (laptop)
-
-CI's post-deploy checks curl `https://$APP_DOMAIN` and do not follow redirects.
-
-```bash
-gh variable set APP_DOMAIN --env production --body operis.pca-sds.com -R PCA-SDS/operis
-gh variable set APP_DOMAIN --env staging --body staging-operis.pca-sds.com -R PCA-SDS/operis
-gh variable set APP_DOMAIN --body operis.pca-sds.com -R PCA-SDS/operis
-```
-
-Then merge `feat/domain-change`.
-
-### 7. External services (only those step 0 shows in use)
-
-- **Mail sender.** If `EMAIL_FROM` is on `faheemkamel.com`, keep it until a `pca-sds.com`
-  sender is verified in Resend. `pca-sds.com` mail runs on Google Workspace and its root
-  has no SPF record, so verify a subdomain (for example `mail.pca-sds.com`) rather than
-  the root, add the records Resend gives in PA Vietnam, then change `EMAIL_FROM` and
-  recreate the app. Update any Resend webhook URL.
-- Google OAuth redirect URIs and the Gmail push endpoint, if `channel_gmail` is configured.
-- Stripe webhook endpoints, if `gateway_stripe` is configured.
-- Uptime monitor: `https://operis.pca-sds.com/api/configs/health`.
-
-### Rollback (any time before step 8)
-
-```bash
-docker compose -f /opt/operis-gateway/docker-compose.yml down
-docker start pca-erp-nginx
-sudo -u operis bash -c 'cd /opt/operis && cp -p .env.bak-2026-09-29 .env && ./dc up -d app'
-sudo -u operis bash -c 'cd /opt/operis-staging && cp -p .env.bak-2026-09-29 .env && ./dc up -d app'
-```
-
-If a restored `.env` has no `EDGE_NETWORK` line, add `EDGE_NETWORK=pca-erp-network`
-first: once this branch is merged, the synced compose file defaults to `operis-edge`.
-Put the GitHub variables back if step 6 ran.
-
-### 8. Tear down pca_erp (after a few days on the new gateway)
-
-8a. Final backup, copied off the box. The backup container dumps every pca_erp database
-and archives the MinIO and Nextcloud volumes when it starts:
-
-```bash
-docker restart pca-erp-backup
-docker logs -f pca-erp-backup            # wait for the "ok" lines, then Ctrl-C
-sudo tar czf /tmp/pca-erp-final-backup.tgz -C /opt/pca-erp backups && sudo chown ubuntu /tmp/pca-erp-final-backup.tgz
-# laptop
-scp ubuntu@148.113.44.174:/tmp/pca-erp-final-backup.tgz .
-```
-
-8b. Remove the stack's containers and network. Volumes stay:
-
-```bash
-docker ps -a --filter label=com.docker.compose.project=pca-erp --format '{{.Names}}'   # review
-docker rm -f $(docker ps -aq --filter label=com.docker.compose.project=pca-erp)
-docker network rm pca-erp-network
-```
-
-`network rm` refusing with "active endpoints" means something else is still attached:
-stop and check.
-
-8c. Delete the `erp`, `auth`, `files` and `cloud` A records in PA Vietnam.
-
-8d. After a grace period, and only once the backup has been opened somewhere else. **This
-is irreversible**:
-
-```bash
-docker volume rm pca-erp-postgres-data pca-erp-redis-data pca-erp-minio-data pca-erp-nextcloud-data pca-erp-nextcloud-db-data pca-erp-zitadel-db-data pca-erp-certbot-certs pca-erp-certbot-webroot
-docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -E '^(ghcr.io/pca-sds/pca-erp-|minio/|nextcloud:|ghcr.io/zitadel/)' | xargs -r docker image rm
-sudo rm -rf /opt/pca-erp
-```
-
-Do not use `docker image prune -a`: it would also delete the previous Operis image that
-`deploy.sh --rollback` depends on, and the box holds no registry login to pull it back.
-
-### 9. Retire the legacy redirects (later)
-
-As described in `deploy/gateway/nginx/legacy-redirects.conf`: remove the file, `nginx -t`,
-reload, `certbot delete --cert-name operis-legacy`, then delete the `operis` and
-`operis-staging` A records from `faheemkamel.com` at Vercel.
+**Retiring the old names (later):** delete `legacy-redirects.conf`, `nginx -t`, reload,
+`certbot delete --cert-name operis.faheemkamel.com` and `--cert-name
+operis-staging.faheemkamel.com` in the gateway's certbot, then remove the two A records at
+Vercel. Until then those records must keep pointing here: the old names sent a one-year
+HSTS header, so browsers only reach them over https, which needs a valid certificate.
 
 ## Risks & Impact Review
 
 | Scenario | Severity | Area | Mitigation | Residual |
 |---|---|---|---|---|
-| New gateway fails to start at cutover | High | Both environments | Step 4 runs `nginx -t` against the real certificate volume before any swap; rollback is two commands | Seconds of extra downtime |
-| HTTP-01 challenge fails for a new name | Medium | Certificates | Dry run first; nothing changes on the box until all certificates exist | Delay only |
-| pca_erp CI redeploys and reclaims :80/:443 | Medium | Gateway | Step 2 disables its workflow before the cutover; a late deploy fails on the port already held | None once disabled |
-| Another stack depends on pca_erp (Zitadel, MinIO, Postgres, network) | High | Other stacks | Step 0 lists attached containers and env references; teardown waits on review | Depends on inventory |
-| App keeps the old `APP_URL` | Medium | Login, mail links | Env edited before the apps are recreated, in the same window | None |
-| Mail sender on an unverified domain | Medium | Outbound mail | Sender changes only after Resend verifies a `pca-sds.com` domain | None |
-| CI health check hits the old name and gets a 308 | Low | Deploy pipeline | Step 6 straight after the cutover | None |
-| Data loss when removing pca_erp | High | pca_erp data | Final backup off the box, volumes kept for a grace period, deletion is separate and manual | Only after 8d |
+| Gateway config error on a sync or the Phase 2 reload | High | Both environments | Files validated in a throwaway container first, then `nginx -t` in the live one; a failed test leaves the running config untouched | None |
+| HTTP-01 challenge fails for a new name | Medium | Certificates | DNS checked against the authoritative server first; nothing live changes until the certificates exist | Delay only |
+| App keeps the old `APP_URL` | Medium | Login, mail links | `.env` edited before the apps are recreated, in the same window | None |
+| Mail sender on an unverified domain | Medium | Outbound mail | Sender changes only after Resend verifies a pca-sds.com domain (subdomain; the root runs Google Workspace and has no SPF) | None |
+| CI health check hits an old name and gets a 308 | Low | Deploy pipeline | GitHub variables changed straight after the switch | None |
 | Users signed out once | Low | Sessions | Cookies are per hostname; expected | Users sign in again |
-| Old links break | Low | Links in sent mail | 308 redirects while `operis-legacy` renews | Ends when step 9 runs |
+| Old links break | Low | Links in sent mail | 308 redirects while the old certificates renew | Ends when the old names are retired |
+| Server drifts from `deploy/gateway` | Medium | Gateway | Hand-installed by design; sync command above after every change | Depends on discipline |
 
-Staging and production still share one edge network, as they shared `pca-erp-network`;
-pca_erp's Postgres, Redis, MinIO and Zitadel are no longer on it.
+Staging and production share one edge network, as they shared `pca-erp-network`; pca_erp's
+Postgres, Redis, MinIO and Zitadel are no longer on it.
 
 ## Final Compliance Report
 
 - No application code, entity, migration, API route, ACL feature or event ID changed.
-- Tenant and organization isolation untouched.
-- No secret in the repo. Commands print key names, not values, for anything secret.
+- Tenant and organization isolation untouched. No secret in the repo.
 - `.dockerignore` excludes `deploy/`, `.github/` and `.ai/`, so the app image build
   context is unchanged.
 - Verified locally: the gateway config under `nginx:1.30-alpine` with throwaway
-  certificates (routing to both upstreams, 308s keeping path and query, refusal of
-  unknown and missing SNI, ACME for any host, redirect and health on `:80`, headers,
-  query redaction in the log), the base config starting with no certificates, a missing
-  certificate failing `nginx -t`, the prod compose file rendering `operis-edge` by
-  default and honouring an explicit `EDGE_NETWORK`, and
-  `scripts/__tests__/deploy-scripts-app-dir.test.mjs`.
+  certificates (routing to both upstreams, refusal of unknown and missing SNI, ACME for
+  any host, redirect and health on `:80`, headers, query redaction in the log), the base
+  config starting with no certificates, a missing certificate failing `nginx -t`, the prod
+  compose file rendering `operis-edge` by default and honouring an explicit
+  `EDGE_NETWORK`, `scripts/__tests__/deploy-scripts-app-dir.test.mjs`, and the Phase 2
+  `.env` edit against GNU sed.
+- Verified on the server (Phase 1): see the record above.
+- Not yet exercised: Phase 2, and a real certificate renewal inside the gateway (first
+  one due about 2026-11-27).
 
 ## Changelog
 
-- **2026-09-29**: Initial version. Repo changes on `feat/domain-change`; server runbook
-  pending the step 0 inventory.
+- **2026-09-29**: Initial version, a one-shot move to pca-sds.com.
+- **2026-09-29**: Split into two phases after the owner chose to remove pca_erp first.
+  Phase 1 ran on the server the same day; the repo's gateway and deploy files now describe
+  that live state, and Phase 2 starts from it.

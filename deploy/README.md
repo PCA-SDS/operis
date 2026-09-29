@@ -2,15 +2,13 @@
 
 Push to `main` → GitHub Actions builds a container image → the VPS pulls it and restarts.
 
-**This is a shared host.** It also runs unrelated production stacks (pca_accounting,
-pca-client-profile, prive-booking). Everything below is written to be additive: nothing
-here restarts, reconfigures or competes with them. Operis owns ports 80 and 443 through
-its own gateway (see [Gateway](#gateway)).
+**This is a shared host.** It also runs other, unrelated production stacks. Everything
+below is written to be additive: nothing here restarts, reconfigures or competes with
+them. Operis owns ports 80 and 443 through its own gateway (see [Gateway](#gateway)).
 
-> **One-time move (2026-09):** from the pca-erp gateway and `faheemkamel.com` to this
-> gateway and `pca-sds.com`. Runbook, rollback and the pca-erp teardown:
+> **2026-09-29:** pca_erp was removed from this host, and with it the nginx gateway Operis
+> used to share. Operis now runs its own. The planned move to `pca-sds.com` is in
 > [`.ai/specs/2026-09-29-domain-change-pca-sds.md`](../.ai/specs/2026-09-29-domain-change-pca-sds.md).
-> Until it has been run, the box still serves Operis through `pca-erp-nginx`.
 
 ```
   git push main
@@ -27,14 +25,14 @@ its own gateway (see [Gateway](#gateway)).
         ▼                                                                    ▼
   ┌──────────────────────────── OVH VPS ──────────────────────────────────────┐
   │                                                                           │
-  │  :80 :443 ── operis-gateway-nginx ─┬─► operis.pca-sds.com                 │
+  │  :80 :443 ── operis-gateway-nginx ─┬─► operis.faheemkamel.com             │
   │  (deploy/gateway, + certbot)       │            │ operis-edge             │
   │                                    │            ▼                         │
   │                                    │       operis-app ──┬─► operis-postgres  ┐
   │                                    │                    ├─► operis-redis     │ operis-
   │                                    │                    └─► operis-meilisearch┘ internal
   │                                    │                                      │
-  │                                    └─► staging-operis.pca-sds.com         │
+  │                                    └─► operis-staging.faheemkamel.com     │
   │                                                 │ operis-edge             │
   │                                                 ▼                         │
   │                                    operis-staging-app ──┬─► operis-staging-postgres ┐
@@ -67,9 +65,6 @@ environments and is the only thing on the box that publishes 80 or 443.
   certificate before its vhost exists. `:443` refuses the TLS handshake for any name no
   vhost claims, instead of answering with an Operis certificate.
 - `nginx/operis.conf` and `nginx/operis-staging.conf` are the two vhosts.
-- `nginx/legacy-redirects.conf` sends the old `faheemkamel.com` names to the new ones
-  with a 308. It only belongs on the box that served those names, and the file says how
-  to retire it.
 - certbot runs `certbot renew` over every certificate in its volume twice a day, and
   nginx reloads every 6h, so a new certificate needs no change to either.
 
@@ -92,7 +87,7 @@ start takes both environments offline. Names are prefixed `gateway_`, `operis_` 
 | `01-bootstrap-server.sh` | — | **Not used on this host.** Correct for a *fresh* single-purpose VPS; see its header. |
 | `docker-compose.prod.yml` | server (as `docker-compose.yml`) | The stack. Never builds; pulls the CI image. |
 | `gateway/docker-compose.yml` | server (`/opt/operis-gateway`) | nginx + certbot on :80/:443. Installed **by hand**; see [Gateway](#gateway). |
-| `gateway/nginx/*.conf` | server (`/opt/operis-gateway/nginx`) | Gateway policy, the production and staging vhosts, the legacy redirects. Installed by hand, behind `nginx -t`. |
+| `gateway/nginx/*.conf` | server (`/opt/operis-gateway/nginx`) | Gateway policy and the production and staging vhosts. Installed by hand, behind `nginx -t`. |
 | `redis.conf` | server | Redis with persistence on (queues live here). |
 | `env.production.example` | → server `.env` | Every environment variable, annotated. |
 | `env.staging.example` | → staging `.env` | The staging **delta** on top of the above, not a second copy of it. |
@@ -146,17 +141,18 @@ per-container log limits, so it does not add to the un-rotated-logs problem.
 
 ### 1 — DNS
 
-In the `pca-sds.com` zone (PA Vietnam, nameservers `ns1/ns2.pavietnam.vn`):
+In the `faheemkamel.com` zone (Vercel DNS):
 
 ```
 A    operis    148.113.44.174    TTL 300
 ```
 
 No AAAA record: the box has IPv6, but IPv4 is the only tested path and there is no
-reason to introduce a second one.
+reason to introduce a second one. Ask the authoritative server as above: the zone has a
+wildcard, so a plain `dig` answers even for a name that does not exist.
 
 ```bash
-dig +short @ns1.pavietnam.vn operis.pca-sds.com A     # must return 148.113.44.174
+dig +short @ns1.vercel-dns.com operis.faheemkamel.com A     # must return 148.113.44.174
 ```
 
 ### 2 — Deploy account
@@ -243,7 +239,7 @@ docker run --rm \
   -v operis-gateway-certs:/etc/letsencrypt \
   -v operis-gateway-webroot:/var/www/certbot \
   certbot/certbot:v3.1.0 certonly --webroot -w /var/www/certbot \
-  -d operis.pca-sds.com \
+  -d operis.faheemkamel.com \
   --email <you@example.com> --agree-tos --no-eff-email \
   --key-type ecdsa --non-interactive
 
@@ -279,7 +275,7 @@ the file and nothing has changed.
 
 `DEPLOY_PORT` is not needed (22).
 
-**Variables** tab: `APP_DOMAIN` = `operis.pca-sds.com`.
+**Variables** tab: `APP_DOMAIN` = `operis.faheemkamel.com`.
 
 **Environments → `production`** (recommended): move those secrets into it and add
 yourself as a required reviewer, so deploys pause for a click and no other workflow in
@@ -293,7 +289,7 @@ The first build takes **30–60 minutes** (cold cache, whole monorepo). First co
 start is also slow: `mercato init` creates the schema and seeds before the app answers,
 which is why the health check allows 10 minutes.
 
-Then sign in at `https://operis.pca-sds.com` with `OM_INIT_SUPERADMIN_EMAIL` /
+Then sign in at `https://operis.faheemkamel.com` with `OM_INIT_SUPERADMIN_EMAIL` /
 `OM_INIT_SUPERADMIN_PASSWORD` and **change that password immediately**.
 
 ### 10 — Nightly backups
@@ -318,7 +314,7 @@ ssh ubuntu@148.113.44.174 'systemctl list-timers operis-backup.timer --no-pager;
 
 ## Staging
 
-`staging-operis.pca-sds.com`, at `/opt/operis-staging`, on this same host.
+`operis-staging.faheemkamel.com`, at `/opt/operis-staging`, on this same host.
 
 Every merge to `main` builds **one** image, deploys it to staging automatically, then
 waits for a reviewer on the `production` environment before deploying **the same digest**
@@ -349,11 +345,11 @@ Steps run in this order. Step 5 will refuse to start nginx if step 4 has not hap
 #### 1 — DNS
 
 ```
-A    staging-operis    148.113.44.174    TTL 300
+A    operis-staging    148.113.44.174    TTL 300
 ```
 
 ```bash
-dig +short @ns1.pavietnam.vn staging-operis.pca-sds.com A     # must return 148.113.44.174 before step 4
+dig +short @ns1.vercel-dns.com operis-staging.faheemkamel.com A     # must return 148.113.44.174 before step 4
 ```
 
 #### 2 — Directories
@@ -415,13 +411,13 @@ Rehearse first if DNS has only just propagated (Let's Encrypt allows 5 failures 
 per hour):
 
 ```bash
-ssh ubuntu@148.113.44.174 "docker run --rm -v operis-gateway-certs:/etc/letsencrypt -v operis-gateway-webroot:/var/www/certbot certbot/certbot:v3.1.0 certonly --webroot -w /var/www/certbot -d staging-operis.pca-sds.com --email YOU@example.com --agree-tos --no-eff-email --key-type ecdsa --non-interactive --staging --dry-run"
+ssh ubuntu@148.113.44.174 "docker run --rm -v operis-gateway-certs:/etc/letsencrypt -v operis-gateway-webroot:/var/www/certbot certbot/certbot:v3.1.0 certonly --webroot -w /var/www/certbot -d operis-staging.faheemkamel.com --email YOU@example.com --agree-tos --no-eff-email --key-type ecdsa --non-interactive --staging --dry-run"
 ```
 
 Then for real:
 
 ```bash
-ssh ubuntu@148.113.44.174 "docker run --rm -v operis-gateway-certs:/etc/letsencrypt -v operis-gateway-webroot:/var/www/certbot certbot/certbot:v3.1.0 certonly --webroot -w /var/www/certbot -d staging-operis.pca-sds.com --email YOU@example.com --agree-tos --no-eff-email --key-type ecdsa --non-interactive"
+ssh ubuntu@148.113.44.174 "docker run --rm -v operis-gateway-certs:/etc/letsencrypt -v operis-gateway-webroot:/var/www/certbot certbot/certbot:v3.1.0 certonly --webroot -w /var/www/certbot -d operis-staging.faheemkamel.com --email YOU@example.com --agree-tos --no-eff-email --key-type ecdsa --non-interactive"
 ```
 
 ```bash
@@ -461,8 +457,8 @@ The reviewer on `production` **is** the gate; nothing in the workflow enforces i
 
 ```bash
 gh api -X PUT repos/PCA-SDS/operis/environments/staging
-gh variable set APP_DOMAIN --env staging --body staging-operis.pca-sds.com
-gh variable set APP_DOMAIN --env production --body operis.pca-sds.com
+gh variable set APP_DOMAIN --env staging --body operis-staging.faheemkamel.com
+gh variable set APP_DOMAIN --env production --body operis.faheemkamel.com
 ```
 
 Then, in **Settings → Environments → production**, tick **Required reviewers** and add
@@ -475,7 +471,7 @@ your approval.
 
 First boot is slow: `mercato init` creates the schema and seeds before the app answers, and
 the health check allows 10 minutes for it. Then sign in at
-`https://staging-operis.pca-sds.com` with the staging `OM_INIT_SUPERADMIN_*` and change
+`https://operis-staging.faheemkamel.com` with the staging `OM_INIT_SUPERADMIN_*` and change
 that password.
 
 ### Day-2
@@ -635,7 +631,7 @@ ports and carries `no-new-privileges`.
 is a change to the process serving both environments. Always `nginx -t` first.
 
 **No monitoring or alerting.** Point an uptime checker at
-`https://operis.pca-sds.com/api/configs/health` — 200/`ok` or 503/`degraded`.
+`https://operis.faheemkamel.com/api/configs/health` — 200/`ok` or 503/`degraded`.
 
 ---
 
@@ -649,7 +645,6 @@ is a change to the process serving both environments. Always `nginx -t` first.
 | `N required variable(s) missing or too short` | `.env` does not satisfy `required-env`; the failing keys are listed by name. Nothing was pulled or restarted. Generate secrets with the snippet at the top of `env.production.example` |
 | `docker network 'operis-edge' does not exist` | create it with `docker network create operis-edge` and re-run; nothing was pulled or restarted. `docker network ls` shows what exists |
 | Browser shows a TLS error for the hostname | the vhost is not loaded, so the default server refused the name: `docker exec operis-gateway-nginx nginx -T \| grep server_name` |
-| An old `faheemkamel.com` link shows a certificate error | the `operis-legacy` certificate is missing or expired, or its A record at Vercel no longer points here. See `deploy/gateway/nginx/legacy-redirects.conf` |
 | 502 from the gateway | app container down or not on the edge network: `./dc ps`, then `docker inspect operis-app --format '{{json .NetworkSettings.Networks}}'` |
 | App container restarts in a loop | `./dc logs --tail 100 app` — usually a missing/short secret; `JWT_SECRET` under 32 chars refuses to boot |
 | Health check times out on first deploy | normal for `mercato init`; watch `./dc logs -f app` |

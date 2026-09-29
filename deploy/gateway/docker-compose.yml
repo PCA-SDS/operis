@@ -5,8 +5,8 @@
 # CI never syncs it: a bad copy takes production and staging offline together,
 # so every change goes through `nginx -t` first. See deploy/README.md "Gateway".
 #
-#   internet ─:443─> operis-gateway-nginx ─(operis-edge)─┬─> operis-app          (operis.pca-sds.com)
-#                                                        └─> operis-staging-app  (staging-operis.pca-sds.com)
+#   internet ─:443─> operis-gateway-nginx ─(operis-edge)─┬─> operis-app          (operis.faheemkamel.com)
+#                                                        └─> operis-staging-app  (operis-staging.faheemkamel.com)
 #
 # Everything this stack uses is created ONCE, by hand, before the first `up`:
 #   docker network create operis-edge
