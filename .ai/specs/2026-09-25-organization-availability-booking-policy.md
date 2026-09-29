@@ -30,7 +30,7 @@ organizationOperatingHours + window.timeOverflow
   ∩ resourceAvailability
 ```
 
-The organization cutoff and operating-hours-plus-overflow remain the branch-wide limits. A resource with an explicit local cutoff must also start no later than that cutoff, and its assignment must end by its resource close plus local overflow. The effective local cutoff cannot loosen the branch cutoff. Resource settings apply only to assignments on that resource; resources without explicit overrides continue to inherit branch behavior. A resource schedule can still constrain when that resource is physically available.
+The organization cutoff and operating-hours-plus-overflow remain the branch-wide limits. The first service must start no later than the effective booking cutoff. Later services in that same appointment may start after operating close, provided the appointment's original start met the cutoff and the service ends by the effective runtime end. A new appointment cannot start during overflow. An explicit resource cutoff cannot loosen the branch cutoff. Resource settings apply only to assignments on that resource; resources without explicit overrides continue to inherit branch behavior. A resource schedule can still constrain when that resource is physically available.
 
 ## Architecture
 
@@ -66,7 +66,7 @@ Resource availability responses expose effective windows and an optional resourc
 - Tenant and organization scope: implemented in settings command and resolver.
 - Official schedule ambiguity: resolved with an explicit settings link.
 - Store close versus last customer: represented by an operating end time and a separate absolute acceptance time.
-- Overflow: applied to appointment assignment runtime, booking intake, and timeline bounds; it does not extend the start boundary for new or existing appointments.
+- Overflow: applied to appointment assignment runtime and timeline bounds. It does not extend the start boundary for a new appointment, but later services in an already-started appointment can use the overflow period.
 - Resource-local cutoff and overflow are enforced only on that resource's assignments; they do not change sibling resources or branch settings.
 
 ## Changelog
@@ -82,3 +82,4 @@ Resource availability responses expose effective windows and an optional resourc
 
 - Kept organization operating-hours activation explicit in the ruleset Details tab so reusable schedule edits cannot change the organization policy pointer.
 - Added optional per-resource last-customer cutoff and overflow fields in Availability; blank cutoff inherits branch behavior, and explicit resource values constrain only that resource.
+- Allowed later services in an already-started appointment to use resource overflow while keeping the new-booking cutoff strict.

@@ -286,18 +286,19 @@ export class AssignmentConflictService {
       const usesOfficialRuleSet = Boolean(policy)
         && resource?.availabilityRuleSetId === policy?.operatingHoursRuleSetId
         && directRules.length === 0
+      const resourceBookingStartAt = availabilityAnchorStartAt ?? startsAt
       const hasResourceStartWindow = appointmentResourceWindows?.some(
-        (window) => window.start <= startsAt && window.operatingEnd >= startsAt,
+        (window) => window.start <= resourceBookingStartAt && window.operatingEnd >= resourceBookingStartAt,
       )
       const hasResourceAcceptanceWindow = appointmentResourceWindows?.some(
-        (window) => window.start <= startsAt
-          && window.operatingEnd >= startsAt
-          && (!window.latestStartAt || anchorStartAt <= window.latestStartAt),
+        (window) => window.start <= resourceBookingStartAt
+          && window.operatingEnd >= resourceBookingStartAt
+          && (!window.latestStartAt || resourceBookingStartAt <= window.latestStartAt),
       )
       const hasValidResourceWindow = appointmentResourceWindows?.some(
-        (window) => window.start <= startsAt
-          && window.operatingEnd >= startsAt
-          && (!window.latestStartAt || anchorStartAt <= window.latestStartAt)
+        (window) => window.start <= resourceBookingStartAt
+          && window.operatingEnd >= resourceBookingStartAt
+          && (!window.latestStartAt || resourceBookingStartAt <= window.latestStartAt)
           && window.runtimeEnd >= endsAt,
       )
       const resourceStartWindow = usesOfficialRuleSet || !appointmentResourceWindows || hasResourceStartWindow

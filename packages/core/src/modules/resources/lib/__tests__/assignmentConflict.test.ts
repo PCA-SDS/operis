@@ -256,6 +256,44 @@ describe('AssignmentConflictService appointment availability', () => {
     })).resolves.toEqual({ valid: true })
   })
 
+  it('allows a later service in the same booking to run within resource overflow', async () => {
+    const service = serviceWithResourceCutoff('resource-a')
+
+    await expect(service.validateAssignment({
+      ...BASE_PARAMS,
+      resourceId: 'resource-a',
+      startsAt: new Date('2026-09-25T20:15:00.000Z'),
+      endsAt: new Date('2026-09-25T20:30:00.000Z'),
+      availabilityMode: 'appointment',
+      availabilityAnchorStartAt: new Date('2026-09-25T19:00:00.000Z'),
+    })).resolves.toEqual({ valid: true })
+  })
+
+  it('does not allow a new resource booking to start during resource overflow', async () => {
+    const service = serviceWithResourceCutoff('resource-a')
+
+    await expect(service.validateAssignment({
+      ...BASE_PARAMS,
+      resourceId: 'resource-a',
+      startsAt: new Date('2026-09-25T20:15:00.000Z'),
+      endsAt: new Date('2026-09-25T20:30:00.000Z'),
+      availabilityMode: 'appointment',
+    })).resolves.toMatchObject({ valid: false, error: { code: 'OUTSIDE_AVAILABILITY' } })
+  })
+
+  it('does not allow a chained resource service to exceed resource overflow', async () => {
+    const service = serviceWithResourceCutoff('resource-a')
+
+    await expect(service.validateAssignment({
+      ...BASE_PARAMS,
+      resourceId: 'resource-a',
+      startsAt: new Date('2026-09-25T20:30:00.000Z'),
+      endsAt: new Date('2026-09-25T20:45:00.000Z'),
+      availabilityMode: 'appointment',
+      availabilityAnchorStartAt: new Date('2026-09-25T19:00:00.000Z'),
+    })).resolves.toMatchObject({ valid: false, error: { code: 'OUTSIDE_AVAILABILITY' } })
+  })
+
   it('still enforces a resource cutoff for a new booking without an appointment anchor', async () => {
     const service = serviceWithResourceCutoff('resource-a')
 
