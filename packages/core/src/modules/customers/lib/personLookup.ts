@@ -1,10 +1,12 @@
-import type { EntityManager } from '@mikro-orm/postgresql'
+import type { EntityManager, FilterQuery } from '@mikro-orm/postgresql'
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { findOneWithDecryption, findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { Organization, Tenant } from '@open-mercato/core/modules/directory/data/entities'
 import { CustomerEntity, CustomerPersonProfile } from '../data/entities'
-import { resolvePhoneIdentity } from './contactIdentity'
+import { phoneLookupHashCandidates, resolvePhoneIdentity } from './contactIdentity'
 import { normalizeEmail } from '@open-mercato/shared/lib/validation'
+import { findEntityIdsBySearchTokensCompat, type SearchTokenDatabase } from '@open-mercato/shared/lib/search/tokenLookup'
+import { extractPhoneDigits } from '@open-mercato/shared/lib/phone'
 
 export type PersonSearchResult = {
   id: string
@@ -43,6 +45,39 @@ export async function searchPeopleForBooking(
   search: string,
 ): Promise<PersonSearchResult[]> {
   const searchPattern = `%${search.trim().replace(/[%_]/g, '\\$&')}%`
+  const phoneHashes = phoneLookupHashCandidates(search)
+  const phoneSearchDigits = extractPhoneDigits(search)
+  const tokenSearch = {
+    db: em.getKysely<SearchTokenDatabase>(),
+    entityType: 'customers:customer_entity',
+    scope: { tenantId: scope.tenantId },
+  } as const
+  const [nameTokenIds, phoneTokenIds] = await Promise.all([
+    findEntityIdsBySearchTokensCompat({
+      ...tokenSearch,
+      fields: ['display_name'],
+      query: search,
+    }),
+    phoneSearchDigits
+      ? findEntityIdsBySearchTokensCompat({
+          ...tokenSearch,
+          fields: ['primary_phone'],
+          query: phoneSearchDigits,
+        })
+      : Promise.resolve([]),
+  ])
+  const searchConditions: FilterQuery<CustomerEntity>[] = [
+    { displayName: { $ilike: searchPattern } },
+  ]
+  if (nameTokenIds?.length) {
+    searchConditions.push({ id: { $in: nameTokenIds } })
+  }
+  if (phoneTokenIds?.length) {
+    searchConditions.push({ id: { $in: phoneTokenIds } })
+  }
+  if (phoneHashes.length > 0) {
+    searchConditions.push({ primaryPhoneHash: { $in: phoneHashes } })
+  }
   const entities = await findWithDecryption(
     em,
     CustomerEntity,
@@ -50,10 +85,7 @@ export async function searchPeopleForBooking(
       tenantId: scope.tenantId,
       kind: 'person',
       deletedAt: null,
-      $or: [
-        { displayName: { $ilike: searchPattern } },
-        { primaryPhone: { $ilike: searchPattern } },
-      ],
+      $or: searchConditions,
     },
     { limit: 10, orderBy: { updatedAt: 'DESC' } },
     scope,
