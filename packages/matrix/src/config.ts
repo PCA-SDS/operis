@@ -27,18 +27,32 @@ export const matrixCredentialsSchema = z.object({
   senderLocalpart: z.string().min(1).max(255).default('operis'),
   userPrefix: z.string().min(1).max(64).default('om_'),
   botLocalpart: z.string().min(1).max(255).default('om_bot'),
+  /**
+   * The bridges whose ghosts may speak in an external conversation: each
+   * `network` label and the localpart `prefix` its ghosts carry. Empty — the
+   * default — means no sender is ever an outsider, which is exactly the
+   * behaviour before bridges existed.
+   */
+  bridgeGhosts: z
+    .array(z.object({ network: z.string().min(1).max(32), prefix: z.string().min(1).max(64) }))
+    .default([]),
 })
 
 export type MatrixCredentials = z.infer<typeof matrixCredentialsSchema>
+
+export type MatrixBridgeGhost = { network: string; prefix: string }
 
 export type MatrixConfig = MatrixIdentityConfig & {
   /** Normalised: no trailing slash, so path concatenation is unambiguous. */
   baseUrl: string
   asToken: string
   hsToken?: string
+  /** Bridge ghost namespaces an outsider may speak from. Absent means none. */
+  bridgeGhosts?: readonly MatrixBridgeGhost[]
 }
 
 const LOCALPART_PATTERN = /^[a-z0-9._=/+-]+$/
+const NETWORK_PATTERN = /^[a-z][a-z0-9-]{0,31}$/
 const SERVER_NAME_PATTERN = /^[a-zA-Z0-9.-]+(?::\d{1,5})?$/
 
 /**
@@ -141,6 +155,36 @@ export function resolveMatrixConfig(input: unknown): MatrixConfig {
     )
   }
 
+  const seenPrefixes = new Set<string>()
+  for (const ghost of credentials.bridgeGhosts) {
+    if (!NETWORK_PATTERN.test(ghost.network)) {
+      throw new MatrixConfigError('[internal] a bridge network is a lowercase label such as whatsapp', 'bridgeGhosts')
+    }
+    if (!LOCALPART_PATTERN.test(ghost.prefix)) {
+      throw new MatrixConfigError(
+        '[internal] a bridge ghost prefix contains characters that are not valid in a Matrix localpart',
+        'bridgeGhosts',
+      )
+    }
+    // A prefix that reaches into Operis' own namespace would let the bot, the
+    // appservice sender or a colleague's identity read as an outsider.
+    const overlapsOperis =
+      ghost.prefix.startsWith(credentials.userPrefix) ||
+      credentials.userPrefix.startsWith(ghost.prefix) ||
+      credentials.senderLocalpart.startsWith(ghost.prefix) ||
+      credentials.botLocalpart.startsWith(ghost.prefix)
+    if (overlapsOperis) {
+      throw new MatrixConfigError(
+        '[internal] a bridge ghost prefix overlaps the Operis namespace, sender or bot',
+        'bridgeGhosts',
+      )
+    }
+    if (seenPrefixes.has(ghost.prefix)) {
+      throw new MatrixConfigError('[internal] a bridge ghost prefix is listed twice', 'bridgeGhosts')
+    }
+    seenPrefixes.add(ghost.prefix)
+  }
+
   return {
     baseUrl: url.toString().replace(/\/+$/, ''),
     serverName: credentials.serverName,
@@ -149,7 +193,34 @@ export function resolveMatrixConfig(input: unknown): MatrixConfig {
     senderLocalpart: credentials.senderLocalpart,
     userPrefix: credentials.userPrefix,
     botLocalpart: credentials.botLocalpart,
+    bridgeGhosts: credentials.bridgeGhosts,
   }
+}
+
+/**
+ * `OM_MATRIX_BRIDGE_GHOSTS`: comma-separated `network=prefix` pairs, such as
+ * `whatsapp=whatsapp_,telegram=telegram_`. Unset or empty is no bridges. A
+ * malformed pair throws rather than being skipped — a typo must not quietly
+ * turn a bridge's messages back into drops.
+ */
+export function parseBridgeGhosts(raw: string | undefined): MatrixBridgeGhost[] {
+  if (!raw || raw.trim().length === 0) return []
+  return raw
+    .split(',')
+    .map((pair) => pair.trim())
+    .filter((pair) => pair.length > 0)
+    .map((pair) => {
+      const separator = pair.indexOf('=')
+      const network = separator > 0 ? pair.slice(0, separator).trim() : ''
+      const prefix = separator > 0 ? pair.slice(separator + 1).trim() : ''
+      if (!network || !prefix) {
+        throw new MatrixConfigError(
+          '[internal] OM_MATRIX_BRIDGE_GHOSTS takes network=prefix pairs, comma-separated',
+          'bridgeGhosts',
+        )
+      }
+      return { network, prefix }
+    })
 }
 
 /**
@@ -170,5 +241,6 @@ export function matrixConfigFromEnv(env: NodeJS.ProcessEnv = process.env): Matri
     senderLocalpart: env.OM_MATRIX_SENDER_LOCALPART,
     userPrefix: env.OM_MATRIX_USER_PREFIX,
     botLocalpart: env.OM_MATRIX_BOT_LOCALPART,
+    bridgeGhosts: parseBridgeGhosts(env.OM_MATRIX_BRIDGE_GHOSTS),
   })
 }

@@ -1,6 +1,7 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
 import type { AwilixContainer } from 'awilix'
 import { Attachment } from '@open-mercato/core/modules/attachments/data/entities'
+import type { ChatActor } from '@open-mercato/core/modules/chat/lib/participants'
 import type { ChatScope } from '@open-mercato/core/modules/chat/lib/scope'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 
@@ -158,7 +159,8 @@ export async function ingestMatrixMedia(input: {
   container: AwilixContainer | undefined
   scope: ChatScope
   conversationId: string
-  senderUserId: string
+  /** Whoever sent the file — a colleague or an outsider — who therefore owns the draft. */
+  uploader: ChatActor
   fileName: string
   mimeType: string | null
   buffer: Buffer
@@ -213,7 +215,9 @@ export async function ingestMatrixMedia(input: {
       // The sender owns the draft, because `linkDraftAttachmentsToMessage`
       // refuses a draft whose uploader is not the person sending.
       metadata: buildChatAttachmentMetadata({
-        uploaderUserId: input.senderUserId,
+        ...(input.uploader.kind === 'user'
+          ? { uploaderUserId: input.uploader.userId }
+          : { uploaderExternalContactId: input.uploader.externalContactId }),
         conversationId: input.conversationId,
       }),
     })

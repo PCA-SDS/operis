@@ -6,6 +6,7 @@ import { ChatMatrixSyncState } from './data/entities'
 import { CHAT_MATRIX_QUEUES, DEFAULT_SYNC_STREAM } from './lib/queue'
 import type { DriftScope } from './lib/drift'
 import type { BackfillOptions } from './lib/backfill'
+import type { LinkRoomRefusal } from './lib/linkRoom'
 import { parseCliArgs } from '@open-mercato/shared/lib/cli/args'
 
 /**
@@ -159,6 +160,96 @@ async function sync(): Promise<void> {
   }
 }
 
+/**
+ * The pieces `link-room` and `unlink-room` need. Both need the Matrix transport
+ * on: linking a room nothing would ever read is a conversation that silently
+ * receives nothing.
+ *
+ * Every failure in these two commands THROWS, which the CLI turns into a
+ * non-zero exit whether or not it honours `process.exitCode`, so a refusal
+ * always reaches the operator's shell, or a script.
+ */
+async function outsiderDeps() {
+  const { MatrixClient, matrixConfigFromEnv } = await import('@open-mercato/matrix')
+  const config = matrixConfigFromEnv()
+  if (!config) {
+    throw new Error('No homeserver configured. Set OM_MATRIX_HOMESERVER_URL, OM_MATRIX_SERVER_NAME and OM_MATRIX_AS_TOKEN.')
+  }
+  const container = await createRequestContainer()
+  const transport = container.resolve('chatTransport') as { id: string }
+  if (transport.id !== 'matrix') {
+    throw new Error(`The chat transport is "${transport.id}". Set OM_CHAT_TRANSPORT=matrix before linking a room.`)
+  }
+  return {
+    em: container.resolve<EntityManager>('em').fork(),
+    commandBus: container.resolve('commandBus') as import('@open-mercato/shared/lib/commands').CommandBus,
+    config,
+    container,
+    client: new MatrixClient(config),
+  }
+}
+
+/** A refusal as the CLI prints it: the reason first, so a script can match on it. */
+function refused(error: LinkRoomRefusal): Error {
+  return new Error(`Refused (${error.refusal}): ${error.message}`)
+}
+
+/**
+ * Link a bridged room to a new external conversation in one organization.
+ *
+ *   yarn mercato chat_matrix link-room --room '!abc:server' --tenant <uuid> \
+ *     --organization <uuid> --members <userId>[,<userId>…] [--title 'Name']
+ *
+ * Every check runs before anything is written; see `lib/linkRoom.ts`.
+ */
+async function linkRoom(rest: string[]): Promise<void> {
+  const args = parseCliArgs(rest)
+  const room = typeof args.room === 'string' ? args.room : ''
+  const tenantId = typeof args.tenant === 'string' ? args.tenant : ''
+  const organizationId = typeof args.organization === 'string' ? args.organization : ''
+  const members = typeof args.members === 'string' ? args.members.split(',') : []
+  if (!room || !tenantId || !organizationId || members.length === 0) {
+    throw new Error(
+      'Usage: yarn mercato chat_matrix link-room --room <!id:server> --tenant <uuid> --organization <uuid> --members <userId,…> [--title <name>]',
+    )
+  }
+  const deps = await outsiderDeps()
+  const { linkExternalRoom, isLinkRoomRefusal } = await import('./lib/linkRoom')
+  try {
+    const linked = await linkExternalRoom(deps, {
+      roomId: room,
+      tenantId,
+      organizationId,
+      memberUserIds: members,
+      title: typeof args.title === 'string' ? args.title : null,
+    })
+    process.stdout.write(`linked  conversation=${linked.conversationId}  outsiders=${linked.contacts}\n`)
+  } catch (error) {
+    throw isLinkRoomRefusal(error) ? refused(error) : error
+  }
+}
+
+/**
+ * Close a linked external conversation and forget its room.
+ *
+ *   yarn mercato chat_matrix unlink-room --conversation <uuid>
+ */
+async function unlinkRoom(rest: string[]): Promise<void> {
+  const args = parseCliArgs(rest)
+  const conversationId = typeof args.conversation === 'string' ? args.conversation : ''
+  if (!conversationId) {
+    throw new Error('Usage: yarn mercato chat_matrix unlink-room --conversation <uuid>')
+  }
+  const deps = await outsiderDeps()
+  const { unlinkExternalConversation, isLinkRoomRefusal } = await import('./lib/linkRoom')
+  try {
+    const unlinked = await unlinkExternalConversation(deps, conversationId)
+    process.stdout.write(`unlinked  conversation=${conversationId}  room=${unlinked.roomId} (left as it was)\n`)
+  } catch (error) {
+    throw isLinkRoomRefusal(error) ? refused(error) : error
+  }
+}
+
 const cli: ModuleCli[] = [
   {
     command: 'drift',
@@ -170,6 +261,18 @@ const cli: ModuleCli[] = [
     command: 'backfill',
     async run(rest) {
       await backfill(rest)
+    },
+  },
+  {
+    command: 'link-room',
+    async run(rest) {
+      await linkRoom(rest)
+    },
+  },
+  {
+    command: 'unlink-room',
+    async run(rest) {
+      await unlinkRoom(rest)
     },
   },
   {

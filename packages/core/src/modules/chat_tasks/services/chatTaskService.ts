@@ -6,6 +6,7 @@ import {
   chatDisplayName,
   loadOrganizationMembers,
 } from '@open-mercato/core/modules/chat/lib/scope'
+import { requireIdentityId } from '@open-mercato/core/modules/chat/lib/participants'
 import { TasksProject, TasksTask, TasksTaskAssignee, TasksTaskAssignmentTarget } from '@open-mercato/core/modules/tasks/data/entities'
 import { loadAssignedTaskIds } from '@open-mercato/core/modules/tasks/lib/assignment'
 import { TASK_TERMINAL_STATUSES } from '@open-mercato/core/modules/tasks/data/types'
@@ -83,7 +84,7 @@ export class DefaultChatTaskService implements ChatTaskService {
   ): Promise<ChatConversationAccess> {
     const participant = await ctx.em.findOne(
       ChatParticipant,
-      scopedWhere(ctx.scope, { conversationId, userId: ctx.userId }),
+      scopedWhere(ctx.scope, { conversationId, userId: requireIdentityId(ctx.userId) }),
     )
     if (!participant) throw notFound((await loadChatTasksMessages()).conversationNotFound)
 
@@ -247,7 +248,7 @@ export class DefaultChatTaskService implements ChatTaskService {
     // conversation — membership NOW, not when the link was made.
     const myParticipations = await ctx.em.find(
       ChatParticipant,
-      scopedWhere(ctx.scope, { conversationId: { $in: conversationIds }, userId: ctx.userId }),
+      scopedWhere(ctx.scope, { conversationId: { $in: conversationIds }, userId: requireIdentityId(ctx.userId) }),
     )
     const visibleConversationIds = new Set(myParticipations.map((row) => row.conversationId))
     if (visibleConversationIds.size === 0) return { items: [] }
@@ -289,9 +290,9 @@ export class DefaultChatTaskService implements ChatTaskService {
         linkId: link.id,
         conversationId: conversation.id,
         conversationTitle:
-          conversation.kind === 'space'
-            ? (conversation.title ?? '')
-            : (counterparts.get(conversation.id) ?? ''),
+          conversation.kind === 'direct'
+            ? (counterparts.get(conversation.id) ?? '')
+            : (conversation.title ?? ''),
         kind: conversation.kind,
         messageId:
           link.sourceMessageId && liveSourceIds.has(link.sourceMessageId) ? link.sourceMessageId : null,
@@ -446,7 +447,9 @@ export class DefaultChatTaskService implements ChatTaskService {
       ChatParticipant,
       scopedWhere(ctx.scope, { conversationId: { $in: [...conversationIds] } }),
     )
-    const others = rows.filter((row) => row.userId !== ctx.userId)
+    const others = rows.filter(
+      (row): row is typeof row & { userId: string } => typeof row.userId === 'string' && row.userId !== ctx.userId,
+    )
     const people = await loadOrganizationMembers(ctx.em, ctx.scope, others.map((row) => row.userId))
     const byConversation = new Map<string, string>()
     for (const row of others) {

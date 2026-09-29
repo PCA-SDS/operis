@@ -30,6 +30,11 @@ jest.mock('../lib/scope', () => ({
   loadOrganizationMember: async () => ({ id: 'sender', name: 'Bao Nguyen' }),
 }))
 
+jest.mock('../lib/people', () => ({
+  loadExternalContacts: async (_em: unknown, _scope: unknown, ids: string[]) =>
+    new Map(ids.map((id) => [id, { name: 'Linh Tran', network: 'whatsapp' }])),
+}))
+
 const TENANT = '11111111-1111-4111-8111-111111111111'
 const ORG = '22222222-2222-4222-8222-222222222222'
 const CONVERSATION = '33333333-3333-4333-8333-333333333333'
@@ -37,6 +42,7 @@ const MESSAGE = '44444444-4444-4444-8444-444444444444'
 const SENDER = '55555555-5555-4555-8555-555555555555'
 const ALICE = '66666666-6666-4666-8666-666666666666'
 const BOB = '77777777-7777-4777-8777-777777777777'
+const CONTACT = '88888888-8888-4888-8888-888888888888'
 
 const SENT_AT = new Date('2026-09-13T12:00:00.000Z')
 
@@ -59,10 +65,15 @@ function fakeEm(rows: Map<unknown, Row[]>) {
 }
 
 function scenario(options: {
-  kind?: 'direct' | 'space'
+  kind?: 'direct' | 'space' | 'external'
   mentionsEveryone?: boolean
   mentioned?: string[]
-  participants?: Array<{ userId: string; mutedAt?: Date | null; lastReadAt?: Date | null }>
+  participants?: Array<{
+    userId: string | null
+    externalContactId?: string | null
+    mutedAt?: Date | null
+    lastReadAt?: Date | null
+  }>
   messageKind?: string
   deletedAt?: Date | null
 }) {
@@ -259,5 +270,86 @@ describe('when something is missing', () => {
       organizationId: ORG,
     }
     await expect(handle(payload, broken as never)).resolves.toBeUndefined()
+  })
+})
+
+/**
+ * An outsider — a participant row with a contact instead of a user — has no one
+ * to notify. The subscriber must neither address a notification to null nor let
+ * that row derail the colleagues after it: a throw inside the loop would skip
+ * every remaining recipient.
+ */
+describe('outsiders', () => {
+  it('never notifies an outsider, and one in the list does not stop the colleagues after it', async () => {
+    const { ctx, payload } = scenario({
+      kind: 'space',
+      mentionsEveryone: true,
+      participants: [
+        { userId: SENDER },
+        { userId: null, externalContactId: CONTACT },
+        { userId: ALICE },
+        { userId: BOB },
+      ],
+    })
+    await handle(payload, ctx as never)
+    expect(recipients()).toEqual([ALICE, BOB].sort())
+  })
+
+  it("raises nothing for a colleague's reply in an external conversation", async () => {
+    const { ctx, payload } = scenario({
+      kind: 'external',
+      participants: [{ userId: SENDER }, { userId: ALICE }, { userId: null, externalContactId: CONTACT }],
+    })
+    await handle(payload, ctx as never)
+    expect(created).toEqual([])
+  })
+})
+
+/**
+ * Somebody outside the organization writing in is a message waiting on an
+ * answer, so every colleague in the conversation is told — under a type of its
+ * own, so it can be silenced apart from colleagues' direct messages.
+ */
+describe('an outsider writing in an external conversation', () => {
+  function outsiderScenario(participants: Parameters<typeof scenario>[0]['participants']) {
+    const built = scenario({ kind: 'external', participants })
+    const payload: Record<string, unknown> = { ...built.payload, senderExternalContactId: CONTACT }
+    delete payload.senderUserId
+    return { ctx: built.ctx, payload }
+  }
+
+  it('notifies every colleague in the conversation', async () => {
+    const { ctx, payload } = outsiderScenario([
+      { userId: null, externalContactId: CONTACT },
+      { userId: ALICE },
+      { userId: BOB },
+    ])
+    await handle(payload, ctx as never)
+    expect(recipients()).toEqual([ALICE, BOB].sort())
+    expect(created.every((one) => one.type === 'chat.external.received')).toBe(true)
+  })
+
+  it('names the outsider as the sender', async () => {
+    const { ctx, payload } = outsiderScenario([{ userId: null, externalContactId: CONTACT }, { userId: ALICE }])
+    await handle(payload, ctx as never)
+    expect((created[0].bodyVariables as Record<string, string>).sender).toBe('Linh Tran')
+  })
+
+  it('still skips a colleague who muted it, or has already read past it', async () => {
+    const { ctx, payload } = outsiderScenario([
+      { userId: null, externalContactId: CONTACT },
+      { userId: ALICE, mutedAt: new Date('2026-09-01T00:00:00.000Z') },
+      { userId: BOB, lastReadAt: new Date('2026-09-14T00:00:00.000Z') },
+    ])
+    await handle(payload, ctx as never)
+    expect(created).toEqual([])
+  })
+
+  it('ignores an outsider sender outside an external conversation', async () => {
+    const built = scenario({ kind: 'space', mentionsEveryone: true, participants: [{ userId: ALICE }, { userId: BOB }] })
+    const payload: Record<string, unknown> = { ...built.payload, senderExternalContactId: CONTACT }
+    delete payload.senderUserId
+    await handle(payload, built.ctx as never)
+    expect(created).toEqual([])
   })
 })

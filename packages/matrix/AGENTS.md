@@ -49,6 +49,12 @@ and [`.ai/specs/2026-09-10-matrix-chat-foundation.md`](../../.ai/specs/2026-09-1
   arrives.
 - Ask before changing `userPrefix` semantics or the `<prefix>u_<hex32>` localpart
   shape. It is baked into every identity already minted.
+- Ask before widening who counts as a bridge ghost. `OM_MATRIX_BRIDGE_GHOSTS`
+  (`network=prefix`, comma-separated, empty by default) is the whole list:
+  `bridgeGhostNetwork` answers only for a sender on this homeserver whose
+  localpart extends a listed prefix, and `resolveMatrixConfig` refuses a prefix
+  that overlaps the Operis namespace, the sender or the bot — a ghost there would
+  turn a colleague into an outsider.
 
 ## Validation Commands
 

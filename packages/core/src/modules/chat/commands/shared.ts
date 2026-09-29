@@ -2,11 +2,13 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import type { AwilixContainer } from 'awilix'
 import type { CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
 import { forbidden, notFound } from '@open-mercato/shared/lib/crud/errors'
-import { ChatMessage, ChatParticipant } from '../data/entities'
+import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
+import { ChatExternalContact, ChatMessage, ChatParticipant } from '../data/entities'
 import { emitChatEvent, type ChatEventId } from '../events'
 import { loadChatMessages } from '../lib/messages'
-import type { ChatScope } from '../lib/scope'
-import { loadSpaceContext } from '../lib/spaces'
+import { requireIdentityId, type ChatActor } from '../lib/participants'
+import { loadOrganizationMember, type ChatScope } from '../lib/scope'
+import { loadConversationContext } from '../lib/spaces'
 import { createLocalChatTransport, type ChatTransport } from '../lib/transport'
 
 export { ensureOrganizationScope, ensureTenantScope } from '@open-mercato/shared/lib/commands/scope'
@@ -28,29 +30,87 @@ export async function actingUserId(ctx: CommandRuntimeContext): Promise<string> 
 }
 
 /**
+ * Who is acting: the logged-in colleague, or — only when the transport's
+ * projector says so — an outsider.
+ *
+ * The outsider arm is read from `externalOrigin`, which HTTP routes never
+ * populate: they build command input field by field. So an outsider can act
+ * only through the projector, and a client cannot post as a customer.
+ */
+export async function resolveChatActor(
+  ctx: CommandRuntimeContext,
+  externalOrigin: { externalContactId?: string | null } | undefined,
+): Promise<ChatActor> {
+  const externalContactId = externalOrigin?.externalContactId
+  if (externalContactId) return { kind: 'external', externalContactId }
+  return { kind: 'user', userId: await actingUserId(ctx) }
+}
+
+/**
+ * Who the actor is, verified for this organization — or null.
+ *
+ * A colleague must still be an active member: a participant row outlives the
+ * membership that created it. An outsider must be a contact of this
+ * organization, read through decryption because the name is personal data.
+ */
+export async function loadActorIdentity(
+  em: EntityManager,
+  scope: ChatScope,
+  actor: ChatActor,
+): Promise<{ name: string; network: string | null } | null> {
+  if (actor.kind === 'user') {
+    const member = await loadOrganizationMember(em, scope, actor.userId)
+    return member ? { name: member.name, network: null } : null
+  }
+  const contact = await findOneWithDecryption(
+    em,
+    ChatExternalContact,
+    {
+      id: requireIdentityId(actor.externalContactId),
+      tenantId: scope.tenantId,
+      organizationId: scope.organizationId,
+    },
+    {},
+    scope,
+  )
+  return contact ? { name: contact.displayName, network: contact.network } : null
+}
+
+/**
  * Everyone in a conversation, and which of them own it.
  *
  * One query for both, because the role sits on the row the audience is already
  * read from — and the send path needs the owners to seat them at the room's
  * moderation power level, which it previously could not name and so passed as
  * an empty list.
+ *
+ * `userIds` and `ownerUserIds` are colleagues only: they are the SSE audience
+ * and the room roster, and an outsider has neither a session nor an Operis
+ * identity to seat. Outsiders are reported apart, in `externalContactIds`, so a
+ * null can never reach `recipientUserIds`.
  */
 export async function conversationRoster(
   em: EntityManager,
   scope: ChatScope,
   conversationId: string,
-): Promise<{ userIds: string[]; ownerUserIds: string[] }> {
+): Promise<{ userIds: string[]; ownerUserIds: string[]; externalContactIds: string[] }> {
   const participants = await em.find(ChatParticipant, {
     conversationId,
     tenantId: scope.tenantId,
     organizationId: scope.organizationId,
   })
-  return {
-    userIds: participants.map((participant) => participant.userId),
-    ownerUserIds: participants
-      .filter((participant) => participant.role === 'owner')
-      .map((participant) => participant.userId),
+  const userIds: string[] = []
+  const ownerUserIds: string[] = []
+  const externalContactIds: string[] = []
+  for (const participant of participants) {
+    if (participant.userId) {
+      userIds.push(participant.userId)
+      if (participant.role === 'owner') ownerUserIds.push(participant.userId)
+    } else if (participant.externalContactId) {
+      externalContactIds.push(participant.externalContactId)
+    }
   }
+  return { userIds, ownerUserIds, externalContactIds }
 }
 
 /** The user ids of everyone in a conversation — the SSE audience. */
@@ -125,7 +185,8 @@ export function chatTransportFrom(ctx: CommandRuntimeContext): ChatTransport {
  * The message must live in the conversation the caller named, and the caller
  * must be in that conversation.
  *
- * Both halves matter. `loadSpaceContext` proves membership and answers 404 for a
+ * Both halves matter. `loadConversationContext` proves membership — for a
+ * colleague or, on the projector's path, an outsider — and answers 404 for a
  * conversation the caller is not in; re-reading the message under the SAME
  * conversation id proves the message belongs there. Without the second check a
  * forged id from another space would be reactable, pinnable, editable and
@@ -148,10 +209,10 @@ export async function requireMessageInConversation(
   scope: ChatScope,
   conversationId: string,
   messageId: string,
-  userId: string,
+  actor: ChatActor,
   options: { includeDeleted?: boolean } = {},
 ) {
-  const context = await loadSpaceContext(em, scope, conversationId, userId)
+  const context = await loadConversationContext(em, scope, conversationId, actor)
   const message = await em.findOne(ChatMessage, {
     id: messageId,
     conversationId,

@@ -206,3 +206,21 @@ Once the transport is running, the operator commands are:
 yarn mercato chat_matrix drift      # does Matrix have everything Postgres has?
 yarn mercato chat_matrix backfill   # publish what it is missing
 ```
+
+## Addendum — 2026-09-29: a linked room may belong to a bridge
+
+"The appservice bot owns every room" still holds for every room Operis creates.
+An **external** conversation is backed by a room Operis did not create — a
+bridge's portal — linked by an operator with `chat_matrix link-room`. There the
+bot is a guest: the transport never creates, re-powers or prunes that room, and
+only seats colleagues' puppets, which is why `link-room` refuses a room where
+the bot cannot invite.
+
+Outsiders are the ghosts of the bridges named in `OM_MATRIX_BRIDGE_GHOSTS`, and
+only inside an external conversation; a ghost's event anywhere else is skipped.
+
+This settles one of the unresolved questions above: bridged person-to-person
+conversations belong in `chat`, as a third conversation kind, not in
+`communication_channels`. The AGPL sign-off is still open, so production keeps
+`OM_MATRIX_BRIDGE_GHOSTS` empty until counsel clears it. Spec:
+[`.ai/specs/2026-09-29-chat-external-participants.md`](../../../.ai/specs/2026-09-29-chat-external-participants.md).

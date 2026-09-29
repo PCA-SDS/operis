@@ -162,11 +162,14 @@ one Kysely aggregate rather than the engine.
 | `chat_conversations` | yes | yes | every read predicate in `services/chatService.ts`, plus `requireParticipant` |
 | `chat_participants` | yes | yes | same; membership *is* the authorization check |
 | `chat_messages` | yes | yes | same, plus the `INNER JOIN chat_participants` in the unread aggregate |
+| `chat_external_contacts` | yes | yes | every lookup filters by the scope pair, and the id itself is derived from tenant, organization and bridge identity (`chat_matrix/lib/outsiders.ts`) — the same outsider is a different contact in each organization. The FKs from participants, messages and reactions include the scope pair, so a row can only reference a contact of its own organization |
 
 The scope pair itself is never reachable from request input: it is built once per
 request in `chat/api/shared.ts` from `auth.tenantId` and `resolveActiveOrganizationId(auth)`.
 A module-contract test greps every chat route for `body.tenantId` / `body.organizationId`
-and fails if one appears.
+and fails if one appears. An outsider never arrives through a route at all: external
+conversations are linked by the `chat_matrix link-room` CLI, and the commands behind it
+refuse a context with a logged-in user.
 
 Two consequences worth knowing:
 

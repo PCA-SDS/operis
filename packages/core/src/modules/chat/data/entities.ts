@@ -5,11 +5,14 @@ import { Check, Entity, Index, PrimaryKey, Property, Unique } from '@open-mercat
  * Kinds a conversation can take.
  *
  * `direct` is the 1:1 pair, identified by `directKey`. `space` is a named group
- * with explicit membership and roles. They share these three tables entirely —
- * the same messages, the same read cursors, the same events — and differ only in
- * how membership is decided and who may change it.
+ * with explicit membership and roles. `external` holds people who are not
+ * Operis users — a contact arriving through a bridge — alongside colleagues, and
+ * is the only kind that may: a conversation is born external or never becomes
+ * one. All three share these tables entirely — the same messages, the same read
+ * cursors, the same events — and differ in how membership is decided and who
+ * may change it.
  */
-export type ChatConversationKind = 'direct' | 'space'
+export type ChatConversationKind = 'direct' | 'space' | 'external'
 
 /**
  * A participant's standing in a space.
@@ -81,9 +84,16 @@ export const MAX_LOCALE_LENGTH = 10
  *
  * A `space` row carries a `title` and no `directKey`, so it never participates in
  * the direct-pair unique index below — one organization can hold any number of
- * spaces containing the same people. The CHECK constraint keeps the two shapes
+ * spaces containing the same people. The CHECK constraint keeps the shapes
  * mutually exclusive: without it a mis-set `kind` would produce either a space
- * nobody can name or a direct that escapes pair-uniqueness.
+ * nobody can name or a direct that escapes pair-uniqueness. An `external` row
+ * has no pair key and may have a title (a group's name); a one-to-one external
+ * conversation is named after its contact at read time instead.
+ *
+ * `chat_conversations_id_kind_uq` adds no uniqueness — `id` is the key — but
+ * gives an outsider's participant row something to reference: a foreign key on
+ * `(conversation_id, 'external')` is how the database refuses an outsider in a
+ * direct or a space.
  */
 @Entity({ tableName: 'chat_conversations' })
 @Index({ name: 'chat_conversations_scope_recent_idx', properties: ['tenantId', 'organizationId', 'lastMessageAt', 'id'] })
@@ -92,10 +102,11 @@ export const MAX_LOCALE_LENGTH = 10
   expression:
     `create unique index "chat_conversations_direct_uq" on "chat_conversations" ("tenant_id", "organization_id", "direct_key") where "kind" = 'direct' and "direct_key" is not null and "deleted_at" is null`,
 })
+@Unique({ name: 'chat_conversations_id_kind_uq', properties: ['id', 'kind'] })
 @Check({
   name: 'chat_conversations_kind_shape_chk',
   expression:
-    `("kind" = 'direct' and "direct_key" is not null and "title" is null) or ("kind" = 'space' and "title" is not null and "direct_key" is null)`,
+    `("kind" = 'direct' and "direct_key" is not null and "title" is null) or ("kind" = 'space' and "title" is not null and "direct_key" is null) or ("kind" = 'external' and "direct_key" is null)`,
 })
 export class ChatConversation {
   [OptionalProps]?:
@@ -164,6 +175,55 @@ export class ChatConversation {
 }
 
 /**
+ * Somebody who is not an Operis user — a contact arriving through a bridge —
+ * as chat knows them: a name and the network they are on. Nothing else.
+ *
+ * Chat stays transport-agnostic: which bridge identity maps to which contact is
+ * the transport's business, and it supplies a deterministic `id` so a contact is
+ * found or created without a race. The row is scoped to one organization; the
+ * same person on the same network is a different contact in another one.
+ *
+ * `displayName` is personal data and encrypted at rest (`chat/encryption.ts`),
+ * which is why a contact is only ever looked up by id.
+ *
+ * `chat_external_contacts_scope_uq` adds no uniqueness — `id` is the key — but is
+ * what the composite foreign keys from participants, messages and reactions
+ * reference, so no row can point at another organization's contact.
+ */
+@Entity({ tableName: 'chat_external_contacts' })
+@Unique({ name: 'chat_external_contacts_scope_uq', properties: ['id', 'tenantId', 'organizationId'] })
+@Index({ name: 'chat_external_contacts_scope_idx', properties: ['tenantId', 'organizationId'] })
+@Check({
+  name: 'chat_external_contacts_network_chk',
+  expression: `"network" ~ '^[a-z][a-z0-9-]{0,31}$'`,
+})
+export class ChatExternalContact {
+  [OptionalProps]?: 'createdAt' | 'updatedAt'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  /** A label such as `whatsapp` or `telegram` — not a reference to anything. */
+  @Property({ type: 'text' })
+  network!: string
+
+  @Property({ name: 'display_name', type: 'text' })
+  displayName!: string
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date(), nullable: true })
+  updatedAt?: Date | null
+}
+
+/**
  * Membership of one person in one conversation, and their read cursor.
  *
  * `lastReadAt` is the whole unread model: everything newer than it, from someone
@@ -175,9 +235,18 @@ export class ChatConversation {
  * ends their read access, their unread state and — because the SSE audience is
  * recomputed from these rows on every emit — their realtime delivery, in one
  * write. Their messages are untouched: those live in `chat_messages` and stay.
+ *
+ * A row names a colleague (`userId`) or an outsider (`externalContactId`) —
+ * exactly one, by CHECK. An outsider's row also carries `conversationKind =
+ * 'external'`, and a composite foreign key on `(conversation_id,
+ * conversation_kind)` to `chat_conversations (id, kind)` makes an outsider in a
+ * direct or a space a row the database will not store. A colleague's row leaves
+ * it NULL, and a key with a NULL in it is not checked. An outsider is never an
+ * owner.
  */
 @Entity({ tableName: 'chat_participants' })
 @Unique({ name: 'chat_participants_conversation_user_uq', properties: ['conversationId', 'userId'] })
+@Unique({ name: 'chat_participants_conversation_contact_uq', properties: ['conversationId', 'externalContactId'] })
 @Index({ name: 'chat_participants_scope_user_idx', properties: ['tenantId', 'organizationId', 'userId'] })
 @Index({ name: 'chat_participants_conversation_idx', properties: ['conversationId'] })
 @Index({
@@ -185,8 +254,17 @@ export class ChatConversation {
   expression:
     `create index "chat_participants_owner_idx" on "chat_participants" ("conversation_id") where "role" = 'owner'`,
 })
+@Check({
+  name: 'chat_participants_identity_chk',
+  expression: `num_nonnulls("user_id", "external_contact_id") = 1`,
+})
+@Check({
+  name: 'chat_participants_external_shape_chk',
+  expression:
+    `("external_contact_id" is null) = ("conversation_kind" is null) and ("conversation_kind" is null or "conversation_kind" = 'external') and ("external_contact_id" is null or "role" = 'member')`,
+})
 export class ChatParticipant {
-  [OptionalProps]?: 'role' | 'lastReadAt' | 'mutedAt' | 'createdAt' | 'updatedAt'
+  [OptionalProps]?: 'role' | 'lastReadAt' | 'mutedAt' | 'createdAt' | 'updatedAt' | 'externalContactId' | 'conversationKind'
 
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -200,8 +278,17 @@ export class ChatParticipant {
   @Property({ name: 'conversation_id', type: 'uuid' })
   conversationId!: string
 
-  @Property({ name: 'user_id', type: 'uuid' })
-  userId!: string
+  /** The colleague this row admits, or null when it admits an outsider. */
+  @Property({ name: 'user_id', type: 'uuid', nullable: true })
+  userId!: string | null
+
+  /** The outsider this row admits (`chat_external_contacts`), or null. */
+  @Property({ name: 'external_contact_id', type: 'uuid', nullable: true })
+  externalContactId?: string | null
+
+  /** `'external'` on an outsider's row, NULL on a colleague's — the FK's second column. */
+  @Property({ name: 'conversation_kind', type: 'text', nullable: true })
+  conversationKind?: 'external' | null
 
   /**
    * Standing in a space. Always `member` in a direct conversation, where the
@@ -274,6 +361,11 @@ export class ChatParticipant {
   expression:
     `create index "chat_messages_reply_idx" on "chat_messages" ("reply_to_message_id") where "reply_to_message_id" is not null`,
 })
+@Check({
+  name: 'chat_messages_sender_chk',
+  expression:
+    `num_nonnulls("sender_user_id", "sender_external_contact_id") = 1 and ("sender_external_contact_id" is null or "kind" = 'user')`,
+})
 export class ChatMessage {
   [OptionalProps]?:
     | 'kind'
@@ -286,6 +378,7 @@ export class ChatMessage {
     | 'createdAt'
     | 'updatedAt'
     | 'deletedAt'
+    | 'senderExternalContactId'
 
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -299,8 +392,16 @@ export class ChatMessage {
   @Property({ name: 'conversation_id', type: 'uuid' })
   conversationId!: string
 
-  @Property({ name: 'sender_user_id', type: 'uuid' })
-  senderUserId!: string
+  /**
+   * The colleague who wrote it, or null when an outsider did — exactly one of
+   * this and `senderExternalContactId` is set, by CHECK. An outsider never
+   * writes a system row.
+   */
+  @Property({ name: 'sender_user_id', type: 'uuid', nullable: true })
+  senderUserId!: string | null
+
+  @Property({ name: 'sender_external_contact_id', type: 'uuid', nullable: true })
+  senderExternalContactId?: string | null
 
   /**
    * The typed text. Empty for a membership event, whose sentence is assembled
@@ -399,12 +500,21 @@ export class ChatMessage {
  * `conversationId` is carried so the composite foreign key can pin a reaction to
  * the conversation its message lives in. Without it a forged `messageId` from
  * another space would be storable; with it Postgres refuses.
+ *
+ * The reactor is a colleague (`userId`) or an outsider (`externalContactId`),
+ * exactly one by CHECK, and each has its own unique key — NULLs are distinct, so
+ * `chat_message_reactions_uq` alone would not stop an outsider's duplicate.
  */
 @Entity({ tableName: 'chat_message_reactions' })
 @Unique({ name: 'chat_message_reactions_uq', properties: ['messageId', 'userId', 'emoji'] })
+@Unique({ name: 'chat_message_reactions_contact_uq', properties: ['messageId', 'externalContactId', 'emoji'] })
 @Index({ name: 'chat_message_reactions_message_idx', properties: ['messageId'] })
+@Check({
+  name: 'chat_message_reactions_identity_chk',
+  expression: `num_nonnulls("user_id", "external_contact_id") = 1`,
+})
 export class ChatMessageReaction {
-  [OptionalProps]?: 'createdAt'
+  [OptionalProps]?: 'createdAt' | 'externalContactId'
 
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -421,8 +531,11 @@ export class ChatMessageReaction {
   @Property({ name: 'conversation_id', type: 'uuid' })
   conversationId!: string
 
-  @Property({ name: 'user_id', type: 'uuid' })
-  userId!: string
+  @Property({ name: 'user_id', type: 'uuid', nullable: true })
+  userId!: string | null
+
+  @Property({ name: 'external_contact_id', type: 'uuid', nullable: true })
+  externalContactId?: string | null
 
   @Property({ type: 'text' })
   emoji!: string

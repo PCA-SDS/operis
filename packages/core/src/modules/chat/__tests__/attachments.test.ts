@@ -72,7 +72,7 @@ const link = (rows: Row[], attachmentIds: string[], overrides: Record<string, st
   linkDraftAttachmentsToMessage({
     em: entityManager(rows),
     scope,
-    uploaderUserId: UPLOADER,
+    uploader: { kind: 'user', userId: UPLOADER },
     conversationId: CONVERSATION,
     messageId: MESSAGE,
     attachmentIds,
@@ -90,6 +90,55 @@ describe('linking drafts to a message', () => {
 
   it('does nothing when there is nothing to attach', async () => {
     await expect(link([], [])).resolves.toEqual([])
+  })
+
+  /**
+   * A file an outsider sent through the transport is their draft, not a
+   * colleague's: whoever is sending must be whoever uploaded, whichever kind of
+   * person that is.
+   */
+  it("links an outsider's own draft when the outsider sends it", async () => {
+    const rows = [
+      draft({
+        storageMetadata: buildChatAttachmentMetadata({
+          uploaderExternalContactId: 'contact-1',
+          conversationId: CONVERSATION,
+        }),
+      }),
+    ]
+    const linked = await linkDraftAttachmentsToMessage({
+      em: entityManager(rows),
+      scope,
+      uploader: { kind: 'external', externalContactId: 'contact-1' },
+      conversationId: CONVERSATION,
+      messageId: MESSAGE,
+      attachmentIds: ['attachment-1'],
+    })
+    expect(linked).toHaveLength(1)
+  })
+
+  it("refuses a colleague's draft to an outsider, and an outsider's draft to a colleague", async () => {
+    const colleaguesDraft = [draft()]
+    await expect(
+      linkDraftAttachmentsToMessage({
+        em: entityManager(colleaguesDraft),
+        scope,
+        uploader: { kind: 'external', externalContactId: 'contact-1' },
+        conversationId: CONVERSATION,
+        messageId: MESSAGE,
+        attachmentIds: ['attachment-1'],
+      }),
+    ).rejects.toMatchObject({ code: 'not_found' })
+
+    const outsidersDraft = [
+      draft({
+        storageMetadata: buildChatAttachmentMetadata({
+          uploaderExternalContactId: 'contact-1',
+          conversationId: CONVERSATION,
+        }),
+      }),
+    ]
+    await expect(link(outsidersDraft, ['attachment-1'])).rejects.toMatchObject({ code: 'not_found' })
   })
 
   it('refuses an attachment uploaded by somebody else', async () => {
@@ -206,6 +255,19 @@ describe('chat attachment metadata', () => {
   it('round-trips', () => {
     const meta = { uploaderUserId: UPLOADER, conversationId: CONVERSATION }
     expect(readChatAttachmentMetadata(buildChatAttachmentMetadata(meta))).toEqual(meta)
+  })
+
+  it('round-trips an outsider as the uploader', () => {
+    const meta = { uploaderExternalContactId: 'contact-1', conversationId: CONVERSATION }
+    expect(readChatAttachmentMetadata(buildChatAttachmentMetadata(meta))).toEqual(meta)
+  })
+
+  it('reads metadata naming two uploaders as absent — a draft belongs to one person', () => {
+    expect(
+      readChatAttachmentMetadata({
+        chat: { uploaderUserId: UPLOADER, uploaderExternalContactId: 'contact-1', conversationId: CONVERSATION },
+      }),
+    ).toBeNull()
   })
 
   it('reads malformed metadata as absent rather than trusting half of it', () => {

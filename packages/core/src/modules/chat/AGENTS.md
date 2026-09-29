@@ -2,14 +2,25 @@
 
 Internal messaging between people in one organization: 1:1 **direct**
 conversations and named **space** group conversations, with structural message
-replies. Everything runs on one set of tables and one command path — there is no
-second messaging engine for groups.
+replies — plus **external** conversations, where colleagues talk to people outside
+the organization through a bridged Matrix room. Everything runs on one set of
+tables and one command path — there is no second messaging engine for groups.
 
 ## Always
 
-- Treat a space as a conversation. `ChatConversation.kind` discriminates `direct`
-  from `space`; both use the same messages, participants, read cursors, events and
-  components.
+- Treat a space as a conversation. `ChatConversation.kind` discriminates `direct`,
+  `space` and `external`; all three use the same messages, participants, read
+  cursors, events and components. Switch over `kind` exhaustively — an unhandled
+  `external` reads as a direct whose counterpart left.
+- Find a participant with `loadParticipant(em, scope, conversationId, actor)`
+  (`lib/participants.ts`). MikroORM compiles `{ userId: undefined }` to `IS NULL`,
+  so a lookup with a missing id matches every outsider row — the helper throws
+  first. Any other lookup by identity goes through `requireIdentityId`.
+- Compare a sender with `is distinct from`, never `<>`. An outsider's message has
+  a NULL `sender_user_id`, `NULL <> me` is not true, and the message silently
+  stops counting as unread.
+- Keep "who wrote this" apart from "who is a member". `loadOrganizationMembers`
+  answers membership and stays users-only; name a sender through `lib/people.ts`.
 - Resolve access through `chat_participants`. The row's existence IS the grant —
   read access, unread state and realtime delivery all hang off it.
 - Answer **404, never 403**, for a conversation the caller is not a participant
@@ -50,9 +61,10 @@ second messaging engine for groups.
 
 ## Ask First
 
-- Ask before adding a third `kind`. Both existing kinds are load-bearing in the
-  `chat_conversations_kind_shape_chk` CHECK constraint and in the partial unique
-  index that makes direct pairs canonical.
+- Ask before adding a fourth `kind`. All three are load-bearing in the
+  `chat_conversations_kind_shape_chk` CHECK constraint, `direct` in the partial
+  unique index that makes pairs canonical, and `external` in the composite FK
+  that keeps outsiders out of directs and spaces.
 - Ask before adding an ACL feature. Space access is deliberately **membership,
   not privilege**: no role grant should open a space its holder was not added to.
 - Ask before widening notifications beyond what `subscribers/message-notification.ts`
@@ -63,7 +75,7 @@ second messaging engine for groups.
 
 ## Never
 
-- Never add a second send path. `chat.messages.send` handles both kinds; the only
+- Never add a second send path. `chat.messages.send` handles every kind; the only
   difference is how a departed counterpart is treated (see below). It also
   handles a message arriving **from** the transport — see `externalOrigin` below
   — which is a mode of the one command, not a second one.
@@ -72,6 +84,11 @@ second messaging engine for groups.
 - Never drop `recipientUserIds` from an emit — a private message becomes an
   organization-wide broadcast.
 - Never implement a reply by copying quoted text into the new body.
+- Never read an outsider actor from HTTP input. The external arm of `ChatActor` is
+  read only from `externalOrigin`, which only the transport's projector sets, and
+  the external-conversation commands refuse a context with a logged-in user.
+- Never let a mention reach an external conversation: an outsider's body goes
+  through `neutralizeMentionSyntax`, and a colleague's mention there is refused.
 
 ## Validation Commands
 
@@ -85,11 +102,12 @@ JWT_SECRET=$(openssl rand -hex 32) yarn test:integration:ephemeral --no-reuse-en
 
 | Table | Carries |
 |---|---|
-| `chat_conversations` | `kind` (`direct`/`space`), `direct_key` (pairs), `title` + `created_by_user_id` (spaces), denormalized last-message columns |
-| `chat_participants` | membership, `role` (`owner`/`member`), `last_read_at` — the entire unread model |
-| `chat_messages` | turns; `kind` (`user`/`system`), `reply_to_message_id`, `system_event` + `system_target_user_id`, `edited_at`, `deleted_at` |
+| `chat_conversations` | `kind` (`direct`/`space`/`external`), `direct_key` (pairs), `title` + `created_by_user_id` (spaces), denormalized last-message columns |
+| `chat_participants` | membership — exactly one of `user_id` / `external_contact_id` — `role` (`owner`/`member`), `last_read_at` — the entire unread model |
+| `chat_messages` | turns; sender is exactly one of `sender_user_id` / `sender_external_contact_id`; `kind` (`user`/`system`), `reply_to_message_id`, `system_event` + `system_target_user_id`, `edited_at`, `deleted_at` |
+| `chat_external_contacts` | one outsider per organization: `network` and an encrypted `display_name`. The id is derived from the bridge identity by `chat_matrix`, never chosen by chat |
 
-Three constraints carry guarantees the application cannot promise alone:
+Four constraints carry guarantees the application cannot promise alone:
 
 - **`chat_conversations_direct_uq`** — partial unique on `(tenant, org, direct_key)
   where kind = 'direct'`. Makes one conversation per pair a database fact, so
@@ -103,6 +121,11 @@ Three constraints carry guarantees the application cannot promise alone:
   **cannot** target a message in another conversation, space or organization,
   even if every application check were removed. A single-column FK would only
   prove the target exists somewhere.
+- **`chat_participants_external_conversation_fk`** — composite FK on
+  `(conversation_id, conversation_kind)` referencing `(id, kind)`, where
+  `conversation_kind` is set only on an outsider's row. The database refuses an
+  outsider in a direct or a space. The `num_nonnulls(...) = 1` CHECKs on
+  participants, messages and reactions keep every identity exactly one of the two.
 
 ## The Transport Seam
 
@@ -198,6 +221,11 @@ Three exclusions on top: the sender, anyone who muted the conversation, and
 anyone whose read cursor is already past the message — that last one is the
 person who had it open as it arrived.
 
+An **external** conversation has its own type, `chat.external.received`: an
+outsider's message notifies every colleague in it, and a colleague's message
+notifies nobody — the colleagues are answering together, not addressing each
+other. Mentions do not exist there.
+
 `groupKey` is keyed on the conversation and the reader, **not** the message, so
 a colleague sending five messages while you are away leaves one entry rather
 than five to dismiss.
@@ -233,8 +261,8 @@ purpose:
 - **direct** — the counterpart is the only recipient, so the conversation has
   quietly become one-way. The send is **refused**, which stops someone typing
   sensitive material into it.
-- **space** — one departed colleague must not break the room for everyone else.
-  They are **dropped from the audience** and the send proceeds.
+- **space** and **external** — one departed colleague must not break the room
+  for everyone else. They are **dropped from the audience** and the send proceeds.
 
 `listMembers` omits them for the same reason: a roster of people who cannot sign
 in invites removing them one by one for no effect.
@@ -311,6 +339,9 @@ mid-word and Enter belongs to the IME, not to the menu.
 | Access + role gates | `lib/spaces.ts` (`loadSpaceForMember` / `loadSpaceForOwner`) |
 | Reply hydration | `lib/replies.ts` — one batched query per page, reusing names the page already resolved |
 | Organization membership predicate | `lib/scope.ts` |
+| Participant lookup, the actor union | `lib/participants.ts` (`loadParticipant`, `ChatActor`) |
+| Outsider names and networks | `lib/people.ts` |
+| External conversations: create, seat, close | `commands/externalConversations.ts` — system context only; `chat_matrix link-room` is the entry point |
 | Space writes | `commands/spaces.ts` |
 | Send, edit, delete | `commands/messages.ts` |
 | The message-in-conversation guard | `commands/shared.ts` (`requireMessageInConversation`) |
@@ -326,3 +357,4 @@ posting a bare `{ userId }` is unaffected.
 
 - Phase 1 (direct messaging): [`.ai/specs/2026-09-03-chat-direct-messaging.md`](../../../../../.ai/specs/2026-09-03-chat-direct-messaging.md)
 - Phase 2 (spaces and replies): [`.ai/specs/2026-09-04-chat-spaces-and-replies.md`](../../../../../.ai/specs/2026-09-04-chat-spaces-and-replies.md)
+- External participants: [`.ai/specs/2026-09-29-chat-external-participants.md`](../../../../../.ai/specs/2026-09-29-chat-external-participants.md)

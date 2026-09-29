@@ -3,7 +3,8 @@ import { sql } from 'kysely'
 import { ChatMessage, ChatMessageReaction, ChatPinnedMessage } from '../data/entities'
 import type { ChatReactionDto } from '../data/types'
 import { extractMentionedUserIds } from './mentions'
-import { loadOrganizationMembers, type ChatScope } from './scope'
+import { loadExternalContacts } from './people'
+import { loadOrganizationMembers, nameOrFallback, type ChatScope } from './scope'
 import { getAttachmentsForMessages } from './attachments'
 import { toChatAttachmentDto } from './attachmentDto'
 import type { ChatAttachmentDto } from '../data/types'
@@ -73,10 +74,16 @@ export async function loadMessageExtras(
   // one lookup rather than one per mention and one per reaction.
   const wanted = new Set<string>()
   for (const message of messages) for (const id of extractMentionedUserIds(message.body)) wanted.add(id)
-  for (const reaction of reactionRows) wanted.add(reaction.userId)
+  for (const reaction of reactionRows) if (reaction.userId) wanted.add(reaction.userId)
 
   const people = await loadOrganizationMembers(em, scope, [...wanted])
   const namesByUserId = new Map([...people].map(([id, person]) => [id, person.name]))
+  // An outsider's reaction counts and is named like anyone's.
+  const contacts = await loadExternalContacts(
+    em,
+    scope,
+    reactionRows.map((reaction) => reaction.externalContactId),
+  )
 
   /**
    * Aggregate into `emoji → count`, preserving first-reaction order so the chips
@@ -92,9 +99,13 @@ export async function loadMessageExtras(
       list.push(entry)
     }
     entry.count += 1
-    if (reaction.userId === viewerUserId) entry.mine = true
+    if (reaction.userId !== null && reaction.userId === viewerUserId) entry.mine = true
     if (entry.sampleNames.length < REACTION_SAMPLE_LIMIT) {
-      entry.sampleNames.push(namesByUserId.get(reaction.userId) ?? fallbackName)
+      entry.sampleNames.push(
+        reaction.externalContactId
+          ? contacts.get(reaction.externalContactId)?.name ?? fallbackName
+          : nameOrFallback(namesByUserId, reaction.userId, fallbackName),
+      )
     }
     reactionsByMessage.set(reaction.messageId, list)
   }
@@ -161,7 +172,7 @@ export async function loadUnreadMentionFlags(
      where m.conversation_id = any(${[...conversationIds]}::uuid[])
        and m.deleted_at is null
        and m.kind = 'user'
-       and m.sender_user_id <> ${viewerUserId}::uuid
+       and m.sender_user_id is distinct from ${viewerUserId}::uuid
        and m.created_at > coalesce(p.last_read_at, '-infinity'::timestamptz)
        -- Only what was said once you were in the room.
        --

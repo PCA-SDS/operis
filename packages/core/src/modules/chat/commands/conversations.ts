@@ -8,6 +8,7 @@ import { dbNow } from '../lib/clock'
 import { buildDirectKey } from '../lib/conversations'
 import { loadChatMessages } from '../lib/messages'
 import { loadOrganizationMember, type ChatScope } from '../lib/scope'
+import { loadParticipant, requireIdentityId, type ChatActor } from '../lib/participants'
 import { publishReadReceiptSafely, publishTypingSafely } from '../lib/transport'
 import {
   actingUserId,
@@ -17,6 +18,7 @@ import {
   ensureOrganizationScope,
   ensureTenantScope,
   forkEm,
+  resolveChatActor,
 } from './shared'
 
 export type EnsureDirectConversationInput = {
@@ -40,7 +42,11 @@ export type EnsureDirectConversationResult = {
  * `eventId` is nullable because a typing notification is not an event and has
  * no id; a receipt does, and carrying it keeps the two shapes the same.
  */
-export type ChatEphemeralOrigin = { eventId: string | null }
+export type ChatEphemeralOrigin = {
+  eventId: string | null
+  /** The outsider whose receipt this is, when it is one — set only by the projector. */
+  externalContactId?: string
+}
 
 export type MarkConversationReadInput = {
   tenantId: string
@@ -179,7 +185,7 @@ const markConversationReadCommand: CommandHandler<MarkConversationReadInput, { l
 
     const messages = await loadChatMessages()
     const scope: ChatScope = { tenantId: input.tenantId, organizationId: input.organizationId }
-    const userId = await actingUserId(ctx)
+    const actor = await resolveChatActor(ctx, input.externalOrigin)
     const em = forkEm(ctx)
 
     // One statement, and every rule the cursor has to obey is expressed in it:
@@ -208,7 +214,7 @@ const markConversationReadCommand: CommandHandler<MarkConversationReadInput, { l
              ),
              updated_at = date_trunc('milliseconds', now())
        where conversation_id = ${input.conversationId}::uuid
-         and user_id = ${userId}::uuid
+         and ${readerColumn(actor)}
          and tenant_id = ${scope.tenantId}::uuid
          and organization_id = ${scope.organizationId}::uuid
       returning last_read_at
@@ -223,7 +229,12 @@ const markConversationReadCommand: CommandHandler<MarkConversationReadInput, { l
 
     // Only the reader's own sessions care — this is what clears the badge on
     // their other tabs and devices.
-    await emitConversationEvent('chat.conversation.read', scope, [userId], {
+    // A colleague's cursor is theirs to sync across their own tabs. An
+    // outsider's is what the colleagues in the conversation see as read ticks,
+    // so it goes to them — never to the outsider, who has no session.
+    const readAudience =
+      actor.kind === 'user' ? [actor.userId] : await conversationAudience(em, scope, input.conversationId)
+    await emitConversationEvent('chat.conversation.read', scope, readAudience, {
       conversationId: input.conversationId,
       lastReadAt,
     })
@@ -235,19 +246,30 @@ const markConversationReadCommand: CommandHandler<MarkConversationReadInput, { l
      * count is already correct from the UPDATE above, and nothing about it
      * depends on the homeserver hearing. With the local transport it is a no-op.
      */
-    const newest = input.externalOrigin
-      ? null
-      : await newestReadableMessageId(em, scope, input.conversationId, lastReadAt)
-    if (newest) {
+    const newest =
+      input.externalOrigin || actor.kind !== 'user'
+        ? null
+        : await newestReadableMessageId(em, scope, input.conversationId, lastReadAt)
+    if (newest && actor.kind === 'user') {
       await publishReadReceiptSafely(chatTransportFrom(ctx), { em: forkEm(ctx), container: ctx.container }, scope, {
         conversationId: input.conversationId,
-        userId,
+        userId: actor.userId,
         messageId: newest,
       })
     }
 
     return { lastReadAt }
   },
+}
+
+/**
+ * The row whose cursor a receipt moves: the colleague's or the outsider's, each
+ * matched on its own column, with the id asserted before it reaches SQL.
+ */
+function readerColumn(actor: ChatActor) {
+  return actor.kind === 'user'
+    ? sql`user_id = ${requireIdentityId(actor.userId)}::uuid`
+    : sql`external_contact_id = ${requireIdentityId(actor.externalContactId)}::uuid`
 }
 
 /**
@@ -319,7 +341,7 @@ const markAllConversationsReadCommand: CommandHandler<
            select 1 from chat_messages m
             where m.conversation_id = chat_participants.conversation_id
               and m.deleted_at is null
-              and m.sender_user_id <> ${userId}::uuid
+              and m.sender_user_id is distinct from ${userId}::uuid
               and m.created_at > coalesce(chat_participants.last_read_at, '-infinity'::timestamptz)
          )
       returning conversation_id, last_read_at
@@ -382,12 +404,7 @@ const setTypingCommand: CommandHandler<SetTypingInput, { typing: boolean }> = {
     const userId = await actingUserId(ctx)
     const em = forkEm(ctx)
 
-    const participant = await em.findOne(ChatParticipant, {
-      conversationId: input.conversationId,
-      userId,
-      tenantId: scope.tenantId,
-      organizationId: scope.organizationId,
-    })
+    const participant = await loadParticipant(em, scope, input.conversationId, { kind: 'user', userId })
     if (!participant) throw notFound(messages.conversationNotFound)
 
     const audience = await conversationAudience(em, scope, input.conversationId)
@@ -446,12 +463,7 @@ const setConversationMutedCommand: CommandHandler<
     const userId = await actingUserId(ctx)
     const em = forkEm(ctx)
 
-    const participant = await em.findOne(ChatParticipant, {
-      conversationId: input.conversationId,
-      userId,
-      tenantId: scope.tenantId,
-      organizationId: scope.organizationId,
-    })
+    const participant = await loadParticipant(em, scope, input.conversationId, { kind: 'user', userId })
     // 404 rather than 403, as everywhere else in this module: a conversation the
     // caller is not in must not be distinguishable from one that does not exist.
     if (!participant) throw notFound(messages.conversationNotFound)

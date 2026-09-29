@@ -183,6 +183,22 @@ describe('requireParticipant', () => {
     })
   })
 
+  /**
+   * `user_id` is nullable now that outsiders can be participants, and MikroORM
+   * turns a missing id into `user_id IS NULL` — which would match an outsider's
+   * row and admit the caller. The lookup must refuse before it queries.
+   */
+  it.each(['', undefined])('refuses to look a participant up without a user id (%p)', async (userId) => {
+    const { em, calls } = fakeEm({
+      participants: [participant({ userId: null, externalContactId: 'contact-1' })],
+      conversations: [conversation()],
+    })
+    await expect(
+      new DefaultChatService().requireParticipant({ em, scope: SCOPE, userId: userId as unknown as string }, 'conv-1'),
+    ).rejects.toThrow('[internal]')
+    expect(calls).toHaveLength(0)
+  })
+
   it('answers 404 rather than 403, so an id probe learns nothing', async () => {
     const { em } = fakeEm({ participants: [], conversations: [] })
     await expect(

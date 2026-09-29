@@ -13,6 +13,13 @@ import type { NotificationTypeDefinition } from '@open-mercato/shared/modules/no
  * separating them is that a person can turn one off and keep the other. A single
  * `chat.message.received` would make "stop telling me about every mention" and
  * "stop telling me about direct messages" the same switch.
+ *
+ * A third type for external conversations, for the same reason: somebody outside
+ * the organization writing in is a message waiting on a colleague's answer —
+ * every colleague in the conversation is told — and it is worth being able to
+ * silence separately from colleagues' direct messages. A colleague's reply there
+ * notifies nobody: mentions are refused in external conversations, and telling
+ * the other handlers about every reply is the noise the unread count covers.
  */
 export const notificationTypes: NotificationTypeDefinition[] = [
   {
@@ -50,6 +57,28 @@ export const notificationTypes: NotificationTypeDefinition[] = [
     labelKey: 'chat.notifications.mention.label',
     descriptionKey: 'chat.notifications.mention.description',
     icon: 'at-sign',
+    severity: 'info',
+    category: 'chat',
+    actions: [
+      {
+        id: 'open',
+        labelKey: 'chat.notifications.open',
+        variant: 'outline',
+        href: '/backend/chat/{sourceEntityId}',
+        icon: 'external-link',
+      },
+    ],
+    linkHref: '/backend/chat/{sourceEntityId}',
+    expiresAfterHours: 168,
+  },
+  {
+    type: 'chat.external.received',
+    module: 'chat',
+    titleKey: 'chat.notifications.external.title',
+    bodyKey: 'chat.notifications.external.body',
+    labelKey: 'chat.notifications.external.label',
+    descriptionKey: 'chat.notifications.external.description',
+    icon: 'message-circle',
     severity: 'info',
     category: 'chat',
     actions: [

@@ -2,6 +2,7 @@ import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { MAX_SHARED_PAGE_SIZE, querySharedResources } from '../../../../lib/shared'
 import { loadOrganizationMembers } from '../../../../lib/scope'
+import { loadExternalContacts } from '../../../../lib/people'
 import {
   chatService,
   jsonOk,
@@ -62,16 +63,25 @@ export async function GET(req: Request, context: { params?: Record<string, unkno
       ),
     ].filter(Boolean)
     const people = await loadOrganizationMembers(request.em, request.scope, userIds)
-    const nameOf = (userId: string) => {
-      const person = people.get(userId)
+    // An outsider's file or link is attributed to the outsider.
+    const contacts = await loadExternalContacts(
+      request.em,
+      request.scope,
+      result.items.map((item) =>
+        item.kind === 'link' ? item.sharedByExternalContactId : item.uploaderExternalContactId,
+      ),
+    )
+    const nameOf = (userId: string | null, contactId: string | null) => {
+      if (contactId) return contacts.get(contactId)?.name ?? ''
+      const person = userId ? people.get(userId) : undefined
       return person ? person.name || person.email : ''
     }
 
     return jsonOk({
       items: result.items.map((item) =>
         item.kind === 'link'
-          ? { ...item, sharedByName: nameOf(item.sharedByUserId) }
-          : { ...item, uploaderName: nameOf(item.uploaderUserId) },
+          ? { ...item, sharedByName: nameOf(item.sharedByUserId, item.sharedByExternalContactId) }
+          : { ...item, uploaderName: nameOf(item.uploaderUserId, item.uploaderExternalContactId) },
       ),
       nextCursor: result.nextCursor,
       hasMore: result.hasMore,

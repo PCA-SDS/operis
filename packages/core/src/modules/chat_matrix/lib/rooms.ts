@@ -4,6 +4,7 @@ import { createLogger } from '@open-mercato/shared/lib/logger'
 import { botMxid, MatrixError, type MatrixClient, type MatrixConfig } from '@open-mercato/matrix'
 import { ChatMatrixRoom } from '../data/entities'
 import { ensureIdentity, type IdentityDeps } from './identities'
+import type { EnsureConversationInput } from '@open-mercato/core/modules/chat/lib/transport'
 
 const logger = createLogger('chat_matrix').child({ component: 'rooms' })
 
@@ -27,7 +28,7 @@ export type RoomDeps = IdentityDeps & {
 
 export type EnsureRoomInput = {
   conversationId: string
-  kind: 'direct' | 'space'
+  kind: EnsureConversationInput['kind']
   title: string | null
   memberUserIds: string[]
   ownerUserIds: string[]
@@ -59,6 +60,13 @@ export async function ensureRoom(
     organizationId: scope.organizationId,
   })
   if (existing?.state === 'ready') return existing.roomId
+  if (input.kind === 'external') {
+    // An external conversation's room belongs to whoever linked it — a bridge,
+    // typically — and the bot is a guest there. Creating one, or "finishing"
+    // one by rewriting its power levels, would take over somebody else's room.
+    // No ready mapping means nothing to publish to, and that is an error.
+    throw new Error('[internal] an external chat conversation has no linked Matrix room; the transport never creates one')
+  }
   if (existing) {
     // A previous attempt got as far as a row. Finish it rather than making a
     // second room — `chat_matrix_rooms_conversation_uq` would refuse that anyway,

@@ -1,6 +1,7 @@
 import type { AwilixContainer } from 'awilix'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import type { ChatConversationKind } from '../data/entities'
 import type { ChatScope } from './scope'
 
 /**
@@ -52,7 +53,7 @@ export type ChatTransportMode = 'shadow' | 'authoritative'
  */
 export type PublishMessageInput = {
   conversationId: string
-  conversationKind: 'direct' | 'space'
+  conversationKind: ChatConversationKind
   messageId: string
   senderUserId: string
   /**
@@ -84,7 +85,7 @@ export type PublishedMessage = {
 
 export type EnsureConversationInput = {
   conversationId: string
-  kind: 'direct' | 'space'
+  kind: ChatConversationKind
   title: string | null
   memberUserIds: string[]
   ownerUserIds: string[]

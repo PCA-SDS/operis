@@ -23,12 +23,15 @@ export {
   matrixCredentialsSchema,
   resolveMatrixConfig,
   matrixConfigFromEnv,
+  parseBridgeGhosts,
+  type MatrixBridgeGhost,
   type MatrixConfig,
   type MatrixCredentials,
 } from './config'
 
 export {
   parseMxid,
+  bridgeGhostNetwork,
   localpartForUser,
   mxidForUser,
   operisUserIdFromMxid,

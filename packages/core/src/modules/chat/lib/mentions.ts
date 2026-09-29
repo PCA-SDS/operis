@@ -30,6 +30,26 @@ export function userToken(userId: string): string {
   return `<@${userId}>`
 }
 
+/**
+ * U+2060 WORD JOINER: invisible, zero-width, and not a character any token
+ * pattern accepts between `<` and `@`. Built from its code point rather than
+ * written as an escape, so the source cannot silently lose it.
+ */
+const WORD_JOINER = String.fromCharCode(0x2060)
+
+/**
+ * Text an outsider typed, with mention syntax made inert.
+ *
+ * Only colleagues mention. An outsider's `<@everyone>` or `<@uuid>` is prose,
+ * and every parser downstream — mention extraction, `@everyone` detection, the
+ * preview renderer, translation segmentation, the client's chips — must read it
+ * as prose. Breaking the token once, at ingestion, is the one change that holds
+ * for all of them; teaching each to ask who wrote the body would not.
+ */
+export function neutralizeMentionSyntax(body: string): string {
+  return body.split('<@').join(`<${WORD_JOINER}@`)
+}
+
 /** The user ids a body names, de-duplicated, in the order they first appear. */
 export function extractMentionedUserIds(body: string): string[] {
   const found: string[] = []

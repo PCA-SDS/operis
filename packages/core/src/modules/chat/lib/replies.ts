@@ -1,6 +1,7 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { ChatMessage } from '../data/entities'
 import type { ChatReplyTargetDto } from '../data/types'
+import { loadExternalContacts } from './people'
 import { loadOrganizationMembers, type ChatScope } from './scope'
 
 /**
@@ -59,6 +60,8 @@ export async function resolveReplyTargets(
    */
   knownNames?: ReadonlyMap<string, string>,
   fallbackName = '',
+  /** What an original written by an outsider is attributed to when its contact cannot be read. */
+  unknownContact = fallbackName,
 ): Promise<Map<string, ChatReplyTargetDto>> {
   const resolved = new Map<string, ChatReplyTargetDto>()
   const targetIds = [
@@ -84,22 +87,29 @@ export async function resolveReplyTargets(
     ...new Set(
       targets
         .map((target) => target.senderUserId)
-        .filter((userId) => !(knownNames?.has(userId) ?? false)),
+        .filter((userId): userId is string => userId !== null && !(knownNames?.has(userId) ?? false)),
     ),
   ]
   const extraNames =
     missingAuthorIds.length > 0
       ? await loadOrganizationMembers(em, scope, missingAuthorIds)
       : new Map<string, { name: string }>()
+  // Quoting an outsider names the outsider, not a "former colleague".
+  const contacts = await loadExternalContacts(
+    em,
+    scope,
+    targets.map((target) => target.senderExternalContactId),
+  )
 
   for (const target of targets) {
     resolved.set(target.id, {
       id: target.id,
       senderUserId: target.senderUserId,
-      senderName:
-        knownNames?.get(target.senderUserId) ??
-        extraNames.get(target.senderUserId)?.name ??
-        fallbackName,
+      senderName: target.senderExternalContactId
+        ? contacts.get(target.senderExternalContactId)?.name ?? unknownContact
+        : target.senderUserId
+          ? knownNames?.get(target.senderUserId) ?? extraNames.get(target.senderUserId)?.name ?? fallbackName
+          : fallbackName,
       body: target.deletedAt ? '' : truncate(target.body),
       deleted: Boolean(target.deletedAt),
     })

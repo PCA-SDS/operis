@@ -11,7 +11,6 @@ import {
   isRoomMessage,
   messageBody,
   messageMsgtype,
-  operisUserIdFromMxid,
   parseMxcUri,
   parseReadReceipts,
   replacement,
@@ -24,6 +23,14 @@ import type { ChatScope } from '@open-mercato/core/modules/chat/lib/scope'
 import { ChatMatrixEvent, ChatMatrixRoom } from '../data/entities'
 import { reactionSubjectKey } from './subjectKey'
 import { ingestMatrixMedia } from './media'
+import {
+  actorContext,
+  actorKey,
+  receiptActor,
+  resolveProjectionActor,
+  withActorOrigin,
+} from './outsiders'
+import type { ChatActor } from '@open-mercato/core/modules/chat/lib/participants'
 import { resolveChatAttachmentLimits } from '@open-mercato/core/modules/chat/lib/attachmentPolicy'
 
 const logger = createLogger('chat_matrix').child({ component: 'projection' })
@@ -68,6 +75,11 @@ export type ProjectionSkipReason =
   | 'redacted'
   | 'unmapped-room'
   | 'external-sender'
+  /**
+   * A configured bridge ghost in a direct or a space. Should be impossible —
+   * Operis never invites one into a room it owns — and is logged at warn.
+   */
+  | 'external-in-internal-room'
   | 'empty-body'
   | 'operis-orphan'
   /** The relation points at an event Operis has no mapping for. */
@@ -136,18 +148,13 @@ export async function projectEvent(
     return { kind: 'skipped', reason: 'unmapped-room' }
   }
 
-  const senderUserId = operisUserIdFromMxid(deps.config, event.sender)
-  if (!senderUserId) {
-    // Not an Operis identity: the appservice bot, or — once a bridge is
-    // attached — somebody on WhatsApp. The second case is real work, not a
-    // skip, and it needs an external-participant model the chat schema does not
-    // have yet. Refusing to guess is the honest behaviour until it does.
-    logger.debug('skipping an event from a non-Operis sender', {
-      sender: event.sender,
-      roomId,
-    })
-    return { kind: 'skipped', reason: 'external-sender' }
-  }
+  // A colleague, or — in an external conversation — an outsider a bridge
+  // vouches for, seated on first contact. Anyone else is still skipped:
+  // attributing somebody's words to the wrong person is worse than not showing
+  // them. See `outsiders.ts` for the whole decision table.
+  const resolved = await resolveProjectionActor(deps, event.sender, room)
+  if (!resolved.ok) return { kind: 'skipped', reason: resolved.reason }
+  const actor = resolved.actor
 
   const body = messageBody(event)
   if (!body) return { kind: 'skipped', reason: 'empty-body' }
@@ -172,7 +179,7 @@ export async function projectEvent(
    * event: a transcript missing a picture is recoverable, a transcript missing
    * the fact that somebody sent something is not.
    */
-  const attachmentIds = await ingestEventMedia(deps, event, scope, room.conversationId, senderUserId)
+  const attachmentIds = await ingestEventMedia(deps, event, scope, room.conversationId, actor)
 
   const result = await deps.commandBus.execute<
     Record<string, unknown>,
@@ -184,21 +191,24 @@ export async function projectEvent(
       body,
       replyToMessageId,
       attachmentIds,
-      externalOrigin: {
-        eventId: event.event_id,
-        // The Operis id is minted here rather than derived from the event id:
-        // `chat_messages.id` is a uuid column and a Matrix event id is not one.
-        // The mapping row is what ties them together.
-        messageId: randomUUID(),
-        // The homeserver's own timestamp. This is the one place a Matrix clock
-        // is allowed to set an Operis timestamp, because for an event Operis did
-        // not send there is no better answer — and the alternative, stamping it
-        // with the moment the loop happened to read it, would order a backlog by
-        // when it was drained rather than when it was said.
-        createdAt: new Date(event.origin_server_ts),
-      },
+      externalOrigin: withActorOrigin(
+        {
+          eventId: event.event_id,
+          // The Operis id is minted here rather than derived from the event id:
+          // `chat_messages.id` is a uuid column and a Matrix event id is not one.
+          // The mapping row is what ties them together.
+          messageId: randomUUID(),
+          // The homeserver's own timestamp. This is the one place a Matrix clock
+          // is allowed to set an Operis timestamp, because for an event Operis did
+          // not send there is no better answer — and the alternative, stamping it
+          // with the moment the loop happened to read it, would order a backlog by
+          // when it was drained rather than when it was said.
+          createdAt: new Date(event.origin_server_ts),
+        },
+        actor,
+      ),
     },
-    ctx: projectionContext(deps, scope, senderUserId),
+    ctx: actorContext(deps, scope, actor),
   })
 
   const messageId = result.result?.message?.id
@@ -221,7 +231,7 @@ async function ingestEventMedia(
   event: MatrixEvent,
   scope: ChatScope,
   conversationId: string,
-  senderUserId: string,
+  uploader: ChatActor,
 ): Promise<string[]> {
   const msgtype = messageMsgtype(event)
   if (!msgtype || !MEDIA_MSGTYPES.has(msgtype)) return []
@@ -259,7 +269,7 @@ async function ingestEventMedia(
     container: deps.container as never,
     scope,
     conversationId,
-    senderUserId,
+    uploader,
     fileName,
     mimeType,
     buffer,
@@ -280,22 +290,19 @@ async function resolveTarget(
   event: MatrixEvent,
   roomId: string,
 ): Promise<
-  | { ok: true; room: ChatMatrixRoom; senderUserId: string; scope: ChatScope }
+  | { ok: true; room: ChatMatrixRoom; actor: ChatActor; scope: ChatScope }
   | { ok: false; outcome: ProjectionOutcome }
 > {
   const room = await deps.em.findOne(ChatMatrixRoom, { roomId })
   if (!room) return { ok: false, outcome: { kind: 'skipped', reason: 'unmapped-room' } }
 
-  const senderUserId = operisUserIdFromMxid(deps.config, event.sender)
-  if (!senderUserId) {
-    logger.debug('skipping a relation from a non-Operis sender', { sender: event.sender, roomId })
-    return { ok: false, outcome: { kind: 'skipped', reason: 'external-sender' } }
-  }
+  const resolved = await resolveProjectionActor(deps, event.sender, room)
+  if (!resolved.ok) return { ok: false, outcome: { kind: 'skipped', reason: resolved.reason } }
 
   return {
     ok: true,
     room,
-    senderUserId,
+    actor: resolved.actor,
     scope: { tenantId: room.tenantId, organizationId: room.organizationId },
   }
 }
@@ -346,14 +353,18 @@ async function recordProjectedEvent(
 async function replay(
   deps: ProjectionDeps,
   scope: ChatScope,
-  senderUserId: string,
+  actor: ChatActor,
   commandId: string,
   input: Record<string, unknown>,
 ): Promise<{ ok: boolean; error?: unknown }> {
+  // An outsider is named inside `externalOrigin` — the one place a command
+  // reads an outsider actor from — and acts under a context with no session.
+  const origin = input.externalOrigin as Record<string, unknown> | undefined
+  const withActor = origin ? { ...input, externalOrigin: withActorOrigin(origin, actor) } : input
   try {
     await deps.commandBus.execute<Record<string, unknown>, unknown>(commandId, {
-      input: { ...scope, ...input },
-      ctx: projectionContext(deps, scope, senderUserId),
+      input: { ...scope, ...withActor },
+      ctx: actorContext(deps, scope, actor),
     })
     return { ok: true }
   } catch (error) {
@@ -390,14 +401,14 @@ async function projectAnnotation(
 
   const resolved = await resolveTarget(deps, event, roomId)
   if (!resolved.ok) return resolved.outcome
-  const { room, senderUserId, scope } = resolved
+  const { room, actor, scope } = resolved
 
   const target = await deps.em.findOne(ChatMatrixEvent, { eventId: relation.targetEventId })
   if (!target?.messageId) return { kind: 'skipped', reason: 'unmapped-target' }
 
   const subjectKey = reactionSubjectKey({
     messageId: target.messageId,
-    userId: senderUserId,
+    userId: actorKey(actor),
     emoji: relation.key,
   })
 
@@ -408,7 +419,7 @@ async function projectAnnotation(
 
   await recordProjectedEvent(deps, scope, room, event, { subjectKey })
 
-  const outcome = await replay(deps, scope, senderUserId, 'chat.messages.toggleReaction', {
+  const outcome = await replay(deps, scope, actor, 'chat.messages.toggleReaction', {
     conversationId: room.conversationId,
     messageId: target.messageId,
     emoji: relation.key,
@@ -452,7 +463,7 @@ async function projectRedaction(
 
   const resolved = await resolveTarget(deps, event, roomId)
   if (!resolved.ok) return resolved.outcome
-  const { room, senderUserId, scope } = resolved
+  const { room, actor, scope } = resolved
 
   const target = await deps.em.findOne(ChatMatrixEvent, { eventId: redacts })
   if (!target) {
@@ -471,7 +482,7 @@ async function projectRedaction(
      * `chat.messages.delete` converges on an already-deleted message and
      * reports no change, so nothing is emitted twice.
      */
-    const outcome = await replay(deps, scope, senderUserId, 'chat.messages.delete', {
+    const outcome = await replay(deps, scope, actor, 'chat.messages.delete', {
       conversationId: room.conversationId,
       messageId: target.messageId,
       externalOrigin: { eventId: event.event_id },
@@ -499,7 +510,7 @@ async function projectRedaction(
    * is always the caller's own. Removing someone else's reaction on their behalf
    * would be inventing a permission, so it is refused instead.
    */
-  if (reaction.userId !== senderUserId) {
+  if (reaction.userId !== actorKey(actor)) {
     logger.info('ignoring a redaction of somebody else reaction', {
       eventId: event.event_id,
       sender: event.sender,
@@ -507,7 +518,7 @@ async function projectRedaction(
     return { kind: 'skipped', reason: 'not-permitted' }
   }
 
-  const outcome = await replay(deps, scope, senderUserId, 'chat.messages.toggleReaction', {
+  const outcome = await replay(deps, scope, actor, 'chat.messages.toggleReaction', {
     conversationId: room.conversationId,
     messageId: reaction.messageId,
     emoji: reaction.emoji,
@@ -559,12 +570,12 @@ async function projectReplacement(
 
   const resolved = await resolveTarget(deps, event, roomId)
   if (!resolved.ok) return resolved.outcome
-  const { room, senderUserId, scope } = resolved
+  const { room, actor, scope } = resolved
 
   const target = await deps.em.findOne(ChatMatrixEvent, { eventId: edit.targetEventId })
   if (!target?.messageId) return { kind: 'skipped', reason: 'unmapped-target' }
 
-  const outcome = await replay(deps, scope, senderUserId, 'chat.messages.edit', {
+  const outcome = await replay(deps, scope, actor, 'chat.messages.edit', {
     conversationId: room.conversationId,
     messageId: target.messageId,
     body: edit.newBody,
@@ -585,47 +596,24 @@ async function projectReplacement(
   return { kind: 'projected', messageId: target.messageId }
 }
 
-/**
- * A runtime context for a message nobody is logged in to send.
- *
- * `auth.sub` is the sender resolved from the event's own `sender` field, which
- * only the appservice can mint inside its exclusive namespace — so authorship is
- * still decided by the server from a trusted signal, exactly as it is on the
- * HTTP path. It is emphatically NOT taken from anything a client supplied.
- */
-function projectionContext(
-  deps: ProjectionDeps,
-  scope: { tenantId: string; organizationId: string },
-  senderUserId: string,
-): CommandRuntimeContext {
-  return {
-    container: deps.container,
-    auth: {
-      sub: senderUserId,
-      tenantId: scope.tenantId,
-      orgId: scope.organizationId,
-    } as CommandRuntimeContext['auth'],
-    organizationScope: null,
-    selectedOrganizationId: scope.organizationId,
-    organizationIds: [scope.organizationId],
-  }
-}
 
 /**
  * A read receipt that arrived from a Matrix client.
  *
- * Its use is one case and it is a real one: an Operis colleague reading the
- * conversation in Element should not still see it unread in Operis. So the
- * receipt is resolved to the message it points at and replayed through
- * `chat.conversations.markRead`, whose UPDATE is clamped and monotonic — which
- * is what makes a redelivered receipt free rather than harmful.
+ * Two cases. An Operis colleague reading the conversation in Element should not
+ * still see it unread in Operis; and an outsider's receipt is how colleagues
+ * learn a customer has seen their reply. So the receipt is resolved to the
+ * message it points at and replayed through `chat.conversations.markRead`,
+ * whose UPDATE is clamped and monotonic — which is what makes a redelivered
+ * receipt free rather than harmful. An outsider who is not yet a participant
+ * matches no row and the receipt is dropped: reading is no reason to seat them.
  *
  * **Typing is deliberately NOT read back.** Every Operis user's keystrokes are
  * already announced directly by `chat.conversations.setTyping`, so projecting
- * them would duplicate an SSE frame the recipients already have; and a typist
- * who is not an Operis identity cannot be attributed to anybody until the
- * external-participant model exists. Requesting `m.typing` on the filter would
- * therefore buy nothing and cost a poll per keystroke in every joined room.
+ * them would duplicate an SSE frame the recipients already have. An outsider's
+ * typing would be new information, but requesting `m.typing` on the filter
+ * costs a poll per keystroke in every joined room — whether a customer's
+ * "typing…" is worth that is the bridge spec's call, not this one.
  */
 export async function projectReceipts(
   deps: ProjectionDeps,
@@ -641,8 +629,8 @@ export async function projectReceipts(
 
   let applied = 0
   for (const receipt of receipts) {
-    const readerUserId = operisUserIdFromMxid(deps.config, receipt.userId)
-    if (!readerUserId) continue
+    const reader = receiptActor(deps.config, scope, receipt.userId)
+    if (!reader) continue
 
     const target = await deps.em.findOne(ChatMatrixEvent, { eventId: receipt.eventId })
     if (!target?.messageId) continue
@@ -657,7 +645,7 @@ export async function projectReceipts(
      */
     const readAt = receipt.ts ? new Date(receipt.ts).toISOString() : undefined
 
-    const outcome = await replay(deps, scope, readerUserId, 'chat.conversations.markRead', {
+    const outcome = await replay(deps, scope, reader, 'chat.conversations.markRead', {
       conversationId: room.conversationId,
       readAt,
       externalOrigin: { eventId: receipt.eventId },
