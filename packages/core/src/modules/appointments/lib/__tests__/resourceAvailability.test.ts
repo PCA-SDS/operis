@@ -46,6 +46,7 @@ describe('loadResourceAvailabilityWindows', () => {
     expect(windows.get('resource-1')).toEqual([{
       startsAt: '2026-09-25T10:00:00.000Z',
       endsAt: '2026-09-25T12:00:00.000Z',
+      latestStartAt: '2026-09-25T12:00:00.000Z',
     }])
   })
 
@@ -103,6 +104,7 @@ describe('loadResourceAvailabilityWindows', () => {
     expect(windows.get('resource-1')).toEqual([{
       startsAt: '2026-09-25T09:00:00.000Z',
       endsAt: '2026-09-25T23:00:00.000Z',
+      latestStartAt: '2026-09-25T20:00:00.000Z',
     }])
   })
 
@@ -182,10 +184,11 @@ describe('loadResourceAvailabilityWindows', () => {
     expect(windows.get('resource-b')).toEqual([{
       startsAt: '2026-09-25T09:00:00.000Z',
       endsAt: '2026-09-25T23:00:00.000Z',
+      latestStartAt: '2026-09-25T21:00:00.000Z',
     }])
   })
 
-  it('uses an explicitly linked resource ruleset without intersecting branch hours', async () => {
+  it('caps explicitly linked resource operating hours at branch close but keeps resource overflow', async () => {
     const resource = {
       id: 'resource-1',
       tenantId: 'tenant-1',
@@ -248,8 +251,8 @@ describe('loadResourceAvailabilityWindows', () => {
 
     expect(windows.get('resource-1')).toEqual([{
       startsAt: '2026-09-25T09:00:00.000Z',
-      endsAt: '2026-09-25T22:30:00.000Z',
-      latestStartAt: '2026-09-25T22:00:00.000Z',
+      endsAt: '2026-09-25T20:30:00.000Z',
+      latestStartAt: '2026-09-25T20:00:00.000Z',
     }])
   })
 })

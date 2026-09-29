@@ -251,7 +251,7 @@ describe('AssignmentConflictService appointment availability', () => {
     })).resolves.toEqual({ valid: true })
   })
 
-  it('uses the custom resource schedule even when it extends beyond branch hours', async () => {
+  it('caps custom resource operating hours at branch close while allowing its overflow', async () => {
     const resource = {
       id: 'resource-1',
       tenantId: 'tenant-1',
@@ -305,9 +305,25 @@ describe('AssignmentConflictService appointment availability', () => {
 
     await expect(service.validateAssignment({
       ...BASE_PARAMS,
-      startsAt: new Date('2026-09-25T21:45:00.000Z'),
-      endsAt: new Date('2026-09-25T22:30:00.000Z'),
+      startsAt: new Date('2026-09-25T19:30:00.000Z'),
+      endsAt: new Date('2026-09-25T20:30:00.000Z'),
       availabilityMode: 'appointment',
+    })).resolves.toEqual({ valid: true })
+
+    await expect(service.validateAssignment({
+      ...BASE_PARAMS,
+      startsAt: new Date('2026-09-25T20:15:00.000Z'),
+      endsAt: new Date('2026-09-25T20:30:00.000Z'),
+      availabilityMode: 'appointment',
+    })).resolves.toMatchObject({ valid: false, error: { code: 'OUTSIDE_AVAILABILITY' } })
+
+    await expect(service.validateAssignment({
+      ...BASE_PARAMS,
+      startsAt: new Date('2026-09-25T20:15:00.000Z'),
+      endsAt: new Date('2026-09-25T21:00:00.000Z'),
+      availabilityMode: 'appointment',
+      availabilityAnchorStartAt: new Date('2026-09-25T19:00:00.000Z'),
+      isChainedService: true,
     })).resolves.toEqual({ valid: true })
   })
 
@@ -364,6 +380,7 @@ describe('AssignmentConflictService appointment availability', () => {
       endsAt: new Date('2026-09-25T20:15:00.000Z'),
       availabilityMode: 'appointment',
       availabilityAnchorStartAt: new Date('2026-09-25T18:30:00.000Z'),
+      isChainedService: true,
   })).resolves.toEqual({ valid: true })
   })
 
@@ -382,6 +399,7 @@ describe('AssignmentConflictService appointment availability', () => {
       endsAt: new Date('2026-09-25T10:30:00.000Z'),
       availabilityMode: 'appointment',
       availabilityAnchorStartAt: new Date('2026-09-25T09:00:00.000Z'),
+      isChainedService: true,
     })).resolves.toEqual({ valid: true })
   })
 
@@ -405,6 +423,7 @@ describe('AssignmentConflictService appointment availability', () => {
       endsAt: new Date('2026-09-25T15:00:00.000Z'),
       availabilityMode: 'appointment',
       availabilityAnchorStartAt: new Date('2026-09-25T09:00:00.000Z'),
+      isChainedService: true,
     })).resolves.toEqual({ valid: true })
   })
 
@@ -418,6 +437,7 @@ describe('AssignmentConflictService appointment availability', () => {
       endsAt: new Date('2026-09-25T20:30:00.000Z'),
       availabilityMode: 'appointment',
       availabilityAnchorStartAt: new Date('2026-09-25T19:00:00.000Z'),
+      isChainedService: true,
     })).resolves.toEqual({ valid: true })
   })
 
@@ -449,6 +469,20 @@ describe('AssignmentConflictService appointment availability', () => {
     })).resolves.toMatchObject({ valid: false, error: { code: 'OUTSIDE_AVAILABILITY' } })
   })
 
+  it('does not classify a delayed first service as chained based on the booking anchor', async () => {
+    const service = serviceWithResourceCutoff('resource-a')
+
+    await expect(service.validateAssignment({
+      ...BASE_PARAMS,
+      resourceId: 'resource-a',
+      startsAt: new Date('2026-09-25T20:15:00.000Z'),
+      endsAt: new Date('2026-09-25T20:30:00.000Z'),
+      availabilityMode: 'appointment',
+      availabilityAnchorStartAt: new Date('2026-09-25T19:00:00.000Z'),
+      isChainedService: false,
+    })).resolves.toMatchObject({ valid: false, error: { code: 'OUTSIDE_AVAILABILITY' } })
+  })
+
   it('does not allow a chained resource service to exceed resource overflow', async () => {
     const service = serviceWithResourceCutoff('resource-a')
 
@@ -459,6 +493,7 @@ describe('AssignmentConflictService appointment availability', () => {
       endsAt: new Date('2026-09-25T20:45:00.000Z'),
       availabilityMode: 'appointment',
       availabilityAnchorStartAt: new Date('2026-09-25T19:00:00.000Z'),
+      isChainedService: true,
     })).resolves.toMatchObject({ valid: false, error: { code: 'OUTSIDE_AVAILABILITY' } })
   })
 
@@ -516,6 +551,7 @@ describe('AssignmentConflictService appointment availability', () => {
       endsAt: new Date('2026-09-25T23:00:00.000Z'),
       availabilityMode: 'appointment',
       availabilityAnchorStartAt: new Date('2026-09-25T20:00:00.000Z'),
+      isChainedService: true,
     })).resolves.toEqual({ valid: true })
   })
 
@@ -600,6 +636,7 @@ describe('AssignmentConflictService appointment availability', () => {
       rrule: 'DTSTART:20260925T090000Z\nDURATION:PT15H\nRRULE:FREQ=DAILY',
       exdates: [],
       kind: 'availability' as const,
+      timeOverflowMinutes: 60,
     }
     const organizationRule = {
       id: 'organization-rule',
@@ -637,10 +674,11 @@ describe('AssignmentConflictService appointment availability', () => {
       organizationId: 'child-organization',
       organizationIds: ['child-organization', 'parent-organization'],
       resourceId: 'resource-1',
-      startsAt: new Date('2026-09-25T23:00:00.000Z'),
-      endsAt: new Date('2026-09-25T23:30:00.000Z'),
+      startsAt: new Date('2026-09-25T22:15:00.000Z'),
+      endsAt: new Date('2026-09-25T22:30:00.000Z'),
       availabilityMode: 'appointment',
       availabilityAnchorStartAt: new Date('2026-09-25T20:00:00.000Z'),
+      isChainedService: true,
     })).resolves.toEqual({ valid: true })
   })
 })

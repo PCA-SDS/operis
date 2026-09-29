@@ -31,9 +31,7 @@ function resolveResourceWindowsWithOverrides(
       end: new Date(window.end.getTime() + overflowMinutes * 60_000),
       latestStartAt: rule && hasAcceptanceOverride
         ? resolveLatestNewBookingStart(window.end, rule, 0, rule.timezone)
-        : overflowMinutes > 0
-          ? window.end
-          : null,
+        : window.end,
     }
   })
 }
@@ -146,18 +144,26 @@ export async function loadResourceAvailabilityWindows(
       ? organizationWindows.map((window) => ({
           start: window.start,
           end: window.end,
-          latestStartAt: null,
+          latestStartAt: window.latestNewBookingStart,
         }))
       : hasCustomResourceAvailability
-        ? (resourceWindows ?? []).map((window) => ({
-            start: window.start,
-            end: window.end,
-            latestStartAt: window.latestStartAt ?? window.operatingEnd,
+        ? (resourceWindows ?? []).flatMap((resourceWindow) => organizationWindows.flatMap((organizationWindow) => {
+            const start = new Date(Math.max(resourceWindow.start.getTime(), organizationWindow.start.getTime()))
+            const operatingEnd = new Date(Math.min(resourceWindow.operatingEnd.getTime(), organizationWindow.operatingEnd.getTime()))
+            if (start >= operatingEnd) return []
+            const cutoff = resourceWindow.latestStartAt ?? resourceWindow.operatingEnd
+            const latestStartAt = new Date(Math.min(cutoff.getTime(), operatingEnd.getTime()))
+            const overflowMinutes = Math.max(0, (resourceWindow.end.getTime() - resourceWindow.operatingEnd.getTime()) / 60_000)
+            return [{
+              start,
+              end: new Date(operatingEnd.getTime() + overflowMinutes * 60_000),
+              latestStartAt,
+            }]
           }))
       : organizationWindows.map((window) => ({
           start: window.start,
           end: window.end,
-          latestStartAt: null,
+          latestStartAt: window.latestNewBookingStart,
         }))
     windowsByResourceId.set(
       resource.id,

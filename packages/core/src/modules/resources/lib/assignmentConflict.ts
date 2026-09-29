@@ -67,6 +67,7 @@ export class AssignmentConflictService {
     includeDrafts?: boolean
     availabilityMode?: AssignmentAvailabilityMode
     availabilityAnchorStartAt?: Date
+    isChainedService?: boolean
   }): Promise<ValidationResult> {
     // 0. Check the interval itself is well-formed
     // Every overlap test below is half-open `[start, end)` — `startsAt < otherEnd AND endsAt > otherStart`.
@@ -115,6 +116,7 @@ export class AssignmentConflictService {
       params.availabilityMode,
       params.availabilityAnchorStartAt,
       [resourceOrganizationId, ...scopedOrganizationIds.filter((id) => id !== resourceOrganizationId)],
+      params.isChainedService,
     )
     if (!availabilityCheck.valid) {
       return availabilityCheck
@@ -212,6 +214,7 @@ export class AssignmentConflictService {
     availabilityMode: AssignmentAvailabilityMode = 'resource',
     availabilityAnchorStartAt?: Date,
     organizationIds: string[] = [organizationId],
+    isChainedService = false,
   ): Promise<ValidationResult> {
     const resource = await this.em.findOne(ResourcesResource, {
       id: resourceId,
@@ -254,7 +257,7 @@ export class AssignmentConflictService {
       })
       : null
     const resourceRuleById = new Map(rules.map((rule) => [rule.id, rule]))
-    const appointmentResourceWindows = resourceWindows?.map((window) => {
+    const resourceWindowsWithRuntime = resourceWindows?.map((window) => {
       const rule = resourceRuleById.get(window.ruleId ?? '')
       const hasAcceptanceOverride = rule?.lastCustomerAcceptanceMinutes != null
         || rule?.lastCustomerBeforeCloseMinutes != null
@@ -262,9 +265,11 @@ export class AssignmentConflictService {
         start: window.start,
         operatingEnd: window.end,
         runtimeEnd: new Date(window.end.getTime() + (rule?.timeOverflowMinutes ?? 0) * 60_000),
+        overflowMinutes: rule?.timeOverflowMinutes ?? 0,
+        rule,
         latestStartAt: rule && hasAcceptanceOverride
           ? resolveLatestNewBookingStart(window.end, rule, 0, rule.timezone)
-          : null,
+          : window.end,
       }
     }) ?? null
     const policy = await loadOrganizationAvailabilityPolicy(this.em, {
@@ -281,15 +286,34 @@ export class AssignmentConflictService {
         && directRules.length === 0
       const hasCustomResourceAvailability = directRules.length > 0
         || Boolean(resource?.availabilityRuleSetId && !usesOfficialRuleSet)
+      const appointmentResourceWindows = hasCustomResourceAvailability && organizationWindows && resourceWindowsWithRuntime
+        ? resourceWindowsWithRuntime.flatMap((resourceWindow) => organizationWindows.flatMap((organizationWindow) => {
+            const start = new Date(Math.max(resourceWindow.start.getTime(), organizationWindow.start.getTime()))
+            const operatingEnd = new Date(Math.min(resourceWindow.operatingEnd.getTime(), organizationWindow.operatingEnd.getTime()))
+            if (start >= operatingEnd) return []
+            const hasCutoff = resourceWindow.rule && (
+              resourceWindow.rule.lastCustomerAcceptanceMinutes != null
+              || resourceWindow.rule.lastCustomerBeforeCloseMinutes != null
+            )
+            const configuredCutoff = hasCutoff && resourceWindow.rule
+              ? resolveLatestNewBookingStart(operatingEnd, resourceWindow.rule, 0, resourceWindow.rule.timezone)
+              : operatingEnd
+            return [{
+              start,
+              operatingEnd,
+              runtimeEnd: new Date(operatingEnd.getTime() + resourceWindow.overflowMinutes * 60_000),
+              latestStartAt: new Date(Math.min(configuredCutoff.getTime(), operatingEnd.getTime())),
+            }]
+          }))
+        : resourceWindowsWithRuntime
       const anchorStartAt = availabilityAnchorStartAt ?? startsAt
+      const acceptanceCandidate = isChainedService ? anchorStartAt : startsAt
       const organizationStartWindow = hasCustomResourceAvailability || !organizationWindows || organizationWindows.some(
-        (window) => window.start <= anchorStartAt && window.latestNewBookingStart >= anchorStartAt,
+        (window) => window.start <= acceptanceCandidate && window.latestNewBookingStart >= acceptanceCandidate,
       )
       const organizationRuntimeWindow = hasCustomResourceAvailability || !organizationWindows || organizationWindows.some(
         (window) => window.start <= startsAt && window.end >= endsAt,
       )
-      const bookingStartAt = availabilityAnchorStartAt ?? startsAt
-      const isChainedService = Boolean(availabilityAnchorStartAt && startsAt > availabilityAnchorStartAt)
       const hasResourceStartWindow = appointmentResourceWindows?.some((window) => (
         window.start <= startsAt
         && window.runtimeEnd >= endsAt
@@ -299,12 +323,12 @@ export class AssignmentConflictService {
         window.start <= startsAt
         && window.runtimeEnd >= endsAt
         && (isChainedService || startsAt <= window.operatingEnd)
-        && (!window.latestStartAt || bookingStartAt <= window.latestStartAt)
+        && (isChainedService || startsAt <= (window.latestStartAt ?? window.operatingEnd))
       ))
       const hasValidResourceWindow = appointmentResourceWindows?.some((window) => {
         const serviceFitsRuntime = window.start <= startsAt && window.runtimeEnd >= endsAt
         const serviceStartsWithinOperatingHours = isChainedService || startsAt <= window.operatingEnd
-        const bookingStartsBeforeCutoff = !window.latestStartAt || bookingStartAt <= window.latestStartAt
+        const bookingStartsBeforeCutoff = isChainedService || startsAt <= (window.latestStartAt ?? window.operatingEnd)
         return serviceFitsRuntime && serviceStartsWithinOperatingHours && bookingStartsBeforeCutoff
       })
       const resourceAcceptanceWindow = !hasCustomResourceAvailability || Boolean(hasResourceAcceptanceWindow)

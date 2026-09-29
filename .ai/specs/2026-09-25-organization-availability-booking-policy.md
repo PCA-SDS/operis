@@ -27,12 +27,12 @@ The effective resource windows are:
 
 ```text
 if resource has explicitly configured availability:
-  resourceAvailability + its window cutoff/overflow
+  resourceAvailability clipped to branch operating hours + its resource cutoff/overflow
 otherwise:
   organizationOperatingHours + its window cutoff/overflow
 ```
 
-When a resource has explicitly configured availability, that schedule—including its operating hours, last-customer cutoff, and overflow—is authoritative for that resource and replaces the branch schedule there. It is not intersected with the branch policy. Resources without explicit resource availability inherit the branch schedule and its cutoff/overflow. The appointment's original start is checked only against the booking cutoff; each assigned service is checked against the actual resource window containing that service's start and end. This lets a later service use a resource that opens after the appointment began, a later split window, or that resource's overflow. It must still end by that window's runtime end. A new appointment cannot start during overflow. Resource-specific settings do not affect sibling resources or the branch policy.
+When a resource has explicitly configured availability, its operating interval is clipped to the branch's operating interval. Its own cutoff and overflow are used for that resource; the resource overflow may let a valid booking continue past branch close, but only through that resource's runtime end. Resources without explicit resource availability inherit the branch schedule and its cutoff/overflow. The appointment's original start is checked against the applicable cutoff. A later service may use overflow only when an earlier service in that same appointment has an actual assignment ending before the later service starts; being scheduled later than the appointment anchor alone does not make a service chained. Each assigned service must fit the selected resource's actual window. A new/first service cannot start during overflow. Resource-specific settings do not affect sibling resources or the branch policy.
 
 ## Architecture
 
@@ -86,3 +86,8 @@ Resource availability responses expose effective windows and an optional resourc
 - Added optional resource-specific availability; an explicitly selected custom schedule replaces branch policy for that resource, while resources without one inherit branch behavior.
 - Allowed later services in an already-started appointment to use resource overflow while keeping the new-booking cutoff strict.
 - Separated appointment-anchor cutoff validation from the selected resource's actual service-window validation, including split windows and later services assigned to another resource.
+
+### 2026-09-29
+
+- Capped custom resource operating windows at branch operating hours while retaining resource-specific overflow after close.
+- Derived chained-service eligibility from an earlier assigned service in the same appointment, not merely from a start time later than the appointment anchor.

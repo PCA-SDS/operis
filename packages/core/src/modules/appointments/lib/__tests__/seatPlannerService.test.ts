@@ -1,4 +1,4 @@
-import { AppointmentSeatPlannerService, resolveSeatPlannerAssignment } from '../seatPlannerService'
+import { AppointmentSeatPlannerService, hasPriorAppointmentServiceAssignment, resolveSeatPlannerAssignment } from '../seatPlannerService'
 
 const confirmedAssignment = {
   id: 'confirmed-assignment',
@@ -40,6 +40,33 @@ describe('resolveSeatPlannerAssignment', () => {
 
   it('shows a newly saved draft after the cleared marker is removed', () => {
     expect(resolveSeatPlannerAssignment([draftAssignment], null)).toBe(draftAssignment)
+  })
+})
+
+describe('hasPriorAppointmentServiceAssignment', () => {
+  const lines = [{ id: 'line-1', sortOrder: 0 }, { id: 'line-2', sortOrder: 1 }]
+
+  it('allows overflow only when an earlier service has an assignment ending before this one starts', () => {
+    expect(hasPriorAppointmentServiceAssignment({
+      lines,
+      assignments: [{
+        sourceEntityId: 'line-1',
+        startsAt: new Date('2026-09-25T19:00:00.000Z'),
+        endsAt: new Date('2026-09-25T20:00:00.000Z'),
+        state: 'draft',
+      }],
+      lineId: 'line-2',
+      startsAt: new Date('2026-09-25T20:15:00.000Z'),
+    })).toBe(true)
+  })
+
+  it('does not infer a chained service from its later start when no previous line is assigned', () => {
+    expect(hasPriorAppointmentServiceAssignment({
+      lines,
+      assignments: [],
+      lineId: 'line-2',
+      startsAt: new Date('2026-09-25T20:15:00.000Z'),
+    })).toBe(false)
   })
 })
 

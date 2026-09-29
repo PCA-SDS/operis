@@ -61,6 +61,7 @@ const ZOOM_LEVELS = [0.5, 0.625, 0.75, 1, 1.25, 1.5] as const
 
 type SeatPlannerLine = {
   id: string
+  sortOrder: number
   productId: string
   productTitle: string
   productCategory: string | null
@@ -268,19 +269,6 @@ function buildIsoFromSlot(baseIso: string, time: string): string {
   return date.toISOString()
 }
 
-function isBookingStartAllowed(
-  bookingAcceptanceWindows: Array<{ startsAt: string; latestStartAt: string }> | null | undefined,
-  startsAt: string,
-): boolean {
-  if (bookingAcceptanceWindows === null || bookingAcceptanceWindows === undefined) return true
-  const candidateStart = new Date(startsAt).getTime()
-  return bookingAcceptanceWindows.some((window) => {
-    const windowStart = new Date(window.startsAt).getTime()
-    const latestStart = new Date(window.latestStartAt).getTime()
-    return candidateStart >= windowStart && candidateStart <= latestStart
-  })
-}
-
 function addMinutes(iso: string, minutes: number): string {
   return new Date(new Date(iso).getTime() + minutes * 60000).toISOString()
 }
@@ -289,18 +277,27 @@ function resourceSupportsRange(
   resource: Resource | undefined,
   startsAt: string,
   endsAt: string,
-  bookingStartAt = startsAt,
+  isChainedService = false,
 ): boolean {
   if (!resource || resource.availabilityWindows === null || resource.availabilityWindows === undefined) return true
   const start = new Date(startsAt).getTime()
   const end = new Date(endsAt).getTime()
-  const bookingStart = new Date(bookingStartAt).getTime()
   return resource.availabilityWindows.some((window) => {
     const windowStart = new Date(window.startsAt).getTime()
     const windowEnd = new Date(window.endsAt).getTime()
     const latestStart = window.latestStartAt ? new Date(window.latestStartAt).getTime() : Number.POSITIVE_INFINITY
-    return start >= windowStart && bookingStart <= latestStart && end <= windowEnd
+    return start >= windowStart && (isChainedService || start <= latestStart) && end <= windowEnd
   })
+}
+
+function hasEarlierAssignedLineAt(lines: SeatPlannerLine[] | undefined, lineId: string, startsAt: string): boolean {
+  if (!lines) return false
+  const currentLine = lines.find((line) => line.id === lineId)
+  if (!currentLine) return false
+  const candidateStart = new Date(startsAt).getTime()
+  return lines.some((line) => line.sortOrder < currentLine.sortOrder
+    && Boolean(line.currentAssignment)
+    && new Date(line.currentAssignment!.endsAt).getTime() <= candidateStart)
 }
 
 function findFirstAvailablePlacement(
@@ -310,6 +307,7 @@ function findFirstAvailablePlacement(
   requestedStartAt: string,
   timelineStartMinutes: number,
   timelineEndMinutes: number,
+  isChainedService = false,
 ): { resourceId: string; minutes: number } | null {
   const requestedDate = new Date(requestedStartAt)
   const requestedMinutes = requestedDate.getHours() * 60 + requestedDate.getMinutes()
@@ -323,7 +321,7 @@ function findFirstAvailablePlacement(
     for (let minutes = firstCandidate; minutes + duration <= timelineEndMinutes; minutes += SLOT_MINUTES) {
       const startsAt = buildIsoFromSlot(requestedStartAt, minutesToTime(minutes))
       const endsAt = addMinutes(startsAt, duration)
-      if (!resourceSupportsRange(resource, startsAt, endsAt, requestedStartAt)) continue
+      if (!resourceSupportsRange(resource, startsAt, endsAt, isChainedService)) continue
       const overlaps = allocations.some((allocation) => {
         if (allocation.resourceId !== resource.id) return false
         return new Date(allocation.startsAt).getTime() < new Date(endsAt).getTime()
@@ -1392,14 +1390,14 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
     () => slots.filter((time) => timeToMinutes(time) % 60 !== 0),
     [slots],
   )
-  const canUseResourceRange = React.useCallback((resourceId: string, startsAt: string, endsAt: string) => {
+  const canUseResourceRange = React.useCallback((resourceId: string, startsAt: string, endsAt: string, lineId: string, alreadyChained = false) => {
     return resourceSupportsRange(
       workspace?.resources.find((resource) => resource.id === resourceId),
       startsAt,
       endsAt,
-      workspace?.appointment.requestedStartAt,
+      alreadyChained || hasEarlierAssignedLineAt(workspace?.lines, lineId, startsAt),
     )
-  }, [workspace?.appointment.requestedStartAt, workspace?.resources])
+  }, [workspace?.lines, workspace?.resources])
   const activeLine = React.useMemo(() => workspace?.lines.find((line) => line.id === activeLineId) ?? null, [activeLineId, workspace?.lines])
   const earliestDate = workspace ? new Date(workspace.appointment.requestedStartAt) : null
   const earliestMinutes = earliestDate ? earliestDate.getHours() * 60 + earliestDate.getMinutes() : START_HOUR * 60
@@ -1565,19 +1563,13 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
       return
     }
     const activeIndex = workspace.lines.findIndex((line) => line.id === activeLine.id)
-    const bookingStartAllowed = activeIndex > 0
-      || isBookingStartAllowed(workspace.bookingAcceptanceWindows, buildIsoFromSlot(workspace.appointment.requestedStartAt, time))
-    if (!bookingStartAllowed) {
-      flash(t('appointments.seatPlanner.afterLastCustomerError', 'New bookings cannot start after the last customer acceptance time.'), 'error')
-      return
-    }
     let nextStart = buildIsoFromSlot(workspace.appointment.requestedStartAt, time)
     const plannedAssignments: Array<{ line: SeatPlannerLine; startsAt: string; duration: number }> = []
     for (const line of workspace.lines.slice(Math.max(0, activeIndex))) {
       if (line.id !== activeLine.id && line.currentAssignment) break
       const duration = lineDuration(line)
       const endsAt = addMinutes(nextStart, duration)
-      if (!canUseResourceRange(resourceId, nextStart, endsAt)) {
+      if (!canUseResourceRange(resourceId, nextStart, endsAt, line.id, plannedAssignments.length > 0)) {
         flash(t('appointments.seatPlanner.resourceUnavailable', 'This resource is unavailable for the selected time.'), 'error')
         return
       }
@@ -1731,6 +1723,7 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
       workspace.appointment.requestedStartAt,
       timelineBounds.startMinutes,
       timelineBounds.endMinutes,
+      hasEarlierAssignedLineAt(workspace.lines, line.id, workspace.appointment.requestedStartAt),
     )
     const minutes = placement?.minutes ?? Math.max(
       timelineBounds.startMinutes,
@@ -1968,13 +1961,11 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                             ? buildIsoFromSlot(workspace.appointment.requestedStartAt, hoveredSlot.time)
                             : null
                           const previewEndsAt = previewStartsAt ? addMinutes(previewStartsAt, previewDuration) : null
-                          const activeIndex = activeLine ? workspace.lines.findIndex((line) => line.id === activeLine.id) : -1
                           const previewStaffNames = activeLine?.currentAssignment?.assignedMemberNames
                             ?? (activeLine?.currentAssignment?.assignedMemberName ? [activeLine.currentAssignment.assignedMemberName] : [])
                           const previewBlocked = previewStartsAt && previewEndsAt
                             ? timeToMinutes(hoveredSlot?.time ?? '00:00') < earliestMinutes
-                              || (activeIndex <= 0 && !isBookingStartAllowed(workspace.bookingAcceptanceWindows, previewStartsAt))
-                              || !canUseResourceRange(seat.id, previewStartsAt, previewEndsAt)
+                              || !canUseResourceRange(seat.id, previewStartsAt, previewEndsAt, activeLine?.id ?? '')
                               || (allocationsBySeat.get(seat.id) ?? []).some((allocation) => {
                                 if (allocation.appointmentId === workspace.appointment.id) return false
                                 return new Date(previewStartsAt).getTime() < new Date(allocation.endsAt).getTime()
@@ -1991,15 +1982,13 @@ export default function SeatPlannerPage({ params }: SeatPlannerPageProps) {
                               const beforeEarliest = minutes < earliestMinutes
                               const slotStartsAt = buildIsoFromSlot(workspace.appointment.requestedStartAt, time)
                               const slotEndsAt = addMinutes(slotStartsAt, SLOT_MINUTES)
-                              const unavailable = !canUseResourceRange(seat.id, slotStartsAt, slotEndsAt)
-                              const afterLastCustomer = activeIndex <= 0
-                                && !isBookingStartAllowed(workspace.bookingAcceptanceWindows, slotStartsAt)
+                              const unavailable = !activeLine || !canUseResourceRange(seat.id, slotStartsAt, slotEndsAt, activeLine.id)
                               const blocked = beforeEarliest || unavailable || (allocationsBySeat.get(seat.id) ?? []).some((allocation) => {
                                 if (allocation.appointmentId === workspace.appointment.id) return false
                                 const start = new Date(allocation.startsAt)
                                 const end = new Date(allocation.endsAt)
                                 return minutes >= start.getHours() * 60 + start.getMinutes() && minutes < end.getHours() * 60 + end.getMinutes()
-                              }) || afterLastCustomer
+                              })
                               return (
                                 <Button
                                   key={`${seat.id}-${time}-slot`}
