@@ -165,10 +165,9 @@ async function sync(): Promise<void> {
  * on: linking a room nothing would ever read is a conversation that silently
  * receives nothing.
  *
- * Every failure in these two commands THROWS. The CLI dispatcher exits 0 for any
- * command that resolves — a `process.exitCode` set on the way is discarded — so
- * a thrown error is the only way a refusal reaches the operator's shell, or a
- * script, as a non-zero exit.
+ * Every failure in these two commands THROWS, which the CLI turns into a
+ * non-zero exit whether or not it honours `process.exitCode`, so a refusal
+ * always reaches the operator's shell, or a script.
  */
 async function outsiderDeps() {
   const { MatrixClient, matrixConfigFromEnv } = await import('@open-mercato/matrix')

@@ -1,6 +1,6 @@
 # Chat — external participants
 
-> Status: **draft for review** — design complete, nothing implemented.
+> Status: **implemented** — Phases 1 and 2 (2026-09-29); not yet deployed.
 > Follows: [`2026-09-13-chat-matrix-parity.md`](2026-09-13-chat-matrix-parity.md)
 > Phase D (the external-participant model),
 > [`ADR-0006`](../../docs/architecture/adr/ADR-0006-matrix-chat-transport.md).
