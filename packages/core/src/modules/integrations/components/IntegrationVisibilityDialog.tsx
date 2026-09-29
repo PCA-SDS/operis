@@ -46,9 +46,10 @@ export function IntegrationVisibilityDialog({
 
   React.useEffect(() => {
     if (!open) return
+    const controller = new AbortController()
     let cancelled = false
     setLoadFailed(false)
-    apiCall<IntegrationOptionsResponse>('/api/integrations?sort=title&order=asc&pageSize=100', undefined, {
+    apiCall<IntegrationOptionsResponse>('/api/integrations?sort=title&order=asc&pageSize=100', { signal: controller.signal }, {
       fallback: { items: [] },
     })
       .then((call) => {
@@ -64,6 +65,7 @@ export function IntegrationVisibilityDialog({
       })
     return () => {
       cancelled = true
+      controller.abort()
     }
   }, [open])
 
