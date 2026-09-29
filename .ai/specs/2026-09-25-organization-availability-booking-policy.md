@@ -32,7 +32,7 @@ otherwise:
   organizationOperatingHours + its window cutoff/overflow
 ```
 
-When a resource has explicitly configured availability, that schedule—including its operating hours, last-customer cutoff, and overflow—is authoritative for that resource and replaces the branch schedule there. It is not intersected with the branch policy. Resources without explicit resource availability inherit the branch schedule and its cutoff/overflow. The first service must start no later than the effective booking cutoff. Later services in that same appointment may start after operating close, provided the appointment's original start met the cutoff and the service ends by the effective runtime end. A new appointment cannot start during overflow. Resource-specific settings do not affect sibling resources or the branch policy.
+When a resource has explicitly configured availability, that schedule—including its operating hours, last-customer cutoff, and overflow—is authoritative for that resource and replaces the branch schedule there. It is not intersected with the branch policy. Resources without explicit resource availability inherit the branch schedule and its cutoff/overflow. The appointment's original start is checked only against the booking cutoff; each assigned service is checked against the actual resource window containing that service's start and end. This lets a later service use a resource that opens after the appointment began, a later split window, or that resource's overflow. It must still end by that window's runtime end. A new appointment cannot start during overflow. Resource-specific settings do not affect sibling resources or the branch policy.
 
 ## Architecture
 
@@ -85,3 +85,4 @@ Resource availability responses expose effective windows and an optional resourc
 - Kept organization operating-hours activation explicit in the ruleset Details tab so reusable schedule edits cannot change the organization policy pointer.
 - Added optional resource-specific availability; an explicitly selected custom schedule replaces branch policy for that resource, while resources without one inherit branch behavior.
 - Allowed later services in an already-started appointment to use resource overflow while keeping the new-booking cutoff strict.
+- Separated appointment-anchor cutoff validation from the selected resource's actual service-window validation, including split windows and later services assigned to another resource.

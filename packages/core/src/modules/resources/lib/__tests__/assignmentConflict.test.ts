@@ -171,6 +171,57 @@ describe('AssignmentConflictService appointment availability', () => {
     return new AssignmentConflictService(em as never)
   }
 
+  function serviceWithResourceWindows(
+    resourceId: string,
+    resourceRules: Array<{
+      id: string
+      rrule: string
+      lastCustomerAcceptanceMinutes?: number
+      timeOverflowMinutes?: number
+    }>,
+  ) {
+    const resource = {
+      id: resourceId,
+      tenantId: 'tenant-1',
+      organizationId: 'organization-1',
+      isActive: true,
+      availabilityRuleSetId: 'branch-ruleset',
+      deletedAt: null,
+    }
+    const branchRule = {
+      id: 'branch-rule',
+      rrule: 'DTSTART:20260925T090000Z\nDURATION:PT13H\nRRULE:FREQ=DAILY',
+      exdates: [],
+      kind: 'availability' as const,
+      lastCustomerAcceptanceMinutes: 20 * 60,
+      timeOverflowMinutes: 0,
+    }
+    const settings = {
+      organizationId: 'organization-1',
+      operatingHoursRuleSetId: 'branch-ruleset',
+      timezone: 'UTC',
+      lastCustomerBeforeCloseMinutes: 0,
+      timeOverflowMinutes: 0,
+    }
+    const em = {
+      findOne: jest.fn().mockImplementation(async (_entity, where) => (
+        where.id === resourceId
+          ? resource
+          : where.id === 'branch-ruleset'
+            ? { id: 'branch-ruleset', tenantId: 'tenant-1', organizationId: 'organization-1', timezone: 'UTC', deletedAt: null }
+            : null
+      )),
+      find: jest.fn().mockImplementation(async (_entity, where) => {
+        if (where.subjectType === 'resource') return resourceRules
+        if (where.subjectType === 'ruleset') return [branchRule]
+        if (where.organizationId?.$in) return [settings]
+        return []
+      }),
+      count: jest.fn().mockResolvedValue(0),
+    }
+    return new AssignmentConflictService(em as never)
+  }
+
   it('allows the resource cutoff and overflow without changing other resources', async () => {
     const resourceAService = serviceWithResourceCutoff('resource-a')
     const resourceBService = serviceWithResourceCutoff('resource-b')
@@ -313,6 +364,47 @@ describe('AssignmentConflictService appointment availability', () => {
       endsAt: new Date('2026-09-25T20:15:00.000Z'),
       availabilityMode: 'appointment',
       availabilityAnchorStartAt: new Date('2026-09-25T18:30:00.000Z'),
+  })).resolves.toEqual({ valid: true })
+  })
+
+  it('allows a later service on another resource that opens after the appointment anchor', async () => {
+    const service = serviceWithResourceWindows('resource-2', [{
+      id: 'resource-2-window',
+      rrule: 'DTSTART:20260925T100000Z\nDURATION:PT8H\nRRULE:FREQ=DAILY',
+      lastCustomerAcceptanceMinutes: 17 * 60,
+      timeOverflowMinutes: 30,
+    }])
+
+    await expect(service.validateAssignment({
+      ...BASE_PARAMS,
+      resourceId: 'resource-2',
+      startsAt: new Date('2026-09-25T10:00:00.000Z'),
+      endsAt: new Date('2026-09-25T10:30:00.000Z'),
+      availabilityMode: 'appointment',
+      availabilityAnchorStartAt: new Date('2026-09-25T09:00:00.000Z'),
+    })).resolves.toEqual({ valid: true })
+  })
+
+  it('matches a later service to its actual split resource window', async () => {
+    const service = serviceWithResourceWindows('resource-1', [
+      {
+        id: 'morning-window',
+        rrule: 'DTSTART:20260925T100000Z\nDURATION:PT2H\nRRULE:FREQ=DAILY',
+        lastCustomerAcceptanceMinutes: 11 * 60,
+      },
+      {
+        id: 'afternoon-window',
+        rrule: 'DTSTART:20260925T140000Z\nDURATION:PT4H\nRRULE:FREQ=DAILY',
+        lastCustomerAcceptanceMinutes: 17 * 60,
+      },
+    ])
+
+    await expect(service.validateAssignment({
+      ...BASE_PARAMS,
+      startsAt: new Date('2026-09-25T14:30:00.000Z'),
+      endsAt: new Date('2026-09-25T15:00:00.000Z'),
+      availabilityMode: 'appointment',
+      availabilityAnchorStartAt: new Date('2026-09-25T09:00:00.000Z'),
     })).resolves.toEqual({ valid: true })
   })
 
@@ -338,6 +430,22 @@ describe('AssignmentConflictService appointment availability', () => {
       startsAt: new Date('2026-09-25T20:15:00.000Z'),
       endsAt: new Date('2026-09-25T20:30:00.000Z'),
       availabilityMode: 'appointment',
+    })).resolves.toMatchObject({ valid: false, error: { code: 'OUTSIDE_AVAILABILITY' } })
+  })
+
+  it('does not allow the first service to start during overflow when the anchor is present', async () => {
+    const service = serviceWithResourceWindows('resource-1', [{
+      id: 'resource-window',
+      rrule: 'DTSTART:20260925T090000Z\nDURATION:PT11H\nRRULE:FREQ=DAILY',
+      timeOverflowMinutes: 30,
+    }])
+
+    await expect(service.validateAssignment({
+      ...BASE_PARAMS,
+      startsAt: new Date('2026-09-25T20:15:00.000Z'),
+      endsAt: new Date('2026-09-25T20:30:00.000Z'),
+      availabilityMode: 'appointment',
+      availabilityAnchorStartAt: new Date('2026-09-25T20:15:00.000Z'),
     })).resolves.toMatchObject({ valid: false, error: { code: 'OUTSIDE_AVAILABILITY' } })
   })
 

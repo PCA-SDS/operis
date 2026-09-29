@@ -288,24 +288,28 @@ export class AssignmentConflictService {
       const organizationRuntimeWindow = hasCustomResourceAvailability || !organizationWindows || organizationWindows.some(
         (window) => window.start <= startsAt && window.end >= endsAt,
       )
-      const resourceBookingStartAt = availabilityAnchorStartAt ?? startsAt
-      const hasResourceStartWindow = appointmentResourceWindows?.some(
-        (window) => window.start <= resourceBookingStartAt && window.operatingEnd >= resourceBookingStartAt,
-      )
-      const hasResourceAcceptanceWindow = appointmentResourceWindows?.some(
-        (window) => window.start <= resourceBookingStartAt
-          && window.operatingEnd >= resourceBookingStartAt
-          && (!window.latestStartAt || resourceBookingStartAt <= window.latestStartAt),
-      )
-      const hasValidResourceWindow = appointmentResourceWindows?.some(
-        (window) => window.start <= resourceBookingStartAt
-          && window.operatingEnd >= resourceBookingStartAt
-          && (!window.latestStartAt || resourceBookingStartAt <= window.latestStartAt)
-          && window.runtimeEnd >= endsAt,
-      )
-      const resourceStartWindow = !hasCustomResourceAvailability || hasResourceStartWindow
-      const resourceAcceptanceWindow = !hasCustomResourceAvailability || hasResourceAcceptanceWindow
-      const resourceRuntimeWindow = !hasCustomResourceAvailability || hasValidResourceWindow
+      const bookingStartAt = availabilityAnchorStartAt ?? startsAt
+      const isChainedService = Boolean(availabilityAnchorStartAt && startsAt > availabilityAnchorStartAt)
+      const hasResourceStartWindow = appointmentResourceWindows?.some((window) => (
+        window.start <= startsAt
+        && window.runtimeEnd >= endsAt
+        && (isChainedService || startsAt <= window.operatingEnd)
+      ))
+      const hasResourceAcceptanceWindow = appointmentResourceWindows?.some((window) => (
+        window.start <= startsAt
+        && window.runtimeEnd >= endsAt
+        && (isChainedService || startsAt <= window.operatingEnd)
+        && (!window.latestStartAt || bookingStartAt <= window.latestStartAt)
+      ))
+      const hasValidResourceWindow = appointmentResourceWindows?.some((window) => {
+        const serviceFitsRuntime = window.start <= startsAt && window.runtimeEnd >= endsAt
+        const serviceStartsWithinOperatingHours = isChainedService || startsAt <= window.operatingEnd
+        const bookingStartsBeforeCutoff = !window.latestStartAt || bookingStartAt <= window.latestStartAt
+        return serviceFitsRuntime && serviceStartsWithinOperatingHours && bookingStartsBeforeCutoff
+      })
+      const resourceAcceptanceWindow = !hasCustomResourceAvailability || Boolean(hasResourceAcceptanceWindow)
+      const resourceRuntimeWindow = !hasCustomResourceAvailability || Boolean(hasValidResourceWindow)
+      const resourceStartWindow = !hasCustomResourceAvailability || Boolean(hasResourceStartWindow)
 
       const startsAfterAnchor = !availabilityAnchorStartAt || startsAt >= availabilityAnchorStartAt
       if (!organizationStartWindow || !organizationRuntimeWindow || !resourceStartWindow || !resourceAcceptanceWindow || !startsAfterAnchor || !resourceRuntimeWindow) {
