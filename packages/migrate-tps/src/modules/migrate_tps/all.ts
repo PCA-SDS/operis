@@ -2,41 +2,10 @@ import type { ModuleCli } from '@open-mercato/shared/modules/registry'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import type { EntityManager } from '@mikro-orm/postgresql'
-import { spawn } from 'node:child_process'
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
-import { TPS_LOCATION_MAPPING } from './lib'
+import { reindexTpsSearch, runMercato, TPS_LOCATION_MAPPING } from './lib'
 
 const logger = createLogger('migrate_tps')
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-async function runMercato(args: string[], env?: Record<string, string>): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const proc = spawn('yarn', ['mercato', ...args], {
-      stdio: 'pipe',
-      env: { ...process.env, ...env },
-    })
-
-    let stderr = ''
-
-    proc.stdout.on('data', (data) => process.stdout.write(data.toString()))
-    proc.stderr.on('data', (data) => {
-      stderr += data.toString()
-      process.stderr.write(data.toString())
-    })
-
-    proc.on('close', (code) => {
-      if (code === 0) {
-        resolve()
-      } else {
-        reject(new Error(`Command failed with code ${code}\n${stderr}`))
-      }
-    })
-    proc.on('error', reject)
-  })
-}
 
 async function queryChildOrgs(tenantId: string, parentId: string): Promise<Array<{ id: string; name: string; slug: string }>> {
   const container = await createRequestContainer()
@@ -101,6 +70,12 @@ export const migrateTpsAllCommand: ModuleCli = {
     const skipBranches = rest.includes('--skip-branches')
     const skipPeople = rest.includes('--skip-people')
     const skipAppointments = rest.includes('--skip-appointments')
+    const skipSearchReindex = rest.includes('--skip-search-reindex')
+
+    const appendSkipSearchReindex = (args: string[]) => {
+      args.push('--skip-search-reindex')
+      return args
+    }
 
     logger.info('========================================')
     logger.info('  TPS Migration - All Modules')
@@ -115,7 +90,7 @@ export const migrateTpsAllCommand: ModuleCli = {
       if (!rest.includes('--skip-categories')) {
         logger.info('')
         logger.info('>>> Step 1/6: Migrating categories...')
-        const args = ['migrate_tps', 'categories', tenantId, rootOrgId]
+        const args = appendSkipSearchReindex(['migrate_tps', 'categories', tenantId, rootOrgId])
         if (replace) args.push('--replace')
         await runMercato(args)
       }
@@ -124,7 +99,7 @@ export const migrateTpsAllCommand: ModuleCli = {
       if (!rest.includes('--skip-products')) {
         logger.info('')
         logger.info('>>> Step 2/6: Migrating products...')
-        const args = ['migrate_tps', 'products', tenantId, rootOrgId]
+        const args = appendSkipSearchReindex(['migrate_tps', 'products', tenantId, rootOrgId])
         if (replace) args.push('--replace')
         await runMercato(args)
       }
@@ -133,7 +108,7 @@ export const migrateTpsAllCommand: ModuleCli = {
       if (!skipBranches) {
         logger.info('')
         logger.info('>>> Step 3/6: Migrating branches...')
-        const args = ['migrate_tps', 'branches', tenantId, rootOrgId]
+        const args = appendSkipSearchReindex(['migrate_tps', 'branches', tenantId, rootOrgId])
         if (replace) args.push('--replace')
         await runMercato(args)
 
@@ -172,7 +147,7 @@ export const migrateTpsAllCommand: ModuleCli = {
 
             for (const org of tpsOrgs) {
               logger.info(`  Migrating resources for "${org.name}" (${org.id})...`)
-              const args = ['migrate_tps', 'resources', tenantId, org.id, '--location', org.location]
+              const args = appendSkipSearchReindex(['migrate_tps', 'resources', tenantId, org.id, '--location', org.location])
               if (replace) args.push('--replace')
               await runMercato(args)
             }
@@ -183,7 +158,7 @@ export const migrateTpsAllCommand: ModuleCli = {
       if (!skipPeople) {
         logger.info('')
         logger.info('>>> Step 5/6: Migrating customers and staff...')
-        const args = ['migrate_tps', 'people', tenantId, rootOrgId]
+        const args = appendSkipSearchReindex(['migrate_tps', 'people', tenantId, rootOrgId])
         if (replace) args.push('--replace')
         await runMercato(args)
       }
@@ -191,9 +166,16 @@ export const migrateTpsAllCommand: ModuleCli = {
       if (!skipAppointments) {
         logger.info('')
         logger.info('>>> Step 6/6: Migrating appointments...')
-        const args = ['migrate_tps', 'appointments', tenantId, rootOrgId]
+        const args = appendSkipSearchReindex(['migrate_tps', 'appointments', tenantId, rootOrgId])
         if (replace) args.push('--replace')
         await runMercato(args)
+      }
+
+      if (skipSearchReindex) {
+        logger.info('Skipping TPS search index rebuild (--skip-search-reindex).')
+      } else {
+        logger.info('Rebuilding TPS query indexes...')
+        await reindexTpsSearch(tenantId)
       }
 
       logger.info('')

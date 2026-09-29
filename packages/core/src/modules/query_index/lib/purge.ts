@@ -50,5 +50,9 @@ export async function purgeIndexScope(
     await updateJobProgress(db, scope, 0)
   }
 
+  await applyScope(
+    db.deleteFrom('search_tokens' as any) as any,
+  ).execute()
+
   await finalizeJob(db, scope)
 }

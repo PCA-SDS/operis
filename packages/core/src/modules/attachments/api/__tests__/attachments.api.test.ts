@@ -57,6 +57,7 @@ const mockDataEngine = {
 }
 
 let mockAttachmentQuotaService: any = null
+let mockOcrResolver: unknown = null
 const mockAttachmentQuotaRecoveryScheduler = jest.fn(async () => {})
 
 jest.mock('@open-mercato/shared/lib/di/container', () => ({
@@ -66,6 +67,7 @@ jest.mock('@open-mercato/shared/lib/di/container', () => ({
       if (k === 'dataEngine') return mockDataEngine
       if (k === 'attachmentQuotaService') return mockAttachmentQuotaService
       if (k === 'attachmentQuotaRecoveryScheduler') return mockAttachmentQuotaRecoveryScheduler
+      if (k === 'integrationCredentialResolver') return mockOcrResolver
       return null
     },
   }),
@@ -92,6 +94,7 @@ jest.mock('@open-mercato/shared/lib/i18n/server', () => ({
 
 // Avoid touching disk
 import { promises as fsp } from 'fs'
+import { createTestCredentialResolver } from '@open-mercato/shared/lib/testing/integrationCredentials'
 jest.spyOn(fsp, 'mkdir').mockResolvedValue(undefined as any)
 jest.spyOn(fsp, 'writeFile').mockResolvedValue(undefined as any)
 jest.spyOn(fsp, 'rm').mockResolvedValue(undefined as any)
@@ -148,6 +151,7 @@ describe('attachments API', () => {
     delete process.env.OPENMERCATO_ATTACHMENT_TENANT_QUOTA_MB
     mockEm.getKysely.mockReturnValue(buildUsageKysely(0))
     mockAttachmentQuotaService = null
+    mockOcrResolver = null
     mockAttachmentQuotaRecoveryScheduler.mockClear()
     mockRequestOcrProcessing.mockReset()
     mockRequestOcrProcessing.mockImplementation(async () => {})
@@ -403,9 +407,10 @@ describe('attachments API', () => {
     expect(payload?.content ?? null).toBeNull()
   })
 
-  it('queues LLM OCR for uploaded PDFs when OpenAI is configured', async () => {
+  it("queues LLM OCR for uploaded PDFs with the organization's OpenAI key", async () => {
     const { POST: upload } = await loadHandlers()
-    process.env.OPENAI_API_KEY = 'test-key'
+    const resolver = createTestCredentialResolver({ ai_openai: { secret: 'sk-org-openai', service: 'ai' } })
+    mockOcrResolver = resolver
     mockExtractAttachmentContent.mockResolvedValue('pdf text')
     const file = new File([new Uint8Array([1, 2, 3])], 'doc.pdf', { type: 'application/pdf' })
     const req = new Request('http://x/api/attachments', { method: 'POST', body: fdWith(file) as any })
@@ -413,6 +418,32 @@ describe('attachments API', () => {
     expect(res.status).toBe(200)
     expect(mockExtractAttachmentContent).not.toHaveBeenCalled()
     expect(mockRequestOcrProcessing).toHaveBeenCalledTimes(1)
+    const credential = (mockRequestOcrProcessing.mock.calls[0] as unknown[])[4] as { secret: { reveal(): string } }
+    expect(credential.secret.reveal()).toBe('sk-org-openai')
+    expect(resolver.requests[0]).toMatchObject({
+      integrationId: 'ai_openai',
+      scope: { tenantId: 't1', organizationId: 'org' },
+      operation: 'attachments.ocr',
+    })
+  })
+
+  it('does not use the platform OpenAI key for OCR when the organization has none', async () => {
+    const { POST: upload } = await loadHandlers()
+    const saved = process.env.OPENAI_API_KEY
+    process.env.OPENAI_API_KEY = 'sk-platform-openai'
+    mockOcrResolver = createTestCredentialResolver({})
+    mockExtractAttachmentContent.mockResolvedValue('pdf text')
+    try {
+      const file = new File([new Uint8Array([1, 2, 3])], 'doc.pdf', { type: 'application/pdf' })
+      const req = new Request('http://x/api/attachments', { method: 'POST', body: fdWith(file) as any })
+      const res = await upload(req)
+      expect(res.status).toBe(200)
+      expect(mockExtractAttachmentContent).toHaveBeenCalled()
+      expect(mockRequestOcrProcessing).not.toHaveBeenCalled()
+    } finally {
+      if (saved === undefined) delete process.env.OPENAI_API_KEY
+      else process.env.OPENAI_API_KEY = saved
+    }
   })
 
   it('falls back to text extraction for uploaded PDFs when OpenAI is missing', async () => {
@@ -428,7 +459,7 @@ describe('attachments API', () => {
 
   it('queues LLM OCR for uploaded images when OpenAI is configured', async () => {
     const { POST: upload } = await loadHandlers()
-    process.env.OPENAI_API_KEY = 'test-key'
+    mockOcrResolver = createTestCredentialResolver({ ai_openai: { secret: 'sk-org-openai', service: 'ai' } })
     mockEm.findOne.mockImplementation(async (entity: any, where: any) => {
       if (entity?.name === 'AttachmentPartition') {
         return partitions.find((p) => p.code === where?.code) ?? null

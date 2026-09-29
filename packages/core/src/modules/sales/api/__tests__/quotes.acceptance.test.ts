@@ -7,7 +7,14 @@ import { Dictionary, DictionaryEntry } from '@open-mercato/core/modules/dictiona
 import { hashAuthToken } from '@open-mercato/core/modules/auth/lib/tokenHash'
 import { LockMode } from '@mikro-orm/core'
 import { commandRegistry } from '@open-mercato/shared/lib/commands/registry'
+import { createTestCredentialResolver, type TestCredentialResolver } from '@open-mercato/shared/lib/testing/integrationCredentials'
 
+const ORG_RESEND_KEY = 're_test_org_quotes'
+function orgResendResolver(): TestCredentialResolver {
+  return createTestCredentialResolver({ resend: { secret: ORG_RESEND_KEY, settings: { fromEmail: 'Quotes <quotes@example.com>' } } })
+}
+
+let mockCredentialResolver: TestCredentialResolver = orgResendResolver()
 const mockCommandBus = { execute: jest.fn() }
 const mockRateLimiterService = { trustProxyDepth: 1, consume: jest.fn() }
 const mockEm: Record<string, jest.Mock> = {
@@ -32,6 +39,7 @@ jest.mock('@open-mercato/shared/lib/di/container', () => ({
       if (token === 'commandBus') return mockCommandBus
       if (token === 'em') return mockEm
       if (token === 'accessLogService') return null
+      if (token === 'integrationCredentialResolver') return mockCredentialResolver
       return null
     },
   })),
@@ -78,6 +86,7 @@ function makeAcceptRequest(body: unknown) {
 describe('quote send + accept flow', () => {
   beforeEach(async () => {
     jest.clearAllMocks()
+    mockCredentialResolver = orgResendResolver()
     mockEm.fork.mockReturnValue(mockEm)
     mockRateLimiterService.consume.mockResolvedValue({ allowed: true, remainingPoints: 9, msBeforeNext: 0 })
     const { getAuthFromRequest } = await import('@open-mercato/shared/lib/auth/server')
@@ -133,6 +142,50 @@ describe('quote send + accept flow', () => {
     // Send-state is now persisted inside em.transactional (committed before the email), not via a bare em.flush.
     expect(mockEm.transactional).toHaveBeenCalled()
     expect(mockEm.persist).toHaveBeenCalledWith(quote)
+    const { sendEmail } = await import('@open-mercato/shared/lib/email/send')
+    expect(sendEmail).toHaveBeenCalledWith(expect.objectContaining({ apiKey: ORG_RESEND_KEY, from: 'Quotes <quotes@example.com>' }))
+    expect(mockCredentialResolver.requests[0]).toMatchObject({
+      integrationId: 'resend',
+      scope: { tenantId: quote.tenantId, organizationId: quote.organizationId },
+      operation: 'sales.quote.send',
+      correlationId: quote.id,
+    })
+  })
+
+  test('send refuses before marking the quote sent when the organization has no Resend key', async () => {
+    mockCredentialResolver = createTestCredentialResolver({})
+    const quote = {
+      id: '22222222-2222-4222-8222-222222222222',
+      tenantId: '00000000-0000-4000-8000-000000000000',
+      organizationId: '11111111-1111-4111-8111-111111111111',
+      quoteNumber: 'SQ-NOKEY',
+      currencyCode: 'USD',
+      grandTotalGrossAmount: '10',
+      status: 'draft',
+      statusEntryId: null,
+      customerSnapshot: { customer: { primaryEmail: 'test@example.com' } },
+      metadata: null,
+      updatedAt: new Date(),
+      validUntil: null,
+      sentAt: null,
+      acceptanceToken: null,
+    }
+    mockEm.findOne.mockImplementation(async (cls: any, where: any) => {
+      if (cls === SalesQuote) return where?.id === quote.id ? quote : null
+      if (cls === Dictionary) return { id: 'dict-1' }
+      if (cls === DictionaryEntry) return { id: 'entry-sent' }
+      return null
+    })
+
+    const res = await sendQuote(makeRequest({ quoteId: quote.id, validForDays: 14 }))
+
+    expect(res.status).toBe(409)
+    expect(await res.json()).toMatchObject({ code: 'integration_not_configured' })
+    expect(mockEm.transactional).not.toHaveBeenCalled()
+    expect(quote.status).toBe('draft')
+    expect(quote.acceptanceToken).toBeNull()
+    const { sendEmail } = await import('@open-mercato/shared/lib/email/send')
+    expect(sendEmail).not.toHaveBeenCalled()
   })
 
   test('accept never matches a raw (unhashed) stored token — hashed lookup only (#2929)', async () => {
@@ -644,6 +697,7 @@ describe('accept - atomic conversion (fix: #1415, #2114)', () => {
 describe('send - commits send-state before email delivery (fix: #2336, supersedes #1415)', () => {
   beforeEach(async () => {
     jest.clearAllMocks()
+    mockCredentialResolver = orgResendResolver()
     mockEm.fork.mockReturnValue(mockEm)
     mockEm.transactional = jest.fn(async (callback: (trx: any) => Promise<unknown>) => callback(mockEm)) as any
     const { getAuthFromRequest } = await import('@open-mercato/shared/lib/auth/server')

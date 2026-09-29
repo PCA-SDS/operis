@@ -26,9 +26,9 @@ import {
 } from 'ai'
 import type { StopCondition } from 'ai'
 import type { ZodTypeAny } from 'zod'
-import { createModelFactory, resolveAllowRuntimeOverride } from './model-factory'
+import { resolveAllowRuntimeOverride } from './model-factory'
+import { resolveScopedAiModel, type AiCredentialRequest } from './ai-credentials'
 import { computeEndUserIdentifier } from '@open-mercato/shared/lib/ai/safety-identifier'
-import { llmProviderRegistry } from '@open-mercato/shared/lib/ai/llm-provider-registry'
 import type { EnvLookup } from '@open-mercato/shared/lib/ai/llm-provider'
 import {
   AiModerationBlockedError,
@@ -1001,9 +1001,11 @@ interface ResolvedAgentModel {
   supportsInputModeration: boolean
   /** Resolved base URL (if any), reused by the moderation endpoint call. */
   baseURL?: string
+  resolveProviderApiKey(providerId: string): string | null
 }
 
-function resolveAgentModel(
+async function resolveAgentModel(
+  credentialRequest: AiCredentialRequest,
   agent: AiAgentDefinition,
   modelOverride: string | undefined,
   providerOverride: string | undefined,
@@ -1013,9 +1015,12 @@ function resolveAgentModel(
   requestOverride?: { providerId?: string | null; modelId?: string | null; baseURL?: string | null } | null,
   tenantAllowlist?: TenantAllowlistSnapshot | null,
   endUserIdentifier?: string,
-): ResolvedAgentModel {
+): Promise<ResolvedAgentModel> {
   const effectiveContainer = container ?? createContainer()
-  const resolution = createModelFactory(effectiveContainer).resolveModel({
+  const resolution = await resolveScopedAiModel({
+    container: effectiveContainer,
+    request: credentialRequest,
+    model: {
     moduleId: agent.moduleId,
     agentDefaultModel: agent.defaultModel,
     agentDefaultProvider: agent.defaultProvider,
@@ -1028,6 +1033,7 @@ function resolveAgentModel(
     requestOverride: requestOverride ?? undefined,
     tenantAllowlist: tenantAllowlist ?? null,
     endUserIdentifier,
+    },
   })
   return {
     model: resolution.model as LanguageModel,
@@ -1036,6 +1042,14 @@ function resolveAgentModel(
     providerOptions: resolution.providerOptions,
     supportsInputModeration: resolution.supportsInputModeration === true,
     baseURL: resolution.baseURL,
+    resolveProviderApiKey: resolution.resolveProviderApiKey,
+  }
+}
+
+function agentCredentialRequest(agent: AiAgentDefinition, authContext: AiChatRequestContext): AiCredentialRequest {
+  return {
+    scope: { tenantId: authContext.tenantId, organizationId: authContext.organizationId },
+    operation: `ai_assistant.agent.${agent.id}`,
   }
 }
 
@@ -1690,7 +1704,8 @@ export async function runAiAgentText(input: RunAiAgentTextInput): Promise<Respon
     mutationPolicyOverride,
   )
 
-  const resolvedModel = resolveAgentModel(
+  const resolvedModel = await resolveAgentModel(
+    agentCredentialRequest(agent, input.authContext),
     agent,
     input.modelOverride,
     input.providerOverride,
@@ -1734,7 +1749,7 @@ export async function runAiAgentText(input: RunAiAgentTextInput): Promise<Respon
     tenantWideOverride: moderationOverrides.tenantWideOverride,
     userText: extractLatestUserText(normalizedMessages),
     service: moderationService,
-    resolveApiKey: () => llmProviderRegistry.get(resolvedModel.providerId)?.resolveApiKey() ?? null,
+    resolveApiKey: () => resolvedModel.resolveProviderApiKey(resolvedModel.providerId),
     baseURL: resolvedModel.baseURL,
     moderationModel: process.env.OM_AI_MODERATION_MODEL,
     onFlagged: (categories) =>
@@ -2188,7 +2203,8 @@ export async function runAiAgentObject<TSchema = unknown>(
     mutationPolicyOverride,
   )
 
-  const { model } = resolveAgentModel(
+  const { model } = await resolveAgentModel(
+    agentCredentialRequest(agent, input.authContext),
     agent,
     input.modelOverride,
     input.providerOverride,

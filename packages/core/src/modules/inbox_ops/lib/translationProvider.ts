@@ -1,4 +1,5 @@
 import { generateText } from 'ai'
+import type { AwilixContainer } from 'awilix'
 import { z } from 'zod'
 import { resolveConfiguredStructuredModel } from './llmProvider'
 import { resolveTranslationTimeoutMs } from './config'
@@ -12,12 +13,19 @@ const translationResultSchema = z.object({
 })
 
 export async function translateProposalContent(input: {
+  container: AwilixContainer
+  scope: { tenantId: string; organizationId: string }
+  correlationId?: string | null
   summary: string
   actionDescriptions: Record<string, string>
   sourceLanguage: string
   targetLocale: string
 }): Promise<{ summary: string; actions: Record<string, string> }> {
   const { model } = await resolveConfiguredStructuredModel({
+    container: input.container,
+    scope: input.scope,
+    operation: 'inbox_ops.proposal.translate',
+    correlationId: input.correlationId ?? null,
     moduleId: 'inbox_ops',
     modelOverride: process.env.INBOX_OPS_LLM_MODEL,
   })

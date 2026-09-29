@@ -18,6 +18,8 @@ import {
 import { readNormalizedEmailFromJsonRequest } from '@open-mercato/core/modules/customer_accounts/lib/rateLimitIdentifier'
 import { sendCustomerInvitationEmail } from '@open-mercato/core/modules/customer_accounts/lib/invitationEmail'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import { buildIntegrationCredentialErrorBody, isIntegrationCredentialError } from '@open-mercato/shared/modules/integrations/credential-resolution'
+import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 
 const logger = createLogger('customer_accounts').child({ component: 'portal-users-invite' })
 
@@ -108,6 +110,7 @@ export async function POST(req: Request) {
   try {
     await sendCustomerInvitationEmail({
       container,
+      tenantId: auth.tenantId,
       organizationId: auth.orgId,
       email: invitation.email,
       rawToken,
@@ -118,6 +121,13 @@ export async function POST(req: Request) {
       await customerInvitationService.rollbackInvitation(invitation, rollbackState)
     } catch (rollbackError) {
       logger.error('Invitation rollback failed', { err: rollbackError })
+    }
+    if (isIntegrationCredentialError(error)) {
+      const { translate } = await resolveTranslations()
+      return NextResponse.json(
+        { ok: false, ...buildIntegrationCredentialErrorBody(error, translate) },
+        { status: error.status },
+      )
     }
     return NextResponse.json({ ok: false, error: 'Invitation email could not be sent' }, { status: 502 })
   }

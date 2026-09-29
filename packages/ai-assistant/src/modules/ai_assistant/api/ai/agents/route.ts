@@ -4,7 +4,7 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import type { RbacService } from '@open-mercato/core/modules/auth/services/rbacService'
-import { llmProviderRegistry } from '@open-mercato/shared/lib/ai/llm-provider-registry'
+import { resolveAiProviderAvailability } from '../../../lib/ai-credentials'
 import { isAgentTaskPlanEnabled, listAgents, loadAgentRegistry } from '../../../lib/agent-registry'
 import { hasRequiredFeatures } from '../../../lib/auth'
 import { toolRegistry } from '../../../lib/tool-registry'
@@ -61,7 +61,11 @@ export async function GET(req: NextRequest) {
     // `aiConfigured` flag to show a setup prompt; explicit `<AiChat>` mounts
     // and playground pages still see the full registry so they can show their
     // own configuration prompts instead of silently disappearing.
-    const aiConfigured = llmProviderRegistry.resolveFirstConfigured() != null
+    const aiAvailability = await resolveAiProviderAvailability(container, {
+      tenantId: auth.tenantId,
+      organizationId: auth.orgId ?? null,
+    })
+    const aiConfigured = aiAvailability.providerIds.size > 0
 
     await loadAgentRegistry()
     const all = listAgents()

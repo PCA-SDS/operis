@@ -12,7 +12,9 @@ import { extractAttachmentContent } from './textExtraction'
 import { requestOcrProcessing } from './ocrQueue'
 import { requestAttachmentScan } from './scanning/scanService'
 import { inspectArchive, isArchiveFileName } from './archiveInspection'
-import { OcrService, shouldUseLlmOcr } from './ocrService'
+import { shouldUseLlmOcr } from './ocrService'
+import { resolveOcrCredential } from './ocrCredentials'
+import type { IntegrationCredentialResolver } from '@open-mercato/shared/modules/integrations/credential-resolution'
 import { assertAttachmentScopeInvariant } from './access'
 import {
   mergeAttachmentMetadata,
@@ -123,6 +125,7 @@ export class ScopedAttachmentUploadService {
     storageDriverFactory: StorageDriverFactory
     attachmentQuotaService: AttachmentQuotaService
     attachmentQuotaRecoveryScheduler: QuotaRecoveryScheduler
+    credentialResolver?: IntegrationCredentialResolver | null
   }) {}
 
   async upload(input: ScopedAttachmentUploadInput): Promise<Attachment> {
@@ -213,8 +216,13 @@ export class ScopedAttachmentUploadService {
 
     let extractedContent: string | null = null
     const wantsLlmOcr = partition.requiresOcr && shouldUseLlmOcr(mimeType, safeName)
-    const ocrService = wantsLlmOcr ? new OcrService() : null
-    const useLlmOcr = Boolean(wantsLlmOcr && ocrService?.available)
+    const ocrCredential = wantsLlmOcr
+      ? await resolveOcrCredential(this.deps.credentialResolver, {
+        tenantId: input.tenantId,
+        organizationId: input.organizationId,
+      })
+      : null
+    const useLlmOcr = ocrCredential !== null
     if (partition.requiresOcr && !useLlmOcr) {
       try {
         const { filePath, cleanup } = await driver.toLocalPath(partition.code, storedPath)
@@ -295,8 +303,8 @@ export class ScopedAttachmentUploadService {
       })
     }
 
-    if (useLlmOcr) {
-      requestOcrProcessing(em, attachment, driver, storedPath).catch((error) => {
+    if (ocrCredential) {
+      requestOcrProcessing(em, attachment, driver, storedPath, ocrCredential).catch((error) => {
         logger.error('Scoped attachment OCR scheduling failed', { err: error })
       })
     }

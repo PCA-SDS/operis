@@ -1,6 +1,4 @@
 import { generateObject } from 'ai'
-import type { AwilixContainer } from 'awilix'
-import { createContainer } from 'awilix'
 import {
   resolveAiProviderIdFromEnv,
   resolveFirstConfiguredOpenCodeProvider,
@@ -10,11 +8,13 @@ import {
   isOpenCodeProviderId,
   type OpenCodeProviderId,
 } from '@open-mercato/shared/lib/ai/opencode-provider'
+import { AiModelFactoryError } from '@open-mercato/ai-assistant/modules/ai_assistant/lib/model-factory'
 import {
-  AiModelFactoryError,
-  createModelFactory,
-  type AiModelFactory,
-} from '@open-mercato/ai-assistant/modules/ai_assistant/lib/model-factory'
+  resolveAiCredentialContext,
+  resolveScopedAiModel,
+  type AiCredentialRequest,
+} from '@open-mercato/ai-assistant/modules/ai_assistant/lib/ai-credentials'
+import { IntegrationCredentialError } from '@open-mercato/shared/modules/integrations/credential-resolution'
 import { joinProviderModel } from '@open-mercato/shared/lib/ai/model-id'
 import { extractionOutputSchema } from '../data/validators'
 import { withTimeout } from '@open-mercato/shared/lib/async'
@@ -111,74 +111,61 @@ export async function createStructuredModel(
  * suite overrides this binding via `jest.spyOn` to assert the shim actually
  * reaches `createModelFactory` without stubbing `@open-mercato/ai-assistant`.
  */
-export const __inboxOpsLlmProviderInternal = {
-  createModelFactory,
-  createContainer,
-}
+type AiModelContainer = Parameters<typeof resolveScopedAiModel>[0]['container']
 
-function tryFactoryResolution(input: {
+export type InboxOpsModelRequest = AiCredentialRequest & {
+  container: AiModelContainer
   moduleId?: string
   modelOverride?: string | null
-}): { model: AiModel; modelWithProvider: string } | null {
-  let factory: AiModelFactory
-  try {
-    const container = __inboxOpsLlmProviderInternal.createContainer()
-    factory = __inboxOpsLlmProviderInternal.createModelFactory(container as AwilixContainer)
-  } catch {
-    return null
+}
+
+/**
+ * Resolves the extraction/translation model for the organization in `scope` through
+ * `integrationCredentialResolver`. The legacy OpenCode env fallback only runs under the platform
+ * credential policy, and its use is recorded like any other platform fallback.
+ */
+export async function resolveConfiguredStructuredModel(
+  input: InboxOpsModelRequest,
+): Promise<{ model: AiModel; modelWithProvider: string }> {
+  const request: AiCredentialRequest = {
+    scope: input.scope,
+    operation: input.operation,
+    correlationId: input.correlationId ?? null,
   }
   try {
-    const resolution = factory.resolveModel({
-      moduleId: input.moduleId ?? 'inbox_ops',
-      callerOverride: input.modelOverride ?? undefined,
+    const resolution = await resolveScopedAiModel({
+      container: input.container,
+      request,
+      model: {
+        moduleId: input.moduleId ?? 'inbox_ops',
+        callerOverride: input.modelOverride ?? undefined,
+      },
     })
-    // Use the factory's real provider id (e.g. `openrouter`) for the label so a
-    // gateway resolution reads `openrouter/anthropic/claude-…` (single prefix),
-    // not a native-coerced `anthropic/…`.
     return {
       model: asAiModel(resolution.model),
       modelWithProvider: joinProviderModel(resolution.providerId, resolution.modelId),
     }
   } catch (err) {
-    if (err instanceof AiModelFactoryError) {
-      // Fall back to the legacy path so the shim keeps throwing the original
-      // OPENCODE_*-era error messages existing tests/consumers rely on.
-      return null
-    }
-    throw err
+    if (!(err instanceof AiModelFactoryError)) throw err
   }
-}
-
-/**
- * Resolves a concrete structured-output AI SDK model for inbox_ops, factory-first.
- *
- * The unified {@link createModelFactory} is consulted first — so every inbox_ops
- * LLM call site (extraction, categorize, translation) shares one resolution order
- * and gains gateway support (OpenRouter, Requesty, LiteLLM). The native-only
- * {@link createStructuredModel} switch is used only as the true no-provider BC
- * fallback, when the factory throws `AiModelFactoryError('no_provider_configured')`.
- */
-export async function resolveConfiguredStructuredModel(input: {
-  moduleId?: string
-  modelOverride?: string | null
-} = {}): Promise<{ model: AiModel; modelWithProvider: string }> {
-  const fromFactory = tryFactoryResolution(input)
-  if (fromFactory) return fromFactory
-
-  // BC: Legacy OPENCODE_PROVIDER / OPENCODE_MODEL path. Only runs when the
-  // factory reported no configured provider, meaning none of the new-style
-  // provider env vars is set. The OPENCODE_* envs stay BC fallbacks scoped to
-  // the OpenCode Code Mode stack (spec 2026-04-27-…, R1 mitigation).
+  const context = await resolveAiCredentialContext(input.container, request)
+  if (context.source !== 'platform') {
+    throw new IntegrationCredentialError('integration_not_configured', { service: 'ai' })
+  }
   const providerId = resolveExtractionProviderId()
   const apiKey = requireOpenCodeProviderApiKey(providerId)
   const modelConfig = resolveOpenCodeModel(providerId, {
     overrideModel: input.modelOverride,
   })
   const model = await createStructuredModel(providerId, apiKey, modelConfig.modelId)
+  await context.markModelUsed(providerId)
   return { model, modelWithProvider: modelConfig.modelWithProvider }
 }
 
 export async function runExtractionWithConfiguredProvider(input: {
+  container: AiModelContainer
+  scope: AiCredentialRequest['scope']
+  correlationId?: string | null
   systemPrompt: string
   userPrompt: string
   modelOverride?: string | null
@@ -189,6 +176,10 @@ export async function runExtractionWithConfiguredProvider(input: {
   modelWithProvider: string
 }> {
   const { model, modelWithProvider } = await resolveConfiguredStructuredModel({
+    container: input.container,
+    scope: input.scope,
+    operation: 'inbox_ops.email.extraction',
+    correlationId: input.correlationId ?? null,
     moduleId: 'inbox_ops',
     modelOverride: input.modelOverride,
   })

@@ -77,7 +77,8 @@ See [AI Agents](./agents) for the full declaration guide and the end-to-end exam
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GOOGLE_GENERATIVE_AI_API_KEY` / `OPENROUTER_API_KEY` | — | Standard provider keys; at least one MUST be set. The runtime picks the first configured provider via `llmProviderRegistry.resolveFirstConfigured()`. Other OpenAI-compatible providers use their matching `*_API_KEY` variables from `.env.example`. |
+| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GOOGLE_GENERATIVE_AI_API_KEY` / `OPENROUTER_API_KEY` | none | Platform provider keys. They run search embeddings and the OpenCode server, and tenant AI only under `OM_AI_CREDENTIAL_FALLBACK=platform`. The runtime picks the first configured provider via `llmProviderRegistry.resolveFirstConfigured()`. Other OpenAI-compatible providers use their matching `*_API_KEY` variables from `.env.example`. |
+| `OM_AI_CREDENTIAL_FALLBACK` | `disabled` | What tenant AI does for an organization without its own key. `disabled`: the call fails with `integration_not_configured` and the OpenCode chat is refused. `platform`: use the platform keys above and record each use in the integration log. Any other value counts as `disabled`. See [Organization AI keys](#organization-ai-keys). |
 | `AI_PENDING_ACTION_TTL_SECONDS` | `900` (15 min) | Expiry window for pending mutation approvals. The cleanup worker flips stale rows to `expired`. |
 | `OM_AI_<MODULE>_MODEL` | unset | Per-module model override. Uppercased from the `moduleId`. Examples: `OM_AI_INBOX_OPS_MODEL=claude-haiku-4-5`, `OM_AI_CATALOG_MODEL=gpt-4o-mini`. The legacy `<MODULE>_AI_MODEL` form (`INBOX_OPS_AI_MODEL`, `CATALOG_AI_MODEL`) is read as a backward-compatibility fallback. |
 | `OM_AI_<MODULE>_PROVIDER` | unset | Per-module provider override (Phase 1). Uppercased from the `moduleId`. Examples: `OM_AI_CATALOG_PROVIDER=openai`, `OM_AI_INBOX_OPS_PROVIDER=anthropic`. The legacy `<MODULE>_AI_PROVIDER` form is read as a backward-compatibility fallback. A provider-only preference can fall through when unconfigured; a paired provider/model override fails instead of sending that model to another provider. |
@@ -146,6 +147,24 @@ No OM_AI_MODEL, Anthropic key present ← Step 7: anthropic/claude-haiku-4-5-202
 :::caution Do not re-introduce ad-hoc provider lookups
 Route every model creation through `createModelFactory(container).resolveModel({...})`. Inline `createAnthropic` / `createOpenAI` / `createGoogleGenerativeAI` calls in new modules will be rejected in review.
 :::
+
+## Organization AI keys
+
+Each organization saves its own AI provider key in **Settings > Integrations**, under the **AI** category. One integration exists per provider with a fixed public endpoint: `ai_openai`, `ai_anthropic`, `ai_google`, `ai_deepinfra`, `ai_groq`, `ai_together`, `ai_fireworks`. Providers that need a custom base URL (Azure, LiteLLM, Ollama, LM Studio) and gateways without a verified key check (OpenRouter, Requesty) stay platform-only, so an organization can never point requests at its own host. The **Test connection** button checks a key by listing the provider's models, without saving it.
+
+Tenant code builds models with `resolveScopedAiModel` from `@open-mercato/ai-assistant/modules/ai_assistant/lib/ai-credentials`:
+
+```ts
+const { model, providerId } = await resolveScopedAiModel({
+  container,
+  request: { scope: { tenantId, organizationId }, operation: 'my_module.summarize', correlationId: recordId },
+  model: { moduleId: 'my_module' },
+})
+```
+
+It resolves the organization's enabled `ai_<provider>` keys through the `integrationCredentialResolver` service and runs `createModelFactory` on them with every platform provider key removed. Env or agent-default provider picks that the organization has no key for are skipped; an explicit request override to such a provider fails with `integration_not_configured`. Under `OM_AI_CREDENTIAL_FALLBACK=platform`, an organization without keys uses the platform env and each use writes a `credentials.platform_fallback` entry to that provider's integration log.
+
+Search embeddings are platform infrastructure and keep using the platform keys.
 
 ## Migration and backward compatibility
 

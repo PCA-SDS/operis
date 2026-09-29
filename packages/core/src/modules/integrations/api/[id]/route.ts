@@ -132,9 +132,9 @@ export async function GET(req: Request, ctx: { params?: Promise<{ id?: string }>
       listKeys: ['bundleIntegrations'],
     },
     body: {
-      integration,
+      integration: omitCredentialResolution(integration),
       bundle,
-      bundleIntegrations,
+      bundleIntegrations: bundleIntegrations.map(omitCredentialResolution),
       state: {
         isEnabled: state.isEnabled,
         apiVersion: state.apiVersion,
@@ -146,9 +146,16 @@ export async function GET(req: Request, ctx: { params?: Promise<{ id?: string }>
         updatedAt: state.updatedAt?.toISOString() ?? null,
       },
       hasCredentials,
+      hasHealthCheck,
       credentialsUpdatedAt: credentialsUpdatedAt?.toISOString() ?? null,
       healthStatus,
       analytics,
     },
   })
+}
+
+function omitCredentialResolution<T extends { credentialResolution?: unknown }>(definition: T): Omit<T, 'credentialResolution'> {
+  const publicDefinition: T = { ...definition }
+  delete publicDefinition.credentialResolution
+  return publicDefinition
 }

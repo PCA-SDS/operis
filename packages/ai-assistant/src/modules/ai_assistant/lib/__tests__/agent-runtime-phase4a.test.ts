@@ -85,6 +85,8 @@ import { resetAgentRegistryForTests, seedAgentRegistryForTests } from '../agent-
 import { toolRegistry } from '../tool-registry'
 import { runAiAgentText, runAiAgentObject } from '../agent-runtime'
 
+jest.mock('../ai-credentials', () => require('./helpers/platformAiCredentialsMock').platformAiCredentialsMock())
+
 jest.mock('@open-mercato/shared/lib/logger', () => {
   const mocked = {
     debug: jest.fn(),

@@ -34,6 +34,9 @@ import { createConversationStorage } from '../../../lib/conversation-storage'
 import { checkAiChatRateLimit } from '../../../lib/rate-limit'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { jsonError } from '../../jsonError'
+import { resolveAiCredentialContext } from '../../../lib/ai-credentials'
+import { integrationCredentialErrorResponse, isIntegrationCredentialError } from '@open-mercato/shared/modules/integrations/credential-resolution'
+import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 
 const logger = createLogger('ai_assistant')
 
@@ -572,10 +575,14 @@ export async function POST(req: NextRequest): Promise<Response> {
           'provider_unknown',
         )
       }
-      if (!providerEntry.isConfigured()) {
+      const providerCredentials = await resolveAiCredentialContext(container, {
+        scope: { tenantId: auth.tenantId, organizationId: auth.orgId ?? null },
+        operation: `ai_assistant.agent.${agentId}`,
+      })
+      if (!providerCredentials.isProviderConfigured(providerEntry.id)) {
         return jsonError(
           400,
-          `Provider "${rawProvider}" is registered but not configured in this environment (missing API key).`,
+          `Provider "${rawProvider}" is registered but not configured for this organization.`,
           'provider_not_configured',
         )
       }
@@ -701,6 +708,10 @@ export async function POST(req: NextRequest): Promise<Response> {
     }
     if (error instanceof AiModerationUnavailableError) {
       return jsonError(503, 'Content safety check temporarily unavailable.', 'moderation_unavailable')
+    }
+    if (isIntegrationCredentialError(error)) {
+      const { translate } = await resolveTranslations()
+      return integrationCredentialErrorResponse(error, translate)
     }
     logger.error('AI Chat Agent — Dispatch failure', { err: error })
     return jsonError(

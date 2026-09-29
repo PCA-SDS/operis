@@ -7,7 +7,7 @@
 - Treat the public AI assistant docs linked below as the source of truth when they disagree with this file.
 - Use `registerMcpTool`/`defineAiTool` with Zod schemas, `moduleId`, `requiredFeatures`, and serializable handler results.
 - Run `yarn generate` after adding or changing agents, tools, API discovery metadata, or tool packs.
-- Route model selection through `createModelFactory(container)` instead of ad hoc provider clients.
+- Build tenant models with `resolveScopedAiModel` (`lib/ai-credentials.ts`): the organization's keys, never ad hoc clients.
 - Route mutation-capable AI tools through the mutation approval path before execution.
 
 ## Ask First
@@ -385,7 +385,7 @@ Per-module overrides (Phase 1 of the same spec — agent-default provider + per-
 | `OM_AI_<MODULE>_MODEL` | Optional. Per-module model override, uppercased from the agent's `moduleId`. Examples: `OM_AI_CATALOG_MODEL=claude-opus-4-20250514`, `OM_AI_INBOX_OPS_MODEL=gpt-4o`. The legacy `<MODULE>_AI_MODEL` form (e.g. `INBOX_OPS_AI_MODEL`) is read as a backward-compatibility fallback. Accepts a slash-qualified `<provider>/<model>` shorthand. |
 | `OM_AI_<MODULE>_PROVIDER` | Optional. Per-module provider override, uppercased from the agent's `moduleId`. Examples: `OM_AI_CATALOG_PROVIDER=openai`, `OM_AI_INBOX_OPS_PROVIDER=anthropic`. The legacy `<MODULE>_AI_PROVIDER` form (e.g. `INBOX_OPS_AI_PROVIDER`) is read as a backward-compatibility fallback. Provider-only preferences can fall through when unconfigured; paired provider/model overrides fail closed. |
 
-All new callers MUST use `createModelFactory(container)` from `@open-mercato/ai-assistant/modules/ai_assistant/lib/model-factory` — never inline provider SDK calls (`createAnthropic`, `createOpenAI`, `createGoogleGenerativeAI`). The factory enforces the resolution order (caller override → `OM_AI_<MODULE>_MODEL` → `agentDefaultModel` → `OM_AI_MODEL` → provider default) and throws the documented `AiModelFactoryError` codes when misconfigured. See **Model Resolution** below.
+Tenant callers MUST use `resolveScopedAiModel` (`lib/ai-credentials.ts`), which wraps `createModelFactory(container)` (`lib/model-factory`); never inline provider SDK calls (`createAnthropic`, `createOpenAI`, `createGoogleGenerativeAI`). The factory enforces the resolution order (caller override → `OM_AI_<MODULE>_MODEL` → `agentDefaultModel` → `OM_AI_MODEL` → provider default) and throws the documented `AiModelFactoryError` codes when misconfigured. See **Model Resolution** below.
 
 Operator-defined allowlist (Phase 1780-5) — the ULTIMATE constraint that clips every other source. When set, the settings UI is clipped to the allowed subset, the chat-UI `<ModelPicker>` only offers these values, the dispatcher rejects out-of-allowlist `?provider=` / `?model=` query params with typed 400 errors, and the model-factory swaps to a safe pair (emitting `console.warn` and an `allowlistFallback` field on the resolution) whenever an agent default, tenant override, or higher-priority source resolves to something blocked.
 
@@ -588,13 +588,12 @@ Use 2 meta-tools instead of individual endpoint/schema tools. The AI writes Java
 
 ## Model Resolution
 
-Use `createModelFactory(container)` from
-`@open-mercato/ai-assistant/modules/ai_assistant/lib/model-factory` whenever a
-runtime needs to materialize an AI SDK `LanguageModel` instance. The factory
-consolidates what was previously duplicated across `inbox_ops/lib/llmProvider.ts`
-and the agent-runtime's inline `resolveAgentModel`. Do NOT reintroduce ad-hoc
-`createAnthropic` / `createOpenAI` / `createGoogleGenerativeAI` lookups in new
-modules — route them through the factory instead.
+Tenant runtimes get their AI SDK `LanguageModel` from `resolveScopedAiModel`
+(`lib/ai-credentials.ts`). It runs `createModelFactory(container)` on the
+organization's own `ai_<provider>` keys, hides platform keys, and skips env or
+agent-default picks for providers the organization lacks. Platform keys apply
+only under `OM_AI_CREDENTIAL_FALLBACK=platform`. Do NOT reintroduce ad-hoc
+`createAnthropic` / `createOpenAI` / `createGoogleGenerativeAI` lookups.
 
 Resolution order (highest precedence first):
 

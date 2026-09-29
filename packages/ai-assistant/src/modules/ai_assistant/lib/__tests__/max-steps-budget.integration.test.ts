@@ -72,6 +72,8 @@ import {
 import { toolRegistry } from '../tool-registry'
 import { runAiAgentObject, runAiAgentText } from '../agent-runtime'
 
+jest.mock('../ai-credentials', () => require('./helpers/platformAiCredentialsMock').platformAiCredentialsMock())
+
 function makeAgent(
   overrides: Partial<AiAgentDefinition> & Pick<AiAgentDefinition, 'id' | 'moduleId'>,
 ): AiAgentDefinition {

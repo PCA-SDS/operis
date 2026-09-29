@@ -1,4 +1,5 @@
 import { POST } from '@open-mercato/core/modules/customer_accounts/api/signup'
+import { createTestCredentialResolver } from '@open-mercato/shared/lib/testing/integrationCredentials'
 
 const mockCheckAuthRateLimit = jest.fn()
 const mockResolveTranslations = jest.fn()
@@ -34,13 +35,19 @@ const mockEm = {
   persist: mockPersist,
 }
 
+const mockCredentialResolver = {
+  current: createTestCredentialResolver({ resend: { secret: 'org-signup-key' } }),
+}
+
 const mockContainer = {
   resolve: jest.fn((token: string) => {
     if (token === 'customerUserService') return mockCustomerUserService
     if (token === 'customerTokenService') return mockCustomerTokenService
     if (token === 'em') return mockEm
+    if (token === 'integrationCredentialResolver') return mockCredentialResolver.current
     return null
   }),
+  hasRegistration: (token: string) => token === 'integrationCredentialResolver',
 }
 
 jest.mock('@open-mercato/shared/lib/di/container', () => ({
@@ -101,6 +108,7 @@ describe('POST /api/customer_accounts/signup', () => {
       translate: (_key: string, fallback: string) => fallback,
     })
     mockSendEmail.mockResolvedValue(undefined)
+    mockCredentialResolver.current = createTestCredentialResolver({ resend: { secret: 'org-signup-key' } })
     mockFindByEmail.mockResolvedValue(null)
     mockCreateEmailVerification.mockResolvedValue('verification-token')
     mockEmitCustomerAccountsEvent.mockResolvedValue(undefined)
@@ -122,6 +130,7 @@ describe('POST /api/customer_accounts/signup', () => {
       id: existingUserId,
       email: 'existing@example.com',
       displayName: 'Existing User',
+      organizationId,
     })
 
     const res = await POST(makeRequest({
@@ -138,7 +147,12 @@ describe('POST /api/customer_accounts/signup', () => {
     expect(mockCreateUser).not.toHaveBeenCalled()
     expect(mockCreateEmailVerification).not.toHaveBeenCalled()
     expect(mockEmitCustomerAccountsEvent).not.toHaveBeenCalled()
+    await new Promise((resolve) => setImmediate(resolve))
     expect(mockSendEmail).toHaveBeenCalledTimes(1)
+    expect(mockCredentialResolver.current.requests[0]).toMatchObject({
+      scope: { tenantId, organizationId },
+      operation: 'customer_accounts.signup.existing_account',
+    })
   })
 
   test('returns 202 for a new email and creates the account flow', async () => {
@@ -171,6 +185,30 @@ describe('POST /api/customer_accounts/signup', () => {
       tenantId,
       organizationId,
     })
+    await new Promise((resolve) => setImmediate(resolve))
     expect(mockSendEmail).toHaveBeenCalledTimes(1)
+    expect(mockSendEmail).toHaveBeenCalledWith(expect.objectContaining({ apiKey: 'org-signup-key', to: 'new@example.com' }))
+    expect(mockCredentialResolver.current.requests[0]).toMatchObject({
+      integrationId: 'resend',
+      scope: { tenantId, organizationId },
+      operation: 'customer_accounts.signup.verification',
+    })
+  })
+
+  test('still answers 202 without sending when the organization has no email credential', async () => {
+    mockCredentialResolver.current = createTestCredentialResolver({})
+    mockFindOneRole.mockResolvedValueOnce({ id: defaultRoleId, isDefault: true })
+
+    const res = await POST(makeRequest({
+      email: 'new@example.com',
+      password: 'Secret123!',
+      displayName: 'New User',
+      tenantId,
+      organizationId,
+    }))
+    await new Promise((resolve) => setImmediate(resolve))
+
+    expect(res.status).toBe(202)
+    expect(mockSendEmail).not.toHaveBeenCalled()
   })
 })

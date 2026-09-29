@@ -21,6 +21,8 @@ import { CustomerUserInvitation } from '@open-mercato/core/modules/customer_acco
 import { findAndCountWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { lookupHashCandidates } from '@open-mercato/shared/lib/encryption/aes'
 import { UUID_SHAPE_PATTERN } from '@open-mercato/shared/lib/validation'
+import { buildIntegrationCredentialErrorBody, isIntegrationCredentialError } from '@open-mercato/shared/modules/integrations/credential-resolution'
+import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 
 const logger = createLogger('customer_accounts').child({ component: 'admin-users-invite' })
 
@@ -207,6 +209,7 @@ export async function POST(req: Request) {
   try {
     await sendCustomerInvitationEmail({
       container,
+      tenantId: auth.tenantId!,
       organizationId: auth.orgId!,
       email: invitation.email,
       rawToken,
@@ -217,6 +220,13 @@ export async function POST(req: Request) {
       await customerInvitationService.rollbackInvitation(invitation, rollbackState)
     } catch (rollbackError) {
       logger.error('Invitation rollback failed', { err: rollbackError })
+    }
+    if (isIntegrationCredentialError(error)) {
+      const { translate } = await resolveTranslations()
+      return NextResponse.json(
+        { ok: false, ...buildIntegrationCredentialErrorBody(error, translate) },
+        { status: error.status },
+      )
     }
     return NextResponse.json({ ok: false, error: 'Invitation email could not be sent' }, { status: 502 })
   }

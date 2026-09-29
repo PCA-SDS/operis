@@ -4,7 +4,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import type { IntegrationScope } from '@open-mercato/shared/modules/integrations/types'
 import { decryptWithAesGcm, encryptWithAesGcm, generateDek } from '@open-mercato/shared/lib/encryption/aes'
-import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
+import { findOneWithDecryption, findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
+import { isIntegrationCredentialError } from '@open-mercato/shared/modules/integrations/credential-resolution'
 import { createKmsService } from '@open-mercato/shared/lib/encryption/kms'
 import { EncryptionMap } from '../../../entities/data/entities'
 import { IntegrationCredentials } from '../../data/entities'
@@ -16,6 +17,7 @@ import {
 
 jest.mock('@open-mercato/shared/lib/encryption/find', () => ({
   findOneWithDecryption: jest.fn(),
+  findWithDecryption: jest.fn(),
 }))
 
 jest.mock('@open-mercato/shared/lib/encryption/kms', () => ({
@@ -23,6 +25,7 @@ jest.mock('@open-mercato/shared/lib/encryption/kms', () => ({
 }))
 
 const mockFindOneWithDecryption = findOneWithDecryption as jest.MockedFunction<typeof findOneWithDecryption>
+const mockFindWithDecryption = findWithDecryption as jest.MockedFunction<typeof findWithDecryption>
 const mockCreateKmsService = createKmsService as jest.MockedFunction<typeof createKmsService>
 
 const scope = { organizationId: 'org-1', tenantId: 'tenant-1' }
@@ -247,5 +250,131 @@ describe('getRaw per-user → tenant-wide fallback', () => {
 
     await expect(service.getRaw('sync_excel', scope)).resolves.toBeNull()
     expect(mockFindOneWithDecryption).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('readForResolution (strict read for the credential resolver)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+  })
+
+  async function expectUnreadable(promise: Promise<unknown>) {
+    const error = await promise.then(() => null, (caught: unknown) => caught)
+    expect(isIntegrationCredentialError(error)).toBe(true)
+    expect((error as { code?: string }).code).toBe('credential_unreadable')
+  }
+
+  it('reports a missing row as missing without touching KMS', async () => {
+    mockFindOneWithDecryption.mockResolvedValue(null)
+    mockKms(null)
+    const { em } = createMockEntityManager()
+    const service = createCredentialsService(em as never)
+
+    await expect(service.readForResolution('resend', scope)).resolves.toEqual({ status: 'missing' })
+    expect(mockCreateKmsService).not.toHaveBeenCalled()
+  })
+
+  it('pins the lookup to the organization-wide row even when a userId is passed', async () => {
+    mockFindOneWithDecryption.mockResolvedValue(null)
+    const { em } = createMockEntityManager()
+    const service = createCredentialsService(em as never)
+
+    await service.readForResolution('resend', { ...scope, userId: 'user-9' })
+
+    expect(mockFindOneWithDecryption.mock.calls[0][2]).toMatchObject({
+      integrationId: 'resend',
+      organizationId: scope.organizationId,
+      tenantId: scope.tenantId,
+      userId: null,
+    })
+  })
+
+  it('returns decrypted values for a readable row', async () => {
+    const dek = generateDek()
+    mockKms(dek)
+    const encrypted = encryptWithAesGcm(JSON.stringify({ apiKey: 're_customer' }), dek).value
+    mockFindOneWithDecryption.mockResolvedValue({ credentials: { [encryptedBlobKey]: encrypted } } as never)
+    const { em } = createMockEntityManager()
+    const service = createCredentialsService(em as never)
+
+    await expect(service.readForResolution('resend', scope)).resolves.toEqual({
+      status: 'present',
+      values: { apiKey: 're_customer' },
+    })
+  })
+
+  it('throws credential_unreadable when the blob was encrypted with another key, where getRaw reads it as empty', async () => {
+    mockKms(generateDek())
+    const encrypted = encryptWithAesGcm(JSON.stringify({ apiKey: 're_customer' }), generateDek()).value
+    mockFindOneWithDecryption.mockResolvedValue({ credentials: { [encryptedBlobKey]: encrypted } } as never)
+    const { em } = createMockEntityManager()
+    const service = createCredentialsService(em as never)
+
+    await expect(service.getRaw('resend', scope)).resolves.toEqual({})
+    await expectUnreadable(service.readForResolution('resend', scope))
+  })
+
+  it('throws credential_unreadable when the tenant key is unavailable', async () => {
+    mockKms(null)
+    mockFindOneWithDecryption.mockResolvedValue({ credentials: { [encryptedBlobKey]: 'iv:ct:tag:v1' } } as never)
+    const { em } = createMockEntityManager()
+    const service = createCredentialsService(em as never)
+
+    await expectUnreadable(service.readForResolution('resend', scope))
+  })
+
+  it('throws credential_unreadable when the stored column is still ciphertext', async () => {
+    mockFindOneWithDecryption.mockResolvedValue({ credentials: 'aGVsbG8=:d29ybGQ=:dGFn:v1' } as never)
+    const { em } = createMockEntityManager()
+    const service = createCredentialsService(em as never)
+
+    await expectUnreadable(service.readForResolution('resend', scope))
+  })
+
+  it('throws credential_unreadable when the decrypted blob is not an object', async () => {
+    const dek = generateDek()
+    mockKms(dek)
+    const encrypted = encryptWithAesGcm(JSON.stringify(['not', 'an', 'object']), dek).value
+    mockFindOneWithDecryption.mockResolvedValue({ credentials: { [encryptedBlobKey]: encrypted } } as never)
+    const { em } = createMockEntityManager()
+    const service = createCredentialsService(em as never)
+
+    await expectUnreadable(service.readForResolution('resend', scope))
+  })
+
+  it('reads a batch with one query and marks absent integrations as missing', async () => {
+    const dek = generateDek()
+    mockKms(dek)
+    const encrypted = encryptWithAesGcm(JSON.stringify({ apiKey: 'sk-customer' }), dek).value
+    mockFindWithDecryption.mockResolvedValue([
+      { integrationId: 'ai_openai', credentials: { [encryptedBlobKey]: encrypted } },
+    ] as never)
+    const { em } = createMockEntityManager()
+    const service = createCredentialsService(em as never)
+
+    const results = await service.readManyForResolution(['ai_openai', 'ai_anthropic'], scope)
+
+    expect(mockFindWithDecryption).toHaveBeenCalledTimes(1)
+    expect(mockFindWithDecryption.mock.calls[0][2]).toMatchObject({
+      integrationId: { $in: ['ai_openai', 'ai_anthropic'] },
+      organizationId: scope.organizationId,
+      tenantId: scope.tenantId,
+      userId: null,
+      deletedAt: null,
+    })
+    expect(results.get('ai_openai')).toEqual({ status: 'present', values: { apiKey: 'sk-customer' } })
+    expect(results.get('ai_anthropic')).toEqual({ status: 'missing' })
+  })
+
+  it('fails the whole batch when one row is unreadable', async () => {
+    mockKms(generateDek())
+    const foreign = encryptWithAesGcm(JSON.stringify({ apiKey: 'sk-customer' }), generateDek()).value
+    mockFindWithDecryption.mockResolvedValue([
+      { integrationId: 'ai_openai', credentials: { [encryptedBlobKey]: foreign } },
+    ] as never)
+    const { em } = createMockEntityManager()
+    const service = createCredentialsService(em as never)
+
+    await expectUnreadable(service.readManyForResolution(['ai_openai', 'ai_anthropic'], scope))
   })
 })

@@ -13,6 +13,7 @@ import { invoiceCommonErrors, invoiceInvoicesTag } from '../openapi'
 import { translateInvoiceErrorBody } from '../../data/errors'
 import type { InvoiceRouteContext } from '../routeContext'
 import { toRecord } from '@open-mercato/shared/lib/guards'
+import { buildIntegrationCredentialErrorBody, isIntegrationCredentialError } from '@open-mercato/shared/modules/integrations/credential-resolution'
 
 const logger = createLogger('invoice').child({ component: 'invoices-api' })
 
@@ -184,6 +185,9 @@ export async function handleInvoiceInvoiceRouteError(
   }
   if (err instanceof z.ZodError) {
     return NextResponse.json({ error: translate('invoice.errors.invalid_input', 'Invalid input') }, { status: 400 })
+  }
+  if (isIntegrationCredentialError(err)) {
+    return NextResponse.json(buildIntegrationCredentialErrorBody(err, translate), { status: err.status })
   }
   logger.error('Invoice route failed', {
     label,

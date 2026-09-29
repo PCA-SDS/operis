@@ -18,6 +18,14 @@ import {
 } from '@open-mercato/core/modules/api_keys/services/apiKeyService'
 import { checkAiChatRateLimit } from '../../lib/rate-limit'
 import { getUserRoleIds } from '../../lib/user-role-ids'
+import {
+  aiProviderIntegrationId,
+  integrationCredentialErrorResponse,
+  isIntegrationCredentialError,
+  requireIntegrationCredentialResolver,
+} from '@open-mercato/shared/modules/integrations/credential-resolution'
+import { resolveAiProviderIdFromEnv } from '@open-mercato/shared/lib/ai/opencode-provider'
+import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 
 const logger = createLogger('ai_assistant')
 
@@ -204,6 +212,23 @@ export async function POST(req: NextRequest) {
     // streaming branch (for session-token mint + post-`done` binding).
     const container = await createRequestContainer()
     const em = container.resolve<EntityManager>('em')
+
+    // The OpenCode server runs on its own server-wide key and can never use an
+    // organization's key, so every turn is platform credential use: allowed
+    // only when OM_AI_CREDENTIAL_FALLBACK=platform, and recorded when it is.
+    try {
+      await requireIntegrationCredentialResolver(container).authorizePlatformUse({
+        integrationId: aiProviderIntegrationId(resolveAiProviderIdFromEnv()),
+        scope: { tenantId: auth.tenantId ?? null, organizationId: auth.orgId ?? null },
+        operation: 'ai_assistant.opencode_chat',
+        correlationId: sessionId ?? answerQuestion?.sessionId ?? null,
+      })
+    } catch (error) {
+      if (!isIntegrationCredentialError(error)) throw error
+      await closeWriter()
+      const { translate } = await resolveTranslations()
+      return integrationCredentialErrorResponse(error, translate)
+    }
 
     const opencodeAuth: OpenCodeAuthContext = {
       userId: auth.sub,

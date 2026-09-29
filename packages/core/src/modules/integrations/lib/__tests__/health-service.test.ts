@@ -170,4 +170,57 @@ describe('health-service', () => {
     registerIntegration({ id: 'child', title: 'Child', bundleId: 'b1' })
     expect(getEffectiveHealthCheckConfig('child')?.service).toBe('bundleHc')
   })
+
+  describe('testCredentials', () => {
+    function build(check: jest.Mock) {
+      registerIntegration({ id: 'int_test', title: 'Testable', healthCheck: { service: 'mockHealth' } })
+      const stateService = { upsert: jest.fn() }
+      const logWrites = { info: jest.fn(), warn: jest.fn(), error: jest.fn() }
+      const logService = { scoped: jest.fn(() => logWrites) }
+      const credentialsResolve = jest.fn()
+      const container = {
+        resolve: (name: string) => {
+          if (name === 'mockHealth') return { check }
+          if (name === 'integrationCredentialsService') return { resolve: credentialsResolve }
+          throw new Error(`unexpected ${name}`)
+        },
+      } as unknown as AwilixContainer
+      const service = createHealthService(container, stateService as never, logService as never)
+      return { service, stateService, logService, credentialsResolve }
+    }
+
+    it('probes the submitted credentials and persists nothing', async () => {
+      const check = jest.fn(async () => ({ status: 'healthy' as const, message: 'Connected' }))
+      const { service, stateService, logService, credentialsResolve } = build(check)
+
+      const result = await service.testCredentials('int_test', { apiKey: 'sk-submitted-value' }, scope)
+
+      expect(result.status).toBe('healthy')
+      expect(check).toHaveBeenCalledWith({ apiKey: 'sk-submitted-value' }, scope)
+      expect(stateService.upsert).not.toHaveBeenCalled()
+      expect(logService.scoped).not.toHaveBeenCalled()
+      expect(credentialsResolve).not.toHaveBeenCalled()
+    })
+
+    it('redacts submitted values echoed back by a provider error', async () => {
+      const check = jest.fn(async () => {
+        throw new Error('request to https://api.example.test/?key=sk-submitted-value failed')
+      })
+      const { service } = build(check)
+
+      const result = await service.testCredentials('int_test', { apiKey: 'sk-submitted-value' }, scope)
+
+      expect(result.status).toBe('unhealthy')
+      expect(result.message).not.toContain('sk-submitted-value')
+      expect(result.message).toContain('[redacted]')
+    })
+
+    it('reports unconfigured for an empty submission without probing', async () => {
+      const check = jest.fn()
+      const { service } = build(check)
+
+      await expect(service.testCredentials('int_test', {}, scope)).resolves.toMatchObject({ status: 'unconfigured' })
+      expect(check).not.toHaveBeenCalled()
+    })
+  })
 })

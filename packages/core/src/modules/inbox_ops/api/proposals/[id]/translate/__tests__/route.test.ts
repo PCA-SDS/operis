@@ -112,6 +112,9 @@ describe('POST /api/inbox_ops/proposals/[id]/translate', () => {
     expect(json.cached).toBe(false)
     expect(json.translation.summary).toBe('Zamówienie na widgety')
     expect(mockTranslateProposalContent).toHaveBeenCalledWith({
+      container: mockContainer,
+      scope: { tenantId: 'tenant-1', organizationId: 'org-1' },
+      correlationId: 'proposal-1',
       summary: 'Order for widgets',
       actionDescriptions: { 'a-1': 'Create order', 'a-2': 'Create contact' },
       sourceLanguage: 'en',

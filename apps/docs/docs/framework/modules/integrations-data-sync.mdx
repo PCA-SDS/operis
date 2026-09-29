@@ -307,6 +307,8 @@ Adapters get this for free and should not create their own batch span; any spans
 
 Credentials are stored by integration id. If the integration belongs to a bundle and per-integration credentials are empty, the system resolves bundle credentials as fallback. This allows one credential form to drive multiple bundle integrations.
 
+Tenant service keys (customer email, AI) go through the `integrationCredentialResolver` DI service instead of `process.env`. A provider opts in with `credentialResolution: { service, secretField, platformEnv }` on its integration definition. The resolver returns the organization's own key, or the platform key only when `OM_EMAIL_CREDENTIAL_FALLBACK` / `OM_AI_CREDENTIAL_FALLBACK` is `platform`, and records each platform use in the integration log. A stored key that cannot be read or decrypted is an error and never falls back. Error codes and job rules: `packages/core/src/modules/integrations/AGENTS.md` (Organization Credentials).
+
 ## Progress behavior (current state)
 
 - Sync runs are linked to progress jobs and visible in the progress top bar.

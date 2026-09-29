@@ -2,11 +2,12 @@ import { generateObject, generateText } from 'ai'
 import type { AwilixContainer } from 'awilix'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { z } from 'zod'
+import { AiModelFactoryError } from '@open-mercato/ai-assistant/modules/ai_assistant/lib/model-factory'
+import { resolveScopedAiModel } from '@open-mercato/ai-assistant/modules/ai_assistant/lib/ai-credentials'
 import {
-  AiModelFactoryError,
-  createModelFactory,
-  type AiModelFactory,
-} from '@open-mercato/ai-assistant/modules/ai_assistant/lib/model-factory'
+  isIntegrationCredentialError,
+  isPermanentIntegrationCredentialError,
+} from '@open-mercato/shared/modules/integrations/credential-resolution'
 import {
   attachmentPartsToUiFileParts,
   resolveAttachmentParts,
@@ -332,26 +333,33 @@ export function isWarrantyAiNotConfiguredError(err: unknown): boolean {
   return (err as { name?: unknown }).name === 'WarrantyAiNotConfiguredError'
 }
 
-function resolveWarrantyModel(container: AwilixContainer): GenerateTextModel {
-  let factory: AiModelFactory
+async function resolveWarrantyModel(
+  container: AwilixContainer,
+  scope: { tenantId: string; organizationId: string },
+): Promise<GenerateTextModel> {
   try {
-    factory = createModelFactory(container)
-  } catch {
-    throw new WarrantyAiNotConfiguredError()
-  }
-  try {
-    const resolution = factory.resolveModel({ moduleId: MODULE_ID })
+    const resolution = await resolveScopedAiModel({
+      container,
+      request: { scope, operation: 'warranty_claims.ai_assist' },
+      model: { moduleId: MODULE_ID },
+    })
     return resolution.model as GenerateTextModel
   } catch (err) {
-    if (isAiModelFactoryError(err)) {
+    if (isAiModelFactoryError(err) || isPermanentIntegrationCredentialError(err)) {
       throw new WarrantyAiNotConfiguredError()
+    }
+    if (isIntegrationCredentialError(err)) {
+      throw new WarrantyAiUnavailableError('[internal] warranty ai credentials unavailable')
     }
     throw err
   }
 }
 
-function resolveWarrantyObjectModel(container: AwilixContainer): GenerateObjectModel {
-  return resolveWarrantyModel(container) as GenerateObjectModel
+async function resolveWarrantyObjectModel(
+  container: AwilixContainer,
+  scope: { tenantId: string; organizationId: string },
+): Promise<GenerateObjectModel> {
+  return (await resolveWarrantyModel(container, scope)) as GenerateObjectModel
 }
 
 async function buildAttachmentMessages(input: {
@@ -525,11 +533,12 @@ async function loadClaimPromptFacts(input: {
 
 async function generateWarrantyText(input: {
   container: AwilixContainer
+  scope: { tenantId: string; organizationId: string }
   system: string
   prompt: string
   emptyMessage: string
 }): Promise<string> {
-  const model = resolveWarrantyModel(input.container)
+  const model = await resolveWarrantyModel(input.container, input.scope)
   let text: string
   try {
     const result = await withTimeout(
@@ -554,7 +563,7 @@ async function generateWarrantyText(input: {
 }
 
 export async function assessDamagePhoto(input: AssessDamagePhotoInput): Promise<WarrantyDamagePhotoAssessment> {
-  const model = resolveWarrantyObjectModel(input.container)
+  const model = await resolveWarrantyObjectModel(input.container, input.scope)
   const { claim, line } = await loadDamageAssessmentFacts(input)
   const system = [
     'You are a warranty damage assessor reviewing customer-submitted claim photos.',
@@ -593,7 +602,7 @@ export async function assessDamagePhoto(input: AssessDamagePhotoInput): Promise<
 }
 
 export async function extractProofOfPurchase(input: ExtractProofOfPurchaseInput): Promise<WarrantyProofOfPurchaseExtraction> {
-  const model = resolveWarrantyObjectModel(input.container)
+  const model = await resolveWarrantyObjectModel(input.container, input.scope)
   const system = [
     'You extract proof-of-purchase facts for a warranty desk from receipts, invoices, or order confirmations.',
     'Use only facts visible in the attached image or PDF.',
@@ -629,6 +638,7 @@ export async function buildClaimReplyDraft(input: ClaimReplyDraftInput): Promise
   return {
     draft: await generateWarrantyText({
       container: input.container,
+      scope: input.scope,
       system,
       prompt,
       emptyMessage: '[internal] empty ai draft',
@@ -646,6 +656,7 @@ export async function buildClaimSummary(input: ClaimSummaryInput): Promise<{ sum
   return {
     summary: await generateWarrantyText({
       container: input.container,
+      scope: input.scope,
       system,
       prompt,
       emptyMessage: '[internal] empty ai draft',

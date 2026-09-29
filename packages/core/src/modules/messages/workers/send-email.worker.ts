@@ -215,6 +215,7 @@ export default async function handle(
 
     try {
       await sendMessageEmailToExternal({
+        container: ctx,
         message,
         email: payload.email,
         sender,

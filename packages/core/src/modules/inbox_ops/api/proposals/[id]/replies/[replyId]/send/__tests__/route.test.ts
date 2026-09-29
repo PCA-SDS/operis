@@ -2,6 +2,8 @@
 
 import { POST } from '@open-mercato/core/modules/inbox_ops/api/proposals/[id]/replies/[replyId]/send/route'
 import { InboxProposal, InboxProposalAction, InboxEmail } from '@open-mercato/core/modules/inbox_ops/data/entities'
+import { Resend } from 'resend'
+import { createTestCredentialResolver } from '@open-mercato/shared/lib/testing/integrationCredentials'
 
 const mockFindOneWithDecryption = jest.fn()
 
@@ -25,11 +27,16 @@ const mockEm = {
   nativeUpdate: jest.fn(),
 }
 
+const organizationResend = { resend: { secret: 'org-inbox-key', settings: { fromEmail: 'Support <support@org.test>' } } }
+const mockCredentialResolver = { current: createTestCredentialResolver(organizationResend) }
+
 const mockContainer = {
   resolve: jest.fn((token: string) => {
     if (token === 'em') return mockEm
+    if (token === 'integrationCredentialResolver') return mockCredentialResolver.current
     return null
   }),
+  hasRegistration: (token: string) => token === 'integrationCredentialResolver',
 }
 
 const mockEventBus = { emit: jest.fn() }
@@ -116,6 +123,7 @@ describe('POST /api/inbox_ops/proposals/[id]/replies/[replyId]/send', () => {
       EMAIL_FROM: 'ops@example.com',
     }
     mockResendSend.mockResolvedValue({ data: { id: 'sent-msg-1' }, error: null })
+    mockCredentialResolver.current = createTestCredentialResolver(organizationResend)
   })
 
   afterAll(() => {
@@ -131,8 +139,15 @@ describe('POST /api/inbox_ops/proposals/[id]/replies/[replyId]/send', () => {
     expect(response.status).toBe(200)
     expect(payload.ok).toBe(true)
     expect(payload.sentMessageId).toBe('sent-msg-1')
+    expect(Resend).toHaveBeenCalledWith('org-inbox-key')
+    expect(mockCredentialResolver.current.requests[0]).toMatchObject({
+      integrationId: 'resend',
+      scope: { tenantId: 'tenant-1', organizationId: 'org-1' },
+      operation: 'inbox_ops.reply.send',
+    })
     expect(mockResendSend).toHaveBeenCalledWith(
       expect.objectContaining({
+        from: 'Support <support@org.test>',
         to: 'customer@example.com',
         subject: 'Re: Order inquiry',
         text: 'Thank you for your order.',
@@ -144,15 +159,19 @@ describe('POST /api/inbox_ops/proposals/[id]/replies/[replyId]/send', () => {
     )
   })
 
-  it('returns 503 when RESEND_API_KEY is not set and messages module unavailable', async () => {
+  it('returns an actionable 409 and never uses the platform key when the organization has no Resend credential', async () => {
     setupHappyPath()
-    delete process.env.RESEND_API_KEY
+    mockCredentialResolver.current = createTestCredentialResolver({})
 
     const response = await POST(makeRequest())
     const payload = await response.json()
 
-    expect(response.status).toBe(503)
-    expect(payload.error).toContain('not configured')
+    expect(response.status).toBe(409)
+    expect(payload.code).toBe('integration_not_configured')
+    expect(payload.error).toContain('Resend')
+    expect(Resend).not.toHaveBeenCalled()
+    expect(mockResendSend).not.toHaveBeenCalled()
+    expect(mockEm.nativeUpdate).not.toHaveBeenCalled()
   })
 
   it('returns 503 when email delivery is disabled and messages module unavailable', async () => {

@@ -87,7 +87,25 @@ jest.mock('@open-mercato/shared/lib/frontend/useOrganizationScope', () => ({
   useOrganizationScopeVersion: () => 0,
 }))
 
+jest.mock('../../../components/IntegrationVisibilityDialog', () => ({
+  IntegrationVisibilityDialog: ({
+    open,
+    onTogglePinned,
+    onReset,
+  }: {
+    open: boolean
+    onTogglePinned: (id: string, pinned: boolean) => void
+    onReset: () => void
+  }) => (open ? (
+    <div>
+      <button type="button" onClick={() => onTogglePinned('gateway_stripe', true)}>pin-stripe</button>
+      <button type="button" onClick={onReset}>reset-pinned</button>
+    </div>
+  ) : null),
+}))
+
 import IntegrationsMarketplacePage from '../page'
+import { PINNED_INTEGRATIONS_STORAGE_KEY } from '../pinned'
 
 const standaloneIntegration = {
   id: 'gateway_stripe',
@@ -116,6 +134,11 @@ describe('Integrations marketplace — guarded mutation wiring', () => {
     apiCallMock.mockReset()
     flashMock.mockReset()
     apiCallMock.mockResolvedValue({ ok: true, result: listResponse })
+    window.localStorage.setItem(PINNED_INTEGRATIONS_STORAGE_KEY, JSON.stringify(['gateway_stripe']))
+  })
+
+  afterEach(() => {
+    window.localStorage.clear()
   })
 
   it('routes the integration toggle through runMutation and updates local state on success', async () => {
@@ -159,5 +182,42 @@ describe('Integrations marketplace — guarded mutation wiring', () => {
 
     await waitFor(() => expect(flashMock).toHaveBeenCalledWith('integrations.marketplace.loadError', 'error'))
     await waitFor(() => expect(screen.getByText('integrations.marketplace.noResults')).toBeInTheDocument())
+  })
+})
+
+describe('Integrations marketplace — main page selection', () => {
+  beforeEach(() => {
+    apiCallMock.mockReset()
+    flashMock.mockReset()
+    apiCallMock.mockResolvedValue({ ok: true, result: listResponse })
+    window.localStorage.clear()
+  })
+
+  afterEach(() => {
+    window.localStorage.clear()
+  })
+
+  it('hides integrations outside the default selection and counts them', async () => {
+    renderWithProviders(<IntegrationsMarketplacePage />)
+
+    await waitFor(() => expect(screen.getByText('1 more integrations are hidden.')).toBeInTheDocument())
+    expect(screen.queryByRole('switch')).not.toBeInTheDocument()
+    expect(screen.getByText('No integrations are shown here. Use Customize to choose which ones appear.')).toBeInTheDocument()
+  })
+
+  it('shows an integration after it is picked in Customize and remembers the choice', async () => {
+    renderWithProviders(<IntegrationsMarketplacePage />)
+
+    fireEvent.click(await screen.findByText('Customize'))
+    fireEvent.click(await screen.findByText('pin-stripe'))
+
+    expect(await screen.findByRole('switch')).toBeInTheDocument()
+    const stored = JSON.parse(window.localStorage.getItem(PINNED_INTEGRATIONS_STORAGE_KEY) ?? '[]')
+    expect(stored).toContain('gateway_stripe')
+    expect(stored).toContain('resend')
+
+    fireEvent.click(screen.getByText('reset-pinned'))
+    await waitFor(() => expect(screen.queryByRole('switch')).not.toBeInTheDocument())
+    expect(window.localStorage.getItem(PINNED_INTEGRATIONS_STORAGE_KEY)).toBeNull()
   })
 })
