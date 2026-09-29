@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import type { ApiRouteManifestEntry, HttpMethod } from '@open-mercato/shared/modules/registry'
+import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 
 // The default-off runtime bridge is mocked so we can assert dispatcher wiring
 // 5xx + recordHttpDuration on every completed request) without a real backend.
@@ -8,6 +9,7 @@ import type { ApiRouteManifestEntry, HttpMethod } from '@open-mercato/shared/mod
 // calls it with the right method/route/status.
 const mockReportError = jest.fn()
 const mockRecordHttpDuration = jest.fn()
+const mockLifecycleEmit = jest.fn().mockResolvedValue(undefined)
 jest.mock('@open-mercato/shared/lib/telemetry/runtime', () => ({
   getTelemetryRuntime: () => ({
     reportError: mockReportError,
@@ -36,12 +38,19 @@ jest.mock('@open-mercato/shared/lib/di/container', () => ({
   createRequestContainer: async () => ({ resolve: () => null }),
 }))
 
+jest.mock('@open-mercato/shared/modules/events', () => ({
+  getGlobalEventBus: () => ({ emit: mockLifecycleEmit }),
+}))
+
 // Three public routes: a 200, a 5xx (throws), and a returned 4xx.
 const okHandler = async () => new Response('ok', { status: 200 })
 const throwingHandler = async () => {
   throw new Error('boom')
 }
 const badRequestHandler = async () => new Response('bad', { status: 400 })
+const crudErrorHandler = async () => {
+  throw new CrudHttpError(400, { error: 'Organization context is required', code: 'organization_scope_required' })
+}
 
 function getMockedApiRoutes(): ApiRouteManifestEntry[] {
   const publicMeta = { metadata: { GET: { requireAuth: false } } }
@@ -49,6 +58,7 @@ function getMockedApiRoutes(): ApiRouteManifestEntry[] {
     { moduleId: 'tele', kind: 'route-file', path: '/tele/ok', methods: ['GET'], load: async () => ({ GET: okHandler, ...publicMeta }) },
     { moduleId: 'tele', kind: 'route-file', path: '/tele/boom', methods: ['GET'], load: async () => ({ GET: throwingHandler, ...publicMeta }) },
     { moduleId: 'tele', kind: 'route-file', path: '/tele/bad', methods: ['GET'], load: async () => ({ GET: badRequestHandler, ...publicMeta }) },
+    { moduleId: 'tele', kind: 'route-file', path: '/tele/crud-error', methods: ['GET'], load: async () => ({ GET: crudErrorHandler, ...publicMeta }) },
   ]
 }
 
@@ -83,6 +93,7 @@ function request(path: string): NextRequest {
 beforeEach(() => {
   mockReportError.mockClear()
   mockRecordHttpDuration.mockClear()
+  mockLifecycleEmit.mockClear()
 })
 
 describe('API dispatcher telemetry wiring', () => {
@@ -122,5 +133,21 @@ describe('API dispatcher telemetry wiring', () => {
 
     expect(mockRecordHttpDuration).toHaveBeenCalledTimes(1)
     expect(mockRecordHttpDuration).toHaveBeenCalledWith('GET', '/tele/bad', 400, expect.any(Number))
+  })
+
+  it('serializes a handler-thrown CrudHttpError and records it as a completed 4xx request', async () => {
+    const res = await GET(request('/tele/crud-error'), { params: Promise.resolve({ slug: ['tele', 'crud-error'] }) })
+
+    expect(res.status).toBe(400)
+    await expect(res.json()).resolves.toEqual({
+      error: 'Organization context is required',
+      code: 'organization_scope_required',
+    })
+    expect(mockReportError).not.toHaveBeenCalled()
+    expect(mockRecordHttpDuration).toHaveBeenCalledWith('GET', '/tele/crud-error', 400, expect.any(Number))
+    expect(mockLifecycleEmit).toHaveBeenCalledWith(
+      'application.request.completed',
+      expect.objectContaining({ status: 400 }),
+    )
   })
 })

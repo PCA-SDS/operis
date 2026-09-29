@@ -492,6 +492,19 @@ async function handleRequest(
     getTelemetryRuntime()?.recordHttpDuration(method, match.route.path, finalResponse.status, startedAt)
     return finalResponse
   } catch (error) {
+    if (isCrudHttpError(error)) {
+      const response = NextResponse.json(error.body ?? { error: error.message }, { status: error.status })
+      await emitLifecycleEvent(applicationLifecycleEvents.requestCompleted, {
+        ...receivedPayload,
+        status: response.status,
+        userId: auth?.sub ?? null,
+        tenantId: auth?.tenantId ?? null,
+        durationMs: Date.now() - startedAt,
+      })
+      getTelemetryRuntime()?.recordHttpDuration(method, match.route.path, response.status, startedAt)
+      return response
+    }
+
     // Unhandled throws become 500s (Next renders the error). This is the 5xx
     // error funnel: record the exception (correlated to the active trace) and
     // the request-duration metric, then re-throw unchanged.

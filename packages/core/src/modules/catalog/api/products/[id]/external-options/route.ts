@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { resolveRequestContext } from '@open-mercato/shared/lib/api/context'
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
-import type { EntityManager } from '@mikro-orm/postgresql'
 import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { CatalogProduct, CatalogProductOptionGroup, CatalogProductOption } from '../../../../data/entities'
+import { resolveCatalogProductScope } from '../../productScope'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['catalog.products.view'] },
@@ -26,11 +26,7 @@ export async function GET(
   if (!productId) throw new CrudHttpError(400, { error: 'Product ID is required' })
   if (!externalProductId) throw new CrudHttpError(400, { error: 'externalProductId query param is required' })
   if (!ctx.auth?.tenantId) throw new CrudHttpError(401, { error: 'Unauthorized' })
-  if (!ctx.auth.orgId) throw new CrudHttpError(400, { error: 'Organization context is required' })
-
-  const tenantId = ctx.auth.tenantId
-  const organizationId = ctx.auth.orgId
-  const em = ctx.container.resolve<EntityManager>('em').fork()
+  const { em, tenantId, organizationId } = await resolveCatalogProductScope(ctx, request, productId)
 
   const externalProduct = await em.findOne(CatalogProduct, {
     id: externalProductId,
