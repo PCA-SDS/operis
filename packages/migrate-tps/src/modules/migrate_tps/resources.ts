@@ -3,7 +3,7 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import { randomUUID } from 'crypto'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { createLogger } from '@open-mercato/shared/lib/logger'
-import { parseTpsMigrateFlags, parseTpsCsv, connectTps, type Client } from './lib'
+import { parseTpsMigrateFlags, parseTpsCsv, connectTps, reindexTpsSearch, type Client } from './lib'
 import {
   ResourcesResource,
   ResourcesResourceArea,
@@ -249,7 +249,7 @@ async function seedAreaTypeAndGetFloorId(
 export const migrateTpsResourcesCommand: ModuleCli = {
   command: 'resources',
   async run(rest) {
-    const { tenantId, organizationId, replace } = parseTpsMigrateFlags(rest)
+    const { tenantId, organizationId, replace, skipSearchReindex } = parseTpsMigrateFlags(rest)
     const locationFilter = parseLocationFlag(rest)
     const syncCodes = rest.includes('--sync-codes')
 
@@ -546,6 +546,18 @@ export const migrateTpsResourcesCommand: ModuleCli = {
         logger.info(`Migrated ${migratedResources} resources (skipped ${skippedSeats} seats).`)
         logger.info('TPS Resources migration completed successfully!')
       })
+
+      if (!skipSearchReindex) {
+        logger.info('Rebuilding resource and planner query indexes...')
+        await reindexTpsSearch(tenantId, [
+          'resources:resources_resource_area_type',
+          'resources:resources_resource_type',
+          'resources:resources_resource_area',
+          'resources:resources_resource',
+          'planner:planner_availability_rule_set',
+          'planner:planner_availability_rule',
+        ])
+      }
     } catch (err) {
       logger.error('TPS Resources migration failed', { err })
       throw err instanceof Error ? err : new Error('TPS Resources migration failed')

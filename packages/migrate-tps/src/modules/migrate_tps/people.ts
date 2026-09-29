@@ -10,7 +10,7 @@ import { CustomerEntity, CustomerPersonProfile } from '@open-mercato/core/module
 import { computeEmailLookupHash, resolvePhoneIdentity } from '@open-mercato/core/modules/customers/lib/contactIdentity'
 import { computeEmailHash } from '@open-mercato/core/modules/auth/lib/emailHash'
 import { StaffTeamMember, StaffTeamRole } from '@open-mercato/core/modules/staff/data/entities'
-import { TPS_LOCATION_MAPPING, queryTps, type Client } from './lib'
+import { reindexTpsSearch, TPS_LOCATION_MAPPING, queryTps, type Client } from './lib'
 
 type TpsCustomer = {
   id: string
@@ -440,6 +440,7 @@ export const migrateTpsPeopleCommand: ModuleCli = {
     const accountsOnly = rest.includes('--accounts-only')
     const reportSkipped = rest.includes('--report-skipped')
     const repairConflicts = rest.includes('--repair-phone-conflicts')
+    const skipSearchReindex = rest.includes('--skip-search-reindex')
     if ([staffOnly, customersOnly, accountsOnly].filter(Boolean).length > 1) {
       throw new Error('Use only one of --customers-only, --staff-only, or --accounts-only')
     }
@@ -494,6 +495,17 @@ export const migrateTpsPeopleCommand: ModuleCli = {
         logger.info(`Staff job roles: created=${staffStats.rolesCreated}, assigned=${staffStats.rolesAssigned}`)
         logger.info(`User accounts: created=${staffStats.usersCreated}, role links added=${staffStats.usersUpdated}`)
       })
+
+      if (!skipSearchReindex) {
+        logger.info('Rebuilding customer, staff, and user query indexes...')
+        await reindexTpsSearch(tenantId, [
+          'customers:customer_entity',
+          'customers:customer_person_profile',
+          'staff:staff_team_role',
+          'staff:staff_team_member',
+          'auth:user',
+        ])
+      }
     } finally {
       if (client) await client.end()
       const disposable = container as unknown as { dispose?: () => Promise<void> }

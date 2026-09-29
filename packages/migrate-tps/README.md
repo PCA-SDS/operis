@@ -22,6 +22,12 @@ yarn mercato migrate_tps resources <tenantId> <organizationId> [--location <loca
 yarn mercato migrate_tps people <tenantId> <rootOrganizationId> [--replace] [--staff-only]
 ```
 
+Each migration automatically rebuilds the tenant-scoped query indexes for the
+entities it writes. The `all` command defers this rebuild until every migration
+step has committed so the index sees the complete dataset. Use the internal
+`--skip-search-reindex` flag only when coordinating a larger migration flow that
+will run its own query-index rebuild afterward.
+
 `people` imports TPS customers once at tenant level under the root organization,
 then creates one staff membership per branch for TPS accounts with the `STAFF`
 role. TPS accounts are linked to tenant-wide Operis users, and missing users are
