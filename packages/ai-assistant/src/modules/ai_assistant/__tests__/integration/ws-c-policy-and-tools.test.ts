@@ -60,6 +60,8 @@ import { resolveAiAgentTools, AgentPolicyError } from '../../lib/agent-tools'
 import { checkAgentPolicy } from '../../lib/agent-policy'
 import { runAiAgentText } from '../../lib/agent-runtime'
 
+jest.mock('../../lib/ai-credentials', () => require('../../lib/__tests__/helpers/platformAiCredentialsMock').platformAiCredentialsMock())
+
 jest.mock('@open-mercato/shared/lib/logger', () => {
   const mocked = {
     debug: jest.fn(),

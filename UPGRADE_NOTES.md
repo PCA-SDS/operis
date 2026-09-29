@@ -233,6 +233,53 @@ it previously under-reported relative to the items.
 
 ## 0.6.7 → 0.7.0 (2026-08-26)
 
+### Customer email and AI now use each organization's own keys
+
+Customer-facing email and tenant AI features read the credentials each
+organization saves in **Settings > Integrations**. They no longer use the
+shared `RESEND_API_KEY` or the platform AI keys by default.
+
+- **Email** uses the organization's **Resend** integration: quote and invoice
+  sends, payment confirmation requests, portal invitations and signup emails,
+  checkout transaction emails, message copies sent to external recipients,
+  appointment notices and inbox replies.
+- **AI** uses the organization's AI provider integrations (new **AI** category:
+  OpenAI, Anthropic, Google, DeepInfra, Groq, Together AI, Fireworks AI): AI
+  agents and chat, command palette routing, inbox extraction and translation,
+  warranty assist and attachment OCR.
+- **Still on platform keys:** password reset, staff invitations, onboarding
+  and notification emails, the inbound Resend webhook, and search embeddings.
+
+Two variables decide what happens for an organization that has not saved a key.
+Any value other than `platform` counts as `disabled`.
+
+| Variable | `disabled` (default) | `platform` |
+| --- | --- | --- |
+| `OM_EMAIL_CREDENTIAL_FALLBACK` | The send fails with a "not configured" error. | Sends with `RESEND_API_KEY`. |
+| `OM_AI_CREDENTIAL_FALLBACK` | The AI call fails with a "not configured" error, and the OpenCode chat (`POST /api/chat`) is refused. | Uses the platform AI keys. |
+
+Every platform key use writes a `credentials.platform_fallback` entry to that
+integration's log, with the operation and a correlation id. If that entry
+cannot be written, the operation is blocked.
+
+A stored key that cannot be read or decrypted is an error. It never falls back
+to the platform key.
+
+**Action for operators:** before upgrading, either have each organization save
+its keys under Settings > Integrations, or set both variables to `platform` to
+keep today's behaviour. Saving and testing keys needs the existing
+`integrations.credentials.manage` feature (admin and superadmin by default).
+No schema change and no migration. Keys use the existing encrypted
+`integration_credentials` storage.
+
+**Action for module authors:** for tenant work, send customer email with
+`sendCustomerEmail` (`@open-mercato/shared/lib/email/customer-send`) and build
+AI models with `resolveScopedAiModel`
+(`@open-mercato/ai-assistant/modules/ai_assistant/lib/ai-credentials`). Other
+integrations resolve keys through the `integrationCredentialResolver` DI
+service (`@open-mercato/shared/modules/integrations/credential-resolution`).
+Do not read provider keys from `process.env` for tenant work.
+
 ### TPS catalog importer moved to its own package
 
 The one-shot TPS catalog importer moved out of `@open-mercato/core` into a new

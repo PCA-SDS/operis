@@ -393,7 +393,12 @@ Input text is limited to 10,000 characters for cost control.`,
   handler: async (input: { text: string }, ctx: ToolContext) => {
     requireTenantContext(ctx)
 
-    const { model } = await resolveConfiguredStructuredModel({ moduleId: 'inbox_ops' })
+    const { model } = await resolveConfiguredStructuredModel({
+      container: ctx.container,
+      scope: { tenantId: ctx.tenantId, organizationId: ctx.organizationId },
+      operation: 'inbox_ops.ai_tool.categorize',
+      moduleId: 'inbox_ops',
+    })
 
     const { generateObject } = await import('ai')
 

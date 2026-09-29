@@ -73,6 +73,8 @@ import {
 import { toolRegistry } from '../tool-registry'
 import { runAiAgentText } from '../agent-runtime'
 
+jest.mock('../ai-credentials', () => require('./helpers/platformAiCredentialsMock').platformAiCredentialsMock())
+
 const baseAuth = {
   tenantId: 'tenant-1',
   organizationId: 'org-1',

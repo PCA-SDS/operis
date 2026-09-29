@@ -7,6 +7,12 @@ type ResendHealthResult = {
   details: Record<string, unknown>
 }
 
+const RESEND_HEALTH_TIMEOUT_MS = 8_000
+
+function isTimeoutError(error: unknown): boolean {
+  return error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')
+}
+
 function resolveApiKey(credentials: Record<string, unknown>): string {
   return typeof credentials.apiKey === 'string' ? credentials.apiKey.trim() : ''
 }
@@ -55,9 +61,24 @@ export const resendHealthCheck = {
     try {
       const response = await fetch('https://api.resend.com/domains', {
         headers: { Authorization: `Bearer ${apiKey}` },
+        signal: AbortSignal.timeout(RESEND_HEALTH_TIMEOUT_MS),
       })
 
       if (!response.ok) {
+        if (response.status === 429) {
+          return {
+            status: 'degraded',
+            message: 'Resend rate limited the check (HTTP 429); try again shortly',
+            details: { provider: 'resend', httpStatus: response.status },
+          }
+        }
+        if (response.status >= 500) {
+          return {
+            status: 'unhealthy',
+            message: `Resend is unavailable (HTTP ${response.status}); try again later`,
+            details: { provider: 'resend', httpStatus: response.status },
+          }
+        }
         if (response.status === 403) {
           return {
             status: 'degraded',
@@ -105,6 +126,13 @@ export const resendHealthCheck = {
         },
       }
     } catch (error) {
+      if (isTimeoutError(error)) {
+        return {
+          status: 'unhealthy',
+          message: 'Resend did not respond in time',
+          details: { provider: 'resend', timeoutMs: RESEND_HEALTH_TIMEOUT_MS },
+        }
+      }
       const message = error instanceof Error ? error.message : 'Unknown Resend connection error'
       return {
         status: 'unhealthy',

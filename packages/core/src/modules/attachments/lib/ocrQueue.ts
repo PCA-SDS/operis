@@ -3,6 +3,7 @@ import { Attachment, AttachmentPartition } from '../data/entities'
 import { OcrService } from './ocrService'
 import type { StorageDriver } from './drivers/types'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import type { ResolvedIntegrationCredential } from '@open-mercato/shared/modules/integrations/credential-resolution'
 
 const logger = createLogger('attachments').child({ component: 'ocr' })
 
@@ -19,6 +20,7 @@ export async function processAttachmentOcr(
   em: EntityManager,
   payload: OcrRequestedEvent,
   driver: StorageDriver,
+  credential: ResolvedIntegrationCredential,
 ): Promise<void> {
   const { attachmentId, storagePath, mimeType, partitionCode } = payload
 
@@ -30,10 +32,9 @@ export async function processAttachmentOcr(
     const partition = await em.findOne(AttachmentPartition, { code: partitionCode })
     const resolvedModel = partition?.ocrModel ?? process.env.OCR_MODEL ?? 'gpt-4o'
 
-    const ocrService = new OcrService()
-
+    const ocrService = new OcrService({ apiKey: credential.secret.reveal() })
     if (!ocrService.available) {
-      logger.warn('OPENAI_API_KEY not configured, skipping OCR', { attachmentId })
+      logger.warn('OCR credential is empty, skipping OCR', { attachmentId })
       return
     }
 
@@ -73,11 +74,16 @@ export async function processAttachmentOcr(
   }
 }
 
+/**
+ * `credential` comes from `resolveOcrCredential` at upload time and stays in memory: it is never
+ * placed in the payload, so nothing serializable carries the key.
+ */
 export async function requestOcrProcessing(
   em: EntityManager,
   attachment: Attachment,
   driver: StorageDriver,
   storagePath: string,
+  credential: ResolvedIntegrationCredential,
 ): Promise<void> {
   const payload: OcrRequestedEvent = {
     attachmentId: attachment.id,
@@ -98,7 +104,7 @@ export async function requestOcrProcessing(
   const workerEm = em.fork()
 
   setImmediate(() => {
-    processAttachmentOcr(workerEm, payload, driver).catch((error) => {
+    processAttachmentOcr(workerEm, payload, driver, credential).catch((error) => {
       logger.error('Background processing error', { err: error })
     })
   })

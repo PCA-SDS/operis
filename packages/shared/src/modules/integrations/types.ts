@@ -24,6 +24,7 @@ export type IntegrationCategory =
   | 'communication'
   | 'webhook'
   | 'storage'
+  | 'ai'
   | 'other'
 
 export type IntegrationHubId =
@@ -170,6 +171,20 @@ export interface IntegrationDefaultStateConfig {
   isEnabled?: boolean
 }
 
+export type IntegrationCredentialService = 'email' | 'ai'
+
+/**
+ * Opts an integration into `integrationCredentialResolver`. The provider package owns these
+ * env names so core never special-cases a provider. `platformEnv` maps each credential field
+ * to the env names that hold the platform-owned value, first non-empty name wins; it is read
+ * only when the service's fallback policy permits platform use.
+ */
+export interface IntegrationCredentialResolutionConfig {
+  service: IntegrationCredentialService
+  secretField: string
+  platformEnv: Readonly<Record<string, readonly string[]>>
+}
+
 export interface IntegrationDefinition {
   id: string
   title: string
@@ -192,6 +207,7 @@ export interface IntegrationDefinition {
   defaultState?: IntegrationDefaultStateConfig
   credentials?: IntegrationCredentialsSchema
   healthCheck?: IntegrationHealthCheckConfig
+  credentialResolution?: IntegrationCredentialResolutionConfig
 }
 
 export interface ExternalIdEnrichment {

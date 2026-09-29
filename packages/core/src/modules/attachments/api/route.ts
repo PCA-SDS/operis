@@ -11,7 +11,9 @@ import { extractAttachmentContent } from '../lib/textExtraction'
 import { requestOcrProcessing } from '../lib/ocrQueue'
 import { requestAttachmentScan } from '../lib/scanning/scanService'
 import { StorageDriverFactory } from '../lib/drivers'
-import { OcrService, shouldUseLlmOcr } from '../lib/ocrService'
+import { shouldUseLlmOcr } from '../lib/ocrService'
+import { resolveOcrCredential } from '../lib/ocrCredentials'
+import { resolveIntegrationCredentialResolver } from '@open-mercato/shared/modules/integrations/credential-resolution'
 import { clearAttachmentThumbnailCache } from '../lib/thumbnailCache'
 import { assertAttachmentScopeInvariant } from '../lib/access'
 import { resolveAttachmentOrganizationId } from '../lib/requestScope'
@@ -526,8 +528,13 @@ export async function POST(req: Request) {
       : resolveDefaultAttachmentOcrEnabled()
   let extractedContent: string | null = null
   const wantsLlmOcr = requiresOcr && shouldUseLlmOcr(fileMimeType, safeName)
-  const ocrService = wantsLlmOcr ? new OcrService() : null
-  const useLlmOcr = Boolean(wantsLlmOcr && ocrService?.available)
+  const ocrCredential = wantsLlmOcr
+    ? await resolveOcrCredential(resolveIntegrationCredentialResolver(container), {
+      tenantId: auth.tenantId ?? null,
+      organizationId: orgId,
+    })
+    : null
+  const useLlmOcr = ocrCredential !== null
 
   if (requiresOcr && !useLlmOcr) {
     const { filePath: localPath, cleanup } = await uploadDriver.toLocalPath(partition.code, storedPath)
@@ -612,12 +619,12 @@ export async function POST(req: Request) {
     logger.error('Failed to start attachment scan', { attachmentId: att.id, err: error })
   }
 
-  if (useLlmOcr) {
-    requestOcrProcessing(em, att, uploadDriver, storedPath).catch((error) => {
+  if (ocrCredential) {
+    requestOcrProcessing(em, att, uploadDriver, storedPath, ocrCredential).catch((error) => {
       logger.error('Failed to queue OCR processing', { err: error })
     })
   } else if (wantsLlmOcr) {
-    logger.warn('OCR requested but OPENAI_API_KEY not configured, falling back to text extraction when available')
+    logger.info('LLM OCR is not available for this organization; falling back to text extraction when available', { tenantId: auth.tenantId ?? null, organizationId: orgId })
   }
 
   if (dataEngine) {

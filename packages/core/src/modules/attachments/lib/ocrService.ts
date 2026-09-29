@@ -71,7 +71,7 @@ export class OcrService {
   private client: ReturnType<typeof createOpenAI> | null = null
 
   constructor(opts: OcrServiceOptions = {}) {
-    this.apiKey = opts.apiKey ?? process.env.OPENAI_API_KEY ?? null
+    this.apiKey = opts.apiKey?.trim() || null
     this.defaultModel = opts.model ?? process.env.OCR_MODEL ?? DEFAULT_MODEL
   }
 
@@ -81,7 +81,7 @@ export class OcrService {
 
   private ensureClient() {
     if (!this.apiKey) {
-      throw new Error('[attachments.ocr] Missing OPENAI_API_KEY environment variable')
+      throw new Error('[internal] attachments OCR requires a resolved OpenAI credential')
     }
     if (!this.client) {
       this.client = createOpenAI({ apiKey: this.apiKey })

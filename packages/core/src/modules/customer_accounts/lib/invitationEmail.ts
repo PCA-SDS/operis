@@ -1,11 +1,12 @@
 import type { AppContainer } from '@open-mercato/shared/lib/di/container'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
-import { sendEmail } from '@open-mercato/shared/lib/email/send'
+import { sendCustomerEmail } from '@open-mercato/shared/lib/email/customer-send'
 import CustomerInvitationEmail from '@open-mercato/core/modules/customer_accounts/emails/CustomerInvitationEmail'
 import { urlForCustomerOrg } from '@open-mercato/core/modules/customer_accounts/lib/customerUrl'
 
 export type CustomerInvitationEmailInput = {
   container: AppContainer
+  tenantId: string
   organizationId: string
   email: string
   rawToken: string
@@ -34,7 +35,9 @@ export async function sendCustomerInvitationEmail(input: CustomerInvitationEmail
     ),
   }
 
-  await sendEmail({
+  await sendCustomerEmail(input.container, {
+    scope: { tenantId: input.tenantId, organizationId: input.organizationId },
+    operation: 'customer_accounts.invitation.send',
     to: input.email,
     subject,
     react: CustomerInvitationEmail({ inviteUrl, copy }),

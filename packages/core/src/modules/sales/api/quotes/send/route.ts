@@ -11,7 +11,11 @@ import { hashAuthToken } from '../../../../auth/lib/tokenHash'
 import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { SalesQuote } from '../../../data/entities'
 import { quoteSendSchema } from '../../../data/validators'
-import { sendEmail } from '@open-mercato/shared/lib/email/send'
+import { deliverCustomerEmail, resolveCustomerEmailCredential } from '@open-mercato/shared/lib/email/customer-send'
+import {
+  integrationCredentialErrorResponse,
+  isIntegrationCredentialError,
+} from '@open-mercato/shared/modules/integrations/credential-resolution'
 import { resolveStatusEntryIdByValue } from '../../../lib/statusHelpers'
 import { QuoteSentEmail } from '../../../emails/QuoteSentEmail'
 import { createLogger } from '@open-mercato/shared/lib/logger'
@@ -81,6 +85,12 @@ export async function POST(req: Request) {
       throw new CrudHttpError(400, { error: translate('sales.quotes.send.missingEmail', 'Customer email is required to send a quote.') })
     }
 
+    const emailCredential = await resolveCustomerEmailCredential(ctx.container, {
+      scope: { tenantId: quote.tenantId, organizationId: quote.organizationId },
+      operation: 'sales.quote.send',
+      correlationId: quote.id,
+    })
+
     const now = new Date()
     const validUntil = new Date(now)
     validUntil.setUTCDate(validUntil.getUTCDate() + input.validForDays)
@@ -127,7 +137,7 @@ export async function POST(req: Request) {
     }
 
     // Side effect after commit: an email failure must not roll back the send state.
-    await sendEmail({
+    await deliverCustomerEmail(emailCredential, {
       to: email,
       subject: translate('sales.quotes.email.subject', 'Quote {quoteNumber}', { quoteNumber: quote.quoteNumber }),
       react: QuoteSentEmail({ url, copy }),
@@ -141,6 +151,9 @@ export async function POST(req: Request) {
       return NextResponse.json(err.body, { status: err.status })
     }
     const { translate } = await resolveTranslations()
+    if (isIntegrationCredentialError(err)) {
+      return integrationCredentialErrorResponse(err, translate)
+    }
     logger.error('sales.quotes.send failed', { err })
     return NextResponse.json(
       { error: translate('sales.quotes.send.failed', 'Failed to send quote.') },

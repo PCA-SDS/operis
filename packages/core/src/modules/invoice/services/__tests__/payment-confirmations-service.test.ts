@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import { sendEmail } from '@open-mercato/shared/lib/email/send'
+import { createTestCredentialResolver } from '@open-mercato/shared/lib/testing/integrationCredentials'
 
 import type { Invoice, InvoiceInstallment } from '../../data/entities'
 import { emitInvoiceEvent } from '../../events'
@@ -91,16 +92,17 @@ function buildService(invoice: Invoice | null) {
   const companyEmailsService = {
     record: jest.fn(async () => null),
   }
-  const emailSender = { send: jest.fn(async (_scope: typeof scope, options: Parameters<typeof sendEmail>[0]) => sendEmail(options)) }
+  const resolver = createTestCredentialResolver({ resend: { secret: 're_org_confirmations_key' } })
   const service = new InvoicePaymentConfirmationsService(
     em as never,
     companyEmailsService as never,
     undefined,
-    emailSender,
+    resolver,
   )
 
   return {
     service,
+    resolver,
     tx,
     callOrder,
     companyEmailsService,
@@ -131,6 +133,12 @@ describe('InvoicePaymentConfirmationsService.request', () => {
     })
 
     const persisted = harness.tx.create.mock.calls[0]?.[1] as Record<string, unknown>
+    expect(jest.mocked(sendEmail).mock.calls[0]?.[0]).toMatchObject({ apiKey: 're_org_confirmations_key' })
+    expect(harness.resolver.requests[0]).toMatchObject({
+      integrationId: 'resend',
+      scope: { tenantId: scope.tenantId, organizationId: scope.organizationId },
+      operation: 'invoice.payment_confirmation.request',
+    })
     const renderedEmail = JSON.stringify(jest.mocked(sendEmail).mock.calls[0]?.[0]?.react)
     const rawToken = renderedEmail.match(/confirm-payment\/([0-9a-f]{64})/)?.[1]
     expect(rawToken).toBeDefined()
@@ -302,8 +310,7 @@ function buildIncomingHarness(options: {
   const em = {
     transactional: jest.fn(async (work: (manager: typeof tx) => Promise<unknown>) => work(tx)),
   }
-  const emailSender = { send: jest.fn(async (_scope: typeof scope, options: Parameters<typeof sendEmail>[0]) => sendEmail(options)) }
-  const service = new InvoicePaymentConfirmationsService(em as never, {} as never, invoiceService as never, emailSender)
+  const service = new InvoicePaymentConfirmationsService(em as never, {} as never, invoiceService as never)
 
   return {
     service,

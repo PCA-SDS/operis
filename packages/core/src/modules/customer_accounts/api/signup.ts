@@ -3,7 +3,7 @@ import { compare as bcryptCompare } from 'bcryptjs'
 import { z } from 'zod'
 import type { OpenApiRouteDoc, OpenApiMethodDoc } from '@open-mercato/shared/lib/openapi'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
-import { sendEmail } from '@open-mercato/shared/lib/email/send'
+import { sendCustomerEmail } from '@open-mercato/shared/lib/email/customer-send'
 import { signupSchema } from '@open-mercato/core/modules/customer_accounts/data/validators'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { CustomerUserService } from '@open-mercato/core/modules/customer_accounts/services/customerUserService'
@@ -140,7 +140,9 @@ export async function POST(req: Request) {
       ),
     }
 
-    void sendEmail({
+    void sendCustomerEmail(container, {
+      scope: { tenantId, organizationId: existing.organizationId },
+      operation: 'customer_accounts.signup.existing_account',
       to: existing.email,
       subject,
       react: CustomerExistingAccountEmail({ loginUrl, copy }),
@@ -193,7 +195,10 @@ export async function POST(req: Request) {
     ),
   }
 
-  void sendEmail({
+  void sendCustomerEmail(container, {
+    scope: { tenantId, organizationId },
+    operation: 'customer_accounts.signup.verification',
+    correlationId: user.id,
     to: user.email,
     subject,
     react: CustomerSignupVerificationEmail({ verifyUrl, copy }),

@@ -1,5 +1,10 @@
 import { asFunction, asValue } from 'awilix'
 import type { AppContainer } from '@open-mercato/shared/lib/di/container'
+import { tryResolve } from '@open-mercato/shared/lib/di/tryResolve'
+import {
+  INTEGRATION_CREDENTIAL_RESOLVER_KEY,
+  type IntegrationCredentialResolver,
+} from '@open-mercato/shared/modules/integrations/credential-resolution'
 
 import {
   Invoice,
@@ -50,28 +55,30 @@ export function register(container: AppContainer) {
       createInvoiceAutoPaidService(em, invoiceScopedPersistenceService),
     ).scoped().proxy(),
     invoiceTrackingService: asFunction(({ em }) => createInvoiceTrackingService(em)).scoped().proxy(),
-    invoicePaymentConfirmationsService: asFunction(({ em, invoiceCompanyEmailsService, invoiceService }) =>
+    invoicePaymentConfirmationsService: asFunction((cradle) =>
       createInvoicePaymentConfirmationsService(
-        em,
-        invoiceCompanyEmailsService,
-        invoiceService,
-        container.hasRegistration('resendEmailService') ? container.resolve('resendEmailService') : undefined,
+        cradle.em,
+        cradle.invoiceCompanyEmailsService,
+        cradle.invoiceService,
+        tryResolve<IntegrationCredentialResolver>(
+          { resolve: (name: string) => cradle[name] },
+          INTEGRATION_CREDENTIAL_RESOLVER_KEY,
+        ) ?? undefined,
       ),
     ).scoped().proxy(),
-    invoiceService: asFunction(({
-      em,
-      queryEngine,
-      invoiceScopedPersistenceService,
-      invoiceExchangeRatesService,
-      invoiceCompanyEmailsService,
-    }) => createInvoiceService(
-      em,
-      queryEngine,
-      invoiceScopedPersistenceService,
-      invoiceExchangeRatesService,
-      invoiceCompanyEmailsService,
-      container.hasRegistration('resendEmailService') ? container.resolve('resendEmailService') : undefined,
-    )).scoped().proxy(),
+    invoiceService: asFunction((cradle) =>
+      createInvoiceService(
+        cradle.em,
+        cradle.queryEngine,
+        cradle.invoiceScopedPersistenceService,
+        cradle.invoiceExchangeRatesService,
+        cradle.invoiceCompanyEmailsService,
+        tryResolve<IntegrationCredentialResolver>(
+          { resolve: (name: string) => cradle[name] },
+          INTEGRATION_CREDENTIAL_RESOLVER_KEY,
+        ) ?? undefined,
+      ),
+    ).scoped().proxy(),
     invoiceSyncService: asFunction(({ em, cache, progressService, gdtClient, tenantEncryptionService }) =>
       createInvoiceSyncService(em, cache, progressService, gdtClient, tenantEncryptionService),
     ).scoped().proxy(),

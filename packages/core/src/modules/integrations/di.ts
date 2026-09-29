@@ -6,11 +6,14 @@ import { createCredentialsService } from './lib/credentials-service'
 import { createIntegrationStateService } from './lib/state-service'
 import { createIntegrationLogService } from './lib/log-service'
 import { createHealthService } from './lib/health-service'
+import { createIntegrationCredentialResolver, PLATFORM_FALLBACK_LOG_CODE } from './lib/credential-resolver'
+import type { CredentialsService } from './lib/credentials-service'
 import type { IntegrationStateService } from './lib/state-service'
 import type { IntegrationLogService } from './lib/log-service'
 
 type Cradle = {
   em: EntityManager
+  integrationCredentialsService: CredentialsService
   integrationStateService: IntegrationStateService
   integrationLogService: IntegrationLogService
 }
@@ -22,6 +25,29 @@ export function register(container: AppContainer) {
     integrationLogService: asFunction(({ em }: Cradle) => createIntegrationLogService(em)).scoped().proxy(),
     integrationHealthService: asFunction(({ integrationStateService, integrationLogService }: Cradle) =>
       createHealthService(container, integrationStateService, integrationLogService),
+    ).scoped().proxy(),
+    integrationCredentialResolver: asFunction(({ em, integrationCredentialsService, integrationStateService }: Cradle) =>
+      createIntegrationCredentialResolver({
+        credentials: integrationCredentialsService,
+        state: integrationStateService,
+        async recordPlatformUsage(record, scope) {
+          await createIntegrationLogService(em.fork()).write(
+            {
+              integrationId: record.integrationId,
+              level: 'info',
+              message: 'Platform credential used on behalf of the organization',
+              code: PLATFORM_FALLBACK_LOG_CODE,
+              payload: {
+                service: record.service,
+                operation: record.operation,
+                correlationId: record.correlationId,
+                attribution: 'platform',
+              },
+            },
+            scope,
+          )
+        },
+      }),
     ).scoped().proxy(),
     SyncExternalIdMapping: asValue(SyncExternalIdMapping),
     IntegrationCredentials: asValue(IntegrationCredentials),

@@ -14,7 +14,6 @@ import {
   OPEN_CODE_PROVIDER_IDS,
   OPEN_CODE_PROVIDERS,
   getOpenCodeProviderConfiguredEnvKey,
-  isOpenCodeProviderConfigured,
 } from '@open-mercato/shared/lib/ai/opencode-provider'
 import { AiAgentRuntimeOverrideRepository, AiAgentRuntimeOverrideValidationError } from '../../data/repositories/AiAgentRuntimeOverrideRepository'
 import { resolveModerationPolicy } from '../../lib/moderation-policy'
@@ -40,6 +39,7 @@ import {
   readAllowlistConfig,
   type TenantAllowlistSnapshot,
 } from '../../lib/model-allowlist'
+import { resolveAiCredentialContext, resolveAiProviderAvailability, type AiProviderAvailability } from '../../lib/ai-credentials'
 
 const logger = createLogger('ai_assistant')
 
@@ -165,10 +165,20 @@ export async function GET(req: NextRequest) {
     const defaultProviderModel = registryProvider?.defaultModel ?? fallbackOpenCodeProvider?.defaultModel ?? ''
     const configuredModelHint = env.OM_AI_MODEL?.trim() || env.OPENCODE_MODEL?.trim() || defaultProviderModel
     const fallbackModelWithProvider = joinProviderModel(providerId, configuredModelHint)
+    let aiAvailability: AiProviderAvailability | null = null
+    try {
+      aiAvailability = await resolveAiProviderAvailability(await createRequestContainer(), {
+        tenantId: auth.tenantId ?? null,
+        organizationId: auth.orgId ?? null,
+      })
+    } catch (availabilityError) {
+      logger.warn('AI Settings — Failed to resolve organization AI credentials', { err: availabilityError })
+    }
+    const isProviderUsable = (id: string): boolean => aiAvailability?.providerIds.has(id) ?? false
     const apiKeyConfigured = registryProvider
-      ? registryProvider.isConfigured(env)
+      ? isProviderUsable(registryProvider.id)
       : fallbackOpenCodeProvider
-        ? isOpenCodeProviderConfigured(fallbackOpenCodeProviderId)
+        ? isProviderUsable(fallbackOpenCodeProviderId)
         : false
     const displayEnvKey = registryProvider
       ? registryProvider.getConfiguredEnvKey(env)
@@ -269,7 +279,14 @@ export async function GET(req: NextRequest) {
           organizationId,
         })
 
-        const factory = createModelFactory(container)
+        const credentials = await resolveAiCredentialContext(container, {
+          scope: { tenantId, organizationId },
+          operation: 'ai_assistant.settings.view',
+        })
+        const factory = createModelFactory(container, {
+          env: credentials.env,
+          ...(credentials.preferredProviderIds ? { preferredProviderIds: credentials.preferredProviderIds } : {}),
+        })
         const defaultResolution = factory.resolveModel({
           tenantAllowlist: tenantAllowlistSnapshot,
           tenantOverride: tenantOverride
@@ -412,7 +429,7 @@ export async function GET(req: NextRequest) {
           name: info.name,
           defaultModel: info.defaultModel,
           envKey: getOpenCodeProviderConfiguredEnvKey(id),
-          configured: isOpenCodeProviderConfigured(id),
+          configured: isProviderUsable(id),
           defaultModels: registryProvider?.defaultModels ?? [],
         }
       }),
@@ -424,7 +441,7 @@ export async function GET(req: NextRequest) {
           name: p.name,
           defaultModel: p.defaultModels[0]?.id ?? '',
           envKey: null,
-          configured: p.isConfigured(),
+          configured: isProviderUsable(p.id),
           defaultModels: p.defaultModels,
         })),
     ]

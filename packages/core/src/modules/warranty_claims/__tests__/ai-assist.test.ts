@@ -1,6 +1,14 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
 import type { AwilixContainer } from 'awilix'
 import { WarrantyClaim, WarrantyClaimEvent, WarrantyClaimLine } from '../data/entities'
+import { createTestCredentialResolver } from '@open-mercato/shared/lib/testing/integrationCredentials'
+
+const platformAiContainer = {
+  resolve: (name: string) => (name === 'integrationCredentialResolver'
+    ? createTestCredentialResolver({}, { platformFallbackAllowed: true, defaultService: 'ai' })
+    : undefined),
+  hasRegistration: (name: string) => name === 'integrationCredentialResolver',
+} as unknown as AwilixContainer
 import {
   assembleClaimReplyPrompt,
   assembleClaimSummaryPrompt,
@@ -230,7 +238,7 @@ describe('warranty claim AI assist', () => {
 
     await expect(buildClaimReplyDraft({
       em: {} as EntityManager,
-      container: {} as AwilixContainer,
+      container: platformAiContainer,
       scope: { tenantId: TENANT_ID, organizationId: ORG_ID },
       claimId: CLAIM_ID,
     })).rejects.toBeInstanceOf(WarrantyAiNotConfiguredError)
@@ -242,6 +250,33 @@ describe('warranty claim AI assist', () => {
       {},
       { tenantId: TENANT_ID, organizationId: ORG_ID },
     )
+  })
+
+  test('buildClaimReplyDraft reports not configured when the organization has no AI key and fallback is disabled', async () => {
+    const claim = makeClaim()
+    findOneWithDecryptionMock.mockResolvedValue(claim)
+    findWithDecryptionMock
+      .mockResolvedValueOnce([makeLine(claim)])
+      .mockResolvedValueOnce([makeEvent(claim)])
+    const resolver = createTestCredentialResolver({}, { defaultService: 'ai' })
+    const container = {
+      resolve: (name: string) => (name === 'integrationCredentialResolver' ? resolver : undefined),
+      hasRegistration: (name: string) => name === 'integrationCredentialResolver',
+    } as unknown as AwilixContainer
+
+    await expect(buildClaimReplyDraft({
+      em: {} as EntityManager,
+      container,
+      scope: { tenantId: TENANT_ID, organizationId: ORG_ID },
+      claimId: CLAIM_ID,
+    })).rejects.toBeInstanceOf(WarrantyAiNotConfiguredError)
+
+    expect(resolver.requests[0]).toMatchObject({
+      service: 'ai',
+      scope: { tenantId: TENANT_ID, organizationId: ORG_ID },
+      operation: 'warranty_claims.ai_assist',
+    })
+    expect(createModelFactoryMock).not.toHaveBeenCalled()
   })
 
   test('aiTools registers draft and summary tools with expected features', async () => {

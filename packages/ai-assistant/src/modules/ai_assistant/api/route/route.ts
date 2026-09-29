@@ -10,10 +10,16 @@ import { resolveOpenCodeModel } from '@open-mercato/shared/lib/ai/opencode-provi
 import { joinProviderModel } from '@open-mercato/shared/lib/ai/model-id'
 import {
   resolveChatConfig,
-  isProviderConfigured,
   type ChatProviderId,
 } from '../../lib/chat-config'
-import { createModelFactory, AiModelFactoryError } from '../../lib/model-factory'
+import { AiModelFactoryError } from '../../lib/model-factory'
+import { resolveAiCredentialContext, resolveScopedAiModel, type AiCredentialRequest } from '../../lib/ai-credentials'
+import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
+import {
+  IntegrationCredentialError,
+  integrationCredentialErrorResponse,
+  isIntegrationCredentialError,
+} from '@open-mercato/shared/modules/integrations/credential-resolution'
 
 const logger = createLogger('ai_assistant')
 
@@ -36,7 +42,7 @@ const RouteResultSchema = z.object({
   reasoning: z.string(),
 })
 
-function createRoutingModel(providerId: ChatProviderId, configuredModel?: string) {
+function createRoutingModel(providerId: ChatProviderId, apiKey: string, configuredModel?: string) {
   const provider = llmProviderRegistry.get(providerId)
   if (!provider) {
     throw new Error(`Unknown provider: ${providerId}`)
@@ -62,12 +68,6 @@ function createRoutingModel(providerId: ChatProviderId, configuredModel?: string
     const requested = (configuredModel ?? '').trim()
     modelId = requested.length > 0 ? requested : provider.defaultModel
     modelWithProvider = joinProviderModel(providerId, modelId)
-  }
-
-  const apiKey = provider.resolveApiKey()
-  if (!apiKey) {
-    const envKey = provider.getConfiguredEnvKey()
-    throw new Error(`${envKey} not configured for provider "${providerId}"`)
   }
 
   const model = provider.createModel({ modelId, apiKey }) as unknown as Parameters<
@@ -103,6 +103,10 @@ export async function POST(req: NextRequest) {
 
     // Get user's configured provider
     const container = await createRequestContainer()
+    const credentialRequest: AiCredentialRequest = {
+      scope: { tenantId: auth.tenantId, organizationId: auth.orgId ?? null },
+      operation: 'ai_assistant.route',
+    }
     let config = await resolveChatConfig(container)
 
     // When no DB-stored config is present, delegate provider + model resolution
@@ -114,8 +118,10 @@ export async function POST(req: NextRequest) {
     if (!config) {
       let factoryResolution
       try {
-        factoryResolution = createModelFactory(container).resolveModel({
-          callerOverride: undefined,
+        factoryResolution = await resolveScopedAiModel({
+          container,
+          request: credentialRequest,
+          model: { callerOverride: undefined },
         })
       } catch (error) {
         if (error instanceof AiModelFactoryError && error.code === 'no_provider_configured') {
@@ -159,7 +165,12 @@ Respond with:
     logger.debug('Using provider', { providerId: config.providerId })
 
     // Verify the configured provider is still available
-    if (!isProviderConfigured(config.providerId)) {
+    const credentials = await resolveAiCredentialContext(container, credentialRequest)
+    const providerApiKey = credentials.resolveProviderApiKey(config.providerId)
+    if (!providerApiKey) {
+      if (credentials.source === 'customer') {
+        throw new IntegrationCredentialError('integration_not_configured', { service: 'ai' })
+      }
       return NextResponse.json(
         { error: `Configured provider ${config.providerId} is no longer available. Please update settings.` },
         { status: 503 }
@@ -167,7 +178,8 @@ Respond with:
     }
 
     // Use fast model for the configured provider
-    const { model, modelWithProvider } = createRoutingModel(config.providerId, config.model)
+    const { model, modelWithProvider } = createRoutingModel(config.providerId, providerApiKey, config.model)
+    await credentials.markModelUsed(config.providerId)
 
     const toolList = availableTools
       .map((t) => `- ${t.name}: ${t.description}`)
@@ -195,6 +207,10 @@ Respond with:
     logger.debug('Routing result', { resultKeys: Object.keys(result.object ?? {}).join(',') })
     return NextResponse.json(result.object)
   } catch (error) {
+    if (isIntegrationCredentialError(error)) {
+      const { translate } = await resolveTranslations()
+      return integrationCredentialErrorResponse(error, translate)
+    }
     logger.error('AI Route — Error routing query', { err: error })
     return NextResponse.json(
       { error: 'Routing request failed' },

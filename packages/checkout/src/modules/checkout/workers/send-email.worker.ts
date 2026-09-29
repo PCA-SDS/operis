@@ -1,14 +1,18 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { DEFAULT_NOTIFICATION_DELIVERY_CONFIG, resolveNotificationDeliveryConfig } from '@open-mercato/core/modules/notifications/lib/deliveryConfig'
 import type { JobContext, QueuedJob, WorkerMeta } from '@open-mercato/queue'
-import { sendEmail } from '@open-mercato/shared/lib/email/send'
+import { sendCustomerEmail } from '@open-mercato/shared/lib/email/customer-send'
 import { escapeHtml } from '@open-mercato/shared/lib/html/escapeHtml'
 import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
+import { createLogger } from '@open-mercato/shared/lib/logger'
+import { isPermanentIntegrationCredentialError } from '@open-mercato/shared/modules/integrations/credential-resolution'
 import { CheckoutTransaction, CheckoutLink } from '../data/entities'
 import PaymentStartEmail from '../emails/PaymentStartEmail'
 import PaymentSuccessEmail from '../emails/PaymentSuccessEmail'
 import PaymentErrorEmail from '../emails/PaymentErrorEmail'
+
+const logger = createLogger('checkout').child({ component: 'send-email-worker' })
 
 export const CHECKOUT_EMAIL_QUEUE = 'checkout-email'
 
@@ -157,87 +161,110 @@ export default async function handle(job: QueuedJob<CheckoutEmailJob>, ctx: Hand
     return { subject, bodyHtml }
   }
 
-  if (payload.type === 'start') {
-    if (link?.sendStartEmail === false) return
-    const { subject, bodyHtml } = await resolveEmailContent(
-      link?.startEmailSubject,
-      link?.startEmailBody,
-      t('checkout.systemEmails.start.subject', 'Payment initiated - {linkTitle}', { linkTitle }),
-    )
-    await sendEmail({
-      to: email,
-      subject,
-      from,
-      replyTo,
-      react: PaymentStartEmail({
-        firstName,
-        amount,
-        currencyCode,
-        linkTitle,
-        bodyHtml,
-        copy: {
-          title: t('checkout.systemEmails.start.title'),
-          preview: t('checkout.systemEmails.start.preview', { amount, currencyCode }),
-          greeting: t('checkout.systemEmails.start.greeting', { firstName, linkTitle }),
-          message: t('checkout.systemEmails.start.message'),
-          hint: t('checkout.systemEmails.start.hint'),
-        },
-      }),
-    })
-  } else if (payload.type === 'success') {
-    if (link?.sendSuccessEmail === false) return
-    const { subject, bodyHtml } = await resolveEmailContent(
-      link?.successEmailSubject,
-      link?.successEmailBody,
-      t('checkout.systemEmails.success.subject', 'Payment successful - {linkTitle}', { linkTitle }),
-    )
-    await sendEmail({
-      to: email,
-      subject,
-      from,
-      replyTo,
-      react: PaymentSuccessEmail({
-        firstName,
-        amount,
-        currencyCode,
-        linkTitle,
+  try {
+    if (payload.type === 'start') {
+      if (link?.sendStartEmail === false) return
+      const { subject, bodyHtml } = await resolveEmailContent(
+        link?.startEmailSubject,
+        link?.startEmailBody,
+        t('checkout.systemEmails.start.subject', 'Payment initiated - {linkTitle}', { linkTitle }),
+      )
+      await sendCustomerEmail(ctx, {
+        scope: { tenantId: payload.tenantId, organizationId: payload.organizationId },
+        operation: 'checkout.transaction.email_start',
+        correlationId: transaction.id,
+        to: email,
+        subject,
+        defaultFrom: from,
+        replyTo,
+        react: PaymentStartEmail({
+          firstName,
+          amount,
+          currencyCode,
+          linkTitle,
+          bodyHtml,
+          copy: {
+            title: t('checkout.systemEmails.start.title'),
+            preview: t('checkout.systemEmails.start.preview', { amount, currencyCode }),
+            greeting: t('checkout.systemEmails.start.greeting', { firstName, linkTitle }),
+            message: t('checkout.systemEmails.start.message'),
+            hint: t('checkout.systemEmails.start.hint'),
+          },
+        }),
+      })
+    } else if (payload.type === 'success') {
+      if (link?.sendSuccessEmail === false) return
+      const { subject, bodyHtml } = await resolveEmailContent(
+        link?.successEmailSubject,
+        link?.successEmailBody,
+        t('checkout.systemEmails.success.subject', 'Payment successful - {linkTitle}', { linkTitle }),
+      )
+      await sendCustomerEmail(ctx, {
+        scope: { tenantId: payload.tenantId, organizationId: payload.organizationId },
+        operation: 'checkout.transaction.email_success',
+        correlationId: transaction.id,
+        to: email,
+        subject,
+        defaultFrom: from,
+        replyTo,
+        react: PaymentSuccessEmail({
+          firstName,
+          amount,
+          currencyCode,
+          linkTitle,
+          transactionId: transaction.id,
+          bodyHtml,
+          copy: {
+            title: t('checkout.systemEmails.success.title'),
+            preview: t('checkout.systemEmails.success.preview', { amount, currencyCode }),
+            greeting: t('checkout.systemEmails.success.greeting', { firstName, linkTitle }),
+            receipt: t('checkout.systemEmails.success.receipt'),
+            hint: t('checkout.systemEmails.success.hint'),
+            transactionLabel: t('checkout.systemEmails.success.transactionLabel'),
+          },
+        }),
+      })
+    } else if (payload.type === 'error') {
+      if (link?.sendErrorEmail === false) return
+      const { subject, bodyHtml } = await resolveEmailContent(
+        link?.errorEmailSubject,
+        link?.errorEmailBody,
+        t('checkout.systemEmails.error.subject', 'Payment failed - {linkTitle}', { linkTitle }),
+      )
+      await sendCustomerEmail(ctx, {
+        scope: { tenantId: payload.tenantId, organizationId: payload.organizationId },
+        operation: 'checkout.transaction.email_error',
+        correlationId: transaction.id,
+        to: email,
+        subject,
+        defaultFrom: from,
+        replyTo,
+        react: PaymentErrorEmail({
+          firstName,
+          linkTitle,
+          errorMessage,
+          bodyHtml,
+          copy: {
+            title: t('checkout.systemEmails.error.title'),
+            preview: t('checkout.systemEmails.error.preview', { linkTitle }),
+            greeting: t('checkout.systemEmails.error.greeting', { firstName, linkTitle }),
+            retry: t('checkout.systemEmails.error.retry'),
+            hint: t('checkout.systemEmails.error.hint'),
+          },
+        }),
+      })
+    }
+  } catch (error) {
+    if (isPermanentIntegrationCredentialError(error)) {
+      logger.warn('Checkout email skipped: organization email credentials are not usable', {
+        code: error.code,
+        type: payload.type,
         transactionId: transaction.id,
-        bodyHtml,
-        copy: {
-          title: t('checkout.systemEmails.success.title'),
-          preview: t('checkout.systemEmails.success.preview', { amount, currencyCode }),
-          greeting: t('checkout.systemEmails.success.greeting', { firstName, linkTitle }),
-          receipt: t('checkout.systemEmails.success.receipt'),
-          hint: t('checkout.systemEmails.success.hint'),
-          transactionLabel: t('checkout.systemEmails.success.transactionLabel'),
-        },
-      }),
-    })
-  } else if (payload.type === 'error') {
-    if (link?.sendErrorEmail === false) return
-    const { subject, bodyHtml } = await resolveEmailContent(
-      link?.errorEmailSubject,
-      link?.errorEmailBody,
-      t('checkout.systemEmails.error.subject', 'Payment failed - {linkTitle}', { linkTitle }),
-    )
-    await sendEmail({
-      to: email,
-      subject,
-      from,
-      replyTo,
-      react: PaymentErrorEmail({
-        firstName,
-        linkTitle,
-        errorMessage,
-        bodyHtml,
-        copy: {
-          title: t('checkout.systemEmails.error.title'),
-          preview: t('checkout.systemEmails.error.preview', { linkTitle }),
-          greeting: t('checkout.systemEmails.error.greeting', { firstName, linkTitle }),
-          retry: t('checkout.systemEmails.error.retry'),
-          hint: t('checkout.systemEmails.error.hint'),
-        },
-      }),
-    })
+        tenantId: payload.tenantId,
+        organizationId: payload.organizationId,
+      })
+      return
+    }
+    throw error
   }
 }

@@ -11,6 +11,8 @@ import {
   handleRouteError,
   isErrorResponse,
 } from '../../../routeHelpers'
+import { integrationCredentialErrorResponse, isIntegrationCredentialError } from '@open-mercato/shared/modules/integrations/credential-resolution'
+import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 
 export const metadata = {
   POST: { requireAuth: true, requireFeatures: ['inbox_ops.proposals.manage'] },
@@ -61,6 +63,9 @@ export async function POST(req: Request) {
     }
 
     const result = await translateProposalContent({
+      container: ctx.container,
+      scope: { tenantId: ctx.tenantId, organizationId: ctx.organizationId },
+      correlationId: proposal.id,
       summary: proposal.summary,
       actionDescriptions,
       sourceLanguage: proposalLanguage,
@@ -81,6 +86,10 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ translation: entry, cached: false })
   } catch (err) {
+    if (isIntegrationCredentialError(err)) {
+      const { translate } = await resolveTranslations()
+      return integrationCredentialErrorResponse(err, translate)
+    }
     return handleRouteError(err, 'translate proposal')
   }
 }

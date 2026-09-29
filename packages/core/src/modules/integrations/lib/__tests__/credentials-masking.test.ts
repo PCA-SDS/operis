@@ -4,6 +4,7 @@ import type { IntegrationCredentialsSchema } from '@open-mercato/shared/modules/
 
 import {
   MASKED_SECRET_VALUE,
+  findMaskedSecretsWithChangedSettings,
   maskSecretCredentials,
   mergeMaskedSecretCredentials,
 } from '../credentials-masking'
@@ -109,5 +110,39 @@ describe('mergeMaskedSecretCredentials', () => {
       { clientId: 'stored-client' },
     )
     expect(merged.clientId).toBe(MASKED_SECRET_VALUE)
+  })
+})
+
+describe('findMaskedSecretsWithChangedSettings', () => {
+  const stored = { apiUrl: 'https://user:pw@api.example.com/', clientId: 'client', apiSecret: 'stored-secret' }
+
+  it('allows the placeholder when settings match what the form was shown', () => {
+    expect(
+      findMaskedSecretsWithChangedSettings(
+        schema,
+        { apiUrl: 'https://api.example.com/', clientId: 'client', apiSecret: MASKED_SECRET_VALUE },
+        stored,
+      ),
+    ).toEqual([])
+  })
+
+  it('flags masked secrets when a non-secret setting changed', () => {
+    expect(
+      findMaskedSecretsWithChangedSettings(
+        schema,
+        { apiUrl: 'https://attacker.example.net/', clientId: 'client', apiSecret: MASKED_SECRET_VALUE },
+        stored,
+      ),
+    ).toEqual(['apiSecret'])
+  })
+
+  it('ignores changed settings when every secret is typed again', () => {
+    expect(
+      findMaskedSecretsWithChangedSettings(
+        schema,
+        { apiUrl: 'https://attacker.example.net/', clientId: 'client', apiSecret: 'typed-secret' },
+        stored,
+      ),
+    ).toEqual([])
   })
 })
