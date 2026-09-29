@@ -57,4 +57,23 @@ describe('AppointmentResourceTimeline compact service labels', () => {
     expect(screen.getByText('Natural Glow')).toBeInTheDocument()
     expect(screen.getByText('Radiant Cleansing')).toBeInTheDocument()
   })
+
+  it('renders attachment-backed resource icons as images', () => {
+    const iconUrl = '/api/attachments/file/attachment-1'
+    const { container } = render(
+      <AppointmentResourceTimeline
+        date="2026-09-28"
+        resources={[{
+          id: 'resource-101',
+          name: 'Lash Nail 101',
+          appearanceIcon: iconUrl,
+        }]}
+        appointments={[]}
+        blocks={[]}
+      />,
+    )
+
+    expect(container.querySelector(`img[src="${iconUrl}"]`)).not.toBeNull()
+    expect(screen.queryByText(iconUrl)).not.toBeInTheDocument()
+  })
 })
