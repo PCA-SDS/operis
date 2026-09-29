@@ -52,7 +52,7 @@ describe('PUT /products/[id]/option-tree', () => {
             return null
           },
         },
-        auth: { tenantId: TENANT_ID, orgId: ORG_ID, userId: 'user-1' },
+        auth: { tenantId: TENANT_ID, orgId: ORG_ID, sub: 'user-1', userId: 'user-1' },
         organizationScope: null,
         selectedOrganizationId: ORG_ID,
         organizationIds: [ORG_ID],
@@ -205,7 +205,7 @@ describe('GET /products/[id]/option-tree org-scoped isolation', () => {
           return null
         },
       },
-      auth: { tenantId: TENANT_ID, orgId },
+      auth: { tenantId: TENANT_ID, orgId, sub: 'user-1' },
       organizationScope: null,
       selectedOrganizationId: orgId,
       organizationIds: [orgId],
@@ -231,7 +231,7 @@ describe('GET /products/[id]/option-tree org-scoped isolation', () => {
       expect.objectContaining({
         id: PRODUCT_ID,
         tenantId: TENANT_ID,
-        organizationId: ORG_A,
+        organizationId: { $in: [ORG_A] },
         deletedAt: null,
       }),
     )
@@ -262,11 +262,13 @@ describe('GET /products/[id]/option-tree org-scoped isolation', () => {
     )
   })
 
-  it('fails closed when organization context is absent', async () => {
+  it('reads a product by its authorized record scope when all organizations is selected', async () => {
     ;(resolveRequestContext as jest.Mock).mockResolvedValue({
       ctx: {
-        container: { resolve: () => mockEm.em },
-        auth: { tenantId: TENANT_ID, orgId: null },
+        container: {
+          resolve: (token: string) => token === 'em' ? mockEm.em : null,
+        },
+        auth: { tenantId: TENANT_ID, orgId: null, sub: 'user-1', isSuperAdmin: true },
         organizationScope: null,
         selectedOrganizationId: null,
         organizationIds: null,
@@ -278,9 +280,7 @@ describe('GET /products/[id]/option-tree org-scoped isolation', () => {
       headers: { 'user-agent': 'jest-test' },
     })
 
-    await expect(GET(req, { params: { id: PRODUCT_ID } })).rejects.toMatchObject({
-      body: { error: 'Organization context is required' },
-    })
+    await expect(GET(req, { params: { id: PRODUCT_ID } })).resolves.toBeDefined()
   })
 })
 
@@ -326,7 +326,7 @@ describe('PUT /products/[id]/option-tree org-scoped isolation', () => {
             return null
           },
         },
-        auth: { tenantId: TENANT_ID, orgId: ORG_A, userId: 'user-1' },
+        auth: { tenantId: TENANT_ID, orgId: ORG_A, sub: 'user-1', userId: 'user-1' },
         organizationScope: null,
         selectedOrganizationId: ORG_A,
         organizationIds: [ORG_A],

@@ -3,13 +3,13 @@ import type { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { resolveRequestContext } from '@open-mercato/shared/lib/api/context'
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
-import type { EntityManager } from '@mikro-orm/postgresql'
 import { CatalogProduct, CatalogProductOptionGroup, CatalogProductOption, CatalogProductPrice, CatalogProductConstraint } from '../../../../data/entities'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import type { CommandBus } from '@open-mercato/shared/lib/commands'
 import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 import type { CatalogProductOptionTreeSyncInput } from '../../../../data/validators'
 import { CATALOG_DURATION_UNITS, normalizeCatalogDurationUnit } from '../../../../lib/durationUnits'
+import { resolveCatalogProductScope } from '../../productScope'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['catalog.products.view'] },
@@ -190,22 +190,7 @@ export async function GET(
   if (!ctx.auth?.tenantId) {
     throw new CrudHttpError(401, { error: 'Unauthorized' })
   }
-  if (!ctx.auth.orgId) {
-    throw new CrudHttpError(400, { error: 'Organization context is required' })
-  }
-
-  const em = ctx.container.resolve<EntityManager>('em').fork()
-  const tenantId = ctx.auth.tenantId
-  const organizationId = ctx.auth.orgId
-  const product = await em.findOne(CatalogProduct, {
-    id: productId,
-    tenantId,
-    organizationId,
-    deletedAt: null,
-  })
-  if (!product) {
-    throw new CrudHttpError(404, { error: 'Product not found' })
-  }
+  const { em, product, tenantId, organizationId } = await resolveCatalogProductScope(ctx, request, productId)
 
   // Fetch all groups for this product
   const groups = await em.find(
@@ -319,7 +304,9 @@ export async function PUT(
 
   if (!productId) throw new CrudHttpError(400, { error: 'Product ID is required' })
   if (!ctx.auth?.tenantId) throw new CrudHttpError(401, { error: 'Unauthorized' })
-  if (!ctx.auth.orgId) throw new CrudHttpError(400, { error: 'Organization context is required' })
+  const { scope, tenantId, organizationId } = await resolveCatalogProductScope(ctx, request, productId, {
+    requireConcreteOrganization: true,
+  })
 
   let rawBody: unknown
   try {
@@ -338,8 +325,8 @@ export async function PUT(
 
   const payload: CatalogProductOptionTreeSyncInput = {
     productId,
-    tenantId: ctx.auth.tenantId,
-    organizationId: ctx.auth.orgId,
+    tenantId,
+    organizationId,
     groups: parsedBody.data.groups.map((g) => ({
       id: g.id,
       parentOptionId: g.parent_option_id ?? g.parentOptionId ?? null,
@@ -391,11 +378,11 @@ export async function PUT(
 
   const guardResult = await runRouteMutationGuards({
     container: ctx.container,
-    req: request,
-    auth: {
-      userId: ctx.auth?.sub ?? '',
-      tenantId: ctx.auth.tenantId,
-      organizationId: ctx.selectedOrganizationId ?? ctx.auth.orgId ?? null,
+      req: request,
+      auth: {
+        userId: ctx.auth?.sub ?? '',
+        tenantId,
+        organizationId: scope.selectedId,
     },
     input: { resourceKind: 'catalog.product', resourceId: productId, operation: 'update' },
   })
@@ -408,10 +395,10 @@ export async function PUT(
     input: payload,
     ctx: {
       container: ctx.container,
-      auth: ctx.auth,
-      organizationScope: ctx.organizationScope as any,
-      selectedOrganizationId: ctx.selectedOrganizationId ?? null,
-      organizationIds: ctx.organizationIds ?? null,
+      auth: { ...ctx.auth, tenantId, orgId: scope.selectedId },
+      organizationScope: scope,
+      selectedOrganizationId: scope.selectedId,
+      organizationIds: scope.filterIds,
       request: request as any,
     },
     metadata: {

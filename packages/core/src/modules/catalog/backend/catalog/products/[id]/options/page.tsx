@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { ErrorMessage } from '@open-mercato/ui/backend/detail'
@@ -15,6 +15,7 @@ import {
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { surfaceRecordConflict } from '@open-mercato/ui/backend/conflicts'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
@@ -42,15 +43,19 @@ export default function ProductOptionsPage({ params }: { params?: { id?: string 
   const [localOptions, setLocalOptions] = useState<OptionItem[]>([])
   const [isDirty, setIsDirty] = useState(false)
   const [currencyCode, setCurrencyCode] = useState<string>('USD')
+  const loadRequestId = useRef(0)
+  const scopeVersion = useOrganizationScopeVersion()
 
   const loadData = useCallback(async () => {
     if (!productId) return
+    const requestId = ++loadRequestId.current
     setLoading(true)
     setLoadError(null)
     try {
       const result = await readApiResultOrThrow<CatalogOptionTreeData & { currency_code?: string }>(
         `/api/catalog/products/${productId}/option-tree`
       )
+      if (requestId !== loadRequestId.current) return
       setLocalGroups(result.groups || [])
       setLocalOptions(result.options || [])
       setTreeUpdatedAt(result.updated_at ?? null)
@@ -60,6 +65,7 @@ export default function ProductOptionsPage({ params }: { params?: { id?: string 
       setIsDirty(false)
       setLoadSucceeded(true)
     } catch (err) {
+      if (requestId !== loadRequestId.current) return
       logger.error('options.load.failed', { err })
       setTreeUpdatedAt(null)
       setLoadSucceeded(false)
@@ -67,11 +73,11 @@ export default function ProductOptionsPage({ params }: { params?: { id?: string 
         t('catalog.options.loadFailed', 'Failed to load option tree.'),
       )
     } finally {
-      setLoading(false)
+      if (requestId === loadRequestId.current) setLoading(false)
     }
   }, [productId, t])
 
-  useEffect(() => { void loadData() }, [loadData])
+  useEffect(() => { void loadData() }, [loadData, scopeVersion])
 
   const { runMutation } = useGuardedMutation({ contextId: 'option-tree' })
 

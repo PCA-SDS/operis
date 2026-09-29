@@ -3,12 +3,12 @@ import type { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { resolveRequestContext } from '@open-mercato/shared/lib/api/context'
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
-import type { EntityManager } from '@mikro-orm/postgresql'
-import { CatalogProduct, CatalogProductConstraint } from '../../../../data/entities'
+import { CatalogProductConstraint } from '../../../../data/entities'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import type { CommandBus } from '@open-mercato/shared/lib/commands'
 import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 import type { ProductConstraintsSyncInput } from '../../../../data/validators'
+import { resolveCatalogProductScope } from '../../productScope'
 import { CATALOG_CONSTRAINT_TYPES } from '../../../../data/types'
 
 export const metadata = {
@@ -139,20 +139,7 @@ export async function GET(
 
   if (!productId) throw new CrudHttpError(400, { error: 'Product ID is required' })
   if (!ctx.auth?.tenantId) throw new CrudHttpError(401, { error: 'Unauthorized' })
-  if (!ctx.auth.orgId) throw new CrudHttpError(400, { error: 'Organization context is required' })
-
-  const tenantId = ctx.auth.tenantId
-  const organizationId = ctx.auth.orgId
-  const em = ctx.container.resolve('em') as EntityManager
-
-  const product = await em.findOne(CatalogProduct, {
-    id: productId,
-    tenantId,
-    organizationId,
-    deletedAt: null,
-  })
-
-  if (!product) throw new CrudHttpError(404, { error: 'Product not found' })
+  const { em, product, tenantId, organizationId } = await resolveCatalogProductScope(ctx, request, productId)
 
   const url = new URL(request.url)
   const includeIncoming = url.searchParams.get('incoming') === 'true'
@@ -246,10 +233,9 @@ export async function PUT(
 
   if (!productId) throw new CrudHttpError(400, { error: 'Product ID is required' })
   if (!ctx.auth?.tenantId) throw new CrudHttpError(401, { error: 'Unauthorized' })
-  if (!ctx.auth.orgId) throw new CrudHttpError(400, { error: 'Organization context is required' })
-
-  const tenantId = ctx.auth.tenantId
-  const organizationId = ctx.auth.orgId
+  const { scope, tenantId, organizationId } = await resolveCatalogProductScope(ctx, request, productId, {
+    requireConcreteOrganization: true,
+  })
 
   let rawBody: unknown
   try {
@@ -281,11 +267,11 @@ export async function PUT(
   const commandBus = ctx.container.resolve('commandBus') as CommandBus
   const guardResult = await runRouteMutationGuards({
     container: ctx.container,
-    req: request,
-    auth: {
-      userId: ctx.auth?.sub ?? '',
-      tenantId: ctx.auth.tenantId,
-      organizationId: ctx.selectedOrganizationId ?? ctx.auth.orgId ?? null,
+      req: request,
+      auth: {
+        userId: ctx.auth?.sub ?? '',
+        tenantId,
+        organizationId: scope.selectedId,
     },
     input: { resourceKind: 'catalog.product', resourceId: productId, operation: 'update' },
   })
@@ -297,10 +283,10 @@ export async function PUT(
     input: commandInput,
     ctx: {
       container: ctx.container,
-      auth: ctx.auth,
-      organizationScope: ctx.organizationScope as any,
-      selectedOrganizationId: ctx.selectedOrganizationId ?? null,
-      organizationIds: ctx.organizationIds ?? null,
+      auth: { ...ctx.auth, tenantId, orgId: scope.selectedId },
+      organizationScope: scope,
+      selectedOrganizationId: scope.selectedId,
+      organizationIds: scope.filterIds,
       request: request as any,
     },
     metadata: {

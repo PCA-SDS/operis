@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { Page, PageBody } from '@open-mercato/ui/backend/Page'
 import { ErrorMessage } from '@open-mercato/ui/backend/detail'
@@ -16,6 +16,7 @@ import {
 import { buildOptimisticLockHeader } from '@open-mercato/ui/backend/utils/optimisticLock'
 import { surfaceRecordConflict } from '@open-mercato/ui/backend/conflicts'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
+import { useOrganizationScopeVersion } from '@open-mercato/shared/lib/frontend/useOrganizationScope'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuardedMutation'
@@ -114,15 +115,19 @@ export default function ProductConstraintsPage({ params }: { params?: { id?: str
   const [optionSummaries, setOptionSummaries] = useState<LocalOptionSummary[]>([])
   const [productSeedOptions, setProductSeedOptions] = useState<CascadingItemDef[]>([])
   const [productName, setProductName] = useState<string>('')
+  const loadRequestId = useRef(0)
+  const scopeVersion = useOrganizationScopeVersion()
 
   const loadData = useCallback(async () => {
     if (!productId) return
+    const requestId = ++loadRequestId.current
     setLoading(true)
     setLoadError(null)
     try {
       const result = await readApiResultOrThrow<CatalogConstraintsData>(
         `/api/catalog/products/${productId}/constraints?incoming=true`
       )
+      if (requestId !== loadRequestId.current) return
       setConstraints(result.constraints || [])
       setIncomingConstraints(result.incoming_constraints || [])
       setUpdatedAt(result.updated_at ?? null)
@@ -135,10 +140,12 @@ export default function ProductConstraintsPage({ params }: { params?: { id?: str
         const treeResult = await readApiResultOrThrow<CatalogOptionTreeData>(
           `/api/catalog/products/${productId}/option-tree`
         )
+        if (requestId !== loadRequestId.current) return
         const groups = treeResult.groups ?? []
         const opts = treeResult.options ?? []
         setOptionSummaries(buildOptionSummaries(groups, opts))
       } catch {
+        if (requestId !== loadRequestId.current) return
         // non-critical
       }
 
@@ -147,6 +154,7 @@ export default function ProductConstraintsPage({ params }: { params?: { id?: str
         const productsResult = await readApiResultOrThrow<{ items: { id: string; title?: string; name?: string; sku?: string | null; handle?: string | null }[] }>(
           `/api/catalog/products?page=1&pageSize=100`
         )
+        if (requestId !== loadRequestId.current) return
         const opts: CascadingItemDef[] = (productsResult.items ?? [])
           .filter((p) => p.id !== productId) // exclude current product
           .map((p) => {
@@ -160,19 +168,21 @@ export default function ProductConstraintsPage({ params }: { params?: { id?: str
           })
         setProductSeedOptions(opts)
       } catch {
+        if (requestId !== loadRequestId.current) return
         // non-critical
       }
     } catch (err) {
+      if (requestId !== loadRequestId.current) return
       logger.error('constraints.load.failed', { err })
       setUpdatedAt(null)
       setLoadSucceeded(false)
       setLoadError(t('catalog.constraints.loadFailed', 'Failed to load constraints.'))
     } finally {
-      setLoading(false)
+      if (requestId === loadRequestId.current) setLoading(false)
     }
   }, [productId, t])
 
-  useEffect(() => { void loadData() }, [loadData])
+  useEffect(() => { void loadData() }, [loadData, scopeVersion])
 
   const { runMutation } = useGuardedMutation({ contextId: 'constraints' })
 
