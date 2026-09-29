@@ -731,7 +731,12 @@ async function runModuleCommand(
     }
   }
 
-  await resolved.command.run(args)
+  const exitCode = await runWithCapturedExitCode(async () => {
+    await resolved.command.run(args)
+  })
+  if (exitCode !== 0) {
+    throw new Error(`Command "${moduleName}:${commandName}" exited with code ${exitCode}`)
+  }
   return true
 }
 
@@ -2751,7 +2756,13 @@ export async function run(argv = process.argv) {
     : rest
   console.log(`🚀 Running ${modName}:${cmdName} ${loggedArgs.join(' ')}`)
   try {
-    await cmd.run(rest)
+    const exitCode = await runWithCapturedExitCode(async () => {
+      await cmd.run(rest)
+    })
+    if (exitCode !== 0) {
+      console.error(`💥 Failed: ${modName}:${cmdName} exited with code ${exitCode}`)
+      return exitCode
+    }
     if (modName !== 'deploy' || cmdName !== 'railway') {
       const ms = Date.now() - started
       console.log(`⏱️ Done in ${ms}ms`)

@@ -313,6 +313,69 @@ describe('db command failure output', () => {
   })
 })
 
+describe('module command exit codes', () => {
+  const originalExitCode = process.exitCode
+
+  beforeEach(() => {
+    jest.restoreAllMocks()
+    process.exitCode = undefined
+  })
+
+  afterEach(() => {
+    process.exitCode = originalExitCode
+  })
+
+  it('returns the exit code a module command sets through process.exitCode', async () => {
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation()
+    const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation()
+    const drift = jest.fn(async () => {
+      process.exitCode = 1
+    })
+
+    registerCliModules([
+      {
+        id: 'chat_matrix',
+        cli: [{ command: 'drift', run: drift }],
+      } as any,
+    ])
+
+    const exitCode = await run(['node', 'mercato', 'chat_matrix', 'drift'])
+
+    expect(drift).toHaveBeenCalledWith([])
+    expect(exitCode).toBe(1)
+    expect(process.exitCode).toBeUndefined()
+    expect(consoleErrorSpy).toHaveBeenCalledWith('💥 Failed: chat_matrix:drift exited with code 1')
+    expect(consoleLogSpy).not.toHaveBeenCalledWith(expect.stringContaining('Done in'))
+
+    consoleErrorSpy.mockRestore()
+    consoleLogSpy.mockRestore()
+  })
+
+  it('does not attribute an exit code set before dispatch to the command', async () => {
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation()
+    const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation()
+    const drift = jest.fn().mockResolvedValue(undefined)
+    process.exitCode = 7
+
+    registerCliModules([
+      {
+        id: 'chat_matrix',
+        cli: [{ command: 'drift', run: drift }],
+      } as any,
+    ])
+
+    const exitCode = await run(['node', 'mercato', 'chat_matrix', 'drift'])
+
+    expect(exitCode).toBe(0)
+    expect(process.exitCode).toBe(7)
+    expect(consoleErrorSpy).not.toHaveBeenCalled()
+    expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Done in'))
+
+    consoleErrorSpy.mockRestore()
+    consoleLogSpy.mockRestore()
+  })
+})
+
 describe('init command failure output', () => {
   const originalDatabaseUrl = process.env.DATABASE_URL
 
@@ -522,6 +585,94 @@ describe('init command failure output', () => {
     expect(configsRestoreDefaults).toHaveBeenCalled()
     expect(authSetup).toHaveBeenCalled()
     expect(queryIndexReindex).toHaveBeenCalledWith(['--force', '--tenant', 'tenant-1'])
+
+    consoleErrorSpy.mockRestore()
+    consoleLogSpy.mockRestore()
+  })
+
+  it('aborts init when a module command sets a non-zero process.exitCode', async () => {
+    const originalExitCode = process.exitCode
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation()
+    const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation()
+
+    const authSetup = jest.fn(async () => {
+      process.exitCode = 2
+    })
+    const authSeedRoles = jest.fn().mockResolvedValue(undefined)
+
+    jest.doMock('child_process', () => ({
+      execSync: jest.fn(),
+    }))
+    jest.doMock('pg', () => ({
+      Client: jest.fn().mockImplementation(() => ({
+        connect: jest.fn().mockResolvedValue(undefined),
+        query: jest.fn().mockResolvedValue({
+          rows: [{ org_id: 'org-1', tenant_id: 'tenant-1' }],
+        }),
+        end: jest.fn().mockResolvedValue(undefined),
+      })),
+    }))
+    jest.doMock('../lib/generators', () => ({
+      generateEntityIds: jest.fn().mockResolvedValue(undefined),
+      generateModuleRegistries: jest.fn().mockResolvedValue(undefined),
+      generateModuleEntities: jest.fn().mockResolvedValue(undefined),
+      generateModuleDi: jest.fn().mockResolvedValue(undefined),
+      generateModulePackageSources: jest.fn().mockResolvedValue(undefined),
+      generateOpenApi: jest.fn().mockResolvedValue(undefined),
+    }))
+    jest.doMock('../lib/db', () => ({
+      dbMigrate: jest.fn().mockResolvedValue(undefined),
+    }))
+    jest.doMock('../lib/resolver', () => ({
+      createResolver: () => ({
+        getAppDir: () => '/tmp/test-app',
+      }),
+    }))
+    jest.doMock('@open-mercato/shared/lib/bootstrap/dynamicLoader', () => ({
+      bootstrapFromAppRoot: jest.fn().mockResolvedValue({
+        modules: [
+          {
+            id: 'configs',
+            cli: [{ command: 'restore-defaults', run: jest.fn().mockResolvedValue(undefined) }],
+          },
+          {
+            id: 'auth',
+            cli: [
+              { command: 'setup', run: authSetup },
+              { command: 'seed-roles', run: authSeedRoles },
+            ],
+          },
+          {
+            id: 'entities',
+            cli: [{ command: 'seed-encryption', run: jest.fn().mockResolvedValue(undefined) }],
+          },
+        ],
+      }),
+    }))
+    jest.doMock('@open-mercato/shared/lib/di/container', () => ({
+      createRequestContainer: jest.fn().mockResolvedValue({
+        resolve: jest.fn().mockReturnValue({}),
+      }),
+    }))
+    jest.doMock(
+      '@open-mercato/core/modules/auth/lib/setup-app',
+      () => ({
+        ensureCustomRoleAcls: jest.fn().mockResolvedValue(undefined),
+      }),
+      { virtual: true },
+    )
+
+    const mercato = await import('../mercato')
+    const exitCode = await mercato.run(['node', 'mercato', 'init'])
+
+    expect(exitCode).toBe(1)
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '❌ Initialization failed:',
+      'Command "auth:setup" exited with code 2',
+    )
+    expect(authSetup).toHaveBeenCalled()
+    expect(authSeedRoles).not.toHaveBeenCalled()
+    expect(process.exitCode).toBe(originalExitCode)
 
     consoleErrorSpy.mockRestore()
     consoleLogSpy.mockRestore()
