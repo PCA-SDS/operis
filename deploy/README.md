@@ -2,9 +2,13 @@
 
 Push to `main` → GitHub Actions builds a container image → the VPS pulls it and restarts.
 
-**This is a shared host.** It already runs four unrelated production stacks. Everything
+**This is a shared host.** It also runs other, unrelated production stacks. Everything
 below is written to be additive: nothing here restarts, reconfigures or competes with
-them, with exactly one exception that is called out where it happens.
+them. Operis owns ports 80 and 443 through its own gateway (see [Gateway](#gateway)).
+
+> **2026-09-29:** pca_erp was removed from this host, and with it the nginx gateway Operis
+> used to share. Operis now runs its own. The planned move to `pca-sds.com` is in
+> [`.ai/specs/2026-09-29-domain-change-pca-sds.md`](../.ai/specs/2026-09-29-domain-change-pca-sds.md).
 
 ```
   git push main
@@ -21,55 +25,57 @@ them, with exactly one exception that is called out where it happens.
         ▼                                                                    ▼
   ┌──────────────────────────── OVH VPS ──────────────────────────────────────┐
   │                                                                           │
-  │  :80 :443 ── pca-erp-nginx ─┬─► erp / auth / cloud / files.pca-sds.com    │
-  │  (NOT OURS)                 │                                             │
-  │                             ├─► operis.faheemkamel.com                    │
-  │                             │            │ pca-erp-network                │
-  │                             │            ▼                                │
-  │                             │       operis-app ──┬─► operis-postgres  ┐   │
-  │                             │                    ├─► operis-redis     │ operis-
-  │                             │                    └─► operis-meilisearch┘ internal
-  │                             │                                             │
-  │                             └─► operis-staging.faheemkamel.com            │
-  │                                          │ pca-erp-network                │
-  │                                          ▼                                │
-  │                             operis-staging-app ──┬─► operis-staging-postgres ┐
-  │                                                  ├─► operis-staging-redis    │ operis-staging-
-  │                                                  └─► operis-staging-meilisearch┘ internal
+  │  :80 :443 ── operis-gateway-nginx ─┬─► operis.faheemkamel.com             │
+  │  (deploy/gateway, + certbot)       │            │ operis-edge             │
+  │                                    │            ▼                         │
+  │                                    │       operis-app ──┬─► operis-postgres  ┐
+  │                                    │                    ├─► operis-redis     │ operis-
+  │                                    │                    └─► operis-meilisearch┘ internal
+  │                                    │                                      │
+  │                                    └─► operis-staging.faheemkamel.com     │
+  │                                                 │ operis-edge             │
+  │                                                 ▼                         │
+  │                                    operis-staging-app ──┬─► operis-staging-postgres ┐
+  │                                                         ├─► operis-staging-redis    │ operis-staging-
+  │                                                         └─► operis-staging-meilisearch┘ internal
   └───────────────────────────────────────────────────────────────────────────┘
 ```
 
 Both stacks run from the **same** `docker-compose.prod.yml`; `STACK_NAME` in each
 stack's `.env` prefixes the compose project, every container name, the internal
-network and every volume. The `pca-erp-network` gateway network is the one thing
+network and every volume. The `operis-edge` gateway network is the one thing
 they share, which is how one nginx reaches both.
 
-Operis publishes **no host ports at all**. The app is reachable only by containers on
-`pca-erp-network` (i.e. the gateway); the datastores only by the app. That also
-sidesteps Docker's iptables rules, which bypass ufw for published ports.
+The app stacks publish **no host ports at all**; only the gateway publishes 80 and 443.
+The app is reachable only by containers on `operis-edge` (i.e. the gateway); the
+datastores only by the app. That also sidesteps Docker's iptables rules, which bypass
+ufw for published ports.
 
 ---
 
-## Why the gateway is shared
+## Gateway
 
-`pca-erp-nginx` owns :80 and :443 and is `default_server` on both. There is no second
-port 443 to hand out. Operis therefore serves through it.
+`deploy/gateway/` is a compose project of its own, installed by hand at
+`/opt/operis-gateway`: nginx on :80/:443 plus a certbot container. It serves both
+environments and is the only thing on the box that publishes 80 or 443.
 
-Three properties of that stack's config make this cheap, and they are why this works
-without touching their files:
+- `nginx/00-gateway.conf` holds what every vhost inherits (TLS policy, Docker's
+  resolver) and the two default servers. `:80` answers `/.well-known/acme-challenge/`
+  for **any** hostname and redirects the rest to https, so a new hostname can get its
+  certificate before its vhost exists. `:443` refuses the TLS handshake for any name no
+  vhost claims, instead of answering with an Operis certificate.
+- `nginx/operis.conf` and `nginx/operis-staging.conf` are the two vhosts.
+- certbot runs `certbot renew` over every certificate in its volume twice a day, and
+  nginx reloads every 6h, so a new certificate needs no change to either.
 
-- nginx mounts the whole `docker/nginx/templates/` **directory**, so a new
-  `operis.conf.template` is picked up without editing `default.conf.template`
-- their `:80` block is `server_name _` and serves `/.well-known/acme-challenge/` for
-  **any** hostname — so the ACME HTTP-01 challenge for our domain works through it
-  before our vhost exists
-- their certbot runs `certbot renew` (every cert on the box, not a fixed list) twice a
-  day, and nginx reloads every 6h — so our certificate renews with **zero** changes to
-  their setup
+The network `operis-edge` and the volumes `operis-gateway-certs` and
+`operis-gateway-webroot` are external to every compose file. They are created once by
+hand, so no `down` can delete the certificates or detach the apps.
 
-`NGINX_ENVSUBST_FILTER` is restricted to five variable names, so our template hardcodes
-the hostname rather than adding a sixth. Verified: rendering our template through their
-filter produces a byte-identical file — no nginx runtime variable gets eaten.
+**Every change goes through `nginx -t` before a reload.** All the files render into one
+http context, a duplicate `map` or `log_format` name is fatal, and nginx failing to
+start takes both environments offline. Names are prefixed `gateway_`, `operis_` and
+`operis_staging_` for that reason.
 
 ---
 
@@ -80,8 +86,8 @@ filter produces a byte-identical file — no nginx runtime variable gets eaten.
 | `00-audit-server.sh` | server | **Read-only** inventory. Changes nothing. Run before touching an unfamiliar box. |
 | `01-bootstrap-server.sh` | — | **Not used on this host.** Correct for a *fresh* single-purpose VPS; see its header. |
 | `docker-compose.prod.yml` | server (as `docker-compose.yml`) | The stack. Never builds; pulls the CI image. |
-| `nginx/operis.conf.template` | pca-erp templates dir | The production vhost. Installed **by hand, once**. |
-| `nginx/operis-staging.conf.template` | pca-erp templates dir | The staging vhost. Same rules. Every http-context name in it is prefixed `operis_staging_*` — see below. |
+| `gateway/docker-compose.yml` | server (`/opt/operis-gateway`) | nginx + certbot on :80/:443. Installed **by hand**; see [Gateway](#gateway). |
+| `gateway/nginx/*.conf` | server (`/opt/operis-gateway/nginx`) | Gateway policy and the production and staging vhosts. Installed by hand, behind `nginx -t`. |
 | `redis.conf` | server | Redis with persistence on (queues live here). |
 | `env.production.example` | → server `.env` | Every environment variable, annotated. |
 | `env.staging.example` | → staging `.env` | The staging **delta** on top of the above, not a second copy of it. |
@@ -106,8 +112,8 @@ wins and the deploy log says which one it used. This is deliberate — the value
 used to live only on the server, and an org transfer left it pointing at an image
 namespace that no longer existed.
 
-The nginx template is **excluded from that sync on purpose**: it lives in another
-stack's directory, and an automated bad copy there would break four other hostnames.
+The gateway is **excluded from that sync on purpose**: one nginx serves both
+environments, and an automated bad copy would take both offline.
 
 ---
 
@@ -135,15 +141,18 @@ per-container log limits, so it does not add to the un-rotated-logs problem.
 
 ### 1 — DNS
 
+In the `faheemkamel.com` zone (Vercel DNS):
+
 ```
 A    operis    148.113.44.174    TTL 300
 ```
 
-No AAAA record: the box has IPv6, but the existing gateway's vhosts are the only
-tested path and there is no reason to introduce a second one.
+No AAAA record: the box has IPv6, but IPv4 is the only tested path and there is no
+reason to introduce a second one. Ask the authoritative server as above: the zone has a
+wildcard, so a plain `dig` answers even for a name that does not exist.
 
 ```bash
-dig +short operis.faheemkamel.com     # must return 148.113.44.174
+dig +short @ns1.vercel-dns.com operis.faheemkamel.com A     # must return 148.113.44.174
 ```
 
 ### 2 — Deploy account
@@ -202,52 +211,56 @@ That is also why the app service uses `pull_policy: missing` rather than `always
 `deploy.sh` pulls explicitly while the login is held, and a later manual `./dc up -d`
 must not try to re-pull an image already in the local store.
 
-### 6 — Issue the certificate
+### 6 — Gateway
 
-Before the vhost exists, using the existing certbot volumes and webroot. This adds a
-new certificate; it does not touch the `erp.pca-sds.com` one.
+Once per box: the shared network, the certificate volumes, and nginx + certbot. The
+gateway starts with only `00-gateway.conf`, because nginx refuses to start while any
+`ssl_certificate` points at a missing file. That file needs no certificate, and its
+`:80` serves the ACME challenge the next step relies on.
+
+```bash
+# laptop
+scp -r deploy/gateway ubuntu@148.113.44.174:/tmp/operis-gateway
+
+# server
+sudo install -d -m 755 /opt/operis-gateway /opt/operis-gateway/nginx
+sudo install -m 644 /tmp/operis-gateway/docker-compose.yml /opt/operis-gateway/
+sudo install -m 644 /tmp/operis-gateway/nginx/00-gateway.conf /opt/operis-gateway/nginx/
+docker network create operis-edge
+docker volume create operis-gateway-certs
+docker volume create operis-gateway-webroot
+docker compose -f /opt/operis-gateway/docker-compose.yml up -d
+```
+
+### 7 — Certificate and vhost
 
 ```bash
 docker run --rm \
-  -v pca-erp-certbot-certs:/etc/letsencrypt \
-  -v pca-erp-certbot-webroot:/var/www/certbot \
+  -v operis-gateway-certs:/etc/letsencrypt \
+  -v operis-gateway-webroot:/var/www/certbot \
   certbot/certbot:v3.1.0 certonly --webroot -w /var/www/certbot \
   -d operis.faheemkamel.com \
   --email <you@example.com> --agree-tos --no-eff-email \
   --key-type ecdsa --non-interactive
 
 # verify before going further
-docker run --rm -v pca-erp-certbot-certs:/etc/letsencrypt \
+docker run --rm -v operis-gateway-certs:/etc/letsencrypt \
   certbot/certbot:v3.1.0 certificates
 ```
 
 Rehearse with `--staging` first if DNS has only just propagated — Let's Encrypt allows
 5 failures per account per hostname per hour.
 
-### 7 — Install the vhost
-
-**Order matters.** nginx refuses to start when `ssl_certificate` points at a missing
-file, so the certificate must already exist (step 6) before this file lands.
+Only once the certificate exists, add the vhost and **validate before reloading**:
 
 ```bash
-# laptop
-scp deploy/nginx/operis.conf.template \
-    ubuntu@148.113.44.174:/opt/pca-erp/docker/nginx/templates/
-
-# server — render + validate BEFORE reloading
-docker exec pca-erp-nginx sh -c 'ls /etc/nginx/templates/'
-docker compose -f /opt/pca-erp/docker-compose.prod.yml --env-file /opt/pca-erp/.env.prod \
-  up -d --no-deps nginx        # re-renders templates
-docker exec pca-erp-nginx nginx -t     # MUST print "syntax is ok" / "test is successful"
-docker exec pca-erp-nginx nginx -s reload
+sudo install -m 644 /tmp/operis-gateway/nginx/operis.conf /opt/operis-gateway/nginx/
+docker exec operis-gateway-nginx nginx -t     # MUST print "syntax is ok" / "test is successful"
+docker exec operis-gateway-nginx nginx -s reload
 ```
 
-`nginx -t` is the gate. A config it rejects never reaches the running process, so a
-mistake here fails closed rather than taking the pca-sds.com hostnames down.
-
-The file is untracked inside `/opt/pca-erp`'s git checkout. `git pull` leaves untracked
-files alone, so it survives their deploys — but `git clean -fd` would remove it. Commit
-it to the pca-erp repo when convenient.
+`nginx -t` is the gate. A config it rejects never reaches the running process: remove
+the file and nothing has changed.
 
 ### 8 — GitHub configuration
 
@@ -336,7 +349,7 @@ A    operis-staging    148.113.44.174    TTL 300
 ```
 
 ```bash
-dig +short operis-staging.faheemkamel.com     # must return 148.113.44.174 before step 4
+dig +short @ns1.vercel-dns.com operis-staging.faheemkamel.com A     # must return 148.113.44.174 before step 4
 ```
 
 #### 2 — Directories
@@ -391,51 +404,52 @@ minted on staging valid against production.
 
 #### 4 — Certificate
 
-Uses the existing certbot volumes and webroot; adds a certificate, touches no existing one.
-Renewal needs nothing further — pca-erp's certbot runs a blanket `certbot renew` twice a day.
+Through the gateway's `:80`; adds a certificate and touches no existing one. Renewal
+needs nothing further: the gateway's certbot renews every certificate in its volume.
 
 Rehearse first if DNS has only just propagated (Let's Encrypt allows 5 failures per hostname
 per hour):
 
 ```bash
-ssh ubuntu@148.113.44.174 "docker run --rm -v pca-erp-certbot-certs:/etc/letsencrypt -v pca-erp-certbot-webroot:/var/www/certbot certbot/certbot:v3.1.0 certonly --webroot -w /var/www/certbot -d operis-staging.faheemkamel.com --email YOU@example.com --agree-tos --no-eff-email --key-type ecdsa --non-interactive --staging --dry-run"
+ssh ubuntu@148.113.44.174 "docker run --rm -v operis-gateway-certs:/etc/letsencrypt -v operis-gateway-webroot:/var/www/certbot certbot/certbot:v3.1.0 certonly --webroot -w /var/www/certbot -d operis-staging.faheemkamel.com --email YOU@example.com --agree-tos --no-eff-email --key-type ecdsa --non-interactive --staging --dry-run"
 ```
 
 Then for real:
 
 ```bash
-ssh ubuntu@148.113.44.174 "docker run --rm -v pca-erp-certbot-certs:/etc/letsencrypt -v pca-erp-certbot-webroot:/var/www/certbot certbot/certbot:v3.1.0 certonly --webroot -w /var/www/certbot -d operis-staging.faheemkamel.com --email YOU@example.com --agree-tos --no-eff-email --key-type ecdsa --non-interactive"
+ssh ubuntu@148.113.44.174 "docker run --rm -v operis-gateway-certs:/etc/letsencrypt -v operis-gateway-webroot:/var/www/certbot certbot/certbot:v3.1.0 certonly --webroot -w /var/www/certbot -d operis-staging.faheemkamel.com --email YOU@example.com --agree-tos --no-eff-email --key-type ecdsa --non-interactive"
 ```
 
 ```bash
-ssh ubuntu@148.113.44.174 "docker run --rm -v pca-erp-certbot-certs:/etc/letsencrypt certbot/certbot:v3.1.0 certificates"
+ssh ubuntu@148.113.44.174 "docker run --rm -v operis-gateway-certs:/etc/letsencrypt certbot/certbot:v3.1.0 certificates"
 ```
 
 #### 5 — Install the vhost
 
-> **This is the step that can take four unrelated hostnames offline.** `map` and
-> `log_format` live in nginx's http context, so both Operis templates render into one
-> namespace — a duplicate name is fatal and nginx then refuses to start at all. Every such
-> name in the staging template is prefixed `operis_staging_*` for exactly this reason. Both
-> templates have been verified to load together; keep the prefix if you edit it.
+> **This is the step that can take both environments offline.** `map` and `log_format`
+> live in nginx's http context, so every gateway file renders into one namespace, and a
+> duplicate name is fatal: nginx then refuses to start at all. Every such name in the
+> staging vhost is prefixed `operis_staging_*` for exactly this reason. Keep the prefix if
+> you edit it.
 
 ```bash
-scp deploy/nginx/operis-staging.conf.template ubuntu@148.113.44.174:/opt/pca-erp/docker/nginx/templates/
+scp deploy/gateway/nginx/operis-staging.conf ubuntu@148.113.44.174:/tmp/
 ```
 
-Re-render, then **validate before reloading**:
+Install, then **validate before reloading**:
 
 ```bash
-ssh ubuntu@148.113.44.174 "docker compose -f /opt/pca-erp/docker-compose.prod.yml --env-file /opt/pca-erp/.env.prod up -d --no-deps nginx && docker exec pca-erp-nginx nginx -t"
+ssh ubuntu@148.113.44.174 "sudo install -m 644 /tmp/operis-staging.conf /opt/operis-gateway/nginx/ && docker exec operis-gateway-nginx nginx -t"
 ```
 
 `nginx -t` must print `syntax is ok` / `test is successful`. Only then:
 
 ```bash
-ssh ubuntu@148.113.44.174 'docker exec pca-erp-nginx nginx -s reload'
+ssh ubuntu@148.113.44.174 'docker exec operis-gateway-nginx nginx -s reload'
 ```
 
-If `nginx -t` fails, the running config is untouched — remove the template and re-render.
+If `nginx -t` fails, the running config is untouched: remove the file and nothing has
+changed.
 
 #### 6 — GitHub environments
 
@@ -523,12 +537,12 @@ Then, in that shell:
 ./dc exec postgres psql -U operis -d operis
 ```
 
-Gateway and TLS live in the other stack:
+Gateway and TLS live in their own stack, `/opt/operis-gateway`:
 
 ```bash
-docker logs --tail 100 pca-erp-nginx
-docker exec pca-erp-certbot certbot certificates
-docker exec pca-erp-nginx nginx -t && docker exec pca-erp-nginx nginx -s reload
+docker logs --tail 100 operis-gateway-nginx
+docker exec operis-gateway-certbot certbot certificates
+docker exec operis-gateway-nginx nginx -t && docker exec operis-gateway-nginx nginx -s reload
 ```
 
 Redeploy an older build without rebuilding: Actions → **CI & Deploy** → Run workflow →
@@ -569,7 +583,7 @@ Each deploy, staging or production, is the same sequence:
 
 4. CI rsyncs the compose file, `redis.conf` and the scripts into that stack's directory.
 5. `deploy.sh` asserts the stack identity — `STACK_NAME` in that `.env` must match the
-   stack CI is targeting — then checks `pca-erp-network` still exists and pulls the image
+   stack CI is targeting — then checks `operis-edge` still exists and pulls the image
    **first**, so a registry failure cannot take the running app down.
 6. It takes a `pg_dump` and **refuses to continue if the backup fails**. Skipped on
    staging, whose database is disposable.
@@ -602,12 +616,10 @@ the previous image may run against a newer schema. The pre-deploy dump is the es
 hatch, restored deliberately. Write backward-compatible migrations and this stays
 theoretical.
 
-**Operis shares `pca-erp-network` with that stack's Postgres, Redis, MinIO and
-Zitadel.** Network reachability is not access — those services have their own
-credentials — but a compromised Operis container is one hop closer to them than it
-would be on an isolated network. The alternative (`docker network connect` onto a
-private network) does not survive a pca-erp redeploy recreating nginx, which is a worse
-failure mode.
+**Staging and production share `operis-edge`.** Each app container can reach the
+other over it; the datastores stay on each stack's own internal network. Reachability
+is not access, but a compromised staging container is one hop closer to production
+than it would be with a network per environment.
 
 **Backups live on the machine they protect.** Losing the VPS loses them. `backup.sh`
 ends with a worked rclone example.
@@ -615,9 +627,8 @@ ends with a worked rclone example.
 **The app container runs as uid 0**, matching upstream's own compose. It publishes no
 ports and carries `no-new-privileges`.
 
-**One shared gateway is one shared blast radius.** A future change to
-`operis.conf.template` is a change to the process serving four other hostnames. Always
-`nginx -t` first.
+**One gateway is one blast radius.** A change to any file in `deploy/gateway/nginx/`
+is a change to the process serving both environments. Always `nginx -t` first.
 
 **No monitoring or alerting.** Point an uptime checker at
 `https://operis.faheemkamel.com/api/configs/health` — 200/`ok` or 503/`degraded`.
@@ -632,8 +643,8 @@ ports and carries `no-new-privileges`.
 | `cannot pull …` | CI passes the image, so the namespace is no longer a suspect. Check the tag exists in the `Building ghcr.io/…` line of the build job, then redo the GHCR `docker login` as the `operis` user (token needs `read:packages`), then confirm the GHCR package is linked to this repository and its visibility allows the pull |
 | `digest mismatch — refusing to deploy` | the tag no longer resolves to the image CI built: it was re-pushed, or the registry served a stale manifest. Nothing was changed on the server. Re-run the workflow to build and deploy a fresh tag |
 | `N required variable(s) missing or too short` | `.env` does not satisfy `required-env`; the failing keys are listed by name. Nothing was pulled or restarted. Generate secrets with the snippet at the top of `env.production.example` |
-| `network pca-erp-network does not exist` | the pca-erp stack was torn down or renamed; `docker network ls`, then set `EDGE_NETWORK` in `.env` |
-| Browser shows the PCA ERP site or a cert warning | the vhost is not loaded — `docker exec pca-erp-nginx nginx -T \| grep operis` |
+| `docker network 'operis-edge' does not exist` | create it with `docker network create operis-edge` and re-run; nothing was pulled or restarted. `docker network ls` shows what exists |
+| Browser shows a TLS error for the hostname | the vhost is not loaded, so the default server refused the name: `docker exec operis-gateway-nginx nginx -T \| grep server_name` |
 | 502 from the gateway | app container down or not on the edge network: `./dc ps`, then `docker inspect operis-app --format '{{json .NetworkSettings.Networks}}'` |
 | App container restarts in a loop | `./dc logs --tail 100 app` — usually a missing/short secret; `JWT_SECRET` under 32 chars refuses to boot |
 | Health check times out on first deploy | normal for `mercato init`; watch `./dc logs -f app` |
@@ -641,6 +652,6 @@ ports and carries `no-new-privileges`.
 | SSE / live updates never arrive | the streaming `location` block in the vhost — confirm `proxy_buffering off` survived a template edit |
 | Deploy blocked by *another deploy is in progress* | stale lock: `rm /opt/operis/.deploy.lock` after confirming nothing is running |
 | `stack mismatch — refusing to deploy` | that stack's `.env` renders a different compose project than the deploy targets — almost always a staging `.env` missing `STACK_NAME=operis-staging`. Nothing was pulled or restarted. Set it and re-run |
-| `duplicate "map"` / `duplicate "log_format"` from `nginx -t` | the staging vhost reuses an http-context name from the production one. Every such name must be `operis_staging_*`. The running config is untouched while `nginx -t` fails |
+| `duplicate "map"` / `duplicate "log_format"` from `nginx -t` | a gateway file reuses an http-context name from another. Prefixes are `gateway_`, `operis_` and `operis_staging_`. The running config is untouched while `nginx -t` fails |
 | Production job never starts | either staging failed (production requires staging to have *succeeded*, not merely not-failed) or the environment approval is still pending — check the run's Review deployments prompt |
 | Staging and production disagree about what is deployed | compare `deploy.sh --status` on both; each prints its own `CURRENT_TAG`. They differ whenever an approval is outstanding, which is the gate working |
