@@ -102,6 +102,42 @@ docker exec "$PG_CID" pg_restore --list "$IN_CID" > /dev/null 2>&1 \
 log "ok: $(du -h "$TARGET" | cut -f1)"
 
 # ------------------------------------------------------------------------------
+# The homeserver database, when this stack runs Chat on Matrix (deploy/MATRIX.md).
+# Same format, same integrity check, same retention (the `daily-`/`monthly-`
+# prefix is what the pruning below matches on). It is a separate Postgres
+# instance on purpose, so it needs its own dump — the app's dump above cannot
+# see it. The signing key and media store under matrix/ are NOT in a dump; see
+# the runbook's "Backups" for those.
+# ------------------------------------------------------------------------------
+case ",$(read_env COMPOSE_PROFILES)," in
+  *,matrix,*)
+    MX_CID="$(dc ps -q matrix-postgres 2>/dev/null || true)"
+    if [ -z "$MX_CID" ]; then
+      log "matrix profile enabled but matrix-postgres is not running — skipping its dump"
+    else
+      MX_USER="$(read_env MATRIX_PG_USER)";   MX_USER="${MX_USER:-synapse}"
+      MX_DB="$(read_env MATRIX_PG_DATABASE)"; MX_DB="${MX_DB:-synapse}"
+      MX_TARGET="$BACKUP_DIR/${PREFIX}-matrix-${STAMP}.dump"
+      log "dumping $MX_DB (homeserver) -> $MX_TARGET"
+      if ! docker exec "$MX_CID" pg_dump -U "$MX_USER" -d "$MX_DB" -Fc --no-owner > "$MX_TARGET"; then
+        rm -f "$MX_TARGET"
+        fail "pg_dump of the homeserver database failed"
+      fi
+      chmod 600 "$MX_TARGET"
+      MX_IN_CID="/tmp/backup-verify-matrix-${STAMP}.dump"
+      if ! docker cp "$MX_TARGET" "$MX_CID:$MX_IN_CID" >/dev/null 2>&1 \
+         || ! docker exec "$MX_CID" pg_restore --list "$MX_IN_CID" >/dev/null 2>&1; then
+        docker exec "$MX_CID" rm -f "$MX_IN_CID" >/dev/null 2>&1 || true
+        rm -f "$MX_TARGET"
+        fail "homeserver dump failed its integrity check — removed"
+      fi
+      docker exec "$MX_CID" rm -f "$MX_IN_CID" >/dev/null 2>&1 || true
+      log "ok: $(du -h "$MX_TARGET" | cut -f1) (homeserver)"
+    fi
+    ;;
+esac
+
+# ------------------------------------------------------------------------------
 # Optional deep verification: restore into a scratch database and count tables.
 # Slower and needs disk headroom, so it is opt-in.
 # ------------------------------------------------------------------------------
