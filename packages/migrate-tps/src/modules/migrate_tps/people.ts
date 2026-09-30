@@ -11,6 +11,7 @@ import { computeEmailLookupHash, resolvePhoneIdentity } from '@open-mercato/core
 import { computeEmailHash } from '@open-mercato/core/modules/auth/lib/emailHash'
 import { StaffTeamMember, StaffTeamRole } from '@open-mercato/core/modules/staff/data/entities'
 import { reindexTpsSearch, TPS_LOCATION_MAPPING, queryTps, type Client } from './lib'
+import { formatTpsPhone } from './lib/phone'
 
 type TpsCustomer = {
   id: string
@@ -73,14 +74,6 @@ function normalizeReferral(value: string | null): string | null {
   return value?.trim() || null
 }
 
-function canonicalizePhone(phone: string, countryCode: string): string {
-  const digits = phone.replace(/\D/g, '')
-  const code = countryCode.replace(/\D/g, '')
-  if (!digits || !code) return phone.trim()
-  if (digits.startsWith(code)) return `+${code} ${digits.slice(code.length)}`
-  return `+${code} ${digits}`
-}
-
 function sourceMarker(prefix: string, id: string): string {
   return `[${prefix}${id}]`
 }
@@ -120,7 +113,7 @@ async function loadBranchOrganizations(
   return result
 }
 
-async function migrateCustomers(
+export async function migrateCustomers(
   em: EntityManager,
   customers: TpsCustomer[],
   tenantId: string,
@@ -142,7 +135,7 @@ async function migrateCustomers(
   const sourceById = new Map(customers.map((source) => [source.id, source]))
   const phoneGroups = new Map<string, TpsCustomer[]>()
   for (const source of customers) {
-    const phone = canonicalizePhone(source.phone, source.phone_country_code)
+    const phone = formatTpsPhone(source.phone, source.phone_country_code)
     const phoneHash = resolvePhoneIdentity({
       primaryPhone: phone,
       phoneCountryCode: source.phone_country_code,
@@ -166,12 +159,11 @@ async function migrateCustomers(
   for (const existing of existingEntities) {
     if (existing.description) entitiesByMarker.set(existing.description, existing)
   }
-  if (repairConflicts) {
+  if (replace || repairConflicts) {
     for (const [marker, entity] of entitiesByMarker) {
       if (!marker.startsWith(`[${CUSTOMER_MARKER_PREFIX}`)) continue
       const sourceId = marker.slice(`[${CUSTOMER_MARKER_PREFIX}`.length, -1)
-      const source = sourceById.get(sourceId)
-      if (!source || phoneOwnerBySourceId.get(source.id) === source.id) continue
+      if (!sourceById.has(sourceId)) continue
       entity.primaryPhone = null
       entity.primaryPhoneHash = null
       entity.phoneCountryCode = null
@@ -187,7 +179,7 @@ async function migrateCustomers(
 
   for (const source of customers) {
     const marker = sourceMarker(CUSTOMER_MARKER_PREFIX, source.id)
-    const phone = canonicalizePhone(source.phone, source.phone_country_code)
+    const phone = formatTpsPhone(source.phone, source.phone_country_code)
     const phoneIdentity = resolvePhoneIdentity({
       primaryPhone: phone,
       phoneCountryCode: source.phone_country_code,
