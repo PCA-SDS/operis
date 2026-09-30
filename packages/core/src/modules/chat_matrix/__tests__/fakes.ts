@@ -54,6 +54,20 @@ export class FakeEntityManager {
     this.racedRows.set(entity, existing)
   }
 
+  /** Equality, `$ne` and `$in` — the operators the module's lookups use. */
+  async find(entity: unknown, where: Row): Promise<Row[]> {
+    const matches = (actual: unknown, expected: unknown): boolean => {
+      if (expected === undefined) return true
+      if (expected && typeof expected === 'object' && !Array.isArray(expected)) {
+        const operator = expected as { $ne?: unknown; $in?: unknown[] }
+        if ('$ne' in operator) return (actual ?? null) !== operator.$ne
+        if ('$in' in operator) return (operator.$in ?? []).includes(actual)
+      }
+      return actual === expected
+    }
+    return this.bucket(entity).filter((row) => Object.entries(where).every(([key, value]) => matches(row[key], value)))
+  }
+
   async findOne(entity: unknown, where: Row): Promise<Row | null> {
     const match = (rows: Row[]) =>
       rows.find((row) =>
@@ -68,6 +82,12 @@ export class FakeEntityManager {
 
   persist(row: Row): void {
     this.pending.push({ entity: row.__entity, row })
+  }
+
+  async nativeDelete(entity: unknown, where: Row): Promise<number> {
+    const doomed = await this.find(entity, where)
+    for (const row of doomed) this.remove(row)
+    return doomed.length
   }
 
   remove(row: Row): void {
@@ -153,15 +173,22 @@ export class FakeMatrixClient {
     return { room_id: this.nextRoomId }
   }
 
+  async joinedRooms(asUser: string): Promise<{ joined_rooms: string[] }> {
+    this.record('joinedRooms', [asUser])
+    return { joined_rooms: Object.keys(this.joinedByRoom).filter((roomId) => asUser in this.joinedByRoom[roomId]!) }
+  }
+
   async joinedMembers(roomId: string, asUser: string): Promise<{ joined: Record<string, unknown> }> {
     this.record('joinedMembers', [roomId, asUser])
     return { joined: this.joinedByRoom[roomId] ?? {} }
   }
 
   powerLevelsByRoom: Record<string, Record<string, unknown>> = {}
+  roomNames: Record<string, string> = {}
 
   async getStateEvent<T>(roomId: string, eventType: string, stateKey: string, asUser: string): Promise<T> {
     this.record('getStateEvent', [roomId, eventType, stateKey, asUser])
+    if (eventType === 'm.room.name' && this.roomNames[roomId]) return { name: this.roomNames[roomId] } as T
     const levels = eventType === 'm.room.power_levels' ? this.powerLevelsByRoom[roomId] : undefined
     if (!levels) throw new Error(`fake: no ${eventType} state in ${roomId}`)
     return levels as T
@@ -184,6 +211,14 @@ export class FakeMatrixClient {
   async redact(params: Record<string, unknown>): Promise<{ event_id: string }> {
     this.record('redact', [params])
     return { event_id: '$redaction' }
+  }
+
+  async setTyping(roomId: string, asUser: string, typing: boolean, timeoutMs?: number): Promise<void> {
+    this.record('setTyping', [roomId, asUser, typing, timeoutMs])
+  }
+
+  async sendReceipt(roomId: string, eventId: string, asUser: string): Promise<void> {
+    this.record('sendReceipt', [roomId, eventId, asUser])
   }
 
   asClient(): MatrixClient {

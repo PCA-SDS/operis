@@ -1,7 +1,7 @@
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import type { MatrixConfig } from './config'
-import { MatrixError, classifyMatrixFailure } from './errors'
-import { assertMasqueradable, botMxid, senderMxid } from './identity'
+import { MatrixConfigError, MatrixError, classifyMatrixFailure } from './errors'
+import { assertAccountIdentity, assertMasqueradable, botMxid, senderMxid } from './identity'
 import { type MatrixEvent, parseMatrixEvent } from './events'
 
 const logger = createLogger('matrix')
@@ -97,7 +97,7 @@ function retryAfterMs(response: Response, payload: unknown): number | undefined 
  * `content-length` alone is not enough — it is advisory and a chunked response
  * omits it — so the running total is what actually enforces the limit.
  */
-async function readBounded(response: Response): Promise<string> {
+export async function readBounded(response: Response): Promise<string> {
   const declared = Number(response.headers.get('content-length') ?? '0')
   if (declared > MAX_RESPONSE_BYTES) {
     throw new MatrixError({
@@ -129,11 +129,35 @@ async function readBounded(response: Response): Promise<string> {
   return Buffer.concat(chunks).toString('utf8')
 }
 
+/**
+ * Whose token a client carries, and therefore whom it may act as.
+ *
+ * - `appservice` (default): the Operis appservice token; acts only inside the
+ *   Operis namespace (colleagues, the bot, company account identities).
+ * - `accounts`: the double-puppet token; acts only as ACCOUNT identities —
+ *   company (`<prefix>a_…`) and personal (`opp_…`) — never as a colleague. It is
+ *   the only way to reach a personal account, whose rooms the Operis namespace
+ *   deliberately does not include.
+ */
+export type MatrixClientScope = 'appservice' | 'accounts'
+
 export class MatrixClient {
   private readonly config: MatrixConfig
+  private readonly token: string
+  private readonly gate: (userId: string) => string
 
-  constructor(config: MatrixConfig) {
+  constructor(config: MatrixConfig, options: { scope?: MatrixClientScope } = {}) {
     this.config = config
+    if (options.scope === 'accounts') {
+      if (!config.doublePuppetAsToken) {
+        throw new MatrixConfigError('[internal] an accounts-scoped Matrix client needs OM_MATRIX_DOUBLE_PUPPET_AS_TOKEN')
+      }
+      this.token = config.doublePuppetAsToken
+      this.gate = (userId) => assertAccountIdentity(config, userId)
+    } else {
+      this.token = config.asToken
+      this.gate = (userId) => assertMasqueradable(config, userId)
+    }
   }
 
   get serverName(): string {
@@ -187,7 +211,7 @@ export class MatrixClient {
   private async requestOnce<T>(options: RequestOptions): Promise<T> {
     // Every masquerade goes through the namespace gate. Placed here rather than
     // in each method so a new method cannot forget it.
-    const asUser = options.asUser ? assertMasqueradable(this.config, options.asUser) : undefined
+    const asUser = options.asUser ? this.gate(options.asUser) : undefined
     const url = this.buildUrl(options, asUser)
 
     const controller = new AbortController()
@@ -205,7 +229,7 @@ export class MatrixClient {
         headers: {
           // Header, never a query parameter: a token in a URL is a token in
           // every access log and every error report along the way.
-          authorization: `Bearer ${this.config.asToken}`,
+          authorization: `Bearer ${this.token}`,
           accept: 'application/json',
           ...(options.body === undefined ? {} : { 'content-type': 'application/json' }),
         },
@@ -272,8 +296,8 @@ export class MatrixClient {
   // Identity
   // -------------------------------------------------------------------------
 
-  whoami(): Promise<WhoamiResult> {
-    return this.request({ method: 'GET', path: '/_matrix/client/v3/account/whoami', retry: true })
+  whoami(asUser?: string): Promise<WhoamiResult> {
+    return this.request({ method: 'GET', path: '/_matrix/client/v3/account/whoami', asUser, retry: true })
   }
 
   /**
@@ -375,6 +399,16 @@ export class MatrixClient {
       method: 'POST',
       path: `/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/kick`,
       body: { user_id: userId, ...(reason === undefined ? {} : { reason }) },
+      asUser,
+      retry: true,
+    })
+  }
+
+  /** The rooms an identity is joined to. */
+  joinedRooms(asUser: string): Promise<{ joined_rooms: string[] }> {
+    return this.request({
+      method: 'GET',
+      path: '/_matrix/client/v3/joined_rooms',
       asUser,
       retry: true,
     })
@@ -569,7 +603,7 @@ export class MatrixClient {
     fileName?: string
     asUser: string
   }): Promise<UploadResult> {
-    const asUser = assertMasqueradable(this.config, params.asUser)
+    const asUser = this.gate(params.asUser)
     const url = new URL(`${this.config.baseUrl}/_matrix/media/v3/upload`)
     if (params.fileName) url.searchParams.set('filename', params.fileName)
     url.searchParams.set('user_id', asUser)
@@ -578,7 +612,7 @@ export class MatrixClient {
       const response = await fetch(url, {
         method: 'POST',
         headers: {
-          authorization: `Bearer ${this.config.asToken}`,
+          authorization: `Bearer ${this.token}`,
           'content-type': params.contentType,
         },
         // TypeScript 5.7 made `ArrayBufferView` generic, so `BodyInit` now wants
@@ -611,7 +645,7 @@ export class MatrixClient {
   async downloadMedia(serverName: string, mediaId: string): Promise<Response> {
     const url = `${this.config.baseUrl}/_matrix/client/v1/media/download/${encodeURIComponent(serverName)}/${encodeURIComponent(mediaId)}`
     const response = await fetch(url, {
-      headers: { authorization: `Bearer ${this.config.asToken}` },
+      headers: { authorization: `Bearer ${this.token}` },
       redirect: 'manual',
       signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS * 4),
     })

@@ -181,7 +181,7 @@ export async function ingestMatrixMedia(input: {
   const { CHAT_ATTACHMENT_PARTITION } = await import(
     '@open-mercato/core/modules/chat/lib/attachmentPolicy'
   )
-  const { CHAT_DRAFT_ATTACHMENT_ENTITY_ID, buildChatAttachmentMetadata } = await import(
+  const { CHAT_DRAFT_ATTACHMENT_ENTITY_ID, buildChatAttachmentMetadata, uploaderMetadataFor } = await import(
     '@open-mercato/core/modules/chat/lib/attachments'
   )
 
@@ -215,9 +215,7 @@ export async function ingestMatrixMedia(input: {
       // The sender owns the draft, because `linkDraftAttachmentsToMessage`
       // refuses a draft whose uploader is not the person sending.
       metadata: buildChatAttachmentMetadata({
-        ...(input.uploader.kind === 'user'
-          ? { uploaderUserId: input.uploader.userId }
-          : { uploaderExternalContactId: input.uploader.externalContactId }),
+        ...uploaderMetadataFor(input.uploader),
         conversationId: input.conversationId,
       }),
     })

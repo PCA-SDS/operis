@@ -126,6 +126,7 @@ export async function checkDrift(
        join chat_matrix_rooms r on r.conversation_id = m.conversation_id
        left join chat_matrix_events e on e.message_id = m.id
       where m.kind = 'user'
+        and m.visibility = 'shared'
         and m.deleted_at is null
         ${scopeClause(scope, 'm', driftParams)}`,
     driftParams,
@@ -146,6 +147,7 @@ export async function checkDrift(
          join chat_matrix_rooms r on r.conversation_id = m.conversation_id
          left join chat_matrix_events e on e.message_id = m.id
         where m.kind = 'user'
+          and m.visibility = 'shared'
           and m.deleted_at is null
           and m.created_at >= r.created_at
           and e.id is null

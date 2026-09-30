@@ -43,6 +43,16 @@ beforeEach(() => {
 })
 
 describe('searchOrganizationDirectory', () => {
+  it('lists the caller too when asked — picking a team they may belong to', async () => {
+    findWithDecryption.mockResolvedValueOnce([user(ME, 'Me', 'me@x.test'), user('u1', 'Ada', 'ada@x.test')])
+
+    const result = await searchOrganizationDirectory(em, SCOPE, { query: '', excludeUserId: null, limit: 5 })
+
+    expect(result.items.map((item) => item.id)).toEqual(['u1', ME])
+    const [, , where] = findWithDecryption.mock.calls[0]!
+    expect(where).not.toHaveProperty('id')
+  })
+
   it('returns a bounded first page for an empty query rather than the whole organization', async () => {
     findWithDecryption.mockResolvedValueOnce([user('u1', 'Ada', 'ada@x.test')])
 

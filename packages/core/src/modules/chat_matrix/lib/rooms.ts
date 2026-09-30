@@ -3,7 +3,7 @@ import { isUniqueViolation } from '@open-mercato/shared/lib/crud/errors'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { botMxid, MatrixError, type MatrixClient, type MatrixConfig } from '@open-mercato/matrix'
 import { ChatMatrixRoom } from '../data/entities'
-import { ensureIdentity, type IdentityDeps } from './identities'
+import { ensureBotRegistered, ensureIdentity, type IdentityDeps } from './identities'
 import type { EnsureConversationInput } from '@open-mercato/core/modules/chat/lib/transport'
 
 const logger = createLogger('chat_matrix').child({ component: 'rooms' })
@@ -75,6 +75,7 @@ export async function ensureRoom(
   }
 
   const bot = botMxid(deps.config)
+  await ensureBotRegistered(deps)
   const memberMxids = await resolveMembers(deps, scope.tenantId, input)
 
   const room = await deps.client.createRoom(
@@ -155,6 +156,7 @@ async function finishProvisioning(
 ): Promise<string> {
   const bot = botMxid(deps.config)
   try {
+    await ensureBotRegistered(deps)
     const memberMxids = await resolveMembers(deps, scope.tenantId, input)
     const joined = await deps.client.joinedMembers(record.roomId, bot)
 

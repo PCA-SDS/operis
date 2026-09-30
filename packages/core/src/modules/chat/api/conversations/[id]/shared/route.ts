@@ -2,7 +2,7 @@ import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { MAX_SHARED_PAGE_SIZE, querySharedResources } from '../../../../lib/shared'
 import { loadOrganizationMembers } from '../../../../lib/scope'
-import { loadExternalContacts } from '../../../../lib/people'
+import { loadSenderDirectory } from '../../../../lib/people'
 import {
   chatService,
   jsonOk,
@@ -63,16 +63,16 @@ export async function GET(req: Request, context: { params?: Record<string, unkno
       ),
     ].filter(Boolean)
     const people = await loadOrganizationMembers(request.em, request.scope, userIds)
-    // An outsider's file or link is attributed to the outsider.
-    const contacts = await loadExternalContacts(
-      request.em,
-      request.scope,
-      result.items.map((item) =>
-        item.kind === 'link' ? item.sharedByExternalContactId : item.uploaderExternalContactId,
-      ),
+    // An outsider's file or link is attributed to the outsider, and one sent
+    // from the company's phone to the account.
+    const senders = result.items.map((item) =>
+      item.kind === 'link'
+        ? { senderUserId: item.sharedByUserId, senderExternalContactId: item.sharedByExternalContactId, senderAccountId: item.sharedByAccountId }
+        : { senderUserId: item.uploaderUserId, senderExternalContactId: item.uploaderExternalContactId, senderAccountId: item.uploaderAccountId },
     )
-    const nameOf = (userId: string | null, contactId: string | null) => {
-      if (contactId) return contacts.get(contactId)?.name ?? ''
+    const contacts = await loadSenderDirectory(request.em, request.scope, senders)
+    const nameOf = (userId: string | null, otherId: string | null) => {
+      if (otherId) return contacts.get(otherId)?.name ?? ''
       const person = userId ? people.get(userId) : undefined
       return person ? person.name || person.email : ''
     }
@@ -80,8 +80,8 @@ export async function GET(req: Request, context: { params?: Record<string, unkno
     return jsonOk({
       items: result.items.map((item) =>
         item.kind === 'link'
-          ? { ...item, sharedByName: nameOf(item.sharedByUserId, item.sharedByExternalContactId) }
-          : { ...item, uploaderName: nameOf(item.uploaderUserId, item.uploaderExternalContactId) },
+          ? { ...item, sharedByName: nameOf(item.sharedByUserId, item.sharedByExternalContactId ?? item.sharedByAccountId) }
+          : { ...item, uploaderName: nameOf(item.uploaderUserId, item.uploaderExternalContactId ?? item.uploaderAccountId) },
       ),
       nextCursor: result.nextCursor,
       hasMore: result.hasMore,

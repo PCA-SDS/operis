@@ -76,6 +76,7 @@ function scenario(options: {
   }>
   messageKind?: string
   deletedAt?: Date | null
+  visibility?: 'shared' | 'internal'
 }) {
   created.length = 0
   const rows = new Map<unknown, Row[]>()
@@ -88,6 +89,7 @@ function scenario(options: {
       deletedAt: options.deletedAt ?? null,
       createdAt: SENT_AT,
       mentionsEveryone: Boolean(options.mentionsEveryone),
+      visibility: options.visibility ?? 'shared',
     },
   ])
   rows.set(ChatConversation, [
@@ -350,6 +352,33 @@ describe('an outsider writing in an external conversation', () => {
     const payload: Record<string, unknown> = { ...built.payload, senderExternalContactId: CONTACT }
     delete payload.senderUserId
     await handle(payload, built.ctx as never)
+    expect(created).toEqual([])
+  })
+})
+
+/**
+ * An internal note is colleagues talking among themselves beside a customer,
+ * so it behaves like a space message: it tells the people it names, and only
+ * them.
+ */
+describe('an internal note in an external conversation', () => {
+  const participants = [
+    { userId: SENDER },
+    { userId: ALICE },
+    { userId: BOB },
+    { userId: null, externalContactId: CONTACT },
+  ]
+
+  it('notifies the colleagues it names, as a mention', async () => {
+    const { ctx, payload } = scenario({ kind: 'external', visibility: 'internal', mentioned: [ALICE], participants })
+    await handle(payload, ctx as never)
+    expect(recipients()).toEqual([ALICE])
+    expect(created[0].type).toBe('chat.mention.received')
+  })
+
+  it('notifies nobody when it names nobody', async () => {
+    const { ctx, payload } = scenario({ kind: 'external', visibility: 'internal', participants })
+    await handle(payload, ctx as never)
     expect(created).toEqual([])
   })
 })

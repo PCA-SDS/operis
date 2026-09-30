@@ -72,6 +72,13 @@ export type PublishMessageInput = {
   attachmentIds: string[]
   /** Everyone entitled to see the message — a transport must not widen this. */
   recipientUserIds: string[]
+  /**
+   * In a conversation that came in through a messaging account, the words that
+   * lead the text the customer receives — the colleague's first name when the
+   * account signs its replies (`Jules: …`), null when it does not. Absent
+   * everywhere else. Operis' own copy of the message is never prefixed.
+   */
+  senderSignature?: string | null
 }
 
 export type PublishedMessage = {
@@ -251,6 +258,8 @@ export type PublishEditInput = {
   /** The new text, already normalised and validated. */
   body: string
   editedAt: Date
+  /** As on `PublishMessageInput`: what leads the customer's copy, so an edit keeps its signature. */
+  senderSignature?: string | null
 }
 
 /**

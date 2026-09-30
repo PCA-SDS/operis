@@ -95,7 +95,8 @@ function toEntries(
 export async function searchOrganizationDirectory(
   em: EntityManager,
   scope: ChatScope,
-  options: { query: string; excludeUserId: string; limit?: number },
+  /** `excludeUserId` null lists the caller too — for picking a team they may belong to. */
+  options: { query: string; excludeUserId: string | null; limit?: number },
 ): Promise<ChatDirectoryResult> {
   const limit = Math.min(Math.max(options.limit ?? DIRECTORY_RESULT_LIMIT, 1), DIRECTORY_RESULT_LIMIT)
   const needle = options.query.trim()
@@ -107,7 +108,7 @@ export async function searchOrganizationDirectory(
     const users = await findWithDecryption(
       em,
       User,
-      { ...memberFilter, id: { $ne: options.excludeUserId } },
+      options.excludeUserId ? { ...memberFilter, id: { $ne: options.excludeUserId } } : memberFilter,
       { orderBy: { createdAt: 'asc' }, limit },
       { tenantId: scope.tenantId, organizationId: scope.organizationId },
     )

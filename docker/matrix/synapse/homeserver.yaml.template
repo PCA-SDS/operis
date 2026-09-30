@@ -87,8 +87,9 @@ presence:
 # Application service
 # ---------------------------------------------------------------------------
 
-app_service_config_files:
-  - /data/registration.operis.yaml
+# Rendered as a flow list: always Operis' own registration, plus — when the
+# WhatsApp bridge runs — the bridge's and the double-puppet registration.
+app_service_config_files: ${MATRIX_APPSERVICE_FILES}
 
 # ---------------------------------------------------------------------------
 # Media

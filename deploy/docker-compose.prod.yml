@@ -23,10 +23,10 @@
 #
 # This same file runs production (/opt/operis) and staging
 # (/opt/operis-staging) on the SAME host. Every name a second copy would
-# collide on is prefixed with it: the compose project, all five container
-# names, the internal network and all five volumes. Set it in the stack's .env;
-# unset it defaults to `operis`, so production renders exactly as it did before
-# this was parameterised.
+# collide on is prefixed with it: the compose project, every container name,
+# the internal network and every volume (five of each, seven with the `matrix`
+# profile). Set it in the stack's .env; unset it defaults to `operis`, so
+# production renders exactly as it did before this was parameterised.
 #
 # The `edge` network is deliberately NOT prefixed — both stacks join the one
 # gateway network, which is how nginx reaches either app container.
@@ -276,6 +276,158 @@ services:
       # is merely still opening.
       start_period: 120s
 
+  # ---------------------------------------------------------------------------
+  # Chat on Matrix (profile: matrix) — OPT-IN PER STACK. Runbook: deploy/MATRIX.md
+  # ---------------------------------------------------------------------------
+  # Both services start only when the stack's .env says COMPOSE_PROFILES=matrix.
+  # Compose reads that variable from the env files ./dc and deploy.sh pass, so a
+  # stack that never opted in renders exactly as before. Enabling it is Phase 1:
+  # the homeserver runs, and chat stays on Postgres (OM_CHAT_TRANSPORT=local)
+  # until the operator flips it.
+  #
+  # Synapse is AGPL-3.0 and runs here as an UNMODIFIED upstream image, spoken to
+  # over the Matrix HTTP protocol only — see ADR-0006. Pinned, and bumped
+  # deliberately: a new Synapse migrates its own schema on start, so `latest`
+  # would let that land inside an unrelated deploy. deploy.sh dumps
+  # matrix-postgres before every deploy that has the profile on.
+  #
+  # Neither service publishes a host port or joins `edge`. Synapse holds every
+  # chat message and authenticates by bearer token; only the app talks to it,
+  # over `internal`, at http://synapse:8008.
+  matrix-postgres:
+    image: postgres:17-alpine
+    container_name: ${STACK_NAME:-operis}-matrix-postgres
+    restart: unless-stopped
+    profiles: [ matrix ]
+    environment:
+      POSTGRES_USER: ${MATRIX_PG_USER:-synapse}
+      # `:-` rather than `:?` on purpose: interpolation runs over the WHOLE file
+      # before profiles are applied, so a `:?` here would refuse to start a stack
+      # that never enabled Matrix. matrix-render.sh checks it when the profile is
+      # on, and postgres itself refuses to initialise on an empty password.
+      POSTGRES_PASSWORD: ${MATRIX_PG_PASSWORD:-}
+      POSTGRES_DB: ${MATRIX_PG_DATABASE:-synapse}
+      # Synapse REQUIRES a C-collated database and refuses to start against
+      # anything else. initdb is the only moment this can be decided.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=C --lc-ctype=C --data-checksums"
+    # Its own instance, not a second database inside `postgres`: the app's
+    # backups, restores and `pg_restore --clean` must never be able to reach
+    # the homeserver's data, and the two upgrade on different schedules.
+    volumes:
+      - matrix_postgres_data:/var/lib/postgresql/data
+    networks: [ internal ]
+    security_opt: [ "no-new-privileges:true" ]
+    stop_grace_period: 60s
+    logging: *default-logging
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${MATRIX_PG_USER:-synapse} -d ${MATRIX_PG_DATABASE:-synapse}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  synapse:
+    image: ghcr.io/element-hq/synapse:v1.160.0
+    container_name: ${STACK_NAME:-operis}-synapse
+    restart: unless-stopped
+    profiles: [ matrix ]
+    depends_on:
+      matrix-postgres: { condition: service_healthy }
+    environment:
+      SYNAPSE_CONFIG_PATH: /data/homeserver.yaml
+      # The image starts as root, chowns /data to this uid:gid and drops to it.
+      # matrix-render.sh writes /data's contents as the deploy user BEFORE the
+      # first start and re-renders on every deploy, so the files must stay owned
+      # by that user — `matrix-render.sh --init-secrets` records its uid/gid
+      # here. Left at the image default (991), the second render fails with a
+      # permission error that names the fix.
+      UID: ${SYNAPSE_UID:-991}
+      GID: ${SYNAPSE_GID:-991}
+    volumes:
+      # /data holds the rendered config, the appservice registration, the
+      # signing key and the media store. A bind mount rather than a named
+      # volume so the deploy user can render into it and a backup can copy it
+      # with plain filesystem tools. LOSING THIS DIRECTORY LOSES EVERY ROOM —
+      # the signing key cannot be regenerated. See deploy/MATRIX.md "Backups".
+      - ./matrix:/data
+    networks: [ internal ]
+    security_opt: [ "no-new-privileges:true" ]
+    stop_grace_period: 30s
+    logging: *default-logging
+    # Bounded, like `translation`: this box has no swap and shares its memory
+    # with unrelated products. Synapse's caches grow to whatever they are
+    # allowed; 1g is ample for one organisation's chat and the first /sync.
+    mem_limit: ${SYNAPSE_MEM_LIMIT:-1g}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8008/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      # A fresh database runs the full schema migration before the listener
+      # answers — ~70s measured on a laptop in dev; 180s covers a cold start.
+      start_period: 180s
+
+  # ---------------------------------------------------------------------------
+  # WhatsApp bridge (profile: whatsapp, needs `matrix`) — OPT-IN PER STACK.
+  # ---------------------------------------------------------------------------
+  # COMPOSE_PROFILES=matrix,whatsapp. mautrix-whatsapp is AGPL-3.0 and runs as an
+  # UNMODIFIED, pinned upstream image, spoken to over Matrix and its provisioning
+  # API only (ADR-0006; .ai/specs/2026-09-29-whatsapp-bridge.md). Neither
+  # service publishes a port or joins `edge`: only Synapse and the app reach the
+  # bridge, over `internal`.
+
+  # One-shot: the bridge's own role and database inside matrix-postgres — a
+  # role of its own, so the bridge can never read the homeserver's tables.
+  mautrix-whatsapp-db:
+    image: postgres:17-alpine
+    container_name: ${STACK_NAME:-operis}-mautrix-whatsapp-db
+    restart: "no"
+    profiles: [ whatsapp ]
+    depends_on:
+      matrix-postgres: { condition: service_healthy }
+    environment:
+      PGHOST: matrix-postgres
+      PGUSER: ${MATRIX_PG_USER:-synapse}
+      PGPASSWORD: ${MATRIX_PG_PASSWORD:-}
+      PGDATABASE: ${MATRIX_PG_DATABASE:-synapse}
+      WHATSAPP_PG_USER: ${WHATSAPP_PG_USER:-mautrix_whatsapp}
+      WHATSAPP_PG_PASSWORD: ${WHATSAPP_PG_PASSWORD:-}
+      WHATSAPP_PG_DATABASE: ${WHATSAPP_PG_DATABASE:-mautrix_whatsapp}
+    entrypoint: [ "/bin/sh", "/ensure-database.sh" ]
+    volumes:
+      - ./matrix-template/ensure-database.sh:/ensure-database.sh:ro
+    networks: [ internal ]
+    security_opt: [ "no-new-privileges:true" ]
+    logging: *default-logging
+
+  mautrix-whatsapp:
+    image: dock.mau.dev/mautrix/whatsapp:v0.2609.0
+    container_name: ${STACK_NAME:-operis}-mautrix-whatsapp
+    restart: unless-stopped
+    profiles: [ whatsapp ]
+    depends_on:
+      synapse: { condition: service_healthy }
+      mautrix-whatsapp-db: { condition: service_completed_successfully }
+    # matrix-render.sh writes whatsapp/config.yaml as the deploy user (mode 600);
+    # the bridge runs as that same uid, read-only, with -n so it merges upstream
+    # defaults in memory and never rewrites the file. Skipping the image's
+    # entrypoint also skips its chown of /data.
+    user: "${SYNAPSE_UID:-991}:${SYNAPSE_GID:-991}"
+    entrypoint: [ "/usr/bin/mautrix-whatsapp", "-c", "/data/config.yaml", "-n" ]
+    volumes:
+      - ./whatsapp:/data:ro
+    networks: [ internal ]
+    security_opt: [ "no-new-privileges:true" ]
+    stop_grace_period: 30s
+    logging: *default-logging
+    mem_limit: ${WHATSAPP_MEM_LIMIT:-512m}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:29318/_matrix/mau/ready || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
 networks:
   internal:
     name: ${STACK_NAME:-operis}-internal
@@ -298,3 +450,7 @@ volumes:
     name: ${STACK_NAME:-operis}_attachments
   init_marker:
     name: ${STACK_NAME:-operis}_init_marker
+  # Profile `matrix` only. Declaring it unconditionally is harmless: compose
+  # creates a volume when a service first mounts it, not when it is declared.
+  matrix_postgres_data:
+    name: ${STACK_NAME:-operis}_matrix_postgres_data

@@ -407,6 +407,25 @@ describe('MessageList', () => {
       expect(screen.queryByText('Delete message')).toBeNull()
     })
 
+    /** A viewer in a client conversation: what reached the client is not theirs to change. */
+    it('offers a viewer only their internal notes to change', () => {
+      renderList(
+        [
+          message({ id: 'sent', senderUserId: ME, visibility: 'shared', createdAt: '2026-09-02T10:00:00.000Z' }),
+          message({ id: 'note', senderUserId: ME, visibility: 'internal', createdAt: '2026-09-02T10:10:00.000Z' }),
+        ],
+        [],
+        { onEdit: jest.fn(), onDelete: jest.fn(), sharedLocked: true, isExternal: true },
+      )
+      openMenuFor(rowFor('sent'))
+      expect(screen.queryByText('Edit message')).toBeNull()
+      expect(screen.queryByText('Delete message')).toBeNull()
+      fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' })
+      openMenuFor(rowFor('note'))
+      expect(screen.getByText('Edit message')).toBeTruthy()
+      expect(screen.getByText('Delete message')).toBeTruthy()
+    })
+
     it('marks an edited message, so the reader knows the words changed', () => {
       renderList([message({ id: 'm1', editedAt: '2026-09-02T10:04:00.000Z' })])
       expect(screen.getByText('(edited)')).toBeTruthy()

@@ -44,6 +44,8 @@ export type ChatAttachmentMetadata = {
   uploaderUserId?: string
   /** The outsider whose file the transport brought in. Exactly one is set. */
   uploaderExternalContactId?: string
+  /** The messaging account whose own phone sent the file. */
+  uploaderAccountId?: string
 }
 
 const METADATA_KEY = 'chat'
@@ -63,10 +65,20 @@ export function readChatAttachmentMetadata(
   if (typeof value.conversationId !== 'string') return null
   const byUser = typeof value.uploaderUserId === 'string'
   const byContact = typeof value.uploaderExternalContactId === 'string'
-  if (byUser === byContact) return null
-  return byUser
-    ? { uploaderUserId: value.uploaderUserId, conversationId: value.conversationId }
-    : { uploaderExternalContactId: value.uploaderExternalContactId, conversationId: value.conversationId }
+  const byAccount = typeof value.uploaderAccountId === 'string'
+  if (Number(byUser) + Number(byContact) + Number(byAccount) !== 1) return null
+  if (byUser) return { uploaderUserId: value.uploaderUserId, conversationId: value.conversationId }
+  if (byContact) return { uploaderExternalContactId: value.uploaderExternalContactId, conversationId: value.conversationId }
+  return { uploaderAccountId: value.uploaderAccountId, conversationId: value.conversationId }
+}
+
+/** Whose draft this is, in the metadata's own words. */
+export function uploaderMetadataFor(
+  uploader: ChatActor,
+): Pick<ChatAttachmentMetadata, 'uploaderUserId' | 'uploaderExternalContactId' | 'uploaderAccountId'> {
+  if (uploader.kind === 'user') return { uploaderUserId: uploader.userId }
+  if (uploader.kind === 'external') return { uploaderExternalContactId: uploader.externalContactId }
+  return { uploaderAccountId: uploader.accountId }
 }
 
 export class ChatAttachmentError extends Error {
@@ -126,7 +138,9 @@ export async function linkDraftAttachmentsToMessage(input: {
     const uploadedBySender =
       uploader.kind === 'user'
         ? meta?.uploaderUserId === uploader.userId
-        : meta?.uploaderExternalContactId === uploader.externalContactId
+        : uploader.kind === 'external'
+          ? meta?.uploaderExternalContactId === uploader.externalContactId
+          : meta?.uploaderAccountId === uploader.accountId
     if (!meta || !uploadedBySender || meta.conversationId !== conversationId) {
       // Same answer as a missing row on purpose: someone probing ids should not
       // be able to tell "that is not yours" from "that does not exist".

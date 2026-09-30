@@ -2,7 +2,15 @@ import type { EntityManager } from '@mikro-orm/postgresql'
 import type { CommandBus, CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { createHash } from 'node:crypto'
-import { botMxid, bridgeGhostNetwork, operisUserIdFromMxid, parseMxid, type MatrixClient, type MatrixConfig } from '@open-mercato/matrix'
+import {
+  accountFromMxid,
+  botMxid,
+  bridgeGhostNetwork,
+  operisUserIdFromMxid,
+  parseMxid,
+  type MatrixClient,
+  type MatrixConfig,
+} from '@open-mercato/matrix'
 import type { ChatActor } from '@open-mercato/core/modules/chat/lib/participants'
 import type { ChatScope } from '@open-mercato/core/modules/chat/lib/scope'
 import type { ChatMatrixRoom } from '../data/entities'
@@ -15,9 +23,15 @@ const logger = createLogger('chat_matrix').child({ component: 'outsiders' })
  * | Sender                                   | Conversation | Result                      |
  * |------------------------------------------|--------------|-----------------------------|
  * | an Operis identity                       | any          | a colleague                 |
+ * | a messaging account's identity           | its own      | the account (its phone)     |
  * | a configured bridge ghost                | external     | an outsider (found/created) |
  * | a configured bridge ghost                | direct/space | skip: external-in-internal-room |
  * | anyone else (bots, unconfigured senders) | any          | skip: external-sender       |
+ *
+ * A messaging account's identity speaks in its portals only when its phone
+ * did — Operis' own sends as the account are recognised earlier, by their
+ * event id. The chat command checks the conversation really came in through
+ * that account.
  *
  * A ghost's mxid carries its phone number or handle, so none of this ever logs
  * one above debug level.
@@ -85,7 +99,7 @@ export function actorContext(
   scope: ChatScope,
   actor: ChatActor,
 ): CommandRuntimeContext {
-  if (actor.kind === 'external') return systemContext(deps, scope)
+  if (actor.kind !== 'user') return systemContext(deps, scope)
   return {
     container: deps.container,
     auth: {
@@ -99,21 +113,25 @@ export function actorContext(
   }
 }
 
-/** An `externalOrigin` naming the outsider when the actor is one. */
+/** An `externalOrigin` naming the outsider, or the account, when the actor is one. */
 export function withActorOrigin<T extends Record<string, unknown>>(
   origin: T,
   actor: ChatActor,
-): T & { externalContactId?: string } {
-  return actor.kind === 'external' ? { ...origin, externalContactId: actor.externalContactId } : origin
+): T & { externalContactId?: string; senderAccountId?: string } {
+  if (actor.kind === 'external') return { ...origin, externalContactId: actor.externalContactId }
+  if (actor.kind === 'account') return { ...origin, senderAccountId: actor.accountId }
+  return origin
 }
 
 /**
  * The reactor segment of a reaction's subject key. A colleague keeps the user
- * id the key always carried; an outsider is prefixed, so the two can never
- * collide — a uuid never starts with `ext-`.
+ * id the key always carried; an outsider and an account are prefixed, so none
+ * can collide — a uuid never starts with `ext-` or `acct-`.
  */
 export function actorKey(actor: ChatActor): string {
-  return actor.kind === 'user' ? actor.userId : `ext-${actor.externalContactId}`
+  if (actor.kind === 'user') return actor.userId
+  if (actor.kind === 'external') return `ext-${actor.externalContactId}`
+  return `acct-${actor.accountId}`
 }
 
 async function conversationKind(em: EntityManager, room: ChatMatrixRoom): Promise<string | null> {
@@ -168,6 +186,18 @@ export function fallbackGhostName(config: MatrixConfig, mxid: string): string {
 }
 
 /**
+ * The phone number a WhatsApp ghost stands for, when its id is one —
+ * `@whatsapp_4915112345678:server` is `+4915112345678`. Somebody who hides
+ * their number reaches the bridge under an opaque id (`lid-…`) instead and has
+ * none; so does every other network, whose ids are not phone numbers.
+ */
+export function ghostPhoneNumber(config: MatrixConfig, mxid: string): string | null {
+  if (bridgeGhostNetwork(config, mxid) !== 'whatsapp') return null
+  const digits = fallbackGhostName(config, mxid)
+  return /^[1-9]\d{6,14}$/.test(digits) ? `+${digits}` : null
+}
+
+/**
  * Resolve an event's sender to a chat actor, seating an outsider on the way.
  *
  * For a ghost in an external conversation this ensures the contact — creating
@@ -182,6 +212,16 @@ export async function resolveProjectionActor(
 ): Promise<ActorResolution> {
   const userId = operisUserIdFromMxid(deps.config, sender)
   if (userId) return { ok: true, actor: { kind: 'user', userId } }
+
+  // The account's own phone. Only in a room adopted from that very account:
+  // anywhere else the identity has no business speaking, and it is skipped
+  // like any other stranger.
+  const account = accountFromMxid(deps.config, sender)
+  if (account) {
+    return room.accountId === account.accountId
+      ? { ok: true, actor: { kind: 'account', accountId: account.accountId } }
+      : { ok: false, reason: 'external-sender' }
+  }
 
   const network = bridgeGhostNetwork(deps.config, sender)
   if (!network) {
@@ -208,7 +248,7 @@ export async function resolveProjectionActor(
   const ctx = systemContext(deps, scope)
 
   await deps.commandBus.execute('chat.externalContacts.ensure', {
-    input: { ...scope, id: externalContactId, network, displayName },
+    input: { ...scope, id: externalContactId, network, displayName, handle: ghostPhoneNumber(deps.config, sender) ?? undefined },
     ctx,
   })
   await deps.commandBus.execute('chat.conversations.addExternalParticipant', {
@@ -224,6 +264,8 @@ export async function resolveProjectionActor(
  * participant simply matches no row, and the receipt is dropped.
  */
 export function receiptActor(config: MatrixConfig, scope: ChatScope, reader: string): ChatActor | null {
+  // The company's phone reading a chat is not a colleague reading it.
+  if (accountFromMxid(config, reader)) return null
   const userId = operisUserIdFromMxid(config, reader)
   if (userId) return { kind: 'user', userId }
   if (bridgeGhostNetwork(config, reader)) {

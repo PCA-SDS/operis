@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from 'react'
-import { ArrowDown, Languages, MessageSquare, Pin, PinOff, Quote } from 'lucide-react'
+import { ArrowDown, Languages, Lock, MessageSquare, Pin, PinOff, Quote } from 'lucide-react'
 import { Avatar } from '@open-mercato/ui/primitives/avatar'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { IconButton } from '@open-mercato/ui/primitives/icon-button'
@@ -42,6 +42,8 @@ export type PendingMessage = {
   /** Enough to draw the quote before the server has echoed the message back. */
   replyToAuthorName?: string
   replyToBody?: string
+  /** An internal note in flight — drawn as one from the start, never as a reply to the client. */
+  visibility?: 'shared' | 'internal'
 }
 
 export type ReplyRequest = {
@@ -89,6 +91,11 @@ type MessageListProps = {
   onDelete?: (messageId: string) => void
   /** Whether the viewer may delete other people's messages here. */
   canModerate?: boolean
+  /**
+   * A viewer in a client conversation: what went out to the client is not
+   * theirs to react to, edit or delete — only internal notes are.
+   */
+  sharedLocked?: boolean
   /**
    * A message to bring into view, set by pin navigation. Cleared through
    * `onJumpHandled` once it has been scrolled to, so re-pinning the same message
@@ -278,10 +285,26 @@ const SKELETON_ROWS = [
  * Who wrote a message, as one comparable key. Comparing `senderUserId` alone
  * would run two outsiders' messages together into one turn — both carry null.
  */
-function senderKey(message: { senderUserId: string | null; senderExternalContactId?: string | null }): string {
+function senderKey(message: {
+  senderUserId: string | null
+  senderExternalContactId?: string | null
+  senderAccountId?: string | null
+}): string {
+  if (message.senderAccountId) return `account:${message.senderAccountId}`
   return message.senderExternalContactId
     ? `external:${message.senderExternalContactId}`
     : `user:${message.senderUserId ?? ''}`
+}
+
+/** Says, in words and not only in colour, that the client never sees this. */
+function InternalNoteLabel() {
+  const t = useT()
+  return (
+    <p className="mb-1 flex items-center gap-1 text-xs font-medium text-status-warning-text">
+      <Lock className="size-3" aria-hidden="true" />
+      {t('chat.internal.label', 'Internal note — the client does not see this')}
+    </p>
+  )
 }
 
 export function MessageListSkeleton() {
@@ -525,6 +548,7 @@ export function MessageList({
   onEdit,
   onDelete,
   canModerate = false,
+  sharedLocked = false,
   jumpToMessageId,
   jumpShouldFocus = true,
   jumpShouldFlash = true,
@@ -558,6 +582,7 @@ export function MessageList({
    */
   const cardSpotClaimed = useChatSpotClaimed(extensionPoints.hosts.messageCard.spotId)
   const injectedMessageActions = useChatInjectedActions(extensionPoints.hosts.messageActions.spotId)
+  const touchable = (message: ChatMessageDto) => !sharedLocked || message.visibility === 'internal'
   const scrollRef = React.useRef<HTMLDivElement>(null)
   const unreadDividerRef = React.useRef<HTMLLIElement>(null)
   const [atBottom, setAtBottom] = React.useState(true)
@@ -1309,9 +1334,12 @@ export function MessageList({
                           'w-fit max-w-[min(85%,65ch)] rounded-2xl px-3 py-2',
                           row.pending.failed
                             ? 'border border-status-error-border bg-status-error-bg'
-                            : 'bg-primary-soft opacity-70',
+                            : row.pending.visibility === 'internal'
+                              ? 'border border-status-warning-border bg-status-warning-bg opacity-70'
+                              : 'bg-primary-soft opacity-70',
                         )}
                       >
+                        {row.pending.visibility === 'internal' ? <InternalNoteLabel /> : null}
                         {/* The quote is drawn from what the composer knew, so an
                             in-flight reply looks exactly like the sent one it is
                             about to become — never inert-then-quoted. Not
@@ -1442,6 +1470,10 @@ export function MessageList({
                             <span className="shrink-0 text-xs text-muted-foreground">
                               {networkLabel(t, row.message.senderNetwork)}
                             </span>
+                          ) : row.message.senderAccountId ? (
+                            <span className="shrink-0 text-xs text-muted-foreground" data-testid="chat-message-from-phone">
+                              {t('chat.external.sentFromPhone', 'sent from the phone')}
+                            </span>
                           ) : null}
                           <time
                             dateTime={row.message.createdAt}
@@ -1504,9 +1536,19 @@ export function MessageList({
                           // scrollbar under the entire transcript. Clamped to the
                           // wrapper, the same token wraps instead.
                           'w-fit max-w-full rounded-2xl px-3 py-2',
-                          row.mine ? 'ml-auto bg-primary-soft' : 'bg-surface-muted',
+                          row.mine && 'ml-auto',
+                          // An internal note looks like nothing the client could
+                          // have received: tinted, bordered and labelled, on
+                          // either side of the pane.
+                          row.message.visibility === 'internal'
+                            ? 'border border-status-warning-border bg-status-warning-bg'
+                            : row.mine
+                              ? 'bg-primary-soft'
+                              : 'bg-surface-muted',
                         )}
+                        data-visibility={row.message.visibility}
                       >
+                        {row.message.visibility === 'internal' ? <InternalNoteLabel /> : null}
                         {/* Inside the bubble, above the text: the quote is part
                             of this message, and floating it outside would make
                             the reply look like two rows. */}
@@ -1650,7 +1692,7 @@ export function MessageList({
                         <div className="mt-1 flex items-center gap-2">
                           <MessageReactions
                             reactions={row.message.reactions}
-                            disabled={!onToggleReaction}
+                            disabled={!onToggleReaction || !touchable(row.message)}
                             onToggle={(emoji) =>
                               onToggleReaction?.(row.message.id, emoji)
                             }
@@ -1737,7 +1779,7 @@ export function MessageList({
                         )}
                       >
                         <div className={FLOATING_CHROME}>
-                          {onToggleReaction ? (
+                          {onToggleReaction && touchable(row.message) ? (
                             <>
                               <QuickReactions
                                 onToggle={(emoji) =>
@@ -1836,7 +1878,7 @@ export function MessageList({
                                caller knows whether the viewer may write here,
                                and only the row knows who wrote it. */
                             onEdit={
-                              onEdit && row.mine
+                              onEdit && row.mine && touchable(row.message)
                                 ? () =>
                                     onEdit({
                                       messageId: row.message.id,
@@ -1845,7 +1887,7 @@ export function MessageList({
                                 : undefined
                             }
                             onDelete={
-                              onDelete && (row.mine || canModerate)
+                              onDelete && ((row.mine && touchable(row.message)) || canModerate)
                                 ? () => onDelete(row.message.id)
                                 : undefined
                             }

@@ -1,0 +1,82 @@
+# mautrix-whatsapp configuration for Operis — TEMPLATE, overrides only.
+#
+# Rendered into the bridge's /data/config.yaml by scripts/matrix-dev.mjs
+# (development) and deploy/matrix-render.sh (production), substituting the
+# ${...} placeholders from generated secrets. The bridge runs with `-n`: it
+# merges its own defaults in memory and never rewrites this file, so only the
+# values Operis depends on live here. Everything else is upstream's default.
+#
+# The bridge is an UNMODIFIED upstream image (AGPL-3.0), spoken to over Matrix
+# and its provisioning HTTP API only. See ADR-0006 and
+# .ai/specs/2026-09-29-whatsapp-bridge.md.
+
+homeserver:
+    address: http://synapse:8008
+    domain: ${MATRIX_SERVER_NAME}
+
+appservice:
+    address: http://mautrix-whatsapp:29318
+    hostname: 0.0.0.0
+    port: 29318
+    id: whatsapp
+    bot:
+        username: whatsappbot
+        displayname: WhatsApp bridge bot
+    as_token: ${WHATSAPP_AS_TOKEN}
+    hs_token: ${WHATSAPP_HS_TOKEN}
+    # Every WhatsApp contact becomes @whatsapp_<id>. Operis recognises them by
+    # this prefix (OM_MATRIX_BRIDGE_GHOSTS=whatsapp=whatsapp_) — keep them equal.
+    username_template: whatsapp_{{.}}
+
+database:
+    type: postgres
+    uri: postgres://${WHATSAPP_PG_USER}:${WHATSAPP_PG_PASSWORD}@matrix-postgres/${WHATSAPP_PG_DATABASE}?sslmode=disable
+
+network:
+    # Status updates are not conversations; a portal for them would land in the
+    # company inbox as a chat with nobody.
+    enable_status_broadcast: false
+    history_sync:
+        # Upstream imports EVERY chat on login. A busy business number would
+        # arrive as hundreds of conversations at once.
+        max_initial_conversations: ${WHATSAPP_INITIAL_CONVERSATIONS}
+
+bridge:
+    # Only accounts on this homeserver may log in, and every account here is
+    # created by an appservice — nobody self-registers.
+    permissions:
+        "${MATRIX_SERVER_NAME}": user
+    # Upstream kicks every Matrix user without a WhatsApp login out of portals.
+    # That would eject Operis' bot and colleagues from every conversation.
+    kick_matrix_users: false
+    personal_filtering_spaces: false
+
+matrix:
+    federate_rooms: false
+
+provisioning:
+    # Operis drives logins with this secret plus ?user_id=<account identity>.
+    # Matrix access tokens are refused: only Operis may start a login.
+    shared_secret: ${WHATSAPP_PROVISIONING_SECRET}
+    allow_matrix_auth: false
+
+backfill:
+    enabled: true
+    max_initial_messages: ${WHATSAPP_INITIAL_MESSAGES}
+
+double_puppet:
+    servers: {}
+    # A SEPARATE registration whose non-exclusive namespace covers only account
+    # identities (@om_a_…, @opp_…): the bridge can act as a connected account,
+    # never as a colleague.
+    secrets:
+        "${MATRIX_SERVER_NAME}": as_token:${DOUBLE_PUPPET_AS_TOKEN}
+
+encryption:
+    allow: false
+
+logging:
+    min_level: info
+    writers:
+        - type: stdout
+          format: pretty

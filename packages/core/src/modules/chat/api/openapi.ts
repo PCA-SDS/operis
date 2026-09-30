@@ -43,6 +43,9 @@ export const conversationSchema = z.object({
     .object({
       network: z.string(),
       contacts: z.array(z.object({ id: z.string().uuid(), name: z.string() })),
+      account: z
+        .object({ id: z.string().uuid(), name: z.string(), connected: z.boolean() })
+        .nullable(),
     })
     .nullable(),
   title: z.string(),
@@ -50,18 +53,30 @@ export const conversationSchema = z.object({
   hasUnreadMention: z.boolean(),
   pinnedCount: z.number(),
   viewerRole: z.enum(['owner', 'member']),
+  viewerAccess: z.enum(['viewer', 'participant', 'manager']).nullable(),
 })
 
 export const memberSchema = participantSchema.extend({
   role: z.enum(['owner', 'member']),
+  access: z.enum(['viewer', 'participant', 'manager']).nullable(),
   joinedAt: z.string(),
+})
+
+export const customerRefSchema = z.object({
+  id: z.string().uuid(),
+  kind: z.enum(['person', 'company']).nullable(),
+  name: z.string().nullable(),
+  href: z.string().nullable(),
 })
 
 export const externalMemberSchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
   network: z.string(),
+  handle: z.string().nullable(),
   joinedAt: z.string(),
+  customer: customerRefSchema.nullable(),
+  suggestion: customerRefSchema.nullable(),
 })
 
 export const memberListSchema = z.object({
@@ -69,6 +84,36 @@ export const memberListSchema = z.object({
   total: z.number(),
   hasMore: z.boolean(),
   externalMembers: z.array(externalMemberSchema),
+  crm: z.object({ available: z.boolean(), canLink: z.boolean() }),
+})
+
+export const crmSearchResultSchema = z.object({
+  items: z.array(
+    z.object({
+      id: z.string().uuid(),
+      kind: z.enum(['person', 'company']),
+      name: z.string(),
+      href: z.string(),
+    }),
+  ),
+})
+
+export const accountChatListSchema = z.object({
+  items: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      kind: z.enum(['direct', 'group']),
+      conversationId: z.string().uuid().nullable(),
+    }),
+  ),
+})
+
+export const accountChatMoveResponseSchema = z.object({ conversationId: z.string().uuid() })
+
+export const contactCustomerResponseSchema = z.object({
+  externalContactId: z.string().uuid(),
+  customerEntityId: z.string().uuid().nullable(),
 })
 
 export const addMembersResponseSchema = z.object({ added: z.array(z.string().uuid()) })
@@ -76,10 +121,10 @@ export const removeMemberResponseSchema = z.object({
   removed: z.string().uuid(),
   spaceDeleted: z.boolean(),
 })
-export const memberRoleResponseSchema = z.object({
-  userId: z.string().uuid(),
-  role: z.enum(['owner', 'member']),
-})
+export const memberRoleResponseSchema = z.union([
+  z.object({ userId: z.string().uuid(), role: z.enum(['owner', 'member']) }),
+  z.object({ userId: z.string().uuid(), access: z.enum(['viewer', 'participant', 'manager']) }),
+])
 
 export const replyTargetSchema = z.object({
   id: z.string().uuid(),
@@ -132,6 +177,8 @@ export const messageSchema = z.object({
   conversationId: z.string().uuid(),
   senderUserId: z.string().uuid().nullable(),
   senderExternalContactId: z.string().uuid().nullable(),
+  senderAccountId: z.string().uuid().nullable(),
+  visibility: z.enum(['shared', 'internal']),
   senderName: z.string(),
   senderNetwork: z.string().nullable(),
   body: z.string(),
@@ -225,6 +272,7 @@ const sharedFileEntrySchema = z.object({
   fileSize: z.number(),
   uploaderUserId: z.string().uuid().nullable(),
   uploaderExternalContactId: z.string().uuid().nullable(),
+  uploaderAccountId: z.string().uuid().nullable(),
   uploaderName: z.string(),
   createdAt: z.string(),
 })
@@ -237,6 +285,7 @@ const sharedLinkEntrySchema = z.object({
   host: z.string(),
   sharedByUserId: z.string().uuid().nullable(),
   sharedByExternalContactId: z.string().uuid().nullable(),
+  sharedByAccountId: z.string().uuid().nullable(),
   sharedByName: z.string(),
   createdAt: z.string(),
 })
@@ -246,3 +295,41 @@ export const sharedResourcesSchema = z.object({
   nextCursor: z.string().nullable(),
   hasMore: z.boolean(),
 })
+
+export const accountLoginStepSchema = z.object({
+  flow: z.enum(['qr', 'phone']),
+  kind: z.enum(['qr', 'code', 'input', 'waiting']),
+  data: z.string().nullable(),
+  fields: z
+    .array(z.object({ id: z.string(), type: z.string(), name: z.string().nullable(), description: z.string().nullable() }))
+    .optional(),
+  updatedAt: z.string(),
+})
+
+export const accountSchema = z.object({
+  id: z.string().uuid(),
+  network: z.string(),
+  ownerType: z.enum(['company', 'user']),
+  ownerUserId: z.string().uuid().nullable(),
+  name: z.string(),
+  remoteHandle: z.string().nullable(),
+  status: z.enum(['pending', 'connecting', 'connected', 'disconnected', 'failed']),
+  statusReason: z.string().nullable(),
+  showSenderName: z.boolean(),
+  loginStep: accountLoginStepSchema.nullable(),
+  connectedAt: z.string().nullable(),
+  disconnectedAt: z.string().nullable(),
+  updatedAt: z.string().nullable(),
+  members: z.array(z.object({ id: z.string().uuid(), name: z.string() })),
+})
+
+export const accountListSchema = z.object({
+  items: z.array(accountSchema),
+  /** Networks an account can be connected on in this deployment. */
+  networks: z.array(z.string()),
+  personalAccounts: z.boolean(),
+  canManageCompany: z.boolean(),
+  canConnectOwn: z.boolean(),
+})
+
+export const accountResponseSchema = z.object({ account: accountSchema })

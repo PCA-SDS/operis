@@ -26,6 +26,17 @@ and [`.ai/specs/2026-09-10-matrix-chat-foundation.md`](../../.ai/specs/2026-09-1
   full room state for every joined room.
 - Log through `@open-mercato/shared/lib/logger`. `yarn logger:check-console`
   scans this package.
+- Act as a messaging-account identity (`accountMxid`: `<prefix>a_<hex>` for a
+  company, `opp_<hex>` for a personal account) only through the right client: the
+  appservice client for company identities, `new MatrixClient(config, { scope:
+  'accounts' })` — the double-puppet token, gated by `assertAccountIdentity` —
+  for personal ones. That scoped client can act as no one else.
+- Talk to a bridge only through `BridgeProvisioningClient` (`provisioning.ts`):
+  the shared secret goes in the `Authorization` header to the configured origin,
+  path segments are encoded, redirects are refused, and every step is normalised
+  to a `BridgeLoginStep` whose `unsupported` kind the caller fails rather than
+  guesses at. `OM_MATRIX_WHATSAPP_PROVISIONING_URL` and `_SECRET` come together
+  or not at all, and the network must also be in `OM_MATRIX_BRIDGE_GHOSTS`.
 
 ## Never
 

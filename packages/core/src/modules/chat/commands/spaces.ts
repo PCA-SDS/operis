@@ -1,13 +1,21 @@
+import { LockMode } from '@mikro-orm/core'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import type { CommandHandler } from '@open-mercato/shared/lib/commands'
 import { registerCommand } from '@open-mercato/shared/lib/commands'
 import { badRequest, isUniqueViolation, notFound } from '@open-mercato/shared/lib/crud/errors'
 import { ChatConversation, ChatMessage, ChatMessageTranslation, ChatParticipant } from '../data/entities'
-import type { ChatParticipantRole, ChatSystemEvent } from '../data/entities'
+import type { ChatParticipantAccess, ChatParticipantRole, ChatSystemEvent } from '../data/entities'
+import { accessOf, isChatAccess } from '../lib/access'
 import { dbNow } from '../lib/clock'
 import { loadChatMessages } from '../lib/messages'
 import { loadOrganizationMember, loadOrganizationMembers, type ChatScope } from '../lib/scope'
-import { countOwners, loadSpaceForMember, loadSpaceForOwner } from '../lib/spaces'
+import {
+  countOwners,
+  loadForMembershipChange,
+  loadLeavable,
+  loadSpaceForOwner,
+} from '../lib/spaces'
+import { notifyAssigned } from '../lib/assignment'
 import {
   actingUserId,
   conversationAudience,
@@ -36,6 +44,11 @@ export type AddSpaceMembersInput = {
   organizationId: string
   conversationId: string
   memberIds: string[]
+  /**
+   * The level the people added get in a client conversation — `viewer` unless
+   * the manager adding them says otherwise. Ignored for a space.
+   */
+  access?: ChatParticipantAccess
 }
 
 export type RemoveSpaceMemberInput = {
@@ -43,6 +56,14 @@ export type RemoveSpaceMemberInput = {
   organizationId: string
   conversationId: string
   userId: string
+}
+
+export type SetMemberAccessInput = {
+  tenantId: string
+  organizationId: string
+  conversationId: string
+  userId: string
+  access: ChatParticipantAccess
 }
 
 export type SetSpaceMemberRoleInput = {
@@ -267,7 +288,8 @@ const addSpaceMembersCommand: CommandHandler<AddSpaceMembersInput, { added: stri
     const actorUserId = await actingUserId(ctx)
     const em = forkEm(ctx)
 
-    await loadSpaceForOwner(em, scope, input.conversationId, actorUserId)
+    const { conversation } = await loadForMembershipChange(em, scope, input.conversationId, actorUserId)
+    const addedAccess: ChatParticipantAccess = isChatAccess(input.access) ? input.access : 'viewer'
 
     const requested = [...new Set(input.memberIds)]
     const members = await loadOrganizationMembers(em, scope, requested)
@@ -306,6 +328,7 @@ const addSpaceMembersCommand: CommandHandler<AddSpaceMembersInput, { added: stri
               conversationId: target.id,
               userId,
               role: 'member',
+              access: conversation.kind === 'external' ? addedAccess : null,
               createdAt: now,
               updatedAt: now,
             }),
@@ -371,6 +394,16 @@ const addSpaceMembersCommand: CommandHandler<AddSpaceMembersInput, { added: stri
       change: 'members_added',
     })
 
+    // Handing a client over: the colleagues just seated are told, because a
+    // customer is now waiting on them. Adding people to a space is not news.
+    if (conversation.kind === 'external' && added.length > 0) {
+      await notifyAssigned(ctx.container, scope, {
+        conversation,
+        assignedUserIds: added,
+        actorUserId,
+      })
+    }
+
     return { added }
   },
 }
@@ -405,8 +438,9 @@ const removeSpaceMemberCommand: CommandHandler<
 
     const leaving = input.userId === actorUserId
     const { conversation } = leaving
-      ? await loadSpaceForMember(em, scope, input.conversationId, actorUserId)
-      : await loadSpaceForOwner(em, scope, input.conversationId, actorUserId)
+      ? await loadLeavable(em, scope, input.conversationId, actorUserId)
+      : await loadForMembershipChange(em, scope, input.conversationId, actorUserId)
+    const external = conversation.kind === 'external'
 
     const target = await em.findOne(ChatParticipant, {
       conversationId: conversation.id,
@@ -420,8 +454,10 @@ const removeSpaceMemberCommand: CommandHandler<
       conversationId: conversation.id,
       tenantId: scope.tenantId,
       organizationId: scope.organizationId,
+      // Colleagues only: an outsider is never the reason a conversation lives.
+      userId: { $ne: null },
     })
-    const lastPersonInSpace = memberCount === 1
+    const lastPersonInSpace = !external && memberCount === 1
 
     // A space must never be left without an owner. The exception is the owner
     // who is also the last person in it — there is nobody to promote, and
@@ -441,6 +477,21 @@ const removeSpaceMemberCommand: CommandHandler<
 
     await em.transactional(async (tx) => {
       const now = await dbNow(tx)
+      // Locked first, so two colleagues walking out of a client conversation at
+      // once are counted one after the other rather than both seeing the other
+      // still there.
+      const space = await tx.findOne(
+        ChatConversation,
+        {
+          id: conversation.id,
+          tenantId: scope.tenantId,
+          organizationId: scope.organizationId,
+          deletedAt: null,
+        },
+        { lockMode: LockMode.PESSIMISTIC_WRITE },
+      )
+      if (!space) throw notFound(messages.conversationNotFound)
+
       const row = await tx.findOne(ChatParticipant, {
         conversationId: conversation.id,
         userId: input.userId,
@@ -448,15 +499,11 @@ const removeSpaceMemberCommand: CommandHandler<
         organizationId: scope.organizationId,
       })
       if (!row) throw notFound(messages.memberNotInSpace)
+      // A client conversation is never closed by people walking out of it — the
+      // customer is still writing. Its last colleague stays instead, and so does
+      // its last manager while anyone is left for them to manage.
+      if (external) await assertStillManned(tx, scope, conversation.id, row, null, messages)
       tx.remove(row)
-
-      const space = await tx.findOne(ChatConversation, {
-        id: conversation.id,
-        tenantId: scope.tenantId,
-        organizationId: scope.organizationId,
-        deletedAt: null,
-      })
-      if (!space) throw notFound(messages.conversationNotFound)
 
       if (lastPersonInSpace) {
         // Nobody is left to read it. Soft-deleted rather than dropped, so the
@@ -492,6 +539,92 @@ const removeSpaceMemberCommand: CommandHandler<
     })
 
     return { removed: input.userId, spaceDeleted: lastPersonInSpace }
+  },
+}
+
+/**
+ * The rule that keeps a client conversation answerable: somebody must stay in
+ * it, and somebody must stay able to manage it. Read under the conversation's
+ * row lock, so two changes at once cannot each count on the other.
+ *
+ * `nextAccess` is the level `leaving` keeps — null when they are leaving.
+ */
+async function assertStillManned(
+  em: EntityManager,
+  scope: ChatScope,
+  conversationId: string,
+  leaving: ChatParticipant,
+  nextAccess: ChatParticipantAccess | null,
+  messages: Awaited<ReturnType<typeof loadChatMessages>>,
+): Promise<void> {
+  const others = (
+    await em.find(ChatParticipant, {
+      conversationId,
+      tenantId: scope.tenantId,
+      organizationId: scope.organizationId,
+      userId: { $ne: null },
+    })
+  ).filter((row) => row.id !== leaving.id)
+  if (nextAccess === null && others.length === 0) throw badRequest(messages.lastColleagueCannotLeave)
+  const stillManaged = nextAccess === 'manager' || others.some((row) => accessOf(row) === 'manager')
+  if (!stillManaged) throw badRequest(messages.lastManagerCannotLeave)
+}
+
+/**
+ * Set a colleague's level in a client conversation. Managers only; the last
+ * manager cannot step down, for the same reason a space keeps an owner.
+ */
+const setMemberAccessCommand: CommandHandler<SetMemberAccessInput, { userId: string; access: ChatParticipantAccess }> = {
+  id: 'chat.conversations.setAccess',
+  async execute(input, ctx) {
+    ensureTenantScope(ctx, input.tenantId)
+    ensureOrganizationScope(ctx, input.organizationId)
+
+    const messages = await loadChatMessages()
+    const scope: ChatScope = { tenantId: input.tenantId, organizationId: input.organizationId }
+    const actorUserId = await actingUserId(ctx)
+    if (!isChatAccess(input.access)) throw badRequest(messages.validationFailed)
+    const em = forkEm(ctx)
+
+    const { conversation } = await loadForMembershipChange(em, scope, input.conversationId, actorUserId)
+    if (conversation.kind !== 'external') throw badRequest(messages.notASpace)
+
+    const changed = await em.transactional(async (tx) => {
+      const locked = await tx.findOne(
+        ChatConversation,
+        {
+          id: conversation.id,
+          tenantId: scope.tenantId,
+          organizationId: scope.organizationId,
+          deletedAt: null,
+        },
+        { lockMode: LockMode.PESSIMISTIC_WRITE },
+      )
+      if (!locked) throw notFound(messages.conversationNotFound)
+
+      const target = await tx.findOne(ChatParticipant, {
+        conversationId: conversation.id,
+        userId: input.userId,
+        tenantId: scope.tenantId,
+        organizationId: scope.organizationId,
+      })
+      if (!target) throw notFound(messages.memberNotInSpace)
+      if (accessOf(target) === input.access) return false
+
+      await assertStillManned(tx, scope, conversation.id, target, input.access, messages)
+      target.access = input.access
+      await tx.flush()
+      return true
+    })
+
+    if (changed) {
+      const recipients = await conversationAudience(em, scope, conversation.id)
+      await emitConversationEvent('chat.conversation.updated', scope, recipients, {
+        conversationId: conversation.id,
+        change: 'access_changed',
+      })
+    }
+    return { userId: input.userId, access: input.access }
   },
 }
 
@@ -551,3 +684,4 @@ registerCommand(renameSpaceCommand)
 registerCommand(addSpaceMembersCommand)
 registerCommand(removeSpaceMemberCommand)
 registerCommand(setSpaceMemberRoleCommand)
+registerCommand(setMemberAccessCommand)

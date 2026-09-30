@@ -92,8 +92,17 @@ describe('ACL features', () => {
 describe('API routes', () => {
   it('covers every endpoint the module ships', () => {
     expect(apiRoutes.map(relative).sort()).toEqual([
+      'api/accounts/[id]/chats/move/route.ts',
+      'api/accounts/[id]/chats/route.ts',
+      'api/accounts/[id]/connect/cancel/route.ts',
+      'api/accounts/[id]/connect/route.ts',
+      'api/accounts/[id]/disconnect/route.ts',
+      'api/accounts/[id]/route.ts',
+      'api/accounts/route.ts',
       'api/conversations/[id]/attachments/direct/route.ts',
       'api/conversations/[id]/attachments/route.ts',
+      'api/conversations/[id]/contacts/[contactId]/customer/route.ts',
+      'api/conversations/[id]/crm-search/route.ts',
       'api/conversations/[id]/members/[userId]/route.ts',
       'api/conversations/[id]/members/route.ts',
       'api/conversations/[id]/messages/[messageId]/pin/route.ts',

@@ -1,9 +1,10 @@
-import { asFunction } from 'awilix'
+import { asFunction, asValue } from 'awilix'
 import type { AppContainer } from '@open-mercato/shared/lib/di/container'
 import { registerTranslationProvider } from '@open-mercato/shared/lib/translation/provider'
 import { createFakeTranslationProvider } from '@open-mercato/shared/lib/translation/fake-provider'
 import { DefaultChatService } from './services/chatService'
 import { createLocalChatTransport, resolveChatTransportId } from './lib/transport'
+import { localAccountConnector } from './lib/accountConnector'
 import './commands'
 
 export function register(container: AppContainer) {
@@ -14,6 +15,9 @@ export function register(container: AppContainer) {
     // implementation when one is configured, so chat itself never imports
     // anything Matrix-shaped.
     chatTransport: asFunction(() => createLocalChatTransport()).singleton(),
+    // Same arrangement for connecting messaging accounts: nothing is reachable
+    // until `chat_matrix` registers a bridge-backed connector over this one.
+    chatAccountConnector: asValue(localAccountConnector),
   })
 
   // Read at startup rather than per send, so an unrecognised value is a failed

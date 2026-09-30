@@ -23,7 +23,7 @@ import type {
   RecordPublicationInput,
 } from '@open-mercato/core/modules/chat/lib/transport'
 import type { ChatScope } from '@open-mercato/core/modules/chat/lib/scope'
-import { ChatMatrixEvent, ChatMatrixRoom } from '../data/entities'
+import { ChatMatrixAccountLogin, ChatMatrixEvent, ChatMatrixRoom } from '../data/entities'
 import { ensureIdentity } from './identities'
 import {
   attachmentSubjectKey,
@@ -64,8 +64,32 @@ export function createMatrixChatTransport(
   mode: ChatTransportMode = 'shadow',
 ): ChatTransport {
   const client = new MatrixClient(config)
+  let accountsClient: MatrixClient | null = null
 
   const deps = (ctx: ChatTransportContext): RoomDeps => ({ em: ctx.em, client, config })
+
+  /**
+   * Who speaks in a room that is a messaging account's chat: the account's own
+   * identity, never the colleague's — the bridge sends what that identity says
+   * from the WhatsApp number, which is the whole point. Null for every other
+   * room, where colleagues speak as themselves.
+   */
+  const accountSpeaker = async (
+    ctx: ChatTransportContext,
+    scope: ChatScope,
+    room: ChatMatrixRoom,
+  ): Promise<AccountSpeaker | null> => {
+    if (!room.accountId) return null
+    const login = await ctx.em.findOne(ChatMatrixAccountLogin, {
+      accountId: room.accountId,
+      tenantId: scope.tenantId,
+      organizationId: scope.organizationId,
+    })
+    if (!login) throw new Error(`[internal] account chat ${room.conversationId} has no account identity`)
+    if (login.ownerType === 'company') return { mxid: login.mxid, client }
+    accountsClient ??= new MatrixClient(config, { scope: 'accounts' })
+    return { mxid: login.mxid, client: accountsClient }
+  }
 
   return {
     id: 'matrix',
@@ -123,12 +147,10 @@ export function createMatrixChatTransport(
         )
       }
 
-      const senderMxid = await ensureIdentity(
-        { em: ctx.em, client, config },
-        scope.tenantId,
-        input.senderUserId,
-        input.senderName,
-      )
+      const speaker = await accountSpeaker(ctx, scope, room)
+      const senderMxid = speaker
+        ? speaker.mxid
+        : await ensureIdentity({ em: ctx.em, client, config }, scope.tenantId, input.senderUserId, input.senderName)
 
       const content: Record<string, unknown> = {
         msgtype: 'm.text',
@@ -156,7 +178,7 @@ export function createMatrixChatTransport(
         // shadow. It becomes a real problem in the phase where a bridge relays
         // the room outward, and is solved there by carrying resolved names
         // through the transport payload, as `senderName` already is.
-        body: input.body,
+        body: signed(input.body, input.senderSignature),
       }
 
       const replyToEventId = input.replyToMessageId
@@ -166,7 +188,7 @@ export function createMatrixChatTransport(
         content['m.relates_to'] = { 'm.in_reply_to': { event_id: replyToEventId } }
       }
 
-      const sent = await sendAsRoomMember(deps(ctx), scope.tenantId, {
+      const sendParams = {
         roomId: room.roomId,
         eventType: 'm.room.message',
         // Derived from the Operis message id, so a retried publish returns the
@@ -175,7 +197,10 @@ export function createMatrixChatTransport(
         content,
         userId: input.senderUserId,
         asUser: senderMxid,
-      })
+      }
+      const sent = speaker
+        ? await sendAsAccount(speaker, sendParams)
+        : await sendAsRoomMember(deps(ctx), scope.tenantId, sendParams)
 
       /**
        * The files, each as its own event — best-effort, in both modes.
@@ -192,7 +217,7 @@ export function createMatrixChatTransport(
        * room missing a picture rather than Operis missing a message.
        */
       try {
-        await publishAttachments(ctx, scope, input, room.roomId, senderMxid, client)
+        await publishAttachments(ctx, scope, input, room.roomId, senderMxid, speaker?.client ?? client)
       } catch (error) {
         logger.error('failed to copy attachments into the room', {
           conversationId: input.conversationId,
@@ -237,12 +262,11 @@ export function createMatrixChatTransport(
           logger.debug('no mirrored reaction to redact', { subjectKey: key })
           return
         }
-        const reactorMxid = await ensureIdentity(
-          { em: ctx.em, client, config },
-          scope.tenantId,
-          input.userId,
-        )
-        await client.redact({
+        const unreactor = await accountSpeaker(ctx, scope, room)
+        const reactorMxid = unreactor
+          ? unreactor.mxid
+          : await ensureIdentity({ em: ctx.em, client, config }, scope.tenantId, input.userId)
+        await (unreactor?.client ?? client).redact({
           roomId: room.roomId,
           eventId: existing.eventId,
           transactionId: deriveRelatedTransactionId(existing.eventId, 'unreact'),
@@ -273,13 +297,12 @@ export function createMatrixChatTransport(
         return
       }
 
-      const reactorMxid = await ensureIdentity(
-        { em: ctx.em, client, config },
-        scope.tenantId,
-        input.userId,
-      )
+      const reactor = await accountSpeaker(ctx, scope, room)
+      const reactorMxid = reactor
+        ? reactor.mxid
+        : await ensureIdentity({ em: ctx.em, client, config }, scope.tenantId, input.userId)
 
-      const sent = await client.sendEvent({
+      const sent = await (reactor?.client ?? client).sendEvent({
         roomId: room.roomId,
         eventType: 'm.reaction',
         /**
@@ -324,14 +347,13 @@ export function createMatrixChatTransport(
       const target = await requireMirroredMessage(ctx, scope, input)
       if (!target) return
 
-      const editorMxid = await ensureIdentity(
-        { em: ctx.em, client, config },
-        scope.tenantId,
-        input.senderUserId,
-        input.senderName,
-      )
+      const editor = await accountSpeaker(ctx, scope, target.room)
+      const editorMxid = editor
+        ? editor.mxid
+        : await ensureIdentity({ em: ctx.em, client, config }, scope.tenantId, input.senderUserId, input.senderName)
+      const newBody = signed(input.body, input.senderSignature)
 
-      const sentEdit = await sendAsRoomMember(deps(ctx), scope.tenantId, {
+      const editParams = {
         roomId: target.roomId,
         eventType: 'm.room.message',
         /**
@@ -357,13 +379,16 @@ export function createMatrixChatTransport(
           // `m.replace`: they show the edit as a new message reading
           // "* corrected text" rather than dropping it. Clients that do
           // understand it render `m.new_content` in place and ignore this.
-          body: `* ${input.body}`,
-          'm.new_content': { msgtype: 'm.text', body: input.body },
+          body: `* ${newBody}`,
+          'm.new_content': { msgtype: 'm.text', body: newBody },
           'm.relates_to': { rel_type: 'm.replace', event_id: target.eventId },
         },
         userId: input.senderUserId,
         asUser: editorMxid,
-      })
+      }
+      const sentEdit = editor
+        ? await sendAsAccount(editor, editParams)
+        : await sendAsRoomMember(deps(ctx), scope.tenantId, editParams)
 
       // So the reader recognises our own edit coming back, instead of applying
       // it a second time from the event.
@@ -382,14 +407,12 @@ export function createMatrixChatTransport(
       const target = await requireMirroredMessage(ctx, scope, input)
       if (!target) return
 
-      const actorMxid = await ensureIdentity(
-        { em: ctx.em, client, config },
-        scope.tenantId,
-        input.actorUserId,
-        input.actorName,
-      )
+      const remover = await accountSpeaker(ctx, scope, target.room)
+      const actorMxid = remover
+        ? remover.mxid
+        : await ensureIdentity({ em: ctx.em, client, config }, scope.tenantId, input.actorUserId, input.actorName)
 
-      const sentRedaction = await redactAsRoomMember(deps(ctx), scope.tenantId, {
+      const redactParams = {
         roomId: target.roomId,
         eventId: target.eventId,
         // A message is deleted once — `deleted_at` is set and never unset — so
@@ -398,7 +421,10 @@ export function createMatrixChatTransport(
         transactionId: deriveRelatedTransactionId(target.eventId, 'redact'),
         userId: input.actorUserId,
         asUser: actorMxid,
-      })
+      }
+      const sentRedaction = remover
+        ? await remover.client.redact(redactParams)
+        : await redactAsRoomMember(deps(ctx), scope.tenantId, redactParams)
 
       // The mapping row stays. It is what a reconciliation would use to check
       // that the redaction really landed, and deleting it would leave the
@@ -436,8 +462,12 @@ export function createMatrixChatTransport(
       })
       if (!room || room.state !== 'ready') return
 
-      const mxid = await ensureIdentity({ em: ctx.em, client, config }, scope.tenantId, input.userId)
-      await client.setTyping(room.roomId, mxid, input.typing, TYPING_TIMEOUT_MS)
+      // In an account's chat the customer sees the company typing.
+      const typist = await accountSpeaker(ctx, scope, room)
+      const mxid = typist
+        ? typist.mxid
+        : await ensureIdentity({ em: ctx.em, client, config }, scope.tenantId, input.userId)
+      await (typist?.client ?? client).setTyping(room.roomId, mxid, input.typing, TYPING_TIMEOUT_MS)
     },
 
     /**
@@ -464,8 +494,13 @@ export function createMatrixChatTransport(
       // next read of a mirrored message carries the marker forward.
       if (!target) return
 
-      const mxid = await ensureIdentity({ em: ctx.em, client, config }, scope.tenantId, input.userId)
-      await client.sendReceipt(room.roomId, target.eventId, mxid)
+      // In an account's chat, a colleague reading it is the company reading it
+      // — the customer's ticks turn blue, as they would on the phone.
+      const reader = await accountSpeaker(ctx, scope, room)
+      const mxid = reader
+        ? reader.mxid
+        : await ensureIdentity({ em: ctx.em, client, config }, scope.tenantId, input.userId)
+      await (reader?.client ?? client).sendReceipt(room.roomId, target.eventId, mxid)
     },
 
     async recordPublication(ctx, scope: ChatScope, input: RecordPublicationInput) {
@@ -498,7 +533,7 @@ async function requireMirroredMessage(
   ctx: ChatTransportContext,
   scope: ChatScope,
   input: { conversationId: string; messageId: string },
-): Promise<{ roomId: string; eventId: string } | null> {
+): Promise<{ roomId: string; eventId: string; room: ChatMatrixRoom } | null> {
   const room = await ctx.em.findOne(ChatMatrixRoom, {
     conversationId: input.conversationId,
     tenantId: scope.tenantId,
@@ -519,7 +554,7 @@ async function requireMirroredMessage(
     return null
   }
 
-  return { roomId: room.roomId, eventId: mapped.eventId }
+  return { roomId: room.roomId, eventId: mapped.eventId, room }
 }
 
 async function resolveEventId(
@@ -541,6 +576,38 @@ async function resolveEventId(
     return null
   }
   return mapped.eventId
+}
+
+type AccountSpeaker = { mxid: string; client: MatrixClient }
+
+/** The customer's copy, led by the colleague's name when the account signs replies. */
+function signed(body: string, signature: string | null | undefined): string {
+  return signature ? `${signature}: ${body}` : body
+}
+
+/**
+ * Send as a messaging account's identity. The bridge normally joins it to its
+ * own portals; when it has only been invited, accept and retry once.
+ */
+async function sendAsAccount(
+  speaker: AccountSpeaker,
+  params: { roomId: string; eventType: string; transactionId: string; content: Record<string, unknown> },
+): Promise<{ event_id: string }> {
+  const send = () =>
+    speaker.client.sendEvent({
+      roomId: params.roomId,
+      eventType: params.eventType,
+      transactionId: params.transactionId,
+      content: params.content,
+      asUser: speaker.mxid,
+    })
+  try {
+    return await send()
+  } catch (error) {
+    if (!(error instanceof MatrixError) || error.errcode !== 'M_FORBIDDEN') throw error
+    await speaker.client.join(params.roomId, speaker.mxid)
+    return send()
+  }
 }
 
 type RecordEventInput = {

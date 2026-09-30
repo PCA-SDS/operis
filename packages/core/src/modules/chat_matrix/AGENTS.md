@@ -1,7 +1,8 @@
 # Chat Matrix Transport — Agent Guidelines
 
-Maps Operis chat conversations onto Matrix rooms. Five mapping tables, no pages,
-no UI, and exactly **one** API route — the homeserver's own. It exists so that
+Maps Operis chat conversations onto Matrix rooms. Five mapping tables plus the
+messaging-account logins, no pages, no UI, and exactly **one** API route — the
+homeserver's own. It exists so that
 the `chat` module can keep every table, constraint and query it already has
 while a homeserver carries the same messages alongside — and so that a WhatsApp
 bridge, later, delivers into the same conversation without chat learning what
@@ -279,6 +280,7 @@ and **a sender it cannot name** (below).
 | Sender | Conversation | Result |
 |---|---|---|
 | an Operis identity | any | a colleague |
+| a messaging account's identity (`@om_a_…`, `@opp_…`) | its own portal (`chat_matrix_rooms.account_id`) | the account — the company's phone |
 | a configured bridge ghost | `external` | an outsider — contact ensured, seated, then replayed |
 | a configured bridge ghost | `direct` / `space` | skip: `external-in-internal-room`, logged loudly |
 | anyone else — the bot, a bridge's own bot, an unconfigured namespace | any | skip: `external-sender` |
@@ -431,6 +433,59 @@ the room-count half cannot be bounded, because the appservice is joined to every
 conversation by design. Measured at 2,791 events across 279 rooms, that pass ran
 for minutes. The cursor persists, so it is a one-off — but a large installation
 should expect it.
+
+## Messaging accounts (WhatsApp)
+
+Spec: [`.ai/specs/2026-09-29-whatsapp-bridge.md`](../../../../../.ai/specs/2026-09-29-whatsapp-bridge.md);
+operations: `deploy/MATRIX.md`. The bridge is mautrix-whatsapp, unmodified, in
+its own container; this module speaks to it only over Matrix and its
+provisioning API (`@open-mercato/matrix` `BridgeProvisioningClient`).
+
+- **Identities.** Each account is one Matrix user that owns its bridge login:
+  `@om_a_<hex>` for a company account (in the Operis namespace, so its portals
+  are pushed here), `@opp_<hex>` for a personal one (only in the double-puppet
+  namespace, whose `url` is null — its portals are pushed nowhere). The
+  appservice client acts as company identities; a client with
+  `{ scope: 'accounts' }` (the double-puppet token) is the only one that can act
+  as a personal identity, and it can act as nothing else.
+- **Connecting** (`lib/accounts.ts`, `createMatrixAccountConnector`, registered
+  as `chatAccountConnector` by `di.ts` only when a provisioning URL is set):
+  registers the identity once, logs it out of any earlier login (one account is
+  one number), starts `qr` or `phone`, keeps the bridge's process id in
+  `chat_matrix_account_logins.pending_login`, and hands the waiting to the
+  `chat-matrix-account-login` queue. `driveAccountLogin` long-polls
+  `display_and_wait`, reports each code through `chat.accounts.recordLoginStep`
+  and the outcome through `chat.accounts.markState`, and stops the moment its
+  attempt is no longer current. Error codes map to reasons in
+  `failureReasonOf` — verified against the v0.2609.0 binary.
+- **Adoption** (`lib/adoption.ts`). The company identity joining (or being
+  invited to) an unmapped room is a new chat: every ghost of the account's
+  network becomes a contact, `chat.conversations.createExternal` opens it with
+  `messagingAccountId` (chat seats the team), and the room is mapped with
+  `account_id`. An event in an unmapped room with no hint asks each connected
+  company identity whether it is there; a room with no contact (the bridge's
+  management room) is not adopted and is remembered for five minutes. The bot is
+  invited best-effort so `/sync` covers the portal.
+- **Outbound.** In a room with `account_id`, every publish — text, files,
+  reactions, edits, redactions, typing, receipts — acts as the account identity
+  (`accountSpeaker`), so it leaves WhatsApp from the number; a colleague's
+  puppet is never seated in a portal. The optional signature leads the text.
+- **Health.** The drift worker asks the bridge (`whoami`) about each connected
+  account in its organization; `BAD_CREDENTIALS`/`LOGGED_OUT` or a vanished login
+  is a drop, `TRANSIENT_DISCONNECT` is not. `yarn mercato chat_matrix accounts
+  [--organization <id>]` runs the same check now.
+- **Moving a personal chat** (`lib/personalChats.ts`). Listing reads the
+  owner's rooms live as `@opp_…` (names only). A move maps the room with
+  `project_from` = now *before* inviting the bot, and the projector drops any
+  event older than that — the bot's first sync brings history that stays the
+  employee's. A move the bot cannot join is undone.
+- **The bot and the queues.** Nothing registers `om_bot` implicitly: every
+  path that acts as it calls `ensureBotRegistered`. The local queue must have
+  one consumer — jobs are processed by the worker process, never in-app.
+- **Tests without a phone.** `chat/__integration__/whatsappStub.ts` answers the
+  provisioning API the way the bridge does, acting only on a login Operis is
+  already waiting on; TC-CHAT-013–018 point `OM_MATRIX_WHATSAPP_PROVISIONING_URL`
+  at it.
 
 ## Still not done
 

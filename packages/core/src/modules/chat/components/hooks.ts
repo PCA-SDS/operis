@@ -27,6 +27,7 @@ import { useGuardedMutation } from '@open-mercato/ui/backend/injection/useGuarde
 import type {
   ChatConversationDto,
   ChatMessageDto,
+  ChatParticipantAccess,
   ChatParticipantRole,
   ChatTranslationDto,
 } from '../data/types'
@@ -58,12 +59,14 @@ export const chatKeys = {
       : ([...chatKeys.scoped(scope), 'conversations', limit] as const),
   conversation: (scope: number, id: string) => [...chatKeys.scoped(scope), 'conversation', id] as const,
   messages: (scope: number, id: string) => [...chatKeys.scoped(scope), 'messages', id] as const,
-  directory: (scope: number, q: string) => [...chatKeys.scoped(scope), 'directory', q] as const,
+  directory: (scope: number, q: string, includeSelf = false) =>
+    [...chatKeys.scoped(scope), 'directory', q, includeSelf ? 'self' : 'others'] as const,
   members: (scope: number, id: string, q: string) =>
     [...chatKeys.scoped(scope), 'members', id, q] as const,
   pinned: (scope: number, id: string) => [...chatKeys.scoped(scope), 'pinned', id] as const,
   unreadCount: (scope: number) => [...chatKeys.scoped(scope), 'unread-count'] as const,
   settings: (scope: number) => [...chatKeys.scoped(scope), 'settings'] as const,
+  crmSearch: (scope: number, id: string, q: string) => [...chatKeys.scoped(scope), 'crm-search', id, q] as const,
   /**
    * Search results, deliberately outside `scoped`.
    *
@@ -300,7 +303,11 @@ export function useTypingPeers(conversationId: string | null): string[] {
  * signal is sent on send and on unmount; everything else is left to the
  * expiry on the other side.
  */
-export function useTypingSignal(conversationId: string | null): {
+export function useTypingSignal(
+  conversationId: string | null,
+  /** Writing an internal note: colleagues may see it, the client must not. */
+  note: boolean = false,
+): {
   onActivity: () => void
   onStopped: () => void
 } {
@@ -312,12 +319,12 @@ export function useTypingSignal(conversationId: string | null): {
       if (!conversationId) return
       void apiCall(`/api/chat/conversations/${conversationId}/typing`, {
         method: 'POST',
-        body: JSON.stringify({ typing }),
+        body: JSON.stringify(note ? { typing, note } : { typing }),
       }).catch(() => {
         // A dropped keystroke signal is not worth a toast, a retry or a log.
       })
     },
-    [conversationId],
+    [conversationId, note],
   )
 
   const onActivity = React.useCallback(() => {
@@ -477,11 +484,13 @@ export function useMessages(conversationId: string | undefined, anchorMessageId?
   }
 }
 
-export function useDirectorySearch(query: string, enabled: boolean) {
+export function useDirectorySearch(query: string, enabled: boolean, options: { includeSelf?: boolean } = {}) {
   const scope = useOrganizationScopeVersion()
+  const includeSelf = options.includeSelf ?? false
   const result = useQuery({
-    queryKey: chatKeys.directory(scope, query),
-    queryFn: ({ signal }) => chatApi.searchDirectory({ q: query || undefined }, signal),
+    queryKey: chatKeys.directory(scope, query, includeSelf),
+    queryFn: ({ signal }) =>
+      chatApi.searchDirectory({ q: query || undefined, includeSelf: includeSelf ? 'true' : undefined }, signal),
     enabled,
     // A directory changes on the timescale of HR, not of typing. Holding results
     // briefly means backspacing through a query does not refire every request.
@@ -515,6 +524,8 @@ export function useChatUnreadCount(enabled: boolean) {
  * cannot serve one space's membership under another's id — and `enabled` keeps
  * a closed details panel from fetching anything at all.
  */
+const NO_CRM = { available: false, canLink: false } as const
+
 export function useSpaceMembers(conversationId: string | undefined, search: string, enabled: boolean) {
   const scope = useOrganizationScopeVersion()
   const query = useQuery({
@@ -527,6 +538,7 @@ export function useSpaceMembers(conversationId: string | undefined, search: stri
     members: query.data?.items ?? [],
     // Outsiders in an external conversation, listed apart from members.
     externalMembers: query.data?.externalMembers ?? [],
+    crm: query.data?.crm ?? NO_CRM,
     total: query.data?.total ?? 0,
     hasMore: query.data?.hasMore ?? false,
     isLoading: query.isLoading,
@@ -536,9 +548,44 @@ export function useSpaceMembers(conversationId: string | undefined, search: stri
 }
 
 /**
+ * CRM people and companies to link an outsider to, for the term typed — only
+ * while the picker is open and there is something to look for.
+ */
+export function useCrmSearch(conversationId: string, term: string, enabled: boolean) {
+  const scope = useOrganizationScopeVersion()
+  const query = useQuery({
+    queryKey: chatKeys.crmSearch(scope, conversationId, term),
+    queryFn: ({ signal }) => chatApi.searchCrm(conversationId, term, signal),
+    enabled: enabled && term.length > 0,
+    placeholderData: keepPreviousData,
+  })
+  return {
+    records: query.data?.items ?? [],
+    isLoading: query.isFetching && !query.data,
+    error: query.error,
+    retry: query.refetch,
+  }
+}
+
+/** Link an outsider to a CRM record, or unlink them — through the mutation guard like every chat write. */
+export function useContactCrmLink(conversationId: string) {
+  const client = useQueryClient()
+  const { runMutation } = useGuardedMutation({ contextId: 'chat.conversation' })
+  return useMutation({
+    mutationFn: (input: { contactId: string; customerEntityId: string | null }) =>
+      runMutation({
+        operation: () => chatApi.linkContactCustomer(conversationId, input.contactId, input.customerEntityId),
+        context: { resourceKind: 'chat.conversation', resourceId: conversationId },
+        mutationPayload: input,
+      }),
+    onSuccess: () => invalidateChat(client),
+  })
+}
+
+/**
  * The space write operations.
  *
- * One hook rather than five, because they share a cache-invalidation rule and
+ * One hook rather than six, because they share a cache-invalidation rule and
  * differ only in which request they send: every one of them changes something
  * the conversation list, the header or the member panel is rendering, so all of
  * them invalidate the module's whole key space exactly as sending does. Each
@@ -575,11 +622,11 @@ export function useSpaceMutations(conversationId?: string) {
   })
 
   const addMembers = useMutation({
-    mutationFn: (memberIds: string[]) =>
+    mutationFn: (input: { memberIds: string[]; access?: ChatParticipantAccess }) =>
       runMutation({
-        operation: () => chatApi.addMembers(conversationId as string, memberIds),
+        operation: () => chatApi.addMembers(conversationId as string, input.memberIds, input.access),
         context,
-        mutationPayload: { memberIds },
+        mutationPayload: input,
       }),
     onSuccess: settled,
   })
@@ -604,7 +651,17 @@ export function useSpaceMutations(conversationId?: string) {
     onSuccess: settled,
   })
 
-  return { createSpace, rename, addMembers, removeMember, setMemberRole }
+  const setMemberAccess = useMutation({
+    mutationFn: (input: { userId: string; access: ChatParticipantAccess }) =>
+      runMutation({
+        operation: () => chatApi.setMemberAccess(conversationId as string, input.userId, input.access),
+        context,
+        mutationPayload: input,
+      }),
+    onSuccess: settled,
+  })
+
+  return { createSpace, rename, addMembers, removeMember, setMemberRole, setMemberAccess }
 }
 
 /**
@@ -771,6 +828,7 @@ export function useSendMessage(conversationId: string | undefined) {
       clientMessageId: string
       replyToMessageId?: string
       attachmentIds?: string[]
+      visibility?: 'shared' | 'internal'
     }) =>
       runMutation({
         operation: () => chatApi.sendMessage(conversationId as string, input),

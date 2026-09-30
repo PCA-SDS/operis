@@ -1,34 +1,9 @@
 import type { ModuleSetupConfig } from '@open-mercato/shared/modules/setup'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { resolveChatTransportId } from '@open-mercato/core/modules/chat/lib/transport'
-import {
-  CHAT_MATRIX_QUEUES,
-  DRIFT_CHECK_INTERVAL_SECONDS,
-  SYNC_INTERVAL_SECONDS,
-} from './lib/queue'
-import { stableUuidFromKey } from '@open-mercato/shared/lib/ids'
+import { registerDriftSchedule, registerSyncSchedule, type SchedulerServiceLike } from './lib/schedules'
 
 const logger = createLogger('chat_matrix')
-
-type SchedulerServiceLike = {
-  register: (registration: {
-    id: string
-    name: string
-    scopeType: 'system' | 'organization' | 'tenant'
-    organizationId?: string
-    tenantId?: string
-    scheduleType: 'cron' | 'interval'
-    scheduleValue: string
-    timezone?: string
-    targetType: 'queue' | 'command'
-    targetQueue?: string
-    targetPayload?: unknown
-    sourceType?: 'user' | 'module'
-    sourceModule?: string
-    isEnabled?: boolean
-    description?: string
-  }) => Promise<void>
-}
 
 /**
  * Nothing to seed. The module owns four mapping tables written by the transport
@@ -45,13 +20,13 @@ export const setup: ModuleSetupConfig = {
   },
 
   /**
-   * Register the drift check — but only when this deployment actually runs the
-   * Matrix transport.
+   * Register the drift check and the `/sync` reader — but only when this
+   * deployment actually runs the Matrix transport.
    *
    * A `local` deployment has no rooms and no events, so the check would query
-   * empty tables forever and report perfect health about nothing. Gating on the
-   * transport keeps a scheduled job from existing until there is something for
-   * it to watch.
+   * empty tables forever and report perfect health about nothing. A stack that
+   * switches to `matrix` after its tenants were set up gets both from
+   * `yarn mercato chat_matrix schedules`, which deploy.sh runs on every deploy.
    */
   async seedDefaults({ tenantId, organizationId, container }) {
     if (resolveChatTransportId() !== 'matrix') return
@@ -65,48 +40,8 @@ export const setup: ModuleSetupConfig = {
 
     const schedulerService = container.resolve('schedulerService') as SchedulerServiceLike
     try {
-      await schedulerService.register({
-        id: stableUuidFromKey(`chat_matrix:drift-check:${organizationId}`),
-        name: 'Chat Matrix drift check',
-        description:
-          'Reports messages that were committed to Postgres but never reached the homeserver. Read-only; repair is `yarn mercato chat_matrix backfill`.',
-        scopeType: 'organization',
-        organizationId,
-        tenantId,
-        scheduleType: 'interval',
-        scheduleValue: `${DRIFT_CHECK_INTERVAL_SECONDS}s`,
-        timezone: 'UTC',
-        targetType: 'queue',
-        targetQueue: CHAT_MATRIX_QUEUES.driftCheck,
-        targetPayload: { scope: { tenantId, organizationId } },
-        sourceType: 'module',
-        sourceModule: 'chat_matrix',
-        isEnabled: true,
-      })
-      /**
-       * The `/sync` reader.
-       *
-       * Registered once, at system scope rather than per organization: there is
-       * one appservice and one stream, and a per-organization schedule would
-       * start N readers racing for one cursor — each advancing it past events
-       * the others had not projected.
-       */
-      await schedulerService.register({
-        id: stableUuidFromKey('chat_matrix:sync'),
-        name: 'Chat Matrix sync',
-        description:
-          'Reads the appservice /sync stream and projects events Operis does not already know about into chat messages.',
-        scopeType: 'system',
-        scheduleType: 'interval',
-        scheduleValue: `${SYNC_INTERVAL_SECONDS}s`,
-        timezone: 'UTC',
-        targetType: 'queue',
-        targetQueue: CHAT_MATRIX_QUEUES.sync,
-        targetPayload: {},
-        sourceType: 'module',
-        sourceModule: 'chat_matrix',
-        isEnabled: true,
-      })
+      await registerDriftSchedule(schedulerService, { tenantId, organizationId }, 'enable')
+      await registerSyncSchedule(schedulerService, 'enable')
     } catch (error) {
       // Best-effort: a scheduler failure must not abort tenant initialization
       // for every other module. The CLI (`yarn mercato chat_matrix drift`)

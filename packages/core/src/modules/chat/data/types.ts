@@ -1,11 +1,12 @@
 import type {
   ChatConversationKind,
   ChatMessageKind,
+  ChatParticipantAccess,
   ChatParticipantRole,
   ChatSystemEvent,
 } from './entities'
 
-export type { ChatConversationKind, ChatMessageKind, ChatParticipantRole, ChatSystemEvent }
+export type { ChatConversationKind, ChatMessageKind, ChatParticipantAccess, ChatParticipantRole, ChatSystemEvent }
 
 /**
  * The wire shapes. Everything the browser sees about a person is what a
@@ -30,6 +31,8 @@ export type ChatParticipantDto = {
 /** A person in a space, with their standing in it. */
 export type ChatMemberDto = ChatParticipantDto & {
   role: ChatParticipantRole
+  /** Their level in a client conversation; null in a direct or a space. */
+  access: ChatParticipantAccess | null
   joinedAt: string
 }
 
@@ -45,7 +48,25 @@ export type ChatExternalMemberDto = {
   name: string
   /** The network label, such as `whatsapp`. */
   network: string
+  /** The number they write from, when the network reveals it — `+4915112345678`. */
+  handle: string | null
   joinedAt: string
+  /** The CRM record they are linked to; null while unlinked. */
+  customer: ChatCustomerRefDto | null
+  /** A CRM person with their number, offered while they are unlinked. */
+  suggestion: ChatCustomerRefDto | null
+}
+
+/**
+ * A CRM record as chat shows it. `kind`, `name` and `href` are null for a
+ * viewer the CRM does not let see that record — or when the record is gone:
+ * the link says only that there is one.
+ */
+export type ChatCustomerRefDto = {
+  id: string
+  kind: 'person' | 'company' | null
+  name: string | null
+  href: string | null
 }
 
 export type ChatMemberListDto = {
@@ -59,6 +80,24 @@ export type ChatMemberListDto = {
    * and unpaginated because a conversation holds a handful at most.
    */
   externalMembers: ChatExternalMemberDto[]
+  /**
+   * Whether the CRM is there to link outsiders to, and whether this viewer may
+   * link them — a colleague who can answer the client and see CRM records.
+   */
+  crm: { available: boolean; canLink: boolean }
+}
+
+/** One chat on an employee's personal WhatsApp — a name, never a message. */
+export type ChatAccountChatDto = {
+  id: string
+  name: string
+  kind: 'direct' | 'group'
+  /** Set once it has been moved to the company. */
+  conversationId: string | null
+}
+
+export type ChatCrmSearchResultDto = {
+  items: Array<{ id: string; kind: 'person' | 'company'; name: string; href: string }>
 }
 
 export type ChatConversationDto = {
@@ -74,6 +113,11 @@ export type ChatConversationDto = {
   memberCount: number
   /** The caller's own standing. `member` in a direct, where it is not read. */
   viewerRole: ChatParticipantRole
+  /**
+   * The viewer's level in a client conversation — what the composer and the
+   * members panel offer them. Null in a direct or a space.
+   */
+  viewerAccess: ChatParticipantAccess | null
   /** The other person in a direct conversation; null for a space, and null when they left the organization. */
   counterpart: ChatParticipantDto | null
   /**
@@ -84,6 +128,12 @@ export type ChatConversationDto = {
   external: {
     network: string
     contacts: Array<{ id: string; name: string }>
+    /**
+     * The messaging account it came in through — the company's WhatsApp, say —
+     * or null for a chat linked by hand. Replies leave from that account, so
+     * none can be sent while it is not `connected`.
+     */
+    account: { id: string; name: string; connected: boolean } | null
   } | null
   lastMessageAt: string | null
   lastMessagePreview: string | null
@@ -194,6 +244,17 @@ export type ChatMessageDto = {
   senderUserId: string | null
   /** The outsider who wrote it — an external contact — or null when a colleague did. */
   senderExternalContactId: string | null
+  /**
+   * The messaging account whose phone sent it directly — typed on the company's
+   * WhatsApp rather than in Operis. Null otherwise. `senderName` is the
+   * account's name then.
+   */
+  senderAccountId: string | null
+  /**
+   * `internal` for an internal note: colleagues read it, the customer never
+   * does. Always `shared` outside client conversations.
+   */
+  visibility: 'shared' | 'internal'
   /**
    * The sender's display name, resolved server-side with the page.
    *
@@ -355,6 +416,7 @@ export type ChatSharedFileDto = {
   /** Null when an outsider sent the file; `uploaderName` names them either way. */
   uploaderUserId: string | null
   uploaderExternalContactId: string | null
+  uploaderAccountId: string | null
   uploaderName: string
   createdAt: string
 }
@@ -368,6 +430,7 @@ export type ChatSharedLinkDto = {
   /** Null when an outsider shared the link; `sharedByName` names them either way. */
   sharedByUserId: string | null
   sharedByExternalContactId: string | null
+  sharedByAccountId: string | null
   sharedByName: string
   createdAt: string
 }
@@ -396,3 +459,41 @@ export type ChatDirectUploadTicketDto =
       expiresAt: string
     }
   | { supported: false }
+
+/** A messaging account as its managers see it — a WhatsApp number connected to Operis. */
+export type ChatMessagingAccountDto = {
+  id: string
+  network: string
+  ownerType: 'company' | 'user'
+  ownerUserId: string | null
+  name: string
+  /** The number, once connected. */
+  remoteHandle: string | null
+  status: 'pending' | 'connecting' | 'connected' | 'disconnected' | 'failed'
+  /** A stable code (`timeout`, `logged_out`, …) the page translates. */
+  statusReason: string | null
+  /** Replies lead with the colleague's first name on the customer's side. */
+  showSenderName: boolean
+  /** What to show while it connects: the QR code or the pairing code. */
+  loginStep: {
+    flow: 'qr' | 'phone'
+    kind: 'qr' | 'code' | 'input' | 'waiting'
+    data: string | null
+    fields?: Array<{ id: string; type: string; name: string | null; description: string | null }>
+    updatedAt: string
+  } | null
+  connectedAt: string | null
+  disconnectedAt: string | null
+  updatedAt: string | null
+  /** The team a company account seats in every new chat. */
+  members: Array<{ id: string; name: string }>
+}
+
+export type ChatMessagingAccountListDto = {
+  items: ChatMessagingAccountDto[]
+  /** Networks this deployment can connect — empty when no bridge is configured. */
+  networks: string[]
+  personalAccounts: boolean
+  canManageCompany: boolean
+  canConnectOwn: boolean
+}

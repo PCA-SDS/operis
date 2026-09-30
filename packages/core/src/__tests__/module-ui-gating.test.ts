@@ -74,6 +74,8 @@ const ALLOWED_CROSS_MODULE_LINKS: Record<string, string> = {
     'AI tool result link. Tool discovery reads rbacService.getGrantedFeatures, which applies both entitlement layers, so a withheld module contributes no searchable records.',
   'packages/core/src/helpers/integration/salesUi.ts':
     'Playwright helper, not application code — it drives a browser against a fully entitled test tenant.',
+  'packages/core/src/modules/chat/lib/crm.ts':
+    'Server-built CRM record link. It is returned only to a viewer whose rbacService check passes customers.people.view / customers.companies.view for that record kind — a check that applies both entitlement layers — and only when customers registered CustomerEntity in DI. Everyone else gets the link id with no name and no href.',
 }
 
 type ModuleSource = { moduleId: string; indexPath: string }

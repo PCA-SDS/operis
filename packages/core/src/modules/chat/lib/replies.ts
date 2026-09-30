@@ -1,7 +1,7 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { ChatMessage } from '../data/entities'
 import type { ChatReplyTargetDto } from '../data/types'
-import { loadExternalContacts } from './people'
+import { loadSenderDirectory } from './people'
 import { loadOrganizationMembers, type ChatScope } from './scope'
 
 /**
@@ -94,19 +94,17 @@ export async function resolveReplyTargets(
     missingAuthorIds.length > 0
       ? await loadOrganizationMembers(em, scope, missingAuthorIds)
       : new Map<string, { name: string }>()
-  // Quoting an outsider names the outsider, not a "former colleague".
-  const contacts = await loadExternalContacts(
-    em,
-    scope,
-    targets.map((target) => target.senderExternalContactId),
-  )
+  // Quoting an outsider names the outsider, not a "former colleague" — and
+  // quoting the company's phone names the account.
+  const contacts = await loadSenderDirectory(em, scope, targets)
 
   for (const target of targets) {
+    const nonColleagueId = target.senderExternalContactId ?? target.senderAccountId ?? null
     resolved.set(target.id, {
       id: target.id,
       senderUserId: target.senderUserId,
-      senderName: target.senderExternalContactId
-        ? contacts.get(target.senderExternalContactId)?.name ?? unknownContact
+      senderName: nonColleagueId
+        ? contacts.get(nonColleagueId)?.name ?? unknownContact
         : target.senderUserId
           ? knownNames?.get(target.senderUserId) ?? extraNames.get(target.senderUserId)?.name ?? fallbackName
           : fallbackName,

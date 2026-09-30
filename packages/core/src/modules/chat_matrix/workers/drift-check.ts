@@ -1,6 +1,9 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
 import type { JobContext, QueuedJob, WorkerMeta } from '@open-mercato/queue'
+import type { CommandBus } from '@open-mercato/shared/lib/commands'
 import { createLogger } from '@open-mercato/shared/lib/logger'
+import type { MatrixClient, MatrixConfig } from '@open-mercato/matrix'
+import { checkAccountHealth } from '../lib/accounts'
 import { checkDrift, formatDriftReport } from '../lib/drift'
 import { CHAT_MATRIX_QUEUES } from '../lib/queue'
 
@@ -38,6 +41,7 @@ export default async function handle(
   ctx: HandlerContext,
 ): Promise<void> {
   const em = ctx.resolve<EntityManager>('em')
+  await checkAccounts(job, ctx)
   const report = await checkDrift(em, {
     tenantId: job.payload.scope.tenantId,
     organizationId: job.payload.scope.organizationId ?? undefined,
@@ -65,4 +69,41 @@ export default async function handle(
     oldestDriftedAt: report.oldestDriftedAt?.toISOString() ?? null,
     samples: report.samples.slice(0, 3).map((sample) => sample.messageId),
   })
+}
+
+/**
+ * The messaging accounts in this organization, asked of their bridge on the
+ * same schedule: an account whose phone has been offline too long, or whose
+ * link was removed on the phone, is marked disconnected and its managers are
+ * told. Never fatal to the drift check — a bridge that cannot be reached is
+ * the next run's question.
+ */
+async function checkAccounts(job: QueuedJob<DriftCheckPayload>, ctx: HandlerContext): Promise<void> {
+  const organizationId = job.payload.scope.organizationId
+  if (!organizationId) return
+  let config: MatrixConfig
+  try {
+    config = ctx.resolve<MatrixConfig>('matrixConfig')
+  } catch {
+    return
+  }
+  if (Object.keys(config.provisioning ?? {}).length === 0) return
+  try {
+    const changed = await checkAccountHealth(
+      {
+        em: ctx.resolve<EntityManager>('em'),
+        commandBus: ctx.resolve<CommandBus>('commandBus'),
+        config,
+        client: ctx.resolve<MatrixClient>('matrixClient'),
+        container: { resolve: ctx.resolve.bind(ctx) } as never,
+      },
+      { tenantId: job.payload.scope.tenantId, organizationId },
+    )
+    if (changed > 0) logger.info('messaging account states changed', { organizationId, changed })
+  } catch (error) {
+    logger.warn('could not check messaging account health', {
+      organizationId,
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
 }

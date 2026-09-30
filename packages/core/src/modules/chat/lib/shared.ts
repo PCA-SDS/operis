@@ -33,6 +33,8 @@ export type SharedFileEntry = {
   /** Null when an outsider sent the file. */
   uploaderUserId: string | null
   uploaderExternalContactId: string | null
+  /** Set when the company's phone sent the file straight from WhatsApp. */
+  uploaderAccountId: string | null
   createdAt: string
 }
 
@@ -45,6 +47,7 @@ export type SharedLinkEntry = {
   /** Null when an outsider shared the link. */
   sharedByUserId: string | null
   sharedByExternalContactId: string | null
+  sharedByAccountId: string | null
   createdAt: string
 }
 
@@ -85,6 +88,7 @@ type SharedDatabase = {
     organization_id: string
     sender_user_id: string | null
     sender_external_contact_id: string | null
+    sender_account_id: string | null
     kind: string
     deleted_at: Date | null
   }
@@ -188,6 +192,7 @@ async function queryFiles(input: SharedQueryInput & { media: boolean }): Promise
       'a.created_at as createdAt',
       'm.sender_user_id as uploaderUserId',
       'm.sender_external_contact_id as uploaderExternalContactId',
+      'm.sender_account_id as uploaderAccountId',
     ])
     .orderBy('a.created_at', 'desc')
     .orderBy('a.id', 'desc')
@@ -209,6 +214,7 @@ async function queryFiles(input: SharedQueryInput & { media: boolean }): Promise
       fileSize: Number(row.fileSize),
       uploaderUserId: row.uploaderUserId,
       uploaderExternalContactId: row.uploaderExternalContactId,
+      uploaderAccountId: row.uploaderAccountId,
       createdAt: new Date(row.createdAt).toISOString(),
     })),
     hasMore,
@@ -265,6 +271,7 @@ async function queryLinks(input: SharedQueryInput): Promise<SharedResult> {
       'l.created_at as createdAt',
       'm.sender_user_id as sharedByUserId',
       'm.sender_external_contact_id as sharedByExternalContactId',
+      'm.sender_account_id as sharedByAccountId',
     ])
     .orderBy('l.created_at', 'desc')
     .orderBy('l.id', 'desc')
@@ -284,6 +291,7 @@ async function queryLinks(input: SharedQueryInput): Promise<SharedResult> {
       host: row.host,
       sharedByUserId: row.sharedByUserId,
       sharedByExternalContactId: row.sharedByExternalContactId,
+      sharedByAccountId: row.sharedByAccountId,
       createdAt: new Date(row.createdAt).toISOString(),
     })),
     hasMore,

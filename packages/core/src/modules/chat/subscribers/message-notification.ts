@@ -70,10 +70,14 @@ export default async function handle(payload: unknown, ctx: SubscriberContext): 
     if (!conversation) return
 
     const isExternal = conversation.kind === 'external'
+    // An internal note is colleagues talking among themselves in a client
+    // conversation — it notifies whom it names, exactly as a space message does.
+    const isInternalNote = isExternal && message.visibility === 'internal'
     // An outsider only ever writes in an external conversation. And there, a
-    // colleague's reply notifies nobody: mentions are refused, and telling the
-    // other handlers about every reply is the noise the unread count covers.
-    if (isExternal ? !senderExternalContactId : !senderUserId) return
+    // colleague's reply notifies nobody: mentions are refused in replies, and
+    // telling the other handlers about every reply is the noise the unread
+    // count covers.
+    if (isInternalNote ? !senderUserId : isExternal ? !senderExternalContactId : !senderUserId) return
 
     // Colleagues only. An outsider has no user to notify, and a null recipient
     // would throw inside this loop's single `try` and skip everyone after it.
@@ -83,7 +87,11 @@ export default async function handle(payload: unknown, ctx: SubscriberContext): 
     const isSpace = conversation.kind === 'space'
 
     let candidates: Array<ChatParticipant & { userId: string }>
-    if (isExternal) {
+    if (isInternalNote) {
+      const mentions = await em.find(ChatMessageMention, { messageId, ...scope })
+      const named = new Set(mentions.map((mention) => mention.mentionedUserId))
+      candidates = participants.filter((participant) => named.has(participant.userId))
+    } else if (isExternal) {
       // Somebody outside is waiting on an answer: every colleague here is told.
       candidates = participants
     } else if (isSpace) {
@@ -107,11 +115,13 @@ export default async function handle(payload: unknown, ctx: SubscriberContext): 
     })
     if (recipients.length === 0) return
 
-    const typeId = isExternal
-      ? 'chat.external.received'
-      : isSpace
-        ? 'chat.mention.received'
-        : 'chat.direct.received'
+    const typeId = isInternalNote
+      ? 'chat.mention.received'
+      : isExternal
+        ? 'chat.external.received'
+        : isSpace
+          ? 'chat.mention.received'
+          : 'chat.direct.received'
     const typeDef = notificationTypes.find((type) => type.type === typeId)
     if (!typeDef) return
 

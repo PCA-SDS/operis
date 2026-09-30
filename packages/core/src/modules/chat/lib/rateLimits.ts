@@ -124,3 +124,20 @@ export const chatTypingRateLimit = readEndpointRateLimitConfig('CHAT_TYPING', {
   blockDuration: 10,
   keyPrefix: 'chat_typing',
 })
+
+/**
+ * Messaging accounts. Reads are what the connect page polls while a QR code is
+ * on screen — every two seconds for a couple of minutes — so the budget is a
+ * poll's, not a directory's. Writes are rare and deliberate.
+ */
+export const chatAccountReadRateLimit = readEndpointRateLimitConfig('CHAT_ACCOUNT_READ', {
+  points: 120,
+  duration: 60,
+  keyPrefix: 'chat_account_read',
+})
+
+export const chatAccountWriteRateLimit = readEndpointRateLimitConfig('CHAT_ACCOUNT_WRITE', {
+  points: 20,
+  duration: 60,
+  keyPrefix: 'chat_account_write',
+})

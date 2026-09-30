@@ -29,6 +29,10 @@
       "types": "./src/modules/chat_matrix/lib/transport.ts",
       "default": "./dist/modules/chat_matrix/lib/transport.js"
     },
+    "./modules/chat_matrix/lib/accounts": {
+      "types": "./src/modules/chat_matrix/lib/accounts.ts",
+      "default": "./dist/modules/chat_matrix/lib/accounts.js"
+    },
     "./modules/sync_excel/i18n/*.json": "./src/modules/sync_excel/i18n/*.json",
     "./modules/eudr/i18n/*.json": "./src/modules/eudr/i18n/*.json",
     "./modules/design_system/i18n/*.json": "./src/modules/design_system/i18n/*.json",
@@ -373,6 +377,7 @@
     "sharp": "^0.35.3",
     "svix": "^1.99.1",
     "ts-pattern": "^5.0.0",
+    "uqr": "0.1.3",
     "zod": "^4.4.3"
   },
   "peerDependencies": {

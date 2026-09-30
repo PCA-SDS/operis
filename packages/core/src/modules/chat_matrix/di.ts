@@ -8,8 +8,11 @@ import {
 } from '@open-mercato/core/modules/chat/lib/transport'
 import type { MatrixClient as MatrixClientType, matrixConfigFromEnv as MatrixConfigFromEnv } from '@open-mercato/matrix'
 import type { createMatrixChatTransport as CreateMatrixChatTransport } from './lib/transport'
+import type { createMatrixAccountConnector as CreateMatrixAccountConnector } from './lib/accounts'
 
 const logger = createLogger('chat_matrix')
+
+let bindingAnnounced = false
 
 /**
  * Load the Matrix half of this module, and only once someone asks for it.
@@ -34,6 +37,7 @@ function loadMatrixBindings(): {
   MatrixClient: typeof MatrixClientType
   matrixConfigFromEnv: typeof MatrixConfigFromEnv
   createMatrixChatTransport: typeof CreateMatrixChatTransport
+  createMatrixAccountConnector: typeof CreateMatrixAccountConnector
 } {
   const require = createRequire(import.meta.url)
   const matrix = require('@open-mercato/matrix')
@@ -60,10 +64,17 @@ function loadMatrixBindings(): {
     './lib/transport.js',
     './lib/transport',
   ])
+  // The same self-reference, for the same reason, for the account connector.
+  const accounts = loadFirstWith('createMatrixAccountConnector', require, [
+    '@open-mercato/core/modules/chat_matrix/lib/accounts',
+    './lib/accounts.js',
+    './lib/accounts',
+  ])
   return {
     MatrixClient: bindingOf(matrix, 'MatrixClient'),
     matrixConfigFromEnv: bindingOf(matrix, 'matrixConfigFromEnv'),
     createMatrixChatTransport: bindingOf(transport, 'createMatrixChatTransport'),
+    createMatrixAccountConnector: bindingOf(accounts, 'createMatrixAccountConnector'),
   }
 }
 
@@ -137,7 +148,8 @@ export function register(container: AppContainer) {
 
   // Past this line the operator has explicitly asked for Matrix, so needing the
   // package IS the contract and failing loudly is correct.
-  const { MatrixClient, matrixConfigFromEnv, createMatrixChatTransport } = loadMatrixBindings()
+  const { MatrixClient, matrixConfigFromEnv, createMatrixChatTransport, createMatrixAccountConnector } =
+    loadMatrixBindings()
 
   const config = matrixConfigFromEnv()
   if (!config) {
@@ -161,6 +173,22 @@ export function register(container: AppContainer) {
     chatTransport: asFunction(() => createMatrixChatTransport(config, mode)).singleton(),
   })
 
+  // Messaging accounts only where a bridge's provisioning API is configured;
+  // otherwise chat's local connector stays, and the accounts page says no
+  // network is available.
+  const networks = Object.keys(config.provisioning ?? {})
+  if (networks.length > 0) {
+    container.register({
+      chatAccountConnector: asFunction(() =>
+        createMatrixAccountConnector({ config, client: new MatrixClient(config) }),
+      ).singleton(),
+    })
+  }
+
+  // Once per process: `register` runs for every request container, and the
+  // binding it describes does not change between them.
+  if (bindingAnnounced) return
+  bindingAnnounced = true
   logger.info('chat transport bound to Matrix', {
     serverName: config.serverName,
     // The homeserver URL, never the token.
@@ -169,5 +197,6 @@ export function register(container: AppContainer) {
     // Worth saying out loud on every boot: in this mode a homeserver outage
     // stops people sending, which is the trade the flag exists to make.
     sourceOfTruth: mode === 'authoritative' ? 'matrix' : 'postgres',
+    accountNetworks: networks,
   })
 }

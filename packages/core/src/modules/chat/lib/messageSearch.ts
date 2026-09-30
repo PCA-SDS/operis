@@ -24,6 +24,7 @@ type SearchDatabase = {
     conversation_id: string
     sender_user_id: string | null
     sender_external_contact_id: string | null
+    sender_account_id: string | null
     tenant_id: string
     organization_id: string
     body: string
@@ -54,6 +55,8 @@ export type MessageSearchHit = {
   /** The colleague who wrote it, or null when an outsider did. */
   senderUserId: string | null
   senderExternalContactId: string | null
+  /** The messaging account, when the company's phone sent it directly. */
+  senderAccountId: string | null
   body: string
   createdAt: Date
   score: number
@@ -333,6 +336,7 @@ export async function searchMessages(input: MessageSearchInput): Promise<Message
       'm.conversation_id as conversationId',
       'm.sender_user_id as senderUserId',
       'm.sender_external_contact_id as senderExternalContactId',
+      'm.sender_account_id as senderAccountId',
       'm.body as body',
       'm.created_at as createdAt',
       'c.title as conversationTitle',
@@ -361,6 +365,7 @@ export async function searchMessages(input: MessageSearchInput): Promise<Message
       conversationKind: row.conversationKind,
       senderUserId: row.senderUserId,
       senderExternalContactId: row.senderExternalContactId,
+      senderAccountId: row.senderAccountId,
       body: row.body,
       // Coerced, not trusted. The raw driver hands timestamps back as strings
       // even where the column type says otherwise, so constructing the Date here

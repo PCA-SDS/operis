@@ -140,7 +140,7 @@ export function SpaceDetailsDialog({
   const submitAdditions = React.useCallback(async () => {
     if (additions.length === 0) return
     const ok = await run(
-      () => addMembers.mutateAsync(additions.map((person) => person.id)),
+      () => addMembers.mutateAsync({ memberIds: additions.map((person) => person.id) }),
       t('chat.space.addFailed', "Couldn't add those people."),
     )
     if (ok) {

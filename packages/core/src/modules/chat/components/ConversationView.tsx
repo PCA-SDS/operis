@@ -56,6 +56,7 @@ import { ExternalMembersDialog } from './ExternalMembersDialog'
 import { networkLabel } from './externalNetwork'
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { Alert, AlertDescription } from '@open-mercato/ui/primitives/alert'
+import { SegmentedControl, SegmentedControlItem } from '@open-mercato/ui/primitives/segmented-control'
 import { useConfirmDialog } from '@open-mercato/ui/backend/confirm-dialog'
 import {
   useCanSendChat,
@@ -163,6 +164,23 @@ export function ConversationView({
 
   const [pending, setPending] = React.useState<PendingMessage[]>([])
   const [replyTarget, setReplyTarget] = React.useState<ReplyTarget | null>(null)
+  /**
+   * Writing an internal note instead of a reply, in a client conversation.
+   * Per conversation, and off whenever one opens: the safe default is the one
+   * the colleague chose to leave, not one they forgot was on.
+   */
+  const [noteMode, setNoteMode] = React.useState(false)
+  React.useEffect(() => setNoteMode(false), [conversationId])
+  // A chat that came in through a messaging account answers from that number,
+  // so while the account is disconnected there is nowhere for a reply to go —
+  // but colleagues can still leave each other notes.
+  const accountDisconnected = Boolean(
+    conversation?.kind === 'external' && conversation.external?.account && !conversation.external.account.connected,
+  )
+  // A viewer reads the client conversation and talks to colleagues about it;
+  // nothing they write reaches the client, so the composer offers only notes.
+  const viewerOnly = conversation?.kind === 'external' && conversation.viewerAccess === 'viewer'
+  const composeInternal = Boolean(conversation?.kind === 'external' && (noteMode || accountDisconnected || viewerOnly))
   const [editTarget, setEditTarget] = React.useState<EditRequest | null>(null)
   const [detailsOpen, setDetailsOpen] = React.useState(false)
   const chatLocale = useChatLocale()
@@ -439,9 +457,10 @@ export function ConversationView({
       body: string,
       replyToMessageId?: string,
       attachmentIds?: string[],
+      visibility?: 'shared' | 'internal',
     ) => {
       try {
-        await sendMessage.mutateAsync({ body, clientMessageId, replyToMessageId, attachmentIds })
+        await sendMessage.mutateAsync({ body, clientMessageId, replyToMessageId, attachmentIds, visibility })
         setPending((current) => current.filter((item) => item.clientMessageId !== clientMessageId))
       } catch (error) {
         setPending((current) =>
@@ -464,6 +483,9 @@ export function ConversationView({
       // Read before the strip is cleared, for the same reason as the reply
       // target: the send is in flight after the composer has moved on.
       const attachmentIds = draftAttachments.readyIds
+      // Decided now, like the reply target: switching the toggle while this is
+      // in flight must not turn a note into a reply, or a reply into a note.
+      const visibility = composeInternal ? ('internal' as const) : undefined
       setPending((current) => [
         ...current,
         {
@@ -474,6 +496,7 @@ export function ConversationView({
           replyToMessageId,
           replyToAuthorName: replyTarget?.authorName,
           replyToBody: replyTarget?.body,
+          visibility,
         },
       ])
       // Cleared on send rather than on success. The reply is already committed to
@@ -488,11 +511,11 @@ export function ConversationView({
       // message to carry them a second time.
       draftAttachments.clear()
 
-      void deliver(clientMessageId, body, replyToMessageId, attachmentIds).catch((err: unknown) => {
+      void deliver(clientMessageId, body, replyToMessageId, attachmentIds, visibility).catch((err: unknown) => {
         logger.warn('Sending a chat message failed', { conversationId, clientMessageId, err })
       })
     },
-    [conversationId, deliver, draftAttachments, replyTarget],
+    [composeInternal, conversationId, deliver, draftAttachments, replyTarget],
   )
 
   const handleRetryPending = React.useCallback(
@@ -505,7 +528,7 @@ export function ConversationView({
       // Same key AND the same reply target as the first attempt, so a send that
       // committed before the connection dropped is deduplicated rather than
       // posted twice — and a retry never loses the reply it was.
-      void deliver(clientMessageId, target.body, target.replyToMessageId).catch((err: unknown) => {
+      void deliver(clientMessageId, target.body, target.replyToMessageId, undefined, target.visibility).catch((err: unknown) => {
         logger.warn('Retrying a chat message failed', { conversationId, clientMessageId, err })
       })
     },
@@ -602,9 +625,11 @@ export function ConversationView({
     setMentionQuery(query ?? '')
   }, [])
 
-  const { members } = useSpaceMembers(conversationId, debouncedMentionQuery, Boolean(isSpace))
+  // An internal note may name colleagues; nothing that reaches the client may.
+  const mentionable = Boolean(isSpace || composeInternal)
+  const { members } = useSpaceMembers(conversationId, debouncedMentionQuery, mentionable)
   const mentionCandidates = React.useMemo<MentionCandidate[]>(() => {
-    if (!isSpace) return []
+    if (!mentionable) return []
     const people = members
       .filter((member) => member.id !== currentUserId)
       .map((member) => ({
@@ -613,12 +638,13 @@ export function ConversationView({
         kind: 'user' as const,
         subtitle: member.email,
       }))
+    if (!isSpace) return people
     return [
       { id: 'everyone', name: t('chat.mentions.everyone', 'everyone'), kind: 'everyone' as const,
         subtitle: t('chat.mentions.everyoneHint', 'Notify everyone in this space') },
       ...people,
     ]
-  }, [currentUserId, isSpace, members, t])
+  }, [currentUserId, isSpace, members, mentionable, t])
 
   /** Owners in a space; either participant in a direct — matching the server. */
   const canPin = Boolean(conversation) && (!isSpace || conversation?.viewerRole === 'owner')
@@ -689,7 +715,7 @@ export function ConversationView({
    * three-or-more case says nothing about who.
    */
   const mute = useConversationMute(conversationId)
-  const typingSignal = useTypingSignal(conversationId)
+  const typingSignal = useTypingSignal(conversationId, composeInternal)
   const typingPeers = useTypingPeers(conversationId)
   const typingLabel = React.useMemo(() => {
     if (typingPeers.length === 0) return null
@@ -782,8 +808,13 @@ export function ConversationView({
                   is denying. The name stays: it is what you clicked, and losing
                   it too would leave the pane unlabelled. */}
               {conversationError ? null : isExternal && conversation ? (
-                <span className="block truncate text-xs text-muted-foreground">
-                  {networkLabel(t, conversation.external?.network)}
+                <span className="block truncate text-xs text-muted-foreground" data-testid="chat-external-via">
+                  {conversation.external?.account
+                    ? t('chat.external.viaAccount', '{network} · via {account}', {
+                        network: networkLabel(t, conversation.external.network),
+                        account: conversation.external.account.name,
+                      })
+                    : networkLabel(t, conversation.external?.network)}
                 </span>
               ) : isSpace && conversation ? (
                 <span className="block truncate text-xs text-muted-foreground">
@@ -1181,6 +1212,7 @@ export function ConversationView({
              direct has no owner, so there only the author may delete — which
              `MessageList` applies per row. */
           canModerate={Boolean(isSpace && conversation.viewerRole === 'owner')}
+          sharedLocked={viewerOnly}
           messages={messages}
           pending={pending}
           currentUserId={currentUserId}
@@ -1210,19 +1242,67 @@ export function ConversationView({
       ) : null}
 
       {isExternal && conversation ? (
-        <div className="px-4 pb-2">
-          {/* Persistent on purpose: this is the moment before somebody types an
-              internal detail to a customer, and a warning they could dismiss
-              once would be gone for every message after. */}
-          <Alert status="warning" size="sm" data-testid="chat-external-warning">
-            <AlertDescription>
-              {t(
-                'chat.external.composerWarning',
-                'Messages here go to {name} ({network}). Keep internal information out of this conversation.',
-                { name: conversationTitle, network: networkLabel(t, conversation.external?.network) },
-              )}
-            </AlertDescription>
-          </Alert>
+        <div className="flex flex-col gap-2 px-4 pb-2">
+          {/* Reply or note, chosen before typing rather than after: the
+              question is who will read this, and it has to be answered while
+              the words are being chosen. */}
+          <SegmentedControl
+            value={composeInternal ? 'internal' : 'reply'}
+            onValueChange={(next) => setNoteMode(next === 'internal')}
+            size="sm"
+            disabled={accountDisconnected || viewerOnly}
+            aria-label={t('chat.internal.modeLabel', 'Who reads what you write')}
+            data-testid="chat-compose-mode"
+          >
+            <SegmentedControlItem value="reply">
+              {t('chat.internal.reply', 'Reply to {name}', { name: conversationTitle })}
+            </SegmentedControlItem>
+            <SegmentedControlItem value="internal">{t('chat.internal.note', 'Internal note')}</SegmentedControlItem>
+          </SegmentedControl>
+          {viewerOnly ? (
+            <Alert status="information" size="sm" data-testid="chat-access-viewer">
+              <AlertDescription>
+                {t(
+                  'chat.access.viewerHint',
+                  'You can read this chat and leave internal notes for colleagues. To reply to the client, ask a manager of the chat.',
+                )}
+              </AlertDescription>
+            </Alert>
+          ) : accountDisconnected && conversation.external?.account ? (
+            // Replies leave from the account's number, so while it is
+            // disconnected nothing typed here would reach the customer.
+            <Alert status="error" size="sm" data-testid="chat-external-account-disconnected">
+              <AlertDescription>
+                {t(
+                  'chat.external.accountDisconnected',
+                  '{account} is disconnected, so replies cannot be sent. Ask an administrator to reconnect it.',
+                  { account: conversation.external.account.name },
+                )}
+              </AlertDescription>
+            </Alert>
+          ) : composeInternal ? (
+            <Alert status="information" size="sm" data-testid="chat-internal-hint">
+              <AlertDescription>
+                {t(
+                  'chat.internal.hint',
+                  'Only colleagues in this conversation see internal notes. Mention someone to notify them.',
+                )}
+              </AlertDescription>
+            </Alert>
+          ) : (
+            // Persistent on purpose: this is the moment before somebody types an
+            // internal detail to a customer, and a warning they could dismiss
+            // once would be gone for every message after.
+            <Alert status="warning" size="sm" data-testid="chat-external-warning">
+              <AlertDescription>
+                {t(
+                  'chat.external.composerWarning',
+                  'Messages here go to {name} ({network}). Keep internal information out of this conversation.',
+                  { name: conversationTitle, network: networkLabel(t, conversation.external?.network) },
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
         </div>
       ) : null}
 
@@ -1247,9 +1327,11 @@ export function ConversationView({
         placeholder={
           !canSend
             ? t('chat.composer.readOnly', 'You do not have permission to send messages')
-            : counterpartLeft
-              ? t('chat.composer.disabled', 'This person has left the organization')
-              : t('chat.composer.placeholder', 'Message {name}', { name: conversationTitle })
+            : composeInternal
+              ? t('chat.internal.placeholder', 'Internal note — only colleagues see this')
+              : counterpartLeft
+                ? t('chat.composer.disabled', 'This person has left the organization')
+                : t('chat.composer.placeholder', 'Message {name}', { name: conversationTitle })
         }
       />
 
@@ -1271,6 +1353,7 @@ export function ConversationView({
             open={detailsOpen}
             onClose={() => setDetailsOpen(false)}
             conversation={conversation}
+            currentUserId={currentUserId}
           />
         ) : null}
 

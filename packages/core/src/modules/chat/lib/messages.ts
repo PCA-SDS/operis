@@ -60,6 +60,10 @@ export async function loadChatMessages() {
       'One or more of those people are not active members of your organization.',
     ),
     memberNotInSpace: t('chat.errors.memberNotInSpace', 'That person is not in this space.'),
+    lastColleagueCannotLeave: t(
+      'chat.errors.lastColleagueCannotLeave',
+      'Someone has to stay with this client. Add a colleague before you leave.',
+    ),
     lastOwnerCannotLeave: t(
       'chat.errors.lastOwnerCannotLeave',
       'You are the only owner. Make someone else an owner before you leave.',
@@ -101,6 +105,74 @@ export async function loadChatMessages() {
     systemMessageNotEditable: t(
       'chat.errors.systemMessageNotEditable',
       "That's a record of a change to the conversation, so it can't be edited or deleted.",
+    ),
+    // Same string for "no such account" and "not one you may manage", so
+    // account ids cannot be probed.
+    accountNotFound: t('chat.accounts.errors.notFound', 'Account not found'),
+    accountNetworkUnavailable: t(
+      'chat.accounts.errors.networkUnavailable',
+      "That network isn't available on this server.",
+    ),
+    accountPersonalUnavailable: t(
+      'chat.accounts.errors.personalUnavailable',
+      "Personal accounts aren't available on this server.",
+    ),
+    accountPersonalExists: t(
+      'chat.accounts.errors.personalExists',
+      'You already have a personal account on that network.',
+    ),
+    accountTeamRequired: t(
+      'chat.accounts.errors.teamRequired',
+      "Choose at least one colleague to handle this account's chats.",
+    ),
+    accountAlreadyConnected: t(
+      'chat.accounts.errors.alreadyConnected',
+      'This account is already connected. Disconnect it first.',
+    ),
+    accountPhoneRequired: t(
+      'chat.accounts.errors.phoneRequired',
+      'Enter the phone number in international format, e.g. +49 151 23456789.',
+    ),
+    accessViewerCannotReply: t(
+      'chat.errors.accessViewerCannotReply',
+      'You can read this chat and write internal notes, but not answer the client. Ask a manager of the chat to make you a participant.',
+    ),
+    accessManagerRequired: t(
+      'chat.errors.accessManagerRequired',
+      'Only a manager of this chat can change who is in it.',
+    ),
+    lastManagerCannotLeave: t(
+      'chat.errors.lastManagerCannotLeave',
+      'This chat needs a manager. Make someone else a manager before you leave or step down.',
+    ),
+    internalNoteNotAllowed: t(
+      'chat.errors.internalNoteNotAllowed',
+      'Internal notes are for client conversations, where the client could otherwise read what you write.',
+    ),
+    accountNotConnected: t(
+      'chat.accounts.errors.notConnected',
+      "This chat's WhatsApp account is disconnected, so nothing can be sent. Reconnect it first.",
+    ),
+    accountUnreachable: t(
+      'chat.accounts.errors.unreachable',
+      "WhatsApp can't be reached right now. Try again in a moment.",
+    ),
+    accountChatNotFound: t(
+      'chat.accounts.errors.chatNotFound',
+      "That chat isn't on this WhatsApp any more.",
+    ),
+    crmUnavailable: t('chat.errors.crmUnavailable', "The CRM isn't available here."),
+    crmRecordNotFound: t(
+      'chat.errors.crmRecordNotFound',
+      "That CRM record doesn't exist, or you can't open it.",
+    ),
+    crmLinkNotAllowed: t(
+      'chat.errors.crmLinkNotAllowed',
+      'Only colleagues who can answer the client can link them to the CRM.',
+    ),
+    contactNotInConversation: t(
+      'chat.errors.contactNotInConversation',
+      "That person isn't in this conversation.",
     ),
   }
 }

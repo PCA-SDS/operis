@@ -4,11 +4,11 @@ import { Entity, Index, PrimaryKey, Property, Unique } from '@open-mercato/share
 /**
  * The mapping layer between Operis chat and a Matrix homeserver.
  *
- * Four tables, and deliberately nothing else. No `chat_*` table is altered and
- * no chat column is added, so "nothing else breaks" is a structural property
- * rather than a promise: every CHECK constraint, composite foreign key and GIN
- * index the chat module relies on is untouched, and rolling this back is
- * dropping four tables nothing else reads.
+ * Its own tables, and deliberately nothing else. No `chat_*` table is altered
+ * and no chat column is added, so "nothing else breaks" is a structural
+ * property rather than a promise: every CHECK constraint, composite foreign key
+ * and GIN index the chat module relies on is untouched, and rolling this back
+ * is dropping tables nothing else reads.
  *
  * Matrix owns the message stream. These tables record only which Matrix object
  * corresponds to which Operis row, so the projection can be idempotent and a
@@ -81,7 +81,7 @@ export class ChatMatrixIdentity {
 @Unique({ name: 'chat_matrix_rooms_room_uq', properties: ['roomId'] })
 @Index({ name: 'chat_matrix_rooms_scope_idx', properties: ['tenantId', 'organizationId'] })
 export class ChatMatrixRoom {
-  [OptionalProps]?: 'state' | 'createdAt' | 'updatedAt'
+  [OptionalProps]?: 'state' | 'accountId' | 'projectFrom' | 'createdAt' | 'updatedAt'
 
   @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
   id!: string
@@ -111,6 +111,105 @@ export class ChatMatrixRoom {
   /** Why provisioning failed, for the operator. Cleared on recovery. */
   @Property({ name: 'last_error', type: 'text', nullable: true })
   lastError?: string | null
+
+  /**
+   * The messaging account whose portal this is — a room a bridge created for a
+   * connected WhatsApp number — or null for a room Operis made or an operator
+   * linked. Replies in it are sent as the account, so they leave from that
+   * number. `chat_messaging_accounts.id`, a plain id.
+   */
+  @Property({ name: 'account_id', type: 'uuid', nullable: true })
+  accountId?: string | null
+
+  /**
+   * For a chat an employee moved in from their personal WhatsApp: the moment of
+   * the move. Nothing said in the room before it is projected — that stays
+   * theirs. Null for every other room.
+   */
+  @Property({ name: 'project_from', type: Date, nullable: true })
+  projectFrom?: Date | null
+
+  @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
+  createdAt: Date = new Date()
+
+  @Property({ name: 'updated_at', type: Date, onCreate: () => new Date(), onUpdate: () => new Date(), nullable: true })
+  updatedAt?: Date | null
+}
+
+/** A login the connector is driving, kept server-side so no browser ever holds the bridge's ids. */
+export type ChatMatrixPendingLogin = {
+  /** Chat's attempt id — what `chat.accounts.recordLoginStep` and `markState` are keyed on. */
+  attemptId: string
+  flow: 'qr' | 'phone'
+  /** The bridge's login process id and current step. */
+  processId: string
+  stepId: string
+  startedAt: string
+}
+
+/**
+ * A messaging account's Matrix side: the identity that owns its bridge login.
+ *
+ * One row per account, created the first time it connects. The identity is
+ * derived from the account id (`@om_a_<hex>` for a company account,
+ * `@opp_<hex>` for a personal one), so the row is bookkeeping — which account
+ * a portal's member belongs to, whether the homeserver has the identity yet,
+ * and the login the bridge is running — never the source of who may act.
+ */
+@Entity({ tableName: 'chat_matrix_account_logins' })
+@Unique({ name: 'chat_matrix_account_logins_account_uq', properties: ['accountId'] })
+@Unique({ name: 'chat_matrix_account_logins_mxid_uq', properties: ['mxid'] })
+@Index({ name: 'chat_matrix_account_logins_scope_idx', properties: ['tenantId', 'organizationId'] })
+export class ChatMatrixAccountLogin {
+  [OptionalProps]?:
+    | 'registeredAt'
+    | 'userLoginId'
+    | 'pendingLogin'
+    | 'bridgeState'
+    | 'lastStateAt'
+    | 'createdAt'
+    | 'updatedAt'
+
+  @PrimaryKey({ type: 'uuid', defaultRaw: 'gen_random_uuid()' })
+  id!: string
+
+  @Property({ name: 'tenant_id', type: 'uuid' })
+  tenantId!: string
+
+  @Property({ name: 'organization_id', type: 'uuid' })
+  organizationId!: string
+
+  /** `chat_messaging_accounts.id`. A plain id — modules do not share ORM relations. */
+  @Property({ name: 'account_id', type: 'uuid' })
+  accountId!: string
+
+  /** `company` or `user`, which picks the identity's namespace. */
+  @Property({ name: 'owner_type', type: 'text' })
+  ownerType!: 'company' | 'user'
+
+  @Property({ type: 'text' })
+  network!: string
+
+  @Property({ type: 'text' })
+  mxid!: string
+
+  /** When the homeserver acknowledged the identity. Null until then. */
+  @Property({ name: 'registered_at', type: Date, nullable: true })
+  registeredAt?: Date | null
+
+  /** The bridge's id for the finished login (a WhatsApp login), used to log it out. */
+  @Property({ name: 'user_login_id', type: 'text', nullable: true })
+  userLoginId?: string | null
+
+  @Property({ name: 'pending_login', type: 'json', nullable: true })
+  pendingLogin?: ChatMatrixPendingLogin | null
+
+  /** The bridge's last reported state (`CONNECTED`, `BAD_CREDENTIALS`, …), for the operator. */
+  @Property({ name: 'bridge_state', type: 'text', nullable: true })
+  bridgeState?: string | null
+
+  @Property({ name: 'last_state_at', type: Date, nullable: true })
+  lastStateAt?: Date | null
 
   @Property({ name: 'created_at', type: Date, onCreate: () => new Date() })
   createdAt: Date = new Date()

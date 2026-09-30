@@ -14,6 +14,7 @@ import {
   ChatMessageLink,
   ChatMessageMention,
   ChatPinnedMessage,
+  type ChatMessageVisibility,
 } from '../data/entities'
 import type { Attachment } from '@open-mercato/core/modules/attachments/data/entities'
 import type { ChatAttachmentDto, ChatMessageDto, ChatReplyTargetDto } from '../data/types'
@@ -30,6 +31,8 @@ import { toChatAttachmentDto } from '../lib/attachmentDto'
 import { getAttachmentsForMessages } from '../lib/attachments'
 import { loadOrganizationMembers, type ChatScope } from '../lib/scope'
 import { isAuthorOf, loadParticipant } from '../lib/participants'
+import { requireConnectedAccountFor, signatureFor } from '../lib/accounts'
+import { hasAccess } from '../lib/access'
 import {
   chatTransportFrom,
   conversationAudience,
@@ -58,6 +61,12 @@ export type SendChatMessageInput = {
   /** Drafts to carry on this message; validated against the server's own rows. */
   attachmentIds?: string[]
   /**
+   * `internal` for an internal note in a client conversation — kept among
+   * colleagues and never handed to the transport. Refused anywhere else, and
+   * from anyone but a colleague.
+   */
+  visibility?: ChatMessageVisibility
+  /**
    * Set only by the transport's projector, never by an HTTP caller.
    *
    * Marks a message that already exists in the messaging system and is being
@@ -81,6 +90,12 @@ export type SendChatMessageInput = {
      * this path can name one — no HTTP route builds `externalOrigin`.
      */
     externalContactId?: string
+    /**
+     * The messaging account, when its own phone sent it — typed on the
+     * company's WhatsApp, not in Operis. Only a conversation that came in
+     * through that account accepts it.
+     */
+    senderAccountId?: string
   }
 }
 
@@ -102,6 +117,8 @@ function toDto(
     conversationId: message.conversationId,
     senderUserId: message.senderUserId,
     senderExternalContactId: message.senderExternalContactId ?? null,
+    senderAccountId: message.senderAccountId ?? null,
+    visibility: message.visibility,
     senderName,
     senderNetwork,
     kind: message.kind,
@@ -176,8 +193,9 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
         : notFound(messages.conversationNotFound)
     }
 
+    // The account has no seat; it is checked against the conversation below.
     const participant = await loadParticipant(em, scope, input.conversationId, actor)
-    if (!participant) throw notFound(messages.conversationNotFound)
+    if (!participant && actor.kind !== 'account') throw notFound(messages.conversationNotFound)
 
     const conversation = await em.findOne(ChatConversation, {
       id: input.conversationId,
@@ -189,12 +207,48 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
     if (actor.kind === 'external' && conversation.kind !== 'external') {
       throw notFound(messages.conversationNotFound)
     }
+    if (
+      actor.kind === 'account' &&
+      (conversation.kind !== 'external' || conversation.messagingAccountId !== actor.accountId)
+    ) {
+      throw notFound(messages.conversationNotFound)
+    }
 
     const senderUserId = actor.kind === 'user' ? actor.userId : null
     const senderExternalContactId = actor.kind === 'external' ? actor.externalContactId : null
-    // An outsider's text is prose, whatever it contains: mention syntax is made
-    // inert before anything below parses it, so they can name nobody.
-    const body = actor.kind === 'external' ? neutralizeMentionSyntax(input.body) : input.body
+    const senderAccountId = actor.kind === 'account' ? actor.accountId : null
+    // Text that arrived from the network is prose, whatever it contains:
+    // mention syntax is made inert before anything below parses it, so an
+    // outsider — or a phone — can name nobody.
+    const body = actor.kind === 'user' ? input.body : neutralizeMentionSyntax(input.body)
+
+    // An internal note is a colleague's, in a client conversation, typed in
+    // Operis. Nothing that arrived from outside can be one.
+    const visibility: ChatMessageVisibility = input.visibility === 'internal' ? 'internal' : 'shared'
+    const internal = visibility === 'internal'
+    if (internal && (!senderUserId || input.externalOrigin || conversation.kind !== 'external')) {
+      throw badRequest(messages.internalNoteNotAllowed)
+    }
+    // A viewer of a client conversation reads it and writes notes; answering
+    // the client takes a participant.
+    if (
+      conversation.kind === 'external' &&
+      senderUserId &&
+      !input.externalOrigin &&
+      !internal &&
+      !hasAccess(participant, 'participant')
+    ) {
+      throw forbidden(messages.accessViewerCannotReply)
+    }
+
+    // A colleague replying through a messaging account: it must be connected,
+    // or the reply would stay in Operis and never reach the customer. A note
+    // goes nowhere, so it can be written while the account is down.
+    const sendingAccount =
+      senderUserId && !input.externalOrigin && !internal
+        ? await requireConnectedAccountFor(em, scope, conversation, messages.accountNotConnected)
+        : null
+    const senderSignature = sendingAccount ? signatureFor(sendingAccount, sender.name) : undefined
 
     if (input.clientMessageId) {
       const existing = await findByClientId(em, scope, conversation.id, input.clientMessageId)
@@ -250,9 +304,10 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
     const everyone = mentionsEveryone(body)
 
     if (everyone && conversation.kind !== 'space') throw badRequest(messages.everyoneNotAllowed)
-    // Nobody is mentioned in an external conversation: a token goes out to the
-    // room verbatim, so the customer would read a colleague's raw id.
-    if (conversation.kind === 'external' && mentionedUserIds.length > 0) {
+    // Nobody is mentioned in what goes out of an external conversation: a token
+    // reaches the room verbatim, so the customer would read a colleague's raw
+    // id. An internal note never leaves, so it may name colleagues.
+    if (conversation.kind === 'external' && !internal && mentionedUserIds.length > 0) {
       throw badRequest(messages.mentionNotAllowed)
     }
     if (mentionedUserIds.length > 0) {
@@ -327,7 +382,7 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
      */
     let publishedEventId: string | null = null
     let preCommitNow: Date | null = null
-    if (transport.mode === 'authoritative' && !input.externalOrigin && senderUserId) {
+    if (transport.mode === 'authoritative' && !input.externalOrigin && senderUserId && !internal) {
       preCommitNow = await dbNow(em)
       const publishEm = forkEm(ctx)
       await transport.ensureConversation({ em: publishEm, container: ctx.container }, scope, {
@@ -349,6 +404,7 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
         clientMessageId: input.clientMessageId ?? null,
         attachmentIds: input.attachmentIds ?? [],
         recipientUserIds: recipients,
+        senderSignature,
       })
       publishedEventId = published.externalId
     }
@@ -403,6 +459,8 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
           conversationId: conversation.id,
           senderUserId,
           senderExternalContactId,
+          senderAccountId,
+          visibility,
           body,
           // Written in the same transaction as the body, so a message is
           // searchable the moment it is visible. Deriving it later would leave
@@ -547,7 +605,7 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
     //
     // With the default `local` transport this is three no-ops. In authoritative
     // mode the publish already happened, before the transaction.
-    if (transport.mode === 'shadow' && !input.externalOrigin && senderUserId) {
+    if (transport.mode === 'shadow' && !input.externalOrigin && senderUserId && !internal) {
       // A fresh fork: the send transaction has committed, and its manager is a
       // closed unit of work.
       const transportEm = forkEm(ctx)
@@ -570,6 +628,7 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
         clientMessageId: input.clientMessageId ?? null,
         attachmentIds: stored.attachments.map((attachment) => attachment.id),
         recipientUserIds: recipients,
+        senderSignature,
       })
       if (published.externalId) {
         await transport.recordPublication({ em: transportEm, container: ctx.container }, scope, {
@@ -587,8 +646,14 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
     await emitConversationEvent('chat.message.sent', scope, recipients, {
       conversationId: conversation.id,
       messageId: stored.message.id,
-      ...(senderUserId ? { senderUserId } : { senderExternalContactId }),
+      ...(senderUserId
+        ? { senderUserId }
+        : senderExternalContactId
+          ? { senderExternalContactId }
+          : { senderAccountId }),
       createdAt: stored.message.createdAt.toISOString(),
+      // So the notification subscriber can tell an internal note from a reply.
+      visibility,
       // Enough for a client to know a file is coming without putting anything
       // fetchable in the frame (§82). The bytes are still reached only through
       // the authorized route.
@@ -610,7 +675,7 @@ const sendChatMessageCommand: CommandHandler<SendChatMessageInput, SendChatMessa
         sender.name,
         mentionNames,
         stored.attachments.map(toChatAttachmentDto),
-        sender.network,
+        actor.kind === 'external' ? sender.network : null,
       ),
       deduplicated: false,
     }
@@ -633,6 +698,8 @@ export type ChatExternalChangeOrigin = {
   eventId: string
   /** The outsider making the change, when it is one — see `SendChatMessageInput`. */
   externalContactId?: string
+  /** The messaging account's own phone making the change — see `SendChatMessageInput`. */
+  senderAccountId?: string
 }
 
 export type EditChatMessageInput = {
@@ -763,7 +830,7 @@ const editChatMessageCommand: CommandHandler<EditChatMessageInput, EditChatMessa
         : notFound(messages.conversationNotFound)
     }
 
-    const { conversation, message } = await requireMessageInConversation(
+    const { conversation, participant, message } = await requireMessageInConversation(
       em,
       scope,
       input.conversationId,
@@ -773,8 +840,24 @@ const editChatMessageCommand: CommandHandler<EditChatMessageInput, EditChatMessa
 
     if (message.kind !== 'user') throw badRequest(messages.systemMessageNotEditable)
     if (!isAuthorOf(message, actor)) throw forbidden(messages.notEditPermitted)
+    // Rewriting what the client already received is answering the client.
+    if (
+      conversation.kind === 'external' &&
+      actor.kind === 'user' &&
+      !input.externalOrigin &&
+      message.visibility === 'shared' &&
+      !hasAccess(participant, 'participant')
+    ) {
+      throw forbidden(messages.accessViewerCannotReply)
+    }
+    // An internal note never left, so rewriting one needs no account.
+    const internal = message.visibility === 'internal'
+    const editingAccount =
+      actor.kind === 'user' && !input.externalOrigin && !internal
+        ? await requireConnectedAccountFor(em, scope, conversation, messages.accountNotConnected)
+        : null
 
-    const body = actor.kind === 'external' ? neutralizeMentionSyntax(input.body) : input.body
+    const body = actor.kind === 'user' ? input.body : neutralizeMentionSyntax(input.body)
 
     // Mentions are re-validated against the conversation as they are on a send,
     // and for the same reason: a body is client input whichever verb delivered
@@ -786,7 +869,7 @@ const editChatMessageCommand: CommandHandler<EditChatMessageInput, EditChatMessa
     const everyone = mentionsEveryone(body)
 
     if (everyone && conversation.kind !== 'space') throw badRequest(messages.everyoneNotAllowed)
-    if (conversation.kind === 'external' && mentionedUserIds.length > 0) {
+    if (conversation.kind === 'external' && !internal && mentionedUserIds.length > 0) {
       throw badRequest(messages.mentionNotAllowed)
     }
     if (mentionedUserIds.length > 0) {
@@ -889,7 +972,7 @@ const editChatMessageCommand: CommandHandler<EditChatMessageInput, EditChatMessa
     // Mirrored after the commit and never fatally, in both modes. The row
     // already carries the new body, so a homeserver that refuses this leaves the
     // room showing older words — not Operis showing wrong ones.
-    if (!input.externalOrigin && actor.kind === 'user') {
+    if (!input.externalOrigin && actor.kind === 'user' && !internal) {
       await publishEditSafely(chatTransportFrom(ctx), { em: forkEm(ctx) }, scope, {
         conversationId: conversation.id,
         messageId: message.id,
@@ -897,6 +980,7 @@ const editChatMessageCommand: CommandHandler<EditChatMessageInput, EditChatMessa
         senderName: editor.name,
         body,
         editedAt,
+        senderSignature: editingAccount ? signatureFor(editingAccount, editor.name) : undefined,
       })
     }
 
@@ -971,8 +1055,20 @@ const deleteChatMessageCommand: CommandHandler<DeleteChatMessageInput, DeleteCha
     // An external conversation has no owner, so there only the author may delete
     // — which is also the only thing an outsider may ever delete.
     const isAuthor = isAuthorOf(message, actor)
-    const isSpaceOwner = actor.kind === 'user' && conversation.kind === 'space' && participant.role === 'owner'
+    const isSpaceOwner = actor.kind === 'user' && conversation.kind === 'space' && participant?.role === 'owner'
     if (!isAuthor && !isSpaceOwner) throw forbidden(messages.notDeletePermitted)
+    if (
+      conversation.kind === 'external' &&
+      actor.kind === 'user' &&
+      !input.externalOrigin &&
+      message.visibility === 'shared' &&
+      !hasAccess(participant, 'participant')
+    ) {
+      throw forbidden(messages.accessViewerCannotReply)
+    }
+    if (actor.kind === 'user' && !input.externalOrigin && !message.deletedAt && message.visibility !== 'internal') {
+      await requireConnectedAccountFor(em, scope, conversation, messages.accountNotConnected)
+    }
 
     // Already gone before we even opened a transaction — the common shape of a
     // second delete, rather than the narrow race the transaction below also
@@ -1036,7 +1132,7 @@ const deleteChatMessageCommand: CommandHandler<DeleteChatMessageInput, DeleteCha
       return { messageId: message.id, deletedAt: outcome.deletedAt.toISOString() }
     }
 
-    if (!input.externalOrigin && actor.kind === 'user') {
+    if (!input.externalOrigin && actor.kind === 'user' && message.visibility !== 'internal') {
       await publishDeletionSafely(chatTransportFrom(ctx), { em: forkEm(ctx) }, scope, {
         conversationId: conversation.id,
         messageId: message.id,
