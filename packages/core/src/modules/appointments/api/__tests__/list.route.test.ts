@@ -88,12 +88,9 @@ describe('appointments list route totals', () => {
   })
 
   it('matches appointment phone snapshots by normalized partial digits', async () => {
-    const matchingAppointmentId = '66666666-6666-4666-8666-666666666666'
-    const execute = jest.fn(async () => [{ id: matchingAppointmentId }])
     const em = {
       find: jest.fn(async () => []),
       findAndCount: jest.fn(async () => [[], 0]),
-      getConnection: jest.fn(() => ({ execute })),
     }
     mockCreateRequestContainer.mockResolvedValue({
       resolve: () => ({ fork: () => em }),
@@ -103,19 +100,57 @@ describe('appointments list route totals', () => {
     const response = await GET(new Request('http://localhost/api/appointments?search=%2B84%20276-119'))
 
     expect(response.status).toBe(200)
-    expect(execute).toHaveBeenCalledWith(
-      expect.stringContaining("regexp_replace(coalesce(customer_phone, ''), '[^0-9]', '', 'g') like ?"),
-      [TENANT_ID, '%84276119%'],
+    const [, where] = em.findAndCount.mock.calls[0] ?? []
+    expect(where).toEqual(expect.objectContaining({
+      tenantId: TENANT_ID,
+      organizationId: { $in: [ORGANIZATION_ID] },
+      $or: expect.any(Array),
+    }))
+    const searchFilters = (where as { $or: Array<Record<string, unknown>> }).$or
+    const phoneFilter = searchFilters.find((filter) =>
+      Reflect.ownKeys(filter).some((key) => String(key).includes('regexp_replace')),
     )
+    expect(phoneFilter).toBeDefined()
+    const phoneExpression = phoneFilter ? Reflect.ownKeys(phoneFilter)[0] : ''
+    expect(String(phoneExpression)).toContain("regexp_replace(coalesce([::alias::].\"customer_phone\", '')")
+    expect(Reflect.get(phoneFilter ?? {}, phoneExpression as PropertyKey)).toEqual({ $like: '%84276119%' })
     expect(em.findAndCount).toHaveBeenCalledWith(
       Appointment,
       expect.objectContaining({
         tenantId: TENANT_ID,
         organizationId: { $in: [ORGANIZATION_ID] },
-        $or: expect.arrayContaining([{ id: { $in: [matchingAppointmentId] } }]),
+        $or: expect.any(Array),
       }),
       expect.anything(),
     )
+  })
+
+  it('keeps global appointment phone search across the authorized tenant scope', async () => {
+    mockResolveOrganizationScopeForRequest.mockResolvedValue({ selectedId: null, filterIds: null })
+    mockResolveOrganizationScopeFilter.mockReturnValue({
+      organizationIds: undefined,
+      where: {},
+      rbacOrganizationId: null,
+    })
+    const em = {
+      find: jest.fn(async () => []),
+      findAndCount: jest.fn(async () => [[], 0]),
+    }
+    mockCreateRequestContainer.mockResolvedValue({
+      resolve: () => ({ fork: () => em }),
+    })
+
+    const { GET } = await import('../route')
+    const response = await GET(new Request('http://localhost/api/appointments?search=84276119'))
+
+    expect(response.status).toBe(200)
+    expect(em.findAndCount).toHaveBeenCalledWith(
+      Appointment,
+      expect.objectContaining({ tenantId: TENANT_ID, deletedAt: null, $or: expect.any(Array) }),
+      expect.anything(),
+    )
+    const [, where] = em.findAndCount.mock.calls[0] ?? []
+    expect(where).not.toHaveProperty('organizationId')
   })
 
   it('rejects invalid requested start date ranges', async () => {

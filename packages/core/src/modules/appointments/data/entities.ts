@@ -52,6 +52,10 @@ export class AppointmentStatus {
 @Index({ name: 'appointments_tenant_org_idx', properties: ['tenantId', 'organizationId'] })
 @Index({ name: 'appointments_requested_start_idx', properties: ['tenantId', 'organizationId', 'requestedStartAt'] })
 @Index({ name: 'appointments_customer_idx', properties: ['tenantId', 'customerEntityId'] })
+@Index({
+  name: 'appointments_customer_phone_digits_trgm_idx',
+  expression: `create index "appointments_customer_phone_digits_trgm_idx" on "appointments" using gin (regexp_replace(coalesce("customer_phone", ''), '[^0-9]', '', 'g') gin_trgm_ops) where "deleted_at" is null`,
+})
 export class Appointment {
   [OptionalProps]?:
     | 'createdAt'

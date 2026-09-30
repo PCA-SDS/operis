@@ -18,7 +18,8 @@ The encrypted customer phone column cannot support substring matching with SQL `
 
 - Resolve phone matches through `customers:customer_entity` / `primary_phone` tokens.
 - Keep every token query scoped to the authenticated tenant, and keep final entity reads tenant-scoped as well.
-- For `GET /api/appointments?search=...`, match phone-only queries of at least four digits against normalized `appointments.customer_phone`, bounded by authenticated tenant and then filtered through the existing organization scope.
+- For `GET /api/appointments?search=...`, match phone-only queries of at least four digits against normalized `appointments.customer_phone` snapshots in the same scoped list query. The query preserves the selected organization, the caller's allowed organization set, and all-organizations mode; it never widens beyond the authenticated tenant.
+- Use a PostgreSQL trigram GIN expression index over the normalized phone snapshot so substring matching does not scan all appointment rows or materialize an unbounded appointment-ID list. The query expression and partial-index predicate must remain aligned.
 - For a tenant with existing customers, rebuild the projection and tokens after deploying this behavior:
 
   ```bash
@@ -34,7 +35,7 @@ The booking endpoints delegate matching to a shared customer lookup helper. That
 
 ## Data Models
 
-No schema changes. The behavior depends on existing `search_tokens` rows for `customers:customer_entity` and field `primary_phone`.
+The returning-customer sheet depends on existing `search_tokens` rows for `customers:customer_entity` and field `primary_phone`. Appointment-table phone search uses the immutable `customer_phone` snapshot and a trigram GIN expression index; customer tokens are not used for historical appointment snapshots.
 
 ## API Contracts
 
@@ -58,3 +59,4 @@ No schema changes. The behavior depends on existing `search_tokens` rows for `cu
 ## Changelog
 
 - 2026-09-29 — Documented tenant-scoped partial-phone search, legacy reindex requirement, phone-only returning lookup, and integration coverage.
+- 2026-09-30 — Indexed normalized appointment phone snapshots with `pg_trgm` and moved substring matching into the organization-scoped appointment list query, preserving all-organizations mode without an intermediate unbounded ID list.

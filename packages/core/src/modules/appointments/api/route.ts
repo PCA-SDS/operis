@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
+import { raw } from '@mikro-orm/core'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
@@ -268,18 +269,11 @@ export async function GET(req: Request) {
       }
       const phoneDigits = extractPhoneDigits(query.search)
       if (/^[+\d\s().-]+$/.test(query.search) && phoneDigits.length >= 4) {
-        const matchingPhoneRows = await em.getConnection().execute<Array<{ id: string }>>(
-          `select id
-           from appointments
-           where tenant_id = ?
-             and deleted_at is null
-             and regexp_replace(coalesce(customer_phone, ''), '[^0-9]', '', 'g') like ?`,
-          [auth.tenantId, `%${phoneDigits}%`],
-        )
-        const matchingPhoneIds = matchingPhoneRows.map((row) => row.id)
-        if (matchingPhoneIds.length > 0) {
-          searchFilters.push({ id: { $in: matchingPhoneIds } })
-        }
+        searchFilters.push({
+          [raw((alias) => `regexp_replace(coalesce(${alias}."customer_phone", ''), '[^0-9]', '', 'g')`)]: {
+            $like: `%${phoneDigits}%`,
+          },
+        })
       }
       where.$or = searchFilters
     }
