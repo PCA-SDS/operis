@@ -35,9 +35,10 @@ export function buildSelectedOptions(
 
   const addOption = (option: CatalogProductOption): void => {
     const groupId = getOptionGroupId(option)
+    const group = groupsById.get(groupId)
     const current = selectedOptions[groupId]
     if (current === undefined) {
-      selectedOptions[groupId] = option.id
+      selectedOptions[groupId] = group?.selectMode === 'multiple' ? [option.id] : option.id
       return
     }
 

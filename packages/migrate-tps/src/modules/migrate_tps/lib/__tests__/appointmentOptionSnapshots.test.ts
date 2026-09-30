@@ -15,12 +15,13 @@ function group(
   id: string,
   name: string,
   parentOptionId?: string,
+  selectMode: 'single' | 'multiple' = 'single',
 ): CatalogProductOptionGroup {
   return {
     id,
     name,
     requirement: 'required',
-    selectMode: 'single',
+    selectMode,
     sortOrder: 0,
     parentOption: parentOptionId ? { id: parentOptionId } : null,
   } as unknown as CatalogProductOptionGroup
@@ -46,7 +47,7 @@ describe('TPS appointment option snapshots', () => {
 
   it('keeps every option in a TPS nested selection path', () => {
     const groupsById = new Map([
-      [builderGroupId, group(builderGroupId, 'Builder Type')],
+      [builderGroupId, group(builderGroupId, 'Builder Type', undefined, 'multiple')],
       [lengthGroupId, group(lengthGroupId, 'Nail Length', builderOption.id)],
       [scopeGroupId, group(scopeGroupId, 'Service Scope', lengthOption.id)],
       [alternateLengthGroupId, group(alternateLengthGroupId, 'Nail Length', builderOption.id)],
@@ -59,7 +60,7 @@ describe('TPS appointment option snapshots', () => {
       ],
       optionId: 'scope-mani',
     }], optionsBySource, groupsById)).toEqual({
-      [builderGroupId]: builderOption.id,
+      [builderGroupId]: [builderOption.id],
       [lengthGroupId]: lengthOption.id,
       [scopeGroupId]: scopeOption.id,
     })
