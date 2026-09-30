@@ -11,6 +11,7 @@ import { computeEmailLookupHash, resolvePhoneIdentity } from '@open-mercato/core
 import { computeEmailHash } from '@open-mercato/core/modules/auth/lib/emailHash'
 import { StaffTeamMember, StaffTeamRole } from '@open-mercato/core/modules/staff/data/entities'
 import { reindexTpsSearch, TPS_LOCATION_MAPPING, queryTps, type Client } from './lib'
+import { formatTpsPhone } from './lib/phone'
 
 type TpsCustomer = {
   id: string
@@ -71,14 +72,6 @@ function normalizeSalutation(value: string | null): string | null {
 
 function normalizeReferral(value: string | null): string | null {
   return value?.trim() || null
-}
-
-function canonicalizePhone(phone: string, countryCode: string): string {
-  const digits = phone.replace(/\D/g, '')
-  const code = countryCode.replace(/\D/g, '')
-  if (!digits || !code) return phone.trim()
-  if (digits.startsWith(code)) return `+${code} ${digits.slice(code.length)}`
-  return `+${code} ${digits}`
 }
 
 function sourceMarker(prefix: string, id: string): string {
@@ -142,7 +135,7 @@ async function migrateCustomers(
   const sourceById = new Map(customers.map((source) => [source.id, source]))
   const phoneGroups = new Map<string, TpsCustomer[]>()
   for (const source of customers) {
-    const phone = canonicalizePhone(source.phone, source.phone_country_code)
+    const phone = formatTpsPhone(source.phone, source.phone_country_code)
     const phoneHash = resolvePhoneIdentity({
       primaryPhone: phone,
       phoneCountryCode: source.phone_country_code,
@@ -187,7 +180,7 @@ async function migrateCustomers(
 
   for (const source of customers) {
     const marker = sourceMarker(CUSTOMER_MARKER_PREFIX, source.id)
-    const phone = canonicalizePhone(source.phone, source.phone_country_code)
+    const phone = formatTpsPhone(source.phone, source.phone_country_code)
     const phoneIdentity = resolvePhoneIdentity({
       primaryPhone: phone,
       phoneCountryCode: source.phone_country_code,
