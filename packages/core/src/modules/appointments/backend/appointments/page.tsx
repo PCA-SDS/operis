@@ -62,7 +62,12 @@ type Row = {
 
 type ListPayload = { items: Row[]; total?: number; totalPages?: number; totalIsCapped?: boolean }
 
-type StatusOption = { code: string; label: string }
+type StatusOption = {
+  code: string
+  label: string
+  backgroundColor?: string | null
+  textColor?: string | null
+}
 
 const APPOINTMENTS_SYNC_INTERVAL_MS = 5_000
 
@@ -206,7 +211,7 @@ export default function AppointmentsListPage() {
   const [filterValues, setFilterValues] = React.useState<FilterValues>({})
   const [selectedStatusCodes, setSelectedStatusCodes] = React.useState<Set<string>>(() => new Set())
   const [reloadToken, setReloadToken] = React.useState(0)
-  const [statusOptions, setStatusOptions] = React.useState<{ code: string; label: string }[]>([])
+  const [statusOptions, setStatusOptions] = React.useState<StatusOption[]>([])
   const hasLoadedAppointmentsRef = React.useRef(false)
 
   useAppEvent('appointments.appointment.*', () => {
@@ -248,6 +253,8 @@ export default function AppointmentsListPage() {
           (call.result?.items ?? []).map((item) => ({
             code: item.code,
             label: item.label,
+            backgroundColor: item.backgroundColor,
+            textColor: item.textColor,
           })),
         )
       } catch {
