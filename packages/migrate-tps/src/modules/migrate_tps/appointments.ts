@@ -12,6 +12,7 @@ import { CatalogProduct, CatalogProductCategoryAssignment, CatalogProductOption,
 import { ResourcesAssignment, ResourcesResource } from '@open-mercato/core/modules/resources/data/entities'
 import { StaffTeamMember } from '@open-mercato/core/modules/staff/data/entities'
 import { TPS_LOCATION_MAPPING, queryTps, type Client } from './lib'
+import { buildSelectedOptions, createOptionSnapshots, type OptionsByProductAndSource, type SelectedOptions, type TpsSelectedOptionDetail } from './lib/appointmentOptionSnapshots'
 
 type TpsBooking = {
   id: string
@@ -59,7 +60,7 @@ type TpsSelection = {
   itemId?: string
   itemName?: string
   duration?: string
-  selectedOptionsDetails?: Array<{ optionId?: string }>
+  selectedOptionsDetails?: TpsSelectedOptionDetail[]
 }
 
 const logger = createLogger('migrate_tps')
@@ -158,34 +159,6 @@ function durationInMinutes(value: number | null | undefined, unit: string | null
   return unit && /hour|hr/i.test(unit) ? value * 60 : value
 }
 
-function createOptionSnapshots(
-  em: EntityManager,
-  line: AppointmentLine,
-  selectedOptions: Record<string, string>,
-  groupsById: Map<string, CatalogProductOptionGroup>,
-  optionsById: Map<string, CatalogProductOption>,
-): void {
-  let sortOrder = 0
-  for (const [groupId, optionId] of Object.entries(selectedOptions)) {
-    const group = groupsById.get(groupId)
-    const option = optionsById.get(optionId)
-    if (!group || !option) continue
-    const groupSnapshot = em.create(AppointmentLineOptionGroup, {
-      id: randomUUID(), line, catalogGroupId: group.id, parentOptionId: group.parentOption?.id ?? null,
-      groupName: group.name, requirement: group.requirement, selectMode: group.selectMode,
-      sortOrder: sortOrder++, isRootGroup: !group.parentOption, breadcrumbPath: null,
-    })
-    em.persist(groupSnapshot)
-    em.persist(em.create(AppointmentLineOption, {
-      id: randomUUID(), group: groupSnapshot, catalogOptionId: option.id, optionName: option.name,
-      code: option.code ?? null, note: option.note ?? null, priceFlat: option.priceFlat ?? null,
-      priceMin: option.priceMin ?? null, priceMax: option.priceMax ?? null,
-      durationValue: option.durationValue ?? null, durationUnit: option.durationUnit ?? null,
-      isAddon: option.isAddon, sortOrder: 0,
-    }))
-  }
-}
-
 async function migrateAppointments(
   em: EntityManager,
   bookings: TpsBooking[],
@@ -235,7 +208,7 @@ async function migrateAppointments(
     const productId = typeof assignment.product === 'string' ? assignment.product : assignment.product.id
     if (!categoryByProduct.has(productId)) categoryByProduct.set(productId, assignment.category.name)
   }
-  const optionByProductAndSource = new Map<string, CatalogProductOption>()
+  const optionsByProductAndSource: OptionsByProductAndSource = new Map()
   const groupsByProduct = new Map<string, Map<string, CatalogProductOptionGroup>>()
   const groupsById = new Map<string, CatalogProductOptionGroup>()
   const optionsById = new Map<string, CatalogProductOption>()
@@ -249,7 +222,10 @@ async function migrateAppointments(
     optionsById.set(option.id, option)
     const sourceId = typeof option.metadata?.tps_id === 'string' ? option.metadata.tps_id : null
     const product = option.group.product
-    if (sourceId && product) optionByProductAndSource.set(`${product.id}:${sourceId}`, option)
+    if (sourceId && product) {
+      const key = `${product.id}:${sourceId}`
+      optionsByProductAndSource.set(key, [...(optionsByProductAndSource.get(key) ?? []), option])
+    }
   }
 
   const resources = await em.find(ResourcesResource, { tenantId, deletedAt: null })
@@ -364,14 +340,7 @@ async function migrateAppointments(
       const matchingAllocations = allocationsByService.get(selection.itemId ?? '') ?? []
       const lineAllocations = matchingAllocations.length > 0 ? matchingAllocations : [undefined]
       const allocation = lineAllocations[0]
-      const selectedOptions: Record<string, string> = {}
-      for (const selected of selection.selectedOptionsDetails ?? []) {
-        if (!selected.optionId) continue
-        const option = optionByProductAndSource.get(`${product.id}:${selected.optionId}`)
-        if (!option) continue
-        const groupId = typeof option.group === 'string' ? option.group : option.group.id
-        selectedOptions[groupId] = option.id
-      }
+      const selectedOptions: SelectedOptions = buildSelectedOptions(product.id, selection.selectedOptionsDetails, optionsByProductAndSource, groupsById)
       const variant = variantByProduct.get(product.id)
       const duration = allocation?.duration_minutes ?? parseDuration(selection.duration) ?? durationInMinutes(variant?.durationValue, variant?.durationUnit) ?? 60
       const price = priceByProduct.get(product.id)
