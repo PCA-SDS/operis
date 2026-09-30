@@ -25,14 +25,24 @@ function createEm(rows: Row[]) {
          const hit = rows.find(r => r.id === where.id)
          return hit ? { id: hit.id, primaryPhone: hit.phone, primaryEmail: hit.email } : null
       }
-      if (where.primaryPhone) {
-         const wantedPhone = where.primaryPhone
+      if (where.primaryPhoneHash) {
+         const wantedHashes = where.primaryPhoneHash.$in as string[]
          const hit = rows.find(r => 
            r.tenantId === where.tenantId && 
            !r.deleted && 
-           r.phone?.replace(/\s+/g, '') === wantedPhone.replace(/\s+/g, '') // simplified mock check
+           r.phoneCountryCode === where.phoneCountryCode &&
+           Boolean(r.phone && wantedHashes.includes(computePhoneLookupHash(r.phone) ?? ''))
          )
-         return hit ? { id: hit.id } : null
+         return hit ? { id: hit.id, primaryPhone: hit.phone, primaryEmail: hit.email, phoneCountryCode: hit.phoneCountryCode } : null
+      }
+      if (where.primaryEmailHash) {
+         const wantedHashes = where.primaryEmailHash.$in as string[]
+         const hit = rows.find(r =>
+           r.tenantId === where.tenantId &&
+           !r.deleted &&
+           Boolean(r.email && wantedHashes.includes(computeEmailLookupHash(r.email) ?? ''))
+         )
+         return hit ? { id: hit.id, primaryPhone: hit.phone, primaryEmail: hit.email, phoneCountryCode: hit.phoneCountryCode } : null
       }
       return null
     }
@@ -87,9 +97,17 @@ describe('checkPersonIdentity', () => {
   })
 
   it('matches a stored number written in a different format', async () => {
-    const { em } = createEm([{ id: 'p1', tenantId: TENANT, phone: '+65 9123 4567' }])
+    const { em } = createEm([{ id: 'p1', tenantId: TENANT, phone: '+65 9123 4567', phoneCountryCode: '65' }])
     await expect(checkPersonIdentity(em, { tenantId: TENANT }, { phone: '+6591234567', phoneCountryCode: '65' })).resolves.toMatchObject({
       exists: true,
+    })
+  })
+
+  it('matches a locally entered number against its encrypted phone digest', async () => {
+    const { em } = createEm([{ id: 'p1', tenantId: TENANT, phone: '203 400 7772', phoneCountryCode: '1' }])
+    await expect(checkPersonIdentity(em, { tenantId: TENANT }, { phone: '2034007772', phoneCountryCode: '+1' })).resolves.toMatchObject({
+      exists: true,
+      customer: { id: 'p1', phoneCountryCode: '1' },
     })
   })
 
@@ -97,31 +115,42 @@ describe('checkPersonIdentity', () => {
     const { em } = createEm([{ id: 'p1', tenantId: TENANT, email: 'ada@example.com' }])
     await expect(checkPersonIdentity(em, { tenantId: TENANT }, { email: 'ADA@Example.com' })).resolves.toMatchObject({
       exists: true,
+      customer: { id: 'p1' },
     })
   })
 
+  it('requires every supplied contact to match for public identity verification', async () => {
+    const { em } = createEm([{ id: 'p1', tenantId: TENANT, phone: '+6591234567', phoneCountryCode: '65' }])
+    await expect(checkPersonIdentity(
+      em,
+      { tenantId: TENANT },
+      { phone: '+6591234567', phoneCountryCode: '65', email: 'unmatched@example.com' },
+      { requireAllProvidedContactsMatch: true },
+    )).resolves.toMatchObject({ exists: false, customer: null })
+  })
+
   it('reports a miss for an unknown contact', async () => {
-    const { em } = createEm([{ id: 'p1', tenantId: TENANT, phone: '+6591234567' }])
+    const { em } = createEm([{ id: 'p1', tenantId: TENANT, phone: '+6591234567', phoneCountryCode: '65' }])
     await expect(checkPersonIdentity(em, { tenantId: TENANT }, { phone: '+6599999999', phoneCountryCode: '65' })).resolves.toMatchObject({
       exists: false,
     })
   })
 
   it('never discloses customer fields, only existence', async () => {
-    const { em } = createEm([{ id: 'p1', tenantId: TENANT, phone: '+6591234567', email: 'ada@example.com' }])
+    const { em } = createEm([{ id: 'p1', tenantId: TENANT, phone: '+6591234567', email: 'ada@example.com', phoneCountryCode: '65' }])
     const result = await checkPersonIdentity(em, { tenantId: TENANT }, { phone: '+6591234567', phoneCountryCode: '65' })
     expect(Object.keys(result).sort()).toEqual(['customer', 'exists', 'lastBooking'])
   })
 
   it('does not match a person belonging to another tenant', async () => {
-    const { em } = createEm([{ id: 'p1', tenantId: OTHER_TENANT, phone: '+6591234567' }])
+    const { em } = createEm([{ id: 'p1', tenantId: OTHER_TENANT, phone: '+6591234567', phoneCountryCode: '65' }])
     await expect(checkPersonIdentity(em, { tenantId: TENANT }, { phone: '+6591234567', phoneCountryCode: '65' })).resolves.toMatchObject({
       exists: false,
     })
   })
 
   it('ignores soft-deleted people', async () => {
-    const { em } = createEm([{ id: 'p1', tenantId: TENANT, phone: '+6591234567', deleted: true }])
+    const { em } = createEm([{ id: 'p1', tenantId: TENANT, phone: '+6591234567', phoneCountryCode: '65', deleted: true }])
     await expect(checkPersonIdentity(em, { tenantId: TENANT }, { phone: '+6591234567', phoneCountryCode: '65' })).resolves.toMatchObject({
       exists: false,
     })
@@ -129,7 +158,7 @@ describe('checkPersonIdentity', () => {
 
   it('conflicts when phone and email point at different people', async () => {
     const { em } = createEm([
-      { id: 'p1', tenantId: TENANT, phone: '+6591234567' },
+      { id: 'p1', tenantId: TENANT, phone: '+6591234567', phoneCountryCode: '65' },
       { id: 'p2', tenantId: TENANT, email: 'other@example.com' },
     ])
     const error = await captureError(
@@ -140,7 +169,7 @@ describe('checkPersonIdentity', () => {
   })
 
   it('does not conflict when both point at the same person', async () => {
-    const { em } = createEm([{ id: 'p1', tenantId: TENANT, phone: '+6591234567', email: 'ada@example.com' }])
+    const { em } = createEm([{ id: 'p1', tenantId: TENANT, phone: '+6591234567', email: 'ada@example.com', phoneCountryCode: '65' }])
     await expect(
       checkPersonIdentity(em, { tenantId: TENANT }, { phone: '+6591234567', phoneCountryCode: '65', email: 'ada@example.com' }),
     ).resolves.toMatchObject({ exists: true })

@@ -15,7 +15,7 @@ import {
   rateLimitErrorSchema,
 } from '@open-mercato/shared/lib/ratelimit/helpers'
 import { appointmentPublicCustomerLookupSchema } from '../../../data/validators'
-import { lookupPublicCustomerForAppointment } from '../../../lib/intake'
+import { lookupReturningCustomerForAppointment } from '../../../lib/intake'
 
 export const metadata = {
   POST: { requireAuth: false },
@@ -76,7 +76,7 @@ export async function POST(req: Request) {
     const body = appointmentPublicCustomerLookupSchema.parse(await req.json())
     const container = await createRequestContainer()
     const em = (container.resolve('em') as EntityManager).fork()
-    const result = await lookupPublicCustomerForAppointment(em, body)
+    const result = await lookupReturningCustomerForAppointment(em, body, { requireAllProvidedContactsMatch: true })
     return NextResponse.json(result, { headers: publicCorsHeaders(req) })
   } catch (error) {
     if (isCrudHttpError(error)) {
@@ -101,7 +101,7 @@ export const openApi: OpenApiRouteDoc = {
   methods: {
     POST: {
       summary: 'Find a returning customer and latest appointment',
-      description: 'Matches phone and email within the tenant and returns the latest appointment service lines for repeat booking.',
+      description: 'Requires both phone and email to match the same customer within the tenant before returning the latest appointment service lines.',
       requestBody: { contentType: 'application/json', schema: appointmentPublicCustomerLookupSchema },
       responses: [
         { status: 200, description: 'Lookup result', schema: successSchema },

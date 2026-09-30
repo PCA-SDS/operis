@@ -11,13 +11,14 @@ test.describe('TC-APPT-SEARCH-001: Returning-customer partial phone search', () 
   test('matches indexed partial phone digits and ignores matching tokens scoped to another tenant', async ({ request }) => {
     const adminToken = await getAuthToken(request, 'admin')
     const superadminToken = await getAuthToken(request, 'superadmin')
-    const { tenantId } = getTokenContext(adminToken)
+    const { organizationId, tenantId } = getTokenContext(adminToken)
     const foreignTenantName = `QA APPT SEARCH ${Date.now()}`
     const phone = `0842${String(Date.now()).slice(-6)}`
     const partialPhone = phone.slice(0, 4)
     const displayName = `QA Returning Customer ${Date.now()}`
     let customerId: string | null = null
     let foreignTenantId: string | null = null
+    let appointmentId: string | null = null
 
     try {
       const tenantResponse = await apiRequest(request, 'POST', '/api/directory/tenants', {
@@ -44,6 +45,54 @@ test.describe('TC-APPT-SEARCH-001: Returning-customer partial phone search', () 
       const customerBody = await readJsonSafe<{ id?: string; personId?: string; entityId?: string }>(createResponse)
       customerId = customerBody?.id ?? customerBody?.personId ?? customerBody?.entityId ?? null
       expect(customerId, 'person fixture id should be returned').toBeTruthy()
+
+      const appointmentPhoneDigits = `84276${String(Date.now()).slice(-6)}`
+      const appointmentPhone = `+84 (${appointmentPhoneDigits.slice(2, 5)}) ${appointmentPhoneDigits.slice(5)}`
+      const appointmentPhoneSearch = appointmentPhoneDigits.slice(2, 8)
+      await withClient(async (client) => {
+        const inserted = await client.query<{ id: string }>(
+          `insert into appointments
+             (tenant_id, organization_id, customer_entity_id, customer_name, customer_phone,
+              status_id, status_code, requested_start_at, created_at, updated_at)
+           select $1, $2, $3, $4, $5, status.id, 'new_request', now(), now(), now()
+           from appointment_statuses status
+           where status.tenant_id = $1 and status.code = 'new_request' and status.deleted_at is null
+           order by status.id
+           limit 1
+           returning id`,
+          [tenantId, organizationId, customerId, displayName, appointmentPhone],
+        )
+        appointmentId = inserted.rows[0]?.id ?? null
+      })
+      expect(appointmentId, 'appointment fixture should be created').toBeTruthy()
+
+      const publicPhoneOnlyLookup = await request.post('/api/appointments/public/customer', {
+        data: { tenantId, phone, phoneCountryCode: '84', phoneCountry: 'VN' },
+      })
+      expect(publicPhoneOnlyLookup.status(), 'public lookup must retain email verification').toBe(400)
+
+      const unauthenticatedHistory = await request.post('/api/appointments/customer-history', {
+        data: { organizationId, phone, phoneCountryCode: '84', phoneCountry: 'VN' },
+      })
+      expect(unauthenticatedHistory.status(), 'staff customer history must require authentication').toBe(401)
+
+      const staffHistory = await apiRequest(request, 'POST', '/api/appointments/customer-history', {
+        token: adminToken,
+        data: { organizationId, phone, phoneCountryCode: '84', phoneCountry: 'VN' },
+      })
+      expect(staffHistory.status(), 'staff can retrieve phone-only customer history').toBe(200)
+      const staffHistoryBody = await readJsonSafe<{ lastBooking?: { organizationId?: string } | null }>(staffHistory)
+      expect(staffHistoryBody?.lastBooking?.organizationId).toBe(organizationId)
+
+      const appointmentResponse = await apiRequest(
+        request,
+        'GET',
+        `/api/appointments?search=${encodeURIComponent(appointmentPhoneSearch)}`,
+        { token: adminToken },
+      )
+      expect(appointmentResponse.status(), 'appointment list phone search should succeed').toBe(200)
+      const appointmentBody = await readJsonSafe<{ items?: Array<{ id?: string }> }>(appointmentResponse)
+      expect(appointmentBody?.items?.some((item) => item.id === appointmentId)).toBe(true)
 
       const search = async () => apiRequest(
         request,
@@ -80,6 +129,11 @@ test.describe('TC-APPT-SEARCH-001: Returning-customer partial phone search', () 
       const isolatedBody = await readJsonSafe<SearchBody>(isolatedResponse)
       expect(isolatedBody?.items?.some((item) => item.id === customerId)).toBe(false)
     } finally {
+      if (appointmentId) {
+        await withClient(async (client) => {
+          await client.query('delete from appointments where id = $1 and tenant_id = $2', [appointmentId, tenantId])
+        }).catch(() => undefined)
+      }
       if (customerId) {
         await withClient(async (client) => {
           await client.query(
