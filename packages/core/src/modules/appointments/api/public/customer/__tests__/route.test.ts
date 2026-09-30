@@ -18,7 +18,7 @@ jest.mock('@open-mercato/shared/lib/ratelimit/helpers', () => {
 })
 
 jest.mock('../../../../lib/intake', () => ({
-  lookupPublicCustomerForAppointment: (...args: unknown[]) => mockLookupPublicCustomerForAppointment(...args),
+  lookupReturningCustomerForAppointment: (...args: unknown[]) => mockLookupPublicCustomerForAppointment(...args),
 }))
 
 jest.mock('@open-mercato/shared/lib/i18n/server', () => ({
@@ -85,7 +85,27 @@ describe('appointments public customer lookup route', () => {
     expect(mockLookupPublicCustomerForAppointment).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ tenantId: validBody.tenantId, email: validBody.email }),
+      { requireAllProvidedContactsMatch: true },
     )
+  })
+
+  it('requires email on the public lookup endpoint', async () => {
+    const { POST } = await import('../route')
+    const body = {
+      tenantId: validBody.tenantId,
+      phone: '+61 401193184',
+    }
+    const response = await POST(
+      new Request('http://localhost/api/appointments/public/customer', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      }),
+    )
+
+    expect(response.status).toBe(400)
+    expect((await response.json()).code).toBe('INVALID_INPUT')
+    expect(mockLookupPublicCustomerForAppointment).not.toHaveBeenCalled()
   })
 
   it('maps identity conflicts to HTTP 409', async () => {

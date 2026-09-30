@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
+import { raw } from '@mikro-orm/core'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
@@ -26,6 +27,7 @@ import { compareAppointmentListRows } from '../lib/appointmentListSorting'
 import { getVisibleAppointmentExternalNotes } from '../lib/notes'
 import { buildIlikeTerm } from '@open-mercato/shared/lib/db/buildIlikeTerm'
 import { paginationQuerySchema } from '@open-mercato/shared/lib/validation'
+import { extractPhoneDigits } from '@open-mercato/shared/lib/phone'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['appointments.view'] },
@@ -264,6 +266,14 @@ export async function GET(req: Request) {
       }
       if (matchingOrganizations.length > 0) {
         searchFilters.push({ organizationId: { $in: matchingOrganizations.map((organization) => organization.id) } })
+      }
+      const phoneDigits = extractPhoneDigits(query.search)
+      if (/^[+\d\s().-]+$/.test(query.search) && phoneDigits.length >= 4) {
+        searchFilters.push({
+          [raw((alias) => `regexp_replace(coalesce(${alias}."customer_phone", ''), '[^0-9]', '', 'g')`)]: {
+            $like: `%${phoneDigits}%`,
+          },
+        })
       }
       where.$or = searchFilters
     }

@@ -1065,7 +1065,7 @@
           "autoincrement": false,
           "primary": false,
           "nullable": false,
-          "unique": true,
+          "unique": false,
           "length": null,
           "precision": null,
           "scale": null,
@@ -1125,10 +1125,10 @@
           "columnNames": [],
           "composite": false,
           "constraint": false,
-          "expression": "create unique index \"appointment_statuses_tenant_code_unique\" on \"appointment_statuses\" (\"tenant_id\", \"code\") where \"deleted_at\" is null",
           "keyName": "appointment_statuses_tenant_code_unique",
           "primary": false,
-          "unique": false
+          "unique": false,
+          "expression": "create unique index \"appointment_statuses_tenant_code_unique\" on \"appointment_statuses\" (\"tenant_id\", \"code\") where \"deleted_at\" is null"
         },
         {
           "columnNames": [
@@ -1519,6 +1519,15 @@
           "keyName": "appointments_customer_idx",
           "primary": false,
           "unique": false
+        },
+        {
+          "columnNames": [],
+          "composite": false,
+          "constraint": false,
+          "keyName": "appointments_customer_phone_digits_trgm_idx",
+          "primary": false,
+          "unique": false,
+          "expression": "create index \"appointments_customer_phone_digits_trgm_idx\" on \"appointments\" using gin (regexp_replace(coalesce(\"customer_phone\", ''), '[^0-9]', '', 'g') gin_trgm_ops) where \"deleted_at\" is null"
         },
         {
           "columnNames": [
