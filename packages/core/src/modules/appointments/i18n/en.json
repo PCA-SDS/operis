@@ -199,6 +199,7 @@
   "appointments.list.schedule.pinned": "Pinned booking",
   "appointments.list.schedule.unconfirmed": "Unconfirmed",
   "appointments.list.search.placeholder": "Search bookings…",
+  "appointments.list.search.scopeHint": "Searches all locations you can access in this tenant.",
   "appointments.list.title": "Appointments",
   "appointments.list.urgency.createdAt": "Created: {value}",
   "appointments.list.urgency.dayAgo": "1 day ago",

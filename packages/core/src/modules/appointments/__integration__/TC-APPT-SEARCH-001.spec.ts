@@ -19,6 +19,8 @@ test.describe('TC-APPT-SEARCH-001: Returning-customer partial phone search', () 
     let customerId: string | null = null
     let foreignTenantId: string | null = null
     let appointmentId: string | null = null
+    let childOrganizationId: string | null = null
+    let childAppointmentId: string | null = null
 
     try {
       const tenantResponse = await apiRequest(request, 'POST', '/api/directory/tenants', {
@@ -46,6 +48,18 @@ test.describe('TC-APPT-SEARCH-001: Returning-customer partial phone search', () 
       customerId = customerBody?.id ?? customerBody?.personId ?? customerBody?.entityId ?? null
       expect(customerId, 'person fixture id should be returned').toBeTruthy()
 
+      const childOrganizationResponse = await apiRequest(request, 'POST', '/api/directory/organizations', {
+        token: superadminToken,
+        data: {
+          name: `QA Appointment Search ${Date.now()}`,
+          tenantId,
+          parentId: organizationId,
+        },
+      })
+      expect(childOrganizationResponse.status(), 'child organization fixture should be created').toBe(201)
+      childOrganizationId = (await readJsonSafe<{ id?: string }>(childOrganizationResponse))?.id ?? null
+      expect(childOrganizationId, 'child organization id should be returned').toBeTruthy()
+
       const appointmentPhoneDigits = `84276${String(Date.now()).slice(-6)}`
       const appointmentPhone = `+84 (${appointmentPhoneDigits.slice(2, 5)}) ${appointmentPhoneDigits.slice(5)}`
       const appointmentPhoneSearch = appointmentPhoneDigits.slice(2, 8)
@@ -63,8 +77,22 @@ test.describe('TC-APPT-SEARCH-001: Returning-customer partial phone search', () 
           [tenantId, organizationId, customerId, displayName, appointmentPhone],
         )
         appointmentId = inserted.rows[0]?.id ?? null
+        const childInserted = await client.query<{ id: string }>(
+          `insert into appointments
+             (tenant_id, organization_id, customer_entity_id, customer_name, customer_phone,
+              status_id, status_code, requested_start_at, created_at, updated_at)
+           select $1, $2, $3, $4, $5, status.id, 'new_request', now(), now(), now()
+           from appointment_statuses status
+           where status.tenant_id = $1 and status.code = 'new_request' and status.deleted_at is null
+           order by status.id
+           limit 1
+           returning id`,
+          [tenantId, childOrganizationId, customerId, displayName, appointmentPhone],
+        )
+        childAppointmentId = childInserted.rows[0]?.id ?? null
       })
       expect(appointmentId, 'appointment fixture should be created').toBeTruthy()
+      expect(childAppointmentId, 'child-organization appointment fixture should be created').toBeTruthy()
 
       const publicPhoneOnlyLookup = await request.post('/api/appointments/public/customer', {
         data: { tenantId, phone, phoneCountryCode: '84', phoneCountry: 'VN' },
@@ -87,12 +115,13 @@ test.describe('TC-APPT-SEARCH-001: Returning-customer partial phone search', () 
       const appointmentResponse = await apiRequest(
         request,
         'GET',
-        `/api/appointments?search=${encodeURIComponent(appointmentPhoneSearch)}`,
+        `/api/appointments?organizationId=${encodeURIComponent(organizationId)}&search=${encodeURIComponent(appointmentPhoneSearch)}`,
         { token: adminToken },
       )
       expect(appointmentResponse.status(), 'appointment list phone search should succeed').toBe(200)
       const appointmentBody = await readJsonSafe<{ items?: Array<{ id?: string }> }>(appointmentResponse)
       expect(appointmentBody?.items?.some((item) => item.id === appointmentId)).toBe(true)
+      expect(appointmentBody?.items?.some((item) => item.id === childAppointmentId)).toBe(true)
 
       const search = async () => apiRequest(
         request,
@@ -129,9 +158,12 @@ test.describe('TC-APPT-SEARCH-001: Returning-customer partial phone search', () 
       const isolatedBody = await readJsonSafe<SearchBody>(isolatedResponse)
       expect(isolatedBody?.items?.some((item) => item.id === customerId)).toBe(false)
     } finally {
-      if (appointmentId) {
+      if (appointmentId || childAppointmentId) {
         await withClient(async (client) => {
-          await client.query('delete from appointments where id = $1 and tenant_id = $2', [appointmentId, tenantId])
+          await client.query('delete from appointments where id = any($1::uuid[]) and tenant_id = $2', [
+            [appointmentId, childAppointmentId].filter((id): id is string => Boolean(id)),
+            tenantId,
+          ])
         }).catch(() => undefined)
       }
       if (customerId) {
@@ -143,6 +175,7 @@ test.describe('TC-APPT-SEARCH-001: Returning-customer partial phone search', () 
         }).catch(() => undefined)
       }
       await deleteEntityIfExists(request, adminToken, '/api/customers/people', customerId)
+      await deleteGeneralEntityIfExists(request, superadminToken, '/api/directory/organizations', childOrganizationId)
       await deleteGeneralEntityIfExists(request, superadminToken, '/api/directory/tenants', foreignTenantId)
     }
   })
