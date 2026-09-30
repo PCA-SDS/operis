@@ -46,36 +46,6 @@ export function buildSelectedOptions(
   return selectedOptions
 }
 
-function buildBreadcrumbPath(
-  groupId: string,
-  groupsById: Map<string, CatalogProductOptionGroup>,
-  optionsById: Map<string, CatalogProductOption>,
-  visited: Set<string> = new Set(),
-): string | null {
-  if (visited.has(groupId)) return null
-  visited.add(groupId)
-
-  const group = groupsById.get(groupId)
-  if (!group) return null
-
-  const parts: string[] = [group.name]
-  const parentOptionId = group.parentOption?.id
-  if (parentOptionId) {
-    const parentOption = optionsById.get(parentOptionId)
-    if (parentOption?.group?.id) {
-      const parentPath = buildBreadcrumbPath(
-        typeof parentOption.group === 'string' ? parentOption.group : parentOption.group.id,
-        groupsById,
-        optionsById,
-        visited,
-      )
-      if (parentPath) parts.unshift(parentPath)
-    }
-  }
-
-  return parts.join(' > ')
-}
-
 export function createOptionSnapshots(
   em: EntityManager,
   line: AppointmentLine,
@@ -97,7 +67,7 @@ export function createOptionSnapshots(
       requirement: group.requirement,
       selectMode: group.selectMode,
       sortOrder: sortOrder++,
-      breadcrumbPath: buildBreadcrumbPath(group.id, groupsById, optionsById),
+      breadcrumbPath: group.name,
       isRootGroup: !group.parentOption,
     })
     em.persist(groupSnapshot)

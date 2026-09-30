@@ -54,7 +54,7 @@ describe('TPS appointment option snapshots', () => {
     })
   })
 
-  it('writes nested breadcrumb paths into appointment snapshots', () => {
+  it('writes consistent group labels while preserving nested parent relationships', () => {
     const groupsById = new Map([
       [builderGroupId, group(builderGroupId, 'Builder Type')],
       [lengthGroupId, group(lengthGroupId, 'Nail Length', builderOption.id)],
@@ -78,13 +78,13 @@ describe('TPS appointment option snapshots', () => {
 
     createOptionSnapshots(em, {} as AppointmentLine, selectedOptions, groupsById, optionsById)
 
-    const snapshots = persisted.filter((entity): entity is { groupName: string; breadcrumbPath: string } => (
+    const snapshots = persisted.filter((entity): entity is { groupName: string; breadcrumbPath: string; parentOptionId: string | null } => (
       typeof entity === 'object' && entity !== null && 'groupName' in entity && 'breadcrumbPath' in entity
     ))
-    expect(snapshots.map((snapshot) => [snapshot.groupName, snapshot.breadcrumbPath])).toEqual([
-      ['Builder Type', 'Builder Type'],
-      ['Nail Length', 'Builder Type > Nail Length'],
-      ['Service Scope', 'Builder Type > Nail Length > Service Scope'],
+    expect(snapshots.map((snapshot) => [snapshot.groupName, snapshot.breadcrumbPath, snapshot.parentOptionId])).toEqual([
+      ['Builder Type', 'Builder Type', null],
+      ['Nail Length', 'Nail Length', builderOption.id],
+      ['Service Scope', 'Service Scope', lengthOption.id],
     ])
   })
 })
