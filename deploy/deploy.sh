@@ -60,13 +60,25 @@ write_state() {
     "$current" "$previous" "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" > "$STATE_FILE"
 }
 
+# Whether this stack opted into Chat on Matrix (deploy/MATRIX.md). Compose reads
+# COMPOSE_PROFILES from the same .env, so this is the one switch for both.
+matrix_enabled() {
+  [ -f "$ENV_FILE" ] || return 1
+  case ",$(sed -n 's/^COMPOSE_PROFILES=//p' "$ENV_FILE" | tail -1)," in
+    *,matrix,*) return 0 ;;
+    *)          return 1 ;;
+  esac
+}
+
 status() {
   printf '\n=== deploy state ===\n'
   [ -f "$STATE_FILE" ] && cat "$STATE_FILE" || echo "(never deployed)"
   printf '\n=== containers ===\n'
   dc ps
   printf '\n=== health ===\n'
-  for svc in app postgres redis meilisearch; do
+  local services="app postgres redis meilisearch"
+  if matrix_enabled; then services="$services matrix-postgres synapse"; fi
+  for svc in $services; do
     cid="$(dc ps -q "$svc" 2>/dev/null || true)"
     if [ -n "$cid" ]; then
       printf '%-12s %s\n' "$svc" "$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$cid" 2>/dev/null)"
@@ -117,6 +129,29 @@ backup_database() {
     rm -f "$BACKUP_DIR/$label.dump"
     fail "pre-deploy backup FAILED — refusing to deploy over an un-backed-up database.
        Fix the database first, or set SKIP_BACKUP=1 if you accept the risk."
+  fi
+}
+
+# The homeserver's database, when this stack runs Chat on Matrix. Every room
+# lives in it, and a Synapse version bump migrates it on start — so the same
+# rule applies: no deploy over an un-backed-up database.
+backup_matrix_database() {
+  matrix_enabled || return 0
+  local cid label user db
+  cid="$(dc ps -q matrix-postgres 2>/dev/null || true)"
+  [ -n "$cid" ] || { log "matrix-postgres not running — skipping its pre-deploy backup (first Matrix deploy?)"; return 0; }
+  user="$(read_env MATRIX_PG_USER)";     user="${user:-synapse}"
+  db="$(read_env MATRIX_PG_DATABASE)";   db="${db:-synapse}"
+  label="predeploy-matrix-$(date -u '+%Y%m%dT%H%M%SZ')"
+  log "backing up the homeserver database -> $BACKUP_DIR/$label.dump"
+  if docker exec "$cid" pg_dump -U "$user" -d "$db" -Fc \
+       > "$BACKUP_DIR/$label.dump" 2>>"$LOG_FILE"; then
+    chmod 600 "$BACKUP_DIR/$label.dump"
+    log "backup complete ($(du -h "$BACKUP_DIR/$label.dump" | cut -f1))"
+  else
+    rm -f "$BACKUP_DIR/$label.dump"
+    fail "pre-deploy backup of the homeserver database FAILED — refusing to deploy.
+       Fix matrix-postgres first, or set SKIP_BACKUP=1 if you accept the risk."
   fi
 }
 
@@ -281,6 +316,45 @@ if [ "$(read_env TENANT_DATA_ENCRYPTION)" = "true" ]; then
 fi
 
 # ------------------------------------------------------------------------------
+# Chat on Matrix (optional; deploy/MATRIX.md). A stack opts in with
+# COMPOSE_PROFILES=matrix in its .env — the same file compose reads it from, so
+# a stack that never set it renders exactly as before.
+#
+# Rendered HERE, before anything is pulled: matrix-render.sh validates every
+# MATRIX_*/OM_MATRIX_* value and refuses to move the two one-way doors (server
+# name, user prefix), and a refusal has to stop the deploy while the old release
+# is still serving. Compose does not notice a changed bind-mounted file, so a
+# config that changed is applied by restarting only synapse after `up`.
+# ------------------------------------------------------------------------------
+matrix_config_fingerprint() {
+  [ -f "$APP_DIR/matrix/homeserver.yaml" ] || { printf 'none'; return; }
+  cat "$APP_DIR/matrix/homeserver.yaml" "$APP_DIR/matrix/registration.operis.yaml" \
+      "$APP_DIR/matrix/log.config" 2>/dev/null | sha256sum | cut -d' ' -f1
+}
+MATRIX_BEFORE=none
+if matrix_enabled; then
+  [ -x "$APP_DIR/matrix-render.sh" ] \
+    || fail "COMPOSE_PROFILES enables matrix but $APP_DIR/matrix-render.sh is missing — CI syncs it; run the workflow once"
+  MATRIX_BEFORE="$(matrix_config_fingerprint)"
+  log "matrix profile enabled — rendering the Synapse config"
+  if ! "$APP_DIR/matrix-render.sh" 2>&1 | tee -a "$LOG_FILE"; then
+    fail "matrix-render.sh failed (see above). Nothing was pulled, backed up or restarted."
+  fi
+fi
+
+# The app refuses to boot on OM_CHAT_TRANSPORT=matrix without a homeserver —
+# deliberately, so it can never fall back to Postgres while claiming Matrix —
+# and from here that boot failure would read as a bad release and roll back.
+if [ "$(read_env OM_CHAT_TRANSPORT)" = "matrix" ]; then
+  for key in OM_MATRIX_HOMESERVER_URL OM_MATRIX_SERVER_NAME OM_MATRIX_AS_TOKEN; do
+    [ -n "$(read_env "$key")" ] || fail "OM_CHAT_TRANSPORT=matrix but $key is empty in $ENV_FILE.
+       Set it (./matrix-render.sh --init-secrets fills in what is missing), or
+       set OM_CHAT_TRANSPORT=local to keep chat on Postgres."
+  done
+  matrix_enabled || log "note: OM_CHAT_TRANSPORT=matrix with the matrix compose profile OFF — the app will use $(read_env OM_MATRIX_HOMESERVER_URL), which this stack does not run"
+fi
+
+# ------------------------------------------------------------------------------
 # Which image to pull. CI is authoritative.
 #
 # CI derives the image from the GitHub repository at build time and hands it over
@@ -370,7 +444,10 @@ else
 fi
 
 # Sidecars too, so a compose `up` never stalls on a slow registry mid-restart.
-dc pull --quiet postgres redis meilisearch translation >>"$LOG_FILE" 2>&1 || true
+SIDECARS="postgres redis meilisearch translation"
+if matrix_enabled; then SIDECARS="$SIDECARS matrix-postgres synapse"; fi
+# shellcheck disable=SC2086
+dc pull --quiet $SIDECARS >>"$LOG_FILE" 2>&1 || true
 
 # ------------------------------------------------------------------------------
 # 2. Back up the database BEFORE the new container gets a chance to migrate it.
@@ -379,6 +456,7 @@ if [ "${SKIP_BACKUP:-0}" = "1" ]; then
   log "SKIP_BACKUP=1 — skipping pre-deploy backup"
 else
   backup_database
+  backup_matrix_database
 fi
 
 # ------------------------------------------------------------------------------
@@ -391,12 +469,32 @@ dc up -d --remove-orphans >>"$LOG_FILE" 2>&1 || {
   fail "compose up failed"
 }
 
+# Synapse reads its config at start only, and `up -d` does not recreate a
+# container whose bind-mounted files changed. `none` means there was nothing
+# rendered before this deploy, so `up` has just started it fresh.
+if matrix_enabled && [ "$MATRIX_BEFORE" != none ] && [ "$MATRIX_BEFORE" != "$(matrix_config_fingerprint)" ]; then
+  log "Synapse config changed — restarting synapse"
+  dc restart synapse >>"$LOG_FILE" 2>&1 || log "WARNING: synapse restart failed — ./dc logs synapse"
+fi
+
 # ------------------------------------------------------------------------------
 # 4. Verify, and roll the image back if it did not come up.
 # ------------------------------------------------------------------------------
 if wait_for_health; then
   write_state "$TAG" "${PREVIOUS_TAG:-}"
   log "deploy OK — $APP_IMAGE:$TAG is live at https://$APP_DOMAIN"
+  # Informational: the app's health check does not cover the homeserver, and a
+  # fresh Synapse is still migrating its schema at this point (start_period
+  # 180s). `./deploy.sh --status` shows it once settled; the drift check
+  # (`yarn mercato chat_matrix drift`) is the real monitor once chat is on it.
+  if matrix_enabled; then
+    cid="$(dc ps -q synapse 2>/dev/null || true)"
+    if [ -n "$cid" ]; then
+      log "synapse: $(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$cid" 2>/dev/null)"
+    else
+      log "WARNING: matrix profile enabled but no synapse container is running — ./dc logs synapse"
+    fi
+  fi
 
   # Keep the previous image so --rollback stays instant; drop everything older.
   docker image prune -af --filter "until=168h" >>"$LOG_FILE" 2>&1 || true
