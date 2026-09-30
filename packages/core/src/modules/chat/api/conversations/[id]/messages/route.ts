@@ -90,6 +90,7 @@ export async function POST(req: Request, context: { params?: Record<string, unkn
       clientMessageId: body.clientMessageId,
       replyToMessageId: body.replyToMessageId,
       attachmentIds: body.attachmentIds,
+      visibility: body.visibility,
     }
 
     const outcome = await runChatCommand<SendChatMessageInput, SendChatMessageResult>({

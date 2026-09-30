@@ -199,6 +199,34 @@ describe('chat.externalContacts.ensure', () => {
     expect(em.flushes).toBe(0)
   })
 
+  it('keeps the number the network revealed, and only a real E.164 one', async () => {
+    const em = new FakeEm()
+    await run('chat.externalContacts.ensure', em, {
+      id: CONTACT,
+      network: 'whatsapp',
+      displayName: 'Linh Tran',
+      handle: '+4915123456789',
+    })
+    expect(em.rowsOf(ChatExternalContact)[0]).toMatchObject({ handle: '+4915123456789' })
+
+    const other = new FakeEm()
+    await run('chat.externalContacts.ensure', other, {
+      id: CONTACT,
+      network: 'whatsapp',
+      displayName: 'Linh Tran',
+      handle: '0151 2345',
+    })
+    expect(other.rowsOf(ChatExternalContact)[0]).toMatchObject({ handle: null })
+  })
+
+  it('keeps a known number when this sighting does not reveal one', async () => {
+    const em = new FakeEm()
+    const contact = seedContact(em, { handle: '+4915123456789' })
+    await run('chat.externalContacts.ensure', em, { id: CONTACT, network: 'whatsapp', displayName: 'Linh Tran' })
+    expect(contact.handle).toBe('+4915123456789')
+    expect(em.flushes).toBe(0)
+  })
+
   it('refreshes a name the bridge changed', async () => {
     const em = new FakeEm()
     const contact = seedContact(em)

@@ -1,8 +1,8 @@
 import { z } from 'zod'
 import { isValidIso639 } from '@open-mercato/shared/lib/i18n/iso639'
-import { MAX_REACTION_LENGTH, MAX_SPACE_TITLE_LENGTH } from './entities'
+import { MAX_ACCOUNT_NAME_LENGTH, MAX_REACTION_LENGTH, MAX_SPACE_TITLE_LENGTH } from './entities'
 
-export { MAX_REACTION_LENGTH, MAX_SPACE_TITLE_LENGTH }
+export { MAX_ACCOUNT_NAME_LENGTH, MAX_REACTION_LENGTH, MAX_SPACE_TITLE_LENGTH }
 
 /**
  * The longest message the server will store.
@@ -53,6 +53,8 @@ const messageBodySchema = z
 export const chatDirectoryQuerySchema = z.object({
   q: z.string().max(200).optional(),
   limit: z.coerce.number().int().min(1).max(25).optional(),
+  /** `true` lists the caller as well — for picking a team they may belong to. */
+  includeSelf: z.string().max(5).optional(),
 })
 
 export const chatConversationListQuerySchema = z.object({
@@ -123,13 +125,27 @@ export const chatRenameConversationSchema = z.object({
   title: spaceTitleSchema,
 })
 
+export const chatAccessSchema = z.enum(['viewer', 'participant', 'manager'])
+
 export const chatAddMembersSchema = z.object({
   memberIds: memberIdsSchema,
+  /** The level people added to a client conversation get. `viewer` when omitted. */
+  access: chatAccessSchema.optional(),
 })
 
-export const chatSetMemberRoleSchema = z.object({
-  role: z.enum(['owner', 'member']),
-})
+/** A space member's role, or a client-conversation colleague's level — one or the other. */
+export const chatSetMemberRoleSchema = z.union([
+  z.object({ role: z.enum(['owner', 'member']) }).strict(),
+  z.object({ access: chatAccessSchema }).strict(),
+])
+
+/** One of a personal account's chats to move to the company, by the id the list gave. */
+export const chatMoveAccountChatSchema = z.object({ chatId: z.string().trim().min(1).max(255) }).strict()
+
+/** Link an outsider to a CRM person or company — or `null` to unlink them. */
+export const chatLinkCustomerSchema = z.object({ customerEntityId: z.string().uuid().nullable() }).strict()
+
+export const chatCrmSearchQuerySchema = z.object({ q: z.string().trim().min(1).max(100) })
 
 export const chatMemberListQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(MAX_MEMBER_PAGE_SIZE).optional(),
@@ -186,6 +202,12 @@ export const chatSendMessageSchema = z.object({
    * file.
    */
   attachmentIds: z.array(z.string().uuid()).max(MAX_MESSAGE_ATTACHMENTS).optional(),
+  /**
+   * `internal` writes an internal note: colleagues read it, the customer never
+   * does. Only a client conversation takes one — the command refuses it
+   * anywhere else.
+   */
+  visibility: z.enum(['shared', 'internal']).optional(),
 }).refine(
   (value) => value.body.length > 0 || (value.attachmentIds?.length ?? 0) > 0,
   {
@@ -328,3 +350,34 @@ export const chatMessageSearchQuerySchema = searchFiltersSchema.extend({
 })
 
 export type ChatMessageSearchQuery = z.infer<typeof chatMessageSearchQuerySchema>
+
+/** A network label as bridges name them — `whatsapp`. Which ones exist is the connector's answer. */
+const accountNetworkSchema = z.string().regex(/^[a-z][a-z0-9-]{0,31}$/)
+
+const accountNameSchema = z.string().trim().min(1).max(MAX_ACCOUNT_NAME_LENGTH)
+
+export const chatAccountCreateSchema = z.object({
+  network: accountNetworkSchema,
+  /** Required for a company account; a personal one is named after its owner when left out. */
+  name: accountNameSchema.optional(),
+  ownerType: z.enum(['company', 'user']),
+  /** The team a company account seats in every new chat. Empty for a personal account. */
+  memberUserIds: z.array(z.string().uuid()).max(100).default([]),
+})
+
+export const chatAccountUpdateSchema = z
+  .object({
+    name: accountNameSchema.optional(),
+    memberUserIds: z.array(z.string().uuid()).max(100).optional(),
+    showSenderName: z.boolean().optional(),
+  })
+  .refine((value) => Object.values(value).some((entry) => entry !== undefined))
+
+export const chatAccountConnectSchema = z.object({
+  flow: z.enum(['qr', 'phone']),
+  phoneNumber: z.string().trim().max(32).optional().nullable(),
+})
+
+export type ChatAccountCreateBody = z.infer<typeof chatAccountCreateSchema>
+export type ChatAccountUpdateBody = z.infer<typeof chatAccountUpdateSchema>
+export type ChatAccountConnectBody = z.infer<typeof chatAccountConnectSchema>

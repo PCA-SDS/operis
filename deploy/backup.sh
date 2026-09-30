@@ -45,7 +45,16 @@ fail() { printf '[%s] ERROR: %s\n' "$(date -u '+%Y-%m-%d %H:%M:%S')" "$*" >&2; e
 # deploy.sh. Sourcing a file full of generated secrets expands '$', executes
 # backticks, and truncates at '#'.
 read_env() {
-  sed -n "s/^$1=//p" "$ENV_FILE" | tail -1
+  local value
+  value="$(sed -n "s/^$1=//p" "$ENV_FILE" | tail -1)"
+  # Compose strips one pair of matching quotes around a value, so this must
+  # too: otherwise COMPOSE_PROFILES="matrix" is on for compose and off here, and
+  # a quoted token lands in a rendered registration with its quotes attached.
+  case "$value" in
+    \"*\") value="${value#\"}"; value="${value%\"}" ;;
+    \'*\') value="${value#\'}"; value="${value%\'}" ;;
+  esac
+  printf '%s' "$value"
 }
 PGUSER="$(read_env POSTGRES_USER)"; PGUSER="${PGUSER:-operis}"
 PGDB="$(read_env POSTGRES_DB)";     PGDB="${PGDB:-operis}"
@@ -133,6 +142,37 @@ case ",$(read_env COMPOSE_PROFILES)," in
       fi
       docker exec "$MX_CID" rm -f "$MX_IN_CID" >/dev/null 2>&1 || true
       log "ok: $(du -h "$MX_TARGET" | cut -f1) (homeserver)"
+
+      # The WhatsApp bridge's database, in the same instance. It holds every
+      # connected account's WhatsApp session: without it, restoring means
+      # scanning every QR code again.
+      case ",$(read_env COMPOSE_PROFILES)," in
+        *,whatsapp,*)
+          WA_DB="$(read_env WHATSAPP_PG_DATABASE)"; WA_DB="${WA_DB:-mautrix_whatsapp}"
+          printf '%s' "$WA_DB" | grep -Eq '^[a-z_][a-z0-9_]{0,62}$' \
+            || fail "WHATSAPP_PG_DATABASE '$WA_DB' is not a plain Postgres identifier"
+          if ! docker exec "$MX_CID" psql -U "$MX_USER" -d "$MX_DB" -tAc "select 1 from pg_database where datname = '$WA_DB'" 2>/dev/null | grep -q 1; then
+            log "whatsapp profile enabled but no $WA_DB database yet — skipping its dump"
+          else
+            WA_TARGET="$BACKUP_DIR/${PREFIX}-whatsapp-${STAMP}.dump"
+            log "dumping $WA_DB (WhatsApp bridge) -> $WA_TARGET"
+            if ! docker exec "$MX_CID" pg_dump -U "$MX_USER" -d "$WA_DB" -Fc --no-owner > "$WA_TARGET"; then
+              rm -f "$WA_TARGET"
+              fail "pg_dump of the WhatsApp bridge database failed"
+            fi
+            chmod 600 "$WA_TARGET"
+            WA_IN_CID="/tmp/backup-verify-whatsapp-${STAMP}.dump"
+            if ! docker cp "$WA_TARGET" "$MX_CID:$WA_IN_CID" >/dev/null 2>&1 \
+               || ! docker exec "$MX_CID" pg_restore --list "$WA_IN_CID" >/dev/null 2>&1; then
+              docker exec "$MX_CID" rm -f "$WA_IN_CID" >/dev/null 2>&1 || true
+              rm -f "$WA_TARGET"
+              fail "WhatsApp bridge dump failed its integrity check — removed"
+            fi
+            docker exec "$MX_CID" rm -f "$WA_IN_CID" >/dev/null 2>&1 || true
+            log "ok: $(du -h "$WA_TARGET" | cut -f1) (WhatsApp bridge)"
+          fi
+          ;;
+      esac
     fi
     ;;
 esac

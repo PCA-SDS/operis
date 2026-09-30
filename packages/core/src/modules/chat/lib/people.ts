@@ -1,6 +1,6 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
-import { ChatExternalContact, ChatParticipant } from '../data/entities'
+import { ChatExternalContact, ChatMessagingAccount, ChatParticipant } from '../data/entities'
 import type { ChatScope } from './scope'
 
 /**
@@ -14,11 +14,20 @@ import type { ChatScope } from './scope'
  * question's outsider half; colleagues' names keep coming from the member map
  * each caller already holds.
  */
-export type ChatContactEntry = { name: string; network: string }
+export type ChatContactEntry = {
+  name: string
+  network: string
+  /** An outsider's number, when their network reveals it. */
+  handle?: string | null
+  /** The CRM record an outsider is linked to. */
+  customerEntityId?: string | null
+}
 
 export type ChatSenderRef = {
   senderUserId: string | null
   senderExternalContactId?: string | null
+  /** Set when the company's phone itself sent it, straight from WhatsApp. */
+  senderAccountId?: string | null
 }
 
 /**
@@ -46,15 +55,53 @@ export async function loadExternalContacts(
     { tenantId: scope.tenantId, organizationId: scope.organizationId },
   )
   for (const contact of contacts) {
-    result.set(contact.id, { name: contact.displayName, network: contact.network })
+    result.set(contact.id, {
+      name: contact.displayName,
+      network: contact.network,
+      handle: contact.handle ?? null,
+      customerEntityId: contact.customerEntityId ?? null,
+    })
   }
   return result
 }
 
 /**
+ * Everyone behind a page of messages who is not a colleague — outsiders and the
+ * messaging accounts that sent from their own phone — in one map. The two kinds
+ * are keyed by their own uuids, drawn from two tables, so they cannot collide.
+ */
+export async function loadSenderDirectory(
+  em: EntityManager,
+  scope: ChatScope,
+  refs: ReadonlyArray<ChatSenderRef>,
+): Promise<Map<string, ChatContactEntry>> {
+  const entries = await loadExternalContacts(
+    em,
+    scope,
+    refs.map((ref) => ref.senderExternalContactId),
+  )
+  const accountIds = [
+    ...new Set(refs.map((ref) => ref.senderAccountId).filter((id): id is string => typeof id === 'string' && id.length > 0)),
+  ]
+  if (accountIds.length === 0) return entries
+  // Deleted accounts too: a message sent through one keeps its author.
+  const accounts = await findWithDecryption(
+    em,
+    ChatMessagingAccount,
+    { id: { $in: accountIds }, tenantId: scope.tenantId, organizationId: scope.organizationId },
+    {},
+    { tenantId: scope.tenantId, organizationId: scope.organizationId },
+  )
+  for (const account of accounts) {
+    entries.set(account.id, { name: account.displayName, network: account.network })
+  }
+  return entries
+}
+
+/**
  * The name to show for whoever wrote something: a colleague from the member
- * names, an outsider from the contacts. Each falls back on its own wording —
- * an outsider is never a "former colleague".
+ * names, an outsider or an account from the directory. Each falls back on its
+ * own wording — an outsider is never a "former colleague".
  */
 export function senderNameOf(
   ref: ChatSenderRef,
@@ -65,10 +112,13 @@ export function senderNameOf(
   if (ref.senderExternalContactId) {
     return contacts.get(ref.senderExternalContactId)?.name ?? fallback.contact
   }
+  if (ref.senderAccountId) {
+    return contacts.get(ref.senderAccountId)?.name ?? fallback.contact
+  }
   return (ref.senderUserId ? names.get(ref.senderUserId) : undefined) ?? fallback.colleague
 }
 
-/** An outsider's network label, or null for a colleague. */
+/** An outsider's network label, or null for a colleague — and for the company's own phone. */
 export function senderNetworkOf(
   ref: ChatSenderRef,
   contacts: ReadonlyMap<string, ChatContactEntry>,

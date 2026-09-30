@@ -3,6 +3,7 @@ import type { MatrixConfig } from '@open-mercato/matrix'
 import {
   actorKey,
   externalContactIdFor,
+  ghostPhoneNumber,
   receiptActor,
   resolveProjectionActor,
   withActorOrigin,
@@ -45,6 +46,22 @@ describe('externalContactIdFor', () => {
   it('differs by organization — the same person is a different contact elsewhere', () => {
     const other = { ...SCOPE, organizationId: '33333333-3333-4333-8333-333333333333' }
     expect(externalContactIdFor(other, GHOST)).not.toBe(externalContactIdFor(SCOPE, GHOST))
+  })
+})
+
+describe('ghostPhoneNumber', () => {
+  it('reads the number a WhatsApp ghost stands for', () => {
+    expect(ghostPhoneNumber(config, GHOST)).toBe('+4915123456789')
+  })
+
+  it('has none for a contact who hides their number, or for another server', () => {
+    expect(ghostPhoneNumber(config, '@whatsapp_lid-123456789012:operis.local')).toBeNull()
+    expect(ghostPhoneNumber(config, '@whatsapp_4915123456789:elsewhere.example')).toBeNull()
+  })
+
+  it('has none for a network whose ids are not phone numbers', () => {
+    const telegram: MatrixConfig = { ...config, bridgeGhosts: [{ network: 'telegram', prefix: 'telegram_' }] }
+    expect(ghostPhoneNumber(telegram, '@telegram_123456789:operis.local')).toBeNull()
   })
 })
 

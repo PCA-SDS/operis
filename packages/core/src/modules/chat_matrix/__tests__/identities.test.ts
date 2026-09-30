@@ -1,4 +1,4 @@
-import { ensureIdentity } from '../lib/identities'
+import { ensureBotRegistered, ensureIdentity, resetBotRegistrations } from '../lib/identities'
 import { ChatMatrixIdentity } from '../data/entities'
 import { BOT, FakeEntityManager, FakeMatrixClient, testConfig } from './fakes'
 
@@ -91,5 +91,26 @@ describe('ensureIdentity', () => {
     const localpart = client.callsTo('registerUser')[0].args[0] as string
     expect(localpart.startsWith(testConfig.userPrefix)).toBe(true)
     expect(`@${localpart}:${testConfig.serverName}`).not.toBe(BOT)
+  })
+})
+
+describe('ensureBotRegistered', () => {
+  beforeEach(() => resetBotRegistrations())
+
+  it('registers the bot once per process, whoever asks', async () => {
+    const client = new FakeMatrixClient()
+    const deps = { client: client.asClient(), config: testConfig }
+    await Promise.all([ensureBotRegistered(deps), ensureBotRegistered(deps), ensureBotRegistered(deps)])
+    expect(client.callsTo('registerUser').map((call) => call.args[0])).toEqual(['om_bot'])
+  })
+
+  it('tries again after a failure instead of remembering it', async () => {
+    const client = new FakeMatrixClient()
+    const deps = { client: client.asClient(), config: testConfig }
+    client.failOn = 'registerUser'
+    await expect(ensureBotRegistered(deps)).rejects.toThrow('fake failure in registerUser')
+    client.failOn = null
+    await expect(ensureBotRegistered(deps)).resolves.toBeUndefined()
+    expect(client.callsTo('registerUser')).toHaveLength(2)
   })
 })

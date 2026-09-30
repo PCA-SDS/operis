@@ -33,14 +33,23 @@ const COMPOSE_ENV = path.join(DEV_DIR, 'compose.env')
 const APP_ENV = path.join(DEV_DIR, 'matrix.env')
 const SIGNING_KEY = path.join(SYNAPSE_DIR, 'signing.key')
 const REGISTRATION = path.join(SYNAPSE_DIR, 'registration.operis.yaml')
+const WHATSAPP_REGISTRATION = path.join(SYNAPSE_DIR, 'registration.whatsapp.yaml')
+const DOUBLE_PUPPET_REGISTRATION = path.join(SYNAPSE_DIR, 'registration.doublepuppet.yaml')
+const WHATSAPP_DIR = path.join(DEV_DIR, 'whatsapp')
+const WHATSAPP_TEMPLATE = path.join(ROOT, 'docker', 'matrix', 'mautrix-whatsapp', 'config.yaml.template')
 
 const SYNAPSE_IMAGE = 'ghcr.io/element-hq/synapse:v1.160.0'
-const SERVICES = ['matrix-postgres', 'synapse', 'element']
+const SERVICES = ['matrix-postgres', 'synapse', 'element', 'mautrix-whatsapp-db', 'mautrix-whatsapp']
 const PG_VOLUME = 'mercato-matrix-postgres-data'
 
 const SERVER_NAME = process.env.OM_MATRIX_SERVER_NAME || 'operis.local'
 const SYNAPSE_PORT = process.env.MATRIX_SYNAPSE_PORT || '8008'
 const ELEMENT_PORT = process.env.MATRIX_ELEMENT_PORT || '8009'
+/** Loopback only: the provisioning API starts WhatsApp logins for any account. */
+const WHATSAPP_PORT = process.env.MATRIX_WHATSAPP_PORT || '29318'
+/** How many chats and messages a freshly connected WhatsApp account imports. */
+const WHATSAPP_INITIAL_CONVERSATIONS = process.env.OM_WHATSAPP_INITIAL_CONVERSATIONS || '30'
+const WHATSAPP_INITIAL_MESSAGES = process.env.OM_WHATSAPP_INITIAL_MESSAGES || '20'
 
 /**
  * The appservice owns every localpart matching this prefix. It is baked into the
@@ -126,6 +135,18 @@ function ensureSecrets() {
     MATRIX_REGISTRATION_SHARED_SECRET: existing.MATRIX_REGISTRATION_SHARED_SECRET || token(),
     MATRIX_AS_TOKEN: existing.MATRIX_AS_TOKEN || token(),
     MATRIX_HS_TOKEN: existing.MATRIX_HS_TOKEN || token(),
+    // The WhatsApp bridge: its appservice tokens, the provisioning secret
+    // Operis drives logins with, and its own Postgres role.
+    WHATSAPP_AS_TOKEN: existing.WHATSAPP_AS_TOKEN || token(),
+    WHATSAPP_HS_TOKEN: existing.WHATSAPP_HS_TOKEN || token(),
+    WHATSAPP_SENDER_LOCALPART: existing.WHATSAPP_SENDER_LOCALPART || randomBytes(16).toString('hex'),
+    WHATSAPP_PROVISIONING_SECRET: existing.WHATSAPP_PROVISIONING_SECRET || token(),
+    WHATSAPP_PG_PASSWORD: existing.WHATSAPP_PG_PASSWORD || token(),
+    // The double-puppet registration: lets the bridge act as connected ACCOUNT
+    // identities only (never colleagues), and Operis act as personal ones.
+    DOUBLE_PUPPET_AS_TOKEN: existing.DOUBLE_PUPPET_AS_TOKEN || token(),
+    DOUBLE_PUPPET_HS_TOKEN: existing.DOUBLE_PUPPET_HS_TOKEN || token(),
+    DOUBLE_PUPPET_SENDER_LOCALPART: existing.DOUBLE_PUPPET_SENDER_LOCALPART || randomBytes(16).toString('hex'),
   }
 
   // The server name is the one value that must never silently change: it is
@@ -166,11 +187,30 @@ function ensureSigningKey() {
   ok('signing key created')
 }
 
+function renderTemplate(file, values) {
+  const template = fs.readFileSync(file, 'utf8')
+  const rendered = template.replace(/\$\{([A-Z0-9_]+)\}/g, (_, name) => {
+    if (!(name in values)) fail(`${path.basename(file)} references \${${name}} but no such value was generated`)
+    return values[name]
+  })
+  const leftover = rendered.match(/\$\{[A-Z0-9_]+\}/)
+  if (leftover) fail(`unsubstituted placeholder left in ${path.basename(file)}: ${leftover[0]}`)
+  return rendered
+}
+
 function renderHomeserverConfig(secrets) {
   const template = fs.readFileSync(TEMPLATE, 'utf8')
+  const values = {
+    ...secrets,
+    MATRIX_APPSERVICE_FILES: JSON.stringify([
+      '/data/registration.operis.yaml',
+      '/data/registration.whatsapp.yaml',
+      '/data/registration.doublepuppet.yaml',
+    ]),
+  }
   const rendered = template.replace(/\$\{([A-Z0-9_]+)\}/g, (_, name) => {
-    if (!(name in secrets)) fail(`template references \${${name}} but no such value was generated`)
-    return secrets[name]
+    if (!(name in values)) fail(`template references \${${name}} but no such value was generated`)
+    return values[name]
   })
   // A leftover placeholder means a value silently became the literal string
   // "${MATRIX_PG_PASSWORD}" — which Synapse would happily accept as a password
@@ -193,7 +233,15 @@ function renderHomeserverConfig(secrets) {
  * what still guarantees delivery, because a pushed transaction has no cursor to
  * rediscover it with.
  */
-const APPSERVICE_URL = process.env.OM_MATRIX_APPSERVICE_URL?.trim() || null
+const APPSERVICE_URL_SETTING = process.env.OM_MATRIX_APPSERVICE_URL?.trim()
+/**
+ * On by default since the WhatsApp bridge: a company account's chats reach
+ * Operis ONLY by push — the bot that runs /sync is not in a bridge's rooms.
+ * `none` turns it off (pull-only). Linux needs the `host-gateway` alias the
+ * compose file gives synapse; Docker Desktop resolves it natively.
+ */
+const APPSERVICE_URL =
+  APPSERVICE_URL_SETTING === 'none' ? null : APPSERVICE_URL_SETTING || 'http://host.docker.internal:3000'
 
 function renderRegistration(secrets) {
   const pushUrl = APPSERVICE_URL
@@ -232,6 +280,84 @@ rate_limited: false
   writeSecret(REGISTRATION, yaml)
 }
 
+/**
+ * Personal WhatsApp accounts get identities OUTSIDE the Operis namespace, so the
+ * homeserver never pushes their chats to Operis. A one-way door, like the prefix.
+ */
+const PERSONAL_ACCOUNT_PREFIX = 'opp_'
+
+/**
+ * The bridge's registration — rendered from our own secrets rather than
+ * generated by the bridge, so a re-render is reproducible and the two sides can
+ * never disagree about a token.
+ */
+function renderWhatsAppRegistration(secrets) {
+  const server = SERVER_NAME.replace(/\./g, '\\.')
+  const yaml = `# mautrix-whatsapp appservice registration — generated by scripts/matrix-dev.mjs.
+# Contains live credentials; never commit.
+id: whatsapp
+url: http://mautrix-whatsapp:29318
+as_token: "${secrets.WHATSAPP_AS_TOKEN}"
+hs_token: "${secrets.WHATSAPP_HS_TOKEN}"
+sender_localpart: ${secrets.WHATSAPP_SENDER_LOCALPART}
+rate_limited: false
+namespaces:
+  users:
+    - regex: '^@whatsappbot:${server}$'
+      exclusive: true
+    - regex: '^@whatsapp_.*:${server}$'
+      exclusive: true
+# Read receipts and typing reach the bridge only with these.
+de.sorunome.msc2409.push_ephemeral: true
+receive_ephemeral: true
+`
+  writeSecret(WHATSAPP_REGISTRATION, yaml)
+}
+
+/**
+ * Double puppeting, scoped to ACCOUNT identities.
+ *
+ * `url: null`, so the homeserver never pushes to it, and a NON-exclusive
+ * namespace covering only @<prefix>a_… (company accounts) and @opp_… (personal
+ * accounts). The bridge holds this token to act as a connected account — its
+ * phone-sent messages appear as the account, its invites auto-accept — and can
+ * never act as a colleague, whose identities are @<prefix>u_….
+ */
+function renderDoublePuppetRegistration(secrets) {
+  const server = SERVER_NAME.replace(/\./g, '\\.')
+  const yaml = `# Double-puppet registration for WhatsApp account identities — generated by
+# scripts/matrix-dev.mjs. Contains live credentials; never commit.
+id: operis-doublepuppet
+url: null
+as_token: "${secrets.DOUBLE_PUPPET_AS_TOKEN}"
+hs_token: "${secrets.DOUBLE_PUPPET_HS_TOKEN}"
+sender_localpart: ${secrets.DOUBLE_PUPPET_SENDER_LOCALPART}
+rate_limited: false
+namespaces:
+  users:
+    - exclusive: false
+      regex: '@(${USER_PREFIX}a_|${PERSONAL_ACCOUNT_PREFIX})[0-9a-f]{32}:${server}'
+`
+  writeSecret(DOUBLE_PUPPET_REGISTRATION, yaml)
+}
+
+function renderWhatsAppConfig(secrets) {
+  fs.mkdirSync(WHATSAPP_DIR, { recursive: true })
+  const rendered = renderTemplate(WHATSAPP_TEMPLATE, {
+    MATRIX_SERVER_NAME: SERVER_NAME,
+    WHATSAPP_AS_TOKEN: secrets.WHATSAPP_AS_TOKEN,
+    WHATSAPP_HS_TOKEN: secrets.WHATSAPP_HS_TOKEN,
+    WHATSAPP_PG_USER: 'mautrix_whatsapp',
+    WHATSAPP_PG_PASSWORD: secrets.WHATSAPP_PG_PASSWORD,
+    WHATSAPP_PG_DATABASE: 'mautrix_whatsapp',
+    WHATSAPP_INITIAL_CONVERSATIONS,
+    WHATSAPP_INITIAL_MESSAGES,
+    WHATSAPP_PROVISIONING_SECRET: secrets.WHATSAPP_PROVISIONING_SECRET,
+    DOUBLE_PUPPET_AS_TOKEN: secrets.DOUBLE_PUPPET_AS_TOKEN,
+  })
+  writeSecret(path.join(WHATSAPP_DIR, 'config.yaml'), rendered)
+}
+
 function writeEnvFiles(secrets) {
   writeSecret(
     COMPOSE_ENV,
@@ -242,6 +368,13 @@ function writeEnvFiles(secrets) {
       `MATRIX_PG_DATABASE=${secrets.MATRIX_PG_DATABASE}`,
       `MATRIX_SYNAPSE_PORT=${SYNAPSE_PORT}`,
       `MATRIX_ELEMENT_PORT=${ELEMENT_PORT}`,
+      `MATRIX_WHATSAPP_PORT=${WHATSAPP_PORT}`,
+      'WHATSAPP_PG_USER=mautrix_whatsapp',
+      `WHATSAPP_PG_PASSWORD=${secrets.WHATSAPP_PG_PASSWORD}`,
+      'WHATSAPP_PG_DATABASE=mautrix_whatsapp',
+      // The bridge runs as the developer so it can read its 600-mode config.
+      `MATRIX_DEV_UID=${process.getuid?.() ?? 1000}`,
+      `MATRIX_DEV_GID=${process.getgid?.() ?? 1000}`,
       '',
     ].join('\n'),
   )
@@ -258,6 +391,12 @@ function writeEnvFiles(secrets) {
       `OM_MATRIX_SENDER_LOCALPART=${SENDER_LOCALPART}`,
       `OM_MATRIX_USER_PREFIX=${USER_PREFIX}`,
       `OM_MATRIX_BOT_LOCALPART=${BOT_LOCALPART}`,
+      // The WhatsApp bridge: whose ghosts are outsiders, where logins start, and
+      // the token for acting as a personal account.
+      'OM_MATRIX_BRIDGE_GHOSTS=whatsapp=whatsapp_',
+      `OM_MATRIX_WHATSAPP_PROVISIONING_URL=http://127.0.0.1:${WHATSAPP_PORT}`,
+      `OM_MATRIX_WHATSAPP_PROVISIONING_SECRET=${secrets.WHATSAPP_PROVISIONING_SECRET}`,
+      `OM_MATRIX_DOUBLE_PUPPET_AS_TOKEN=${secrets.DOUBLE_PUPPET_AS_TOKEN}`,
       '',
     ].join('\n'),
   )
@@ -287,16 +426,7 @@ async function waitForHealth(timeoutMs = 180_000) {
 }
 
 async function up() {
-  requireDocker()
-  fs.mkdirSync(SYNAPSE_DIR, { recursive: true })
-  fs.mkdirSync(path.join(SYNAPSE_DIR, 'media_store'), { recursive: true })
-
-  const secrets = ensureSecrets()
-  ensureSigningKey()
-  renderHomeserverConfig(secrets)
-  renderRegistration(secrets)
-  writeEnvFiles(secrets)
-  ok(`config rendered for server_name "${SERVER_NAME}"`)
+  render()
 
   step('starting containers')
   // Explicit service names, never a bare `up`: the matrix profile shares a
@@ -310,10 +440,33 @@ async function up() {
   ok('Matrix stack is up')
   log(`  homeserver   http://127.0.0.1:${SYNAPSE_PORT}`)
   log(`  element      http://127.0.0.1:${ELEMENT_PORT}   (engineering console, dev only)`)
+  log(`  whatsapp     http://127.0.0.1:${WHATSAPP_PORT}  (bridge provisioning, loopback only)`)
+  log(`  push mode    ${APPSERVICE_URL ?? 'off (OM_MATRIX_APPSERVICE_URL=none)'}`)
   log(`  server_name  ${SERVER_NAME}`)
   log(`  app env      .matrix-dev/matrix.env`)
   log('')
   log('Next:  yarn matrix:verify')
+}
+
+/**
+ * Generate what is missing and render every config file, without starting
+ * anything. `up` runs this first; on its own it is how to inspect or test the
+ * rendered stack.
+ */
+function render() {
+  requireDocker()
+  fs.mkdirSync(SYNAPSE_DIR, { recursive: true })
+  fs.mkdirSync(path.join(SYNAPSE_DIR, 'media_store'), { recursive: true })
+
+  const secrets = ensureSecrets()
+  ensureSigningKey()
+  renderHomeserverConfig(secrets)
+  renderRegistration(secrets)
+  renderWhatsAppRegistration(secrets)
+  renderDoublePuppetRegistration(secrets)
+  renderWhatsAppConfig(secrets)
+  writeEnvFiles(secrets)
+  ok(`config rendered for server_name "${SERVER_NAME}"`)
 }
 
 function down() {
@@ -339,7 +492,7 @@ async function status() {
   requireDocker()
   const running = docker(['ps', '--format', '{{.Names}}\t{{.Status}}'])
     .split('\n')
-    .filter((l) => /mercato-(synapse|element|matrix-postgres)/.test(l))
+    .filter((l) => /mercato-(synapse|element|matrix-postgres|mautrix-whatsapp)/.test(l))
   if (!running.length) {
     warn('no matrix containers running — yarn matrix:up')
   } else {
@@ -364,6 +517,6 @@ async function status() {
 }
 
 const command = process.argv[2] || 'up'
-const handlers = { up, down, reset, status }
-if (!handlers[command]) fail(`unknown command "${command}". Use: up | down | reset | status`)
+const handlers = { up, render, down, reset, status }
+if (!handlers[command]) fail(`unknown command "${command}". Use: up | render | down | reset | status`)
 await handlers[command]()

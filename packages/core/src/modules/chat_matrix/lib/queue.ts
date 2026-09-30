@@ -12,7 +12,16 @@ export const CHAT_MATRIX_QUEUES = {
    * reaction whose message has not projected yet is a reaction that is lost.
    */
   appserviceTransaction: 'chat-matrix-appservice-transaction',
+  /**
+   * Messaging account logins in progress. Each job holds a long-poll on the
+   * bridge while a QR code is on somebody's screen, so several run at once —
+   * one account's login must not wait behind another's.
+   */
+  accountLogin: 'chat-matrix-account-login',
 } as const
+
+/** How many logins can be waited on at once, per worker. */
+export const ACCOUNT_LOGIN_CONCURRENCY = 10
 
 /**
  * How often the shadow phase asks whether Matrix is keeping up.
@@ -81,10 +90,6 @@ export function appserviceBaseUrl(base: string): string {
 
 import { createModuleQueue, type Queue } from '@open-mercato/queue'
 import type { EntityManager } from '@mikro-orm/postgresql'
-import { createLogger } from '@open-mercato/shared/lib/logger'
-
-const queueLogger = createLogger('chat_matrix').child({ component: 'queue' })
-const LOCAL_WORKER_KEY = '__operisChatMatrixAppserviceWorker__'
 
 export type AppserviceTransactionJob = {
   txnId: string
@@ -106,45 +111,50 @@ export function getAppserviceQueue(): Queue<AppserviceTransactionJob> {
 }
 
 /**
- * In async mode the auto-discovered worker handles these; in local mode — dev
- * and the QA harness — nothing is listening until something starts a processor
- * in this process. Mirrors how `push_notifications` bootstraps its own.
+ * Enqueue a pushed transaction for the auto-discovered worker.
+ *
+ * Nothing here consumes the queue. Every strategy already has exactly one
+ * consumer for it: BullMQ workers in `async` mode, and in `local` mode the
+ * worker process the lazy supervisor spawns as soon as a job is pending (the
+ * default dev and QA topology). A second, in-process consumer used to be
+ * started here; the local strategy has no per-job lease, so two consumers
+ * processed the same transactions twice and — worse — out of order, which is
+ * exactly what `concurrency: 1` exists to prevent.
  */
-async function ensureLocalWorkerStarted(): Promise<void> {
-  if (process.env.QUEUE_STRATEGY === 'async') return
-
-  const store = globalThis as typeof globalThis & { [LOCAL_WORKER_KEY]?: Promise<void> }
-  if (store[LOCAL_WORKER_KEY]) return store[LOCAL_WORKER_KEY]
-
-  store[LOCAL_WORKER_KEY] = (async () => {
-    const queue = getAppserviceQueue()
-    await queue.process(async (job) => {
-      const [{ createRequestContainer }, worker] = await Promise.all([
-        import('@open-mercato/shared/lib/di/container'),
-        import('../workers/appservice-transaction'),
-      ])
-      const container = await createRequestContainer()
-      await worker.default(job as never, {
-        jobId: job.id ?? 'local',
-        attemptNumber: 1,
-        queueName: CHAT_MATRIX_QUEUES.appserviceTransaction,
-        resolve: <T>(name: string) => container.resolve(name) as T,
-      } as never)
-    })
-  })().catch((error) => {
-    delete store[LOCAL_WORKER_KEY]
-    queueLogger.error('could not start the local appservice worker', {
-      error: error instanceof Error ? error.message : String(error),
-    })
-    throw error
-  })
-
-  return store[LOCAL_WORKER_KEY]
-}
-
 export async function enqueueAppserviceTransaction(job: AppserviceTransactionJob): Promise<void> {
   await getAppserviceQueue().enqueue(job)
-  await ensureLocalWorkerStarted()
 }
 
 export type { EntityManager as ChatMatrixEntityManager }
+
+// ---------------------------------------------------------------------------
+// The account-login queue: one job per login attempt, waiting on the bridge.
+// ---------------------------------------------------------------------------
+
+export type AccountLoginJob = {
+  tenantId: string
+  organizationId: string
+  accountId: string
+  /** Chat's attempt id. A job whose attempt is no longer current stops at once. */
+  attemptId: string
+}
+
+let accountLoginQueue: Queue<AccountLoginJob> | null = null
+
+export function getAccountLoginQueue(): Queue<AccountLoginJob> {
+  if (accountLoginQueue) return accountLoginQueue
+  accountLoginQueue = createModuleQueue<AccountLoginJob>(CHAT_MATRIX_QUEUES.accountLogin, {
+    concurrency: ACCOUNT_LOGIN_CONCURRENCY,
+  })
+  return accountLoginQueue
+}
+
+/**
+ * Hand a login to the worker. Like the transaction queue, nothing in the app
+ * process consumes it — the queue's one worker does. With the `local` strategy
+ * that worker runs jobs one at a time, so in development a second login waits
+ * for the first to finish; production's `async` workers run several at once.
+ */
+export async function enqueueAccountLogin(job: AccountLoginJob): Promise<void> {
+  await getAccountLoginQueue().enqueue(job)
+}

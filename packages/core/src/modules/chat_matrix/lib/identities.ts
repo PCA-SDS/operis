@@ -101,3 +101,34 @@ export async function ensureIdentities(
   }
   return byUserId
 }
+
+const botRegistrations = new Map<string, Promise<void>>()
+
+/**
+ * Tell the homeserver the bot exists — once per process, and again after a
+ * failure.
+ *
+ * The bot creates every Operis room and is the identity `/sync` reads as, but an
+ * appservice user is never implicit: until it is registered, both fail with
+ * "Application service has not registered this user". Nothing else registers
+ * it — a fresh homeserver would otherwise refuse every room Operis asks for.
+ * `registerUser` treats "already registered" as success, so this is free after
+ * the first call.
+ */
+export async function ensureBotRegistered(deps: { client: MatrixClient; config: MatrixConfig }): Promise<void> {
+  const key = `${deps.config.baseUrl}|${deps.config.serverName}|${deps.config.botLocalpart}`
+  let pending = botRegistrations.get(key)
+  if (!pending) {
+    pending = deps.client.registerUser(deps.config.botLocalpart).catch((error: unknown) => {
+      botRegistrations.delete(key)
+      throw error
+    })
+    botRegistrations.set(key, pending)
+  }
+  await pending
+}
+
+/** Test seam: forget which bots this process has registered. */
+export function resetBotRegistrations(): void {
+  botRegistrations.clear()
+}

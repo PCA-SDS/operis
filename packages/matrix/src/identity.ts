@@ -132,6 +132,92 @@ export function botMxid(config: MatrixIdentityConfig): string {
   return `@${config.botLocalpart}:${config.serverName}`
 }
 
+/**
+ * Messaging-account identities — the Matrix users that own a bridge login.
+ *
+ * A connected WhatsApp account is one Matrix user; messages it sends in a portal
+ * leave as that WhatsApp account. Two classes, deliberately in different
+ * namespaces:
+ *
+ * - a COMPANY account is `<prefix>a_<hex32>`, inside the Operis namespace, so the
+ *   homeserver pushes its rooms to Operis;
+ * - a PERSONAL account is `opp_<hex32>`, OUTSIDE it, so the homeserver pushes its
+ *   rooms to nobody and an employee's private chats never reach Operis.
+ *
+ * Both hex strings are the account's uuid, lower-cased without dashes — derived,
+ * like a colleague's, so one organization's account can never be addressed as
+ * another's. Both prefixes are one-way doors: every identity already minted
+ * lives under them.
+ */
+export const PERSONAL_ACCOUNT_PREFIX = 'opp_'
+
+export type MessagingAccountOwner = 'company' | 'user'
+
+const HEX32 = /^[0-9a-f]{32}$/
+
+function hexOfUuid(uuid: string): string {
+  const trimmed = uuid.trim()
+  if (!UUID_SHAPE_PATTERN.test(trimmed)) {
+    throw new MatrixNamespaceError('[internal] expected a UUID when deriving an account identity', trimmed)
+  }
+  return trimmed.replace(/-/g, '').toLowerCase()
+}
+
+export function localpartForAccount(
+  config: Pick<MatrixIdentityConfig, 'userPrefix'>,
+  accountId: string,
+  owner: MessagingAccountOwner,
+): string {
+  const hex = hexOfUuid(accountId)
+  return owner === 'company' ? `${config.userPrefix}a_${hex}` : `${PERSONAL_ACCOUNT_PREFIX}${hex}`
+}
+
+export function accountMxid(
+  config: Pick<MatrixIdentityConfig, 'userPrefix' | 'serverName'>,
+  accountId: string,
+  owner: MessagingAccountOwner,
+): string {
+  return `@${localpartForAccount(config, accountId, owner)}:${config.serverName}`
+}
+
+/** The account behind an identity, or null when it is not an account identity on this server. */
+export function accountFromMxid(
+  config: Pick<MatrixIdentityConfig, 'userPrefix' | 'serverName'>,
+  userId: string,
+): { accountId: string; owner: MessagingAccountOwner } | null {
+  const parsed = parseMxid(userId)
+  if (!parsed || parsed.serverName !== config.serverName) return null
+  const companyPrefix = `${config.userPrefix}a_`
+  let owner: MessagingAccountOwner
+  let hex: string
+  if (parsed.localpart.startsWith(companyPrefix)) {
+    owner = 'company'
+    hex = parsed.localpart.slice(companyPrefix.length)
+  } else if (parsed.localpart.startsWith(PERSONAL_ACCOUNT_PREFIX)) {
+    owner = 'user'
+    hex = parsed.localpart.slice(PERSONAL_ACCOUNT_PREFIX.length)
+  } else {
+    return null
+  }
+  if (!HEX32.test(hex)) return null
+  const accountId = [hex.slice(0, 8), hex.slice(8, 12), hex.slice(12, 16), hex.slice(16, 20), hex.slice(20)].join('-')
+  return { accountId, owner }
+}
+
+/**
+ * The gate for the double-puppet client: it may act as account identities and
+ * nothing else — never as a colleague, the sender or the bot.
+ */
+export function assertAccountIdentity(
+  config: Pick<MatrixIdentityConfig, 'userPrefix' | 'serverName'>,
+  userId: string,
+): string {
+  if (!accountFromMxid(config, userId)) {
+    throw new MatrixNamespaceError('[internal] refusing to act as a Matrix user that is not an account identity', userId)
+  }
+  return userId
+}
+
 /** True when this appservice is entitled to act as `userId`. */
 export function isOwnedIdentity(config: MatrixIdentityConfig, userId: string): boolean {
   const parsed = parseMxid(userId)

@@ -30,6 +30,8 @@ export type MemberPickerProps = {
   autoFocus?: boolean
   /** Cap enforced by the API; the picker stops adding rather than letting a request fail. */
   max: number
+  /** List the viewer too — for a team they may belong to, unlike a space they already are in. */
+  includeSelf?: boolean
 }
 
 function PickerSkeleton() {
@@ -70,6 +72,7 @@ export function MemberPicker({
   disabled,
   autoFocus,
   max,
+  includeSelf = false,
 }: MemberPickerProps) {
   const t = useT()
   const [term, setTerm] = React.useState('')
@@ -88,7 +91,7 @@ export function MemberPicker({
     setDebounced('')
   }, [enabled])
 
-  const { people, truncated, isLoading, error, retry } = useDirectorySearch(debounced, enabled)
+  const { people, truncated, isLoading, error, retry } = useDirectorySearch(debounced, enabled, { includeSelf })
 
   const excluded = React.useMemo(() => new Set(excludeIds ?? []), [excludeIds])
   const selectedIds = React.useMemo(() => new Set(selected.map((person) => person.id)), [selected])

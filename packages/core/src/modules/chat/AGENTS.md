@@ -3,8 +3,10 @@
 Internal messaging between people in one organization: 1:1 **direct**
 conversations and named **space** group conversations, with structural message
 replies — plus **external** conversations, where colleagues talk to people outside
-the organization through a bridged Matrix room. Everything runs on one set of
-tables and one command path — there is no second messaging engine for groups.
+the organization through a bridged Matrix room, and **messaging accounts**: a
+company WhatsApp number connected by QR code, whose chats arrive as external
+conversations for a team. Everything runs on one set of tables and one command
+path — there is no second messaging engine for groups.
 
 ## Always
 
@@ -89,6 +91,9 @@ tables and one command path — there is no second messaging engine for groups.
   the external-conversation commands refuse a context with a logged-in user.
 - Never let a mention reach an external conversation: an outsider's body goes
   through `neutralizeMentionSyntax`, and a colleague's mention there is refused.
+- Never let a browser name a login attempt, a bridge id or the account actor.
+  `loginStep.attemptId` stays server-side (`toAccountDtos` strips it); the
+  account arm of `ChatActor` comes only from `externalOrigin.senderAccountId`.
 
 ## Validation Commands
 
@@ -104,8 +109,16 @@ JWT_SECRET=$(openssl rand -hex 32) yarn test:integration:ephemeral --no-reuse-en
 |---|---|
 | `chat_conversations` | `kind` (`direct`/`space`/`external`), `direct_key` (pairs), `title` + `created_by_user_id` (spaces), denormalized last-message columns |
 | `chat_participants` | membership — exactly one of `user_id` / `external_contact_id` — `role` (`owner`/`member`), `last_read_at` — the entire unread model |
-| `chat_messages` | turns; sender is exactly one of `sender_user_id` / `sender_external_contact_id`; `kind` (`user`/`system`), `reply_to_message_id`, `system_event` + `system_target_user_id`, `edited_at`, `deleted_at` |
+| `chat_messages` | turns; sender is exactly one of `sender_user_id` / `sender_external_contact_id` / `sender_account_id`; `kind` (`user`/`system`), `reply_to_message_id`, `system_event` + `system_target_user_id`, `edited_at`, `deleted_at` |
 | `chat_external_contacts` | one outsider per organization: `network` and an encrypted `display_name`. The id is derived from the bridge identity by `chat_matrix`, never chosen by chat |
+| `chat_messaging_accounts` | a connected number: `owner_type` (`company`/`user` + `owner_user_id`), encrypted `display_name` + `remote_handle`, `status`, `status_reason`, `show_sender_name`, transient `login_step` |
+| `chat_messaging_account_members` | the team a company account seats in every new chat |
+
+`chat_conversations.messaging_account_id` marks an external conversation that came
+in through an account; `chat_messages.sender_account_id` a message the company's
+phone sent itself. A sender is exactly one of the three sender columns. All three
+account references are composite FKs with the scope pair — no row can name
+another organization's account.
 
 Four constraints carry guarantees the application cannot promise alone:
 
@@ -166,6 +179,53 @@ owns it.
 Authorship on that path still comes from the server: the projector resolves the
 sender from the event's `sender`, a namespaced identity only the appservice can
 mint. It is never taken from a payload.
+
+## Messaging Accounts
+
+`/backend/chat/accounts` (feature `chat.accounts.manage`) adds a number, picks
+its team, and connects it. Chat owns the business facts; **how** a number logs in
+is the `chatAccountConnector` DI token (`lib/accountConnector.ts`) — a local
+default that connects nothing, replaced by `chat_matrix` when a bridge's
+provisioning API is configured. Chat never imports anything bridge-shaped.
+
+- **Access.** A company account is for `chat.accounts.manage` holders in its
+  organization; a personal one for its owner with `chat.accounts.connect_own`
+  (`lib/accounts.ts`, RBAC-service checks, wildcards included). Anyone else gets
+  the same 404 as a missing id.
+- **Two kinds of command** (`commands/accounts.ts`). A person's — create, update,
+  connect, cancel, disconnect, delete — and the connector's —
+  `recordLoginStep`, `markState` — which refuse any context with a logged-in
+  user. Every connector report carries the attempt id it was minted with and is
+  dropped when that attempt is no longer current; a health report (no attempt)
+  only moves `connected ↔ disconnected`. The drop notifies managers (or the
+  owner) once, on the transition.
+- **Quiet import.** `chat.conversations.createExternal` with `messagingAccountId`
+  seats the account's team with `last_read_at = connected_at`: history the
+  number imports arrives read, anything newer notifies.
+- **Replies need a connected account.** Send, edit, delete and react refuse
+  (409, `accountNotConnected`) in a conversation whose account is not
+  `connected` — otherwise Operis and the customer's phone would disagree.
+  `signatureFor` gives the transport the colleague's first name when the
+  account signs replies; Operis' own copy is never prefixed.
+- **The account actor** (`ChatActor` `kind: 'account'`) is the company's phone:
+  it speaks only in conversations that came in through it
+  (`loadConversationContext`), has no participant row, is the author of
+  everything that left through it (`isAuthorOf`), never reacts and never reads.
+- **Handover and levels** (`lib/access.ts`). In a client conversation
+  `viewer` < `participant` < `manager`; NULL reads as `manager`. Only managers
+  add, remove or re-level colleagues (`chat.conversations.setAccess`); the
+  added get `chat.external.assigned` and default to `viewer`. The last
+  colleague and the last manager stay — checked under the conversation's row
+  lock. A viewer writes only internal notes.
+- **Internal notes.** `visibility: 'internal'` never reaches the transport (the
+  commands skip publishing, not the UI); only a colleague's user message can be
+  one (DB CHECK); mentions in notes notify.
+- **CRM link** (`lib/crm.ts`, `commands/crm.ts`). `customers` is an optional
+  peer read through its DI-registered `CustomerEntity` — never imported. A
+  record is named only for viewers with that kind's CRM view feature.
+- **Personal accounts.** `/backend/profile/whatsapp`; nothing on the number is
+  read until its owner moves a chat (`chat.accounts.moveChat` → the
+  connector's `moveChat`), and only what is said after the move arrives.
 
 ## Editing and Deleting
 
@@ -341,7 +401,9 @@ mid-word and Enter belongs to the IME, not to the menu.
 | Organization membership predicate | `lib/scope.ts` |
 | Participant lookup, the actor union | `lib/participants.ts` (`loadParticipant`, `ChatActor`) |
 | Outsider names and networks | `lib/people.ts` |
-| External conversations: create, seat, close | `commands/externalConversations.ts` — system context only; `chat_matrix link-room` is the entry point |
+| External conversations: create, seat, close | `commands/externalConversations.ts` — system context only; `chat_matrix` adoption and `link-room` are the entry points |
+| Messaging accounts | `lib/accounts.ts` (access, DTO), `commands/accounts.ts`, `lib/accountConnector.ts` (the seam), `components/accounts/` |
+| Handover notification | `lib/assignment.ts` |
 | Space writes | `commands/spaces.ts` |
 | Send, edit, delete | `commands/messages.ts` |
 | The message-in-conversation guard | `commands/shared.ts` (`requireMessageInConversation`) |
@@ -358,3 +420,4 @@ posting a bare `{ userId }` is unaffected.
 - Phase 1 (direct messaging): [`.ai/specs/2026-09-03-chat-direct-messaging.md`](../../../../../.ai/specs/2026-09-03-chat-direct-messaging.md)
 - Phase 2 (spaces and replies): [`.ai/specs/2026-09-04-chat-spaces-and-replies.md`](../../../../../.ai/specs/2026-09-04-chat-spaces-and-replies.md)
 - External participants: [`.ai/specs/2026-09-29-chat-external-participants.md`](../../../../../.ai/specs/2026-09-29-chat-external-participants.md)
+- WhatsApp accounts and the team inbox: [`.ai/specs/2026-09-29-whatsapp-bridge.md`](../../../../../.ai/specs/2026-09-29-whatsapp-bridge.md)

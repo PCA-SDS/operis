@@ -23,6 +23,14 @@
 #   MATRIX_PG_USER  MATRIX_PG_PASSWORD  MATRIX_PG_DATABASE
 #   MATRIX_MACAROON_SECRET  MATRIX_FORM_SECRET  MATRIX_REGISTRATION_SHARED_SECRET
 #
+# With the `whatsapp` profile too (COMPOSE_PROFILES=matrix,whatsapp):
+#   OM_MATRIX_WHATSAPP_PROVISIONING_URL  OM_MATRIX_WHATSAPP_PROVISIONING_SECRET
+#   OM_MATRIX_DOUBLE_PUPPET_AS_TOKEN     OM_MATRIX_BRIDGE_GHOSTS (must name whatsapp)
+#   WHATSAPP_AS_TOKEN  WHATSAPP_HS_TOKEN  WHATSAPP_SENDER_LOCALPART
+#   WHATSAPP_PG_USER  WHATSAPP_PG_PASSWORD  WHATSAPP_PG_DATABASE
+#   DOUBLE_PUPPET_HS_TOKEN  DOUBLE_PUPPET_SENDER_LOCALPART
+#   WHATSAPP_INITIAL_CONVERSATIONS (30)  WHATSAPP_INITIAL_MESSAGES (20)
+#
 # Outputs land in matrix/ (mode 700), which docker-compose.yml bind-mounts as
 # Synapse's /data:
 #   homeserver.yaml            rendered from matrix-template/homeserver.yaml.template
@@ -31,6 +39,10 @@
 #   signing.key                generated ONCE by Synapse's own tool, then never
 #                              touched — it is the homeserver's identity
 #   media_store/               uploaded files
+#   registration.whatsapp.yaml       the bridge's registration      (whatsapp profile)
+#   registration.doublepuppet.yaml   account-identity double puppet (whatsapp profile)
+# and, with the whatsapp profile, whatsapp/config.yaml — the bridge's config,
+# rendered from matrix-template/config.yaml.template.
 #
 # The template is docker/matrix/synapse/homeserver.yaml.template, the same file
 # `yarn matrix:up` renders for development; CI syncs it here as matrix-template/.
@@ -47,6 +59,12 @@ TEMPLATE_DIR="$APP_DIR/matrix-template"
 DATA_DIR="$APP_DIR/matrix"
 REGISTRATION="$DATA_DIR/registration.operis.yaml"
 HOMESERVER_YAML="$DATA_DIR/homeserver.yaml"
+WHATSAPP_DIR="$APP_DIR/whatsapp"
+WHATSAPP_REGISTRATION="$DATA_DIR/registration.whatsapp.yaml"
+DOUBLE_PUPPET_REGISTRATION="$DATA_DIR/registration.doublepuppet.yaml"
+# Personal WhatsApp accounts live outside the Operis namespace so the homeserver
+# never pushes their chats to the app. A one-way door, like the user prefix.
+PERSONAL_ACCOUNT_PREFIX=opp_
 
 cd "$APP_DIR"
 
@@ -62,8 +80,28 @@ shopt -u patsub_replacement 2>/dev/null || true
 
 # The same reader deploy.sh uses, for the same reason: never source a file of
 # generated secrets — a '$' would expand, a backtick would execute.
-read_env() { sed -n "s/^$1=//p" "$ENV_FILE" | tail -1; }
+read_env() {
+  local value
+  value="$(sed -n "s/^$1=//p" "$ENV_FILE" | tail -1)"
+  # Compose strips one pair of matching quotes around a value, so this must
+  # too: otherwise COMPOSE_PROFILES="matrix" is on for compose and off here, and
+  # a quoted token lands in a rendered registration with its quotes attached.
+  case "$value" in
+    \"*\") value="${value#\"}"; value="${value%\"}" ;;
+    \'*\') value="${value#\'}"; value="${value%\'}" ;;
+  esac
+  printf '%s' "$value"
+}
 env_or()   { local value; value="$(read_env "$1")"; printf '%s' "${value:-$2}"; }
+
+# The WhatsApp bridge rides on the homeserver: its own compose profile, opted
+# into alongside `matrix`.
+whatsapp_enabled() {
+  case ",$(read_env COMPOSE_PROFILES)," in
+    *,whatsapp,*) return 0 ;;
+    *)            return 1 ;;
+  esac
+}
 
 MODE=render
 case "${1:-}" in
@@ -135,6 +173,21 @@ if [ "$MODE" = init ]; then
   # Synapse runs as this uid so matrix/ stays writable for the next render.
   set_missing SYNAPSE_UID "$(id -u)"
   set_missing SYNAPSE_GID "$(id -g)"
+
+  # The WhatsApp bridge — only for a stack that opted into it, because the app
+  # reads OM_MATRIX_WHATSAPP_* as "WhatsApp is available here".
+  if whatsapp_enabled; then
+    set_missing OM_MATRIX_WHATSAPP_PROVISIONING_URL http://mautrix-whatsapp:29318
+    for key in OM_MATRIX_WHATSAPP_PROVISIONING_SECRET OM_MATRIX_DOUBLE_PUPPET_AS_TOKEN \
+               WHATSAPP_AS_TOKEN WHATSAPP_HS_TOKEN DOUBLE_PUPPET_HS_TOKEN; do
+      set_missing "$key" "$(openssl rand -hex 32)"
+    done
+    set_missing WHATSAPP_SENDER_LOCALPART "$(openssl rand -hex 16)"
+    set_missing DOUBLE_PUPPET_SENDER_LOCALPART "$(openssl rand -hex 16)"
+    set_missing WHATSAPP_PG_USER mautrix_whatsapp
+    set_missing WHATSAPP_PG_DATABASE mautrix_whatsapp
+    set_missing WHATSAPP_PG_PASSWORD "$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 40)"
+  fi
 
   if [ "${#ADDED[@]}" -eq 0 ]; then
     log "nothing to add — every Matrix value is already set in $ENV_FILE"
@@ -245,8 +298,53 @@ if [ -f "$REGISTRATION" ]; then
   fi
 fi
 
+# The WhatsApp bridge. Each refusal here is a setup that would start and then
+# silently receive nothing, so it stops the deploy instead.
+if whatsapp_enabled; then
+  case ",$(read_env COMPOSE_PROFILES)," in
+    *,matrix,*) ;;
+    *) fail "COMPOSE_PROFILES enables whatsapp without matrix — the bridge needs the homeserver" ;;
+  esac
+  WA_MISSING=()
+  for key in OM_MATRIX_WHATSAPP_PROVISIONING_URL OM_MATRIX_WHATSAPP_PROVISIONING_SECRET \
+             OM_MATRIX_DOUBLE_PUPPET_AS_TOKEN WHATSAPP_AS_TOKEN WHATSAPP_HS_TOKEN \
+             WHATSAPP_SENDER_LOCALPART WHATSAPP_PG_PASSWORD DOUBLE_PUPPET_HS_TOKEN \
+             DOUBLE_PUPPET_SENDER_LOCALPART; do
+    [ -n "$(read_env "$key")" ] || WA_MISSING+=("$key")
+  done
+  [ "${#WA_MISSING[@]}" -eq 0 ] || fail "the whatsapp profile is on but $ENV_FILE is missing: ${WA_MISSING[*]}
+       Run: ./matrix-render.sh --init-secrets   (fills in only what is missing)"
+  for key in OM_MATRIX_WHATSAPP_PROVISIONING_SECRET OM_MATRIX_DOUBLE_PUPPET_AS_TOKEN \
+             WHATSAPP_AS_TOKEN WHATSAPP_HS_TOKEN DOUBLE_PUPPET_HS_TOKEN; do
+    value="$(read_env "$key")"
+    [ "${#value}" -ge 32 ] || fail "$key is shorter than 32 characters"
+  done
+  [ -n "$APPSERVICE_URL" ] || fail "the whatsapp profile needs push mode: set OM_MATRIX_APPSERVICE_URL
+       (the app's base address on the internal network, e.g. http://app:3000).
+       A company account's chats reach the app ONLY by push — the bot that runs
+       /sync is not a member of the bridge's rooms."
+  case ",$(read_env OM_MATRIX_BRIDGE_GHOSTS)," in
+    *,whatsapp=whatsapp_,*) ;;
+    *) fail "OM_MATRIX_BRIDGE_GHOSTS must include whatsapp=whatsapp_ when the whatsapp profile is on.
+       Without it the app reads every WhatsApp contact as an unknown sender and
+       drops their messages. deploy/MATRIX.md \"WhatsApp\" has the whole switch." ;;
+  esac
+  # Both go into a connection URI and a CREATE statement: plain identifiers only.
+  for pair in "WHATSAPP_PG_USER=$(env_or WHATSAPP_PG_USER mautrix_whatsapp)" \
+              "WHATSAPP_PG_DATABASE=$(env_or WHATSAPP_PG_DATABASE mautrix_whatsapp)"; do
+    printf '%s' "${pair#*=}" | grep -Eq '^[a-z_][a-z0-9_]{0,62}$' \
+      || fail "${pair%%=*} '${pair#*=}' is not a plain Postgres identifier (a-z, 0-9, _)"
+  done
+  printf '%s' "$(read_env WHATSAPP_PG_PASSWORD)" | grep -Eq '^[A-Za-z0-9]+$' \
+    || fail "WHATSAPP_PG_PASSWORD must be alphanumeric — it is embedded in the bridge's database URI"
+  for key in WHATSAPP_INITIAL_CONVERSATIONS WHATSAPP_INITIAL_MESSAGES; do
+    value="$(read_env "$key")"
+    [ -z "$value" ] || printf '%s' "$value" | grep -Eq '^[0-9]+$' || fail "$key must be a whole number"
+  done
+fi
+
 if [ "$MODE" = check ]; then
-  log "ok: server_name $SERVER_NAME, namespace @${USER_PREFIX}*, push mode $([ -n "$APPSERVICE_URL" ] && echo on || echo off)"
+  log "ok: server_name $SERVER_NAME, namespace @${USER_PREFIX}*, push mode $([ -n "$APPSERVICE_URL" ] && echo on || echo off), whatsapp $(whatsapp_enabled && echo on || echo off)"
   exit 0
 fi
 
@@ -313,11 +411,16 @@ MATRIX_PG_DATABASE="$PG_DATABASE"
 MATRIX_MACAROON_SECRET="$MACAROON_SECRET"
 MATRIX_FORM_SECRET="$FORM_SECRET"
 MATRIX_REGISTRATION_SHARED_SECRET="$REGISTRATION_SHARED_SECRET"
+if whatsapp_enabled; then
+  MATRIX_APPSERVICE_FILES='["/data/registration.operis.yaml","/data/registration.whatsapp.yaml","/data/registration.doublepuppet.yaml"]'
+else
+  MATRIX_APPSERVICE_FILES='["/data/registration.operis.yaml"]'
+fi
 
 rendered="$(cat "$TEMPLATE_DIR/homeserver.yaml.template")"
 for name in MATRIX_SERVER_NAME MATRIX_PUBLIC_BASEURL MATRIX_PG_USER MATRIX_PG_PASSWORD \
             MATRIX_PG_DATABASE MATRIX_MACAROON_SECRET MATRIX_FORM_SECRET \
-            MATRIX_REGISTRATION_SHARED_SECRET; do
+            MATRIX_REGISTRATION_SHARED_SECRET MATRIX_APPSERVICE_FILES; do
   placeholder='${'"$name"'}'
   rendered="${rendered//"$placeholder"/${!name}}"
 done
@@ -373,10 +476,103 @@ rate_limited: false
 REG
 REGISTRATION_STATE="$(install_file "$tmp" "$REGISTRATION")"
 
+# ------------------------------------------------------------------------------
+# The WhatsApp bridge: its registration, the account-identity double puppet and
+# its own config — all from .env, so re-renders are reproducible and the bridge,
+# Synapse and the app can never disagree about a token.
+# ------------------------------------------------------------------------------
+WA_REG_STATE=off
+DP_REG_STATE=off
+WA_CONFIG_STATE=off
+if whatsapp_enabled; then
+  [ -f "$TEMPLATE_DIR/config.yaml.template" ] \
+    || fail "$TEMPLATE_DIR/config.yaml.template is missing — CI syncs it with each release; run the deploy workflow once"
+
+  tmp="$(mktemp "$DATA_DIR/.tmp.XXXXXX")"
+  cat > "$tmp" <<REG
+# mautrix-whatsapp appservice registration — rendered by matrix-render.sh from
+# this stack's .env. Contains live credentials.
+id: whatsapp
+url: http://mautrix-whatsapp:29318
+as_token: "$(read_env WHATSAPP_AS_TOKEN)"
+hs_token: "$(read_env WHATSAPP_HS_TOKEN)"
+sender_localpart: $(read_env WHATSAPP_SENDER_LOCALPART)
+rate_limited: false
+namespaces:
+  users:
+    - regex: '^@whatsappbot:${ESCAPED_SERVER_NAME}\$'
+      exclusive: true
+    - regex: '^@whatsapp_.*:${ESCAPED_SERVER_NAME}\$'
+      exclusive: true
+# Read receipts and typing reach the bridge only with these.
+de.sorunome.msc2409.push_ephemeral: true
+receive_ephemeral: true
+REG
+  WA_REG_STATE="$(install_file "$tmp" "$WHATSAPP_REGISTRATION")"
+
+  # url: null — nothing is ever pushed to it. The namespace is NON-exclusive and
+  # covers account identities only (@<prefix>a_… company, @opp_… personal): the
+  # bridge, which holds this token, can act as a connected account and never as
+  # a colleague (@<prefix>u_…).
+  tmp="$(mktemp "$DATA_DIR/.tmp.XXXXXX")"
+  cat > "$tmp" <<REG
+# Double-puppet registration for WhatsApp account identities — rendered by
+# matrix-render.sh from this stack's .env. Contains live credentials.
+id: operis-doublepuppet
+url: null
+as_token: "$(read_env OM_MATRIX_DOUBLE_PUPPET_AS_TOKEN)"
+hs_token: "$(read_env DOUBLE_PUPPET_HS_TOKEN)"
+sender_localpart: $(read_env DOUBLE_PUPPET_SENDER_LOCALPART)
+rate_limited: false
+namespaces:
+  users:
+    - exclusive: false
+      regex: '@(${USER_PREFIX}a_|${PERSONAL_ACCOUNT_PREFIX})[0-9a-f]{32}:${ESCAPED_SERVER_NAME}'
+REG
+  DP_REG_STATE="$(install_file "$tmp" "$DOUBLE_PUPPET_REGISTRATION")"
+
+  if [ -e "$WHATSAPP_DIR" ]; then
+    [ -w "$WHATSAPP_DIR" ] || fail "$WHATSAPP_DIR is not writable by $(id -un)"
+  else
+    mkdir -p "$WHATSAPP_DIR"
+  fi
+  chmod 700 "$WHATSAPP_DIR"
+
+  WHATSAPP_AS_TOKEN="$(read_env WHATSAPP_AS_TOKEN)"
+  WHATSAPP_HS_TOKEN="$(read_env WHATSAPP_HS_TOKEN)"
+  WHATSAPP_PG_USER="$(env_or WHATSAPP_PG_USER mautrix_whatsapp)"
+  WHATSAPP_PG_PASSWORD="$(read_env WHATSAPP_PG_PASSWORD)"
+  WHATSAPP_PG_DATABASE="$(env_or WHATSAPP_PG_DATABASE mautrix_whatsapp)"
+  WHATSAPP_INITIAL_CONVERSATIONS="$(env_or WHATSAPP_INITIAL_CONVERSATIONS 30)"
+  WHATSAPP_INITIAL_MESSAGES="$(env_or WHATSAPP_INITIAL_MESSAGES 20)"
+  WHATSAPP_PROVISIONING_SECRET="$(read_env OM_MATRIX_WHATSAPP_PROVISIONING_SECRET)"
+  DOUBLE_PUPPET_AS_TOKEN="$(read_env OM_MATRIX_DOUBLE_PUPPET_AS_TOKEN)"
+  rendered="$(cat "$TEMPLATE_DIR/config.yaml.template")"
+  for name in MATRIX_SERVER_NAME WHATSAPP_AS_TOKEN WHATSAPP_HS_TOKEN WHATSAPP_PG_USER \
+              WHATSAPP_PG_PASSWORD WHATSAPP_PG_DATABASE WHATSAPP_INITIAL_CONVERSATIONS \
+              WHATSAPP_INITIAL_MESSAGES WHATSAPP_PROVISIONING_SECRET DOUBLE_PUPPET_AS_TOKEN; do
+    placeholder='${'"$name"'}'
+    rendered="${rendered//"$placeholder"/${!name}}"
+  done
+  if [[ "$rendered" =~ \$\{[A-Z0-9_]+\} ]]; then
+    fail "config.yaml.template references ${BASH_REMATCH[0]} but this script has no value for it"
+  fi
+  tmp="$(mktemp "$WHATSAPP_DIR/.tmp.XXXXXX")"
+  printf '%s\n' "$rendered" > "$tmp"
+  WA_CONFIG_STATE="$(install_file "$tmp" "$WHATSAPP_DIR/config.yaml")"
+fi
+
 log "rendered $DATA_DIR for server_name $SERVER_NAME"
 log "  homeserver.yaml           $HOMESERVER_STATE"
 log "  log.config                $LOG_STATE"
 log "  registration.operis.yaml  $REGISTRATION_STATE   (push mode $([ -n "$APPSERVICE_URL" ] && echo on || echo off))"
-if [ "$HOMESERVER_STATE$LOG_STATE$REGISTRATION_STATE" != "unchangedunchangedunchanged" ]; then
+log "  registration.whatsapp.yaml       $WA_REG_STATE"
+log "  registration.doublepuppet.yaml   $DP_REG_STATE"
+log "  whatsapp/config.yaml             $WA_CONFIG_STATE"
+if [ "$HOMESERVER_STATE$LOG_STATE$REGISTRATION_STATE" != "unchangedunchangedunchanged" ] \
+   || { [ "$WA_REG_STATE" = changed ] || [ "$DP_REG_STATE" = changed ]; }; then
   log "a running synapse reads these only at start: deploy.sh restarts it for you; by hand, ./dc restart synapse"
+fi
+if [ "$WA_CONFIG_STATE" = changed ]; then
+  log "the bridge reads its config only at start: deploy.sh restarts it for you; by hand, ./dc restart mautrix-whatsapp"
 fi

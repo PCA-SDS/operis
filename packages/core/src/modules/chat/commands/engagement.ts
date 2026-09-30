@@ -1,8 +1,10 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
 import type { CommandHandler } from '@open-mercato/shared/lib/commands'
 import { registerCommand } from '@open-mercato/shared/lib/commands'
-import { forbidden, isUniqueViolation } from '@open-mercato/shared/lib/crud/errors'
+import { badRequest, forbidden, isUniqueViolation } from '@open-mercato/shared/lib/crud/errors'
 import { ChatMessageReaction, ChatPinnedMessage } from '../data/entities'
+import { requireConnectedAccountFor } from '../lib/accounts'
+import { hasAccess } from '../lib/access'
 import { dbNow } from '../lib/clock'
 import { loadChatMessages } from '../lib/messages'
 import type { ChatScope } from '../lib/scope'
@@ -71,9 +73,33 @@ const toggleReactionCommand: CommandHandler<
 
     const scope: ChatScope = { tenantId: input.tenantId, organizationId: input.organizationId }
     const actor = await resolveChatActor(ctx, input.externalOrigin)
+    // A reaction belongs to a person. The company's phone reacting is visible on
+    // WhatsApp; the projector does not bring it across.
+    if (actor.kind === 'account') throw badRequest('[internal] a messaging account does not react')
     const em = forkEm(ctx)
 
-    await requireMessageInConversation(em, scope, input.conversationId, input.messageId, actor)
+    const { conversation, participant, message } = await requireMessageInConversation(
+      em,
+      scope,
+      input.conversationId,
+      input.messageId,
+      actor,
+    )
+    // A reaction to an internal note stays among colleagues, like the note.
+    const internal = message.visibility === 'internal'
+    // Reacting to what the client sees reaches the client; that takes a participant.
+    if (
+      conversation.kind === 'external' &&
+      actor.kind === 'user' &&
+      !input.externalOrigin &&
+      !internal &&
+      !hasAccess(participant, 'participant')
+    ) {
+      throw forbidden((await loadChatMessages()).accessViewerCannotReply)
+    }
+    if (actor.kind === 'user' && !input.externalOrigin && !internal) {
+      await requireConnectedAccountFor(em, scope, conversation, (await loadChatMessages()).accountNotConnected)
+    }
 
     // Each kind of reactor is looked up by its own column: a `userId: null`
     // filter would find an outsider's reaction and toggle it off.
@@ -130,7 +156,7 @@ const toggleReactionCommand: CommandHandler<
     // message stream, so this is for the benefit of anything else reading the
     // room — a native client, or later a bridge — and is not something the
     // user's action depends on. With the default `local` transport it is a no-op.
-    if (!input.externalOrigin && actor.kind === 'user') {
+    if (!input.externalOrigin && actor.kind === 'user' && !internal) {
       await publishReactionSafely(chatTransportFrom(ctx), { em: forkEm(ctx) }, scope, {
         conversationId: input.conversationId,
         messageId: input.messageId,
@@ -167,7 +193,7 @@ async function requirePinPermission(
   userId: string,
 ) {
   const context = await requireMessageInConversation(em, scope, conversationId, messageId, { kind: 'user', userId })
-  if (context.conversation.kind === 'space' && context.participant.role !== 'owner') {
+  if (context.conversation.kind === 'space' && context.participant?.role !== 'owner') {
     throw forbidden((await loadChatMessages()).notPinPermitted)
   }
   return context

@@ -93,6 +93,59 @@ export const notificationTypes: NotificationTypeDefinition[] = [
     linkHref: '/backend/chat/{sourceEntityId}',
     expiresAfterHours: 168,
   },
+  {
+    /**
+     * Someone put you into a client chat — handed it over, or asked you to
+     * help. Addressed to one person, like a direct message, so it notifies.
+     */
+    type: 'chat.external.assigned',
+    module: 'chat',
+    titleKey: 'chat.notifications.assigned.title',
+    bodyKey: 'chat.notifications.assigned.body',
+    labelKey: 'chat.notifications.assigned.label',
+    descriptionKey: 'chat.notifications.assigned.description',
+    icon: 'user-plus',
+    severity: 'info',
+    category: 'chat',
+    actions: [
+      {
+        id: 'open',
+        labelKey: 'chat.notifications.open',
+        variant: 'outline',
+        href: '/backend/chat/{sourceEntityId}',
+        icon: 'external-link',
+      },
+    ],
+    linkHref: '/backend/chat/{sourceEntityId}',
+    expiresAfterHours: 168,
+  },
+  {
+    /**
+     * A connected account dropped — the phone was offline too long or the link
+     * was removed on the phone. Nothing arrives until someone reconnects, so the
+     * people who can are told, once per drop.
+     */
+    type: 'chat.account.disconnected',
+    module: 'chat',
+    titleKey: 'chat.notifications.accountDisconnected.title',
+    bodyKey: 'chat.notifications.accountDisconnected.body',
+    labelKey: 'chat.notifications.accountDisconnected.label',
+    descriptionKey: 'chat.notifications.accountDisconnected.description',
+    icon: 'unplug',
+    severity: 'warning',
+    category: 'chat',
+    actions: [
+      {
+        id: 'reconnect',
+        labelKey: 'chat.notifications.accountDisconnected.reconnect',
+        variant: 'outline',
+        href: '/backend/chat/accounts',
+        icon: 'plug',
+      },
+    ],
+    linkHref: '/backend/chat/accounts',
+    expiresAfterHours: 336,
+  },
 ]
 
 export default notificationTypes

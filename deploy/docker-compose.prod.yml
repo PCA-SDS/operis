@@ -367,6 +367,67 @@ services:
       # answers — ~70s measured on a laptop in dev; 180s covers a cold start.
       start_period: 180s
 
+  # ---------------------------------------------------------------------------
+  # WhatsApp bridge (profile: whatsapp, needs `matrix`) — OPT-IN PER STACK.
+  # ---------------------------------------------------------------------------
+  # COMPOSE_PROFILES=matrix,whatsapp. mautrix-whatsapp is AGPL-3.0 and runs as an
+  # UNMODIFIED, pinned upstream image, spoken to over Matrix and its provisioning
+  # API only (ADR-0006; .ai/specs/2026-09-29-whatsapp-bridge.md). Neither
+  # service publishes a port or joins `edge`: only Synapse and the app reach the
+  # bridge, over `internal`.
+
+  # One-shot: the bridge's own role and database inside matrix-postgres — a
+  # role of its own, so the bridge can never read the homeserver's tables.
+  mautrix-whatsapp-db:
+    image: postgres:17-alpine
+    container_name: ${STACK_NAME:-operis}-mautrix-whatsapp-db
+    restart: "no"
+    profiles: [ whatsapp ]
+    depends_on:
+      matrix-postgres: { condition: service_healthy }
+    environment:
+      PGHOST: matrix-postgres
+      PGUSER: ${MATRIX_PG_USER:-synapse}
+      PGPASSWORD: ${MATRIX_PG_PASSWORD:-}
+      PGDATABASE: ${MATRIX_PG_DATABASE:-synapse}
+      WHATSAPP_PG_USER: ${WHATSAPP_PG_USER:-mautrix_whatsapp}
+      WHATSAPP_PG_PASSWORD: ${WHATSAPP_PG_PASSWORD:-}
+      WHATSAPP_PG_DATABASE: ${WHATSAPP_PG_DATABASE:-mautrix_whatsapp}
+    entrypoint: [ "/bin/sh", "/ensure-database.sh" ]
+    volumes:
+      - ./matrix-template/ensure-database.sh:/ensure-database.sh:ro
+    networks: [ internal ]
+    security_opt: [ "no-new-privileges:true" ]
+    logging: *default-logging
+
+  mautrix-whatsapp:
+    image: dock.mau.dev/mautrix/whatsapp:v0.2609.0
+    container_name: ${STACK_NAME:-operis}-mautrix-whatsapp
+    restart: unless-stopped
+    profiles: [ whatsapp ]
+    depends_on:
+      synapse: { condition: service_healthy }
+      mautrix-whatsapp-db: { condition: service_completed_successfully }
+    # matrix-render.sh writes whatsapp/config.yaml as the deploy user (mode 600);
+    # the bridge runs as that same uid, read-only, with -n so it merges upstream
+    # defaults in memory and never rewrites the file. Skipping the image's
+    # entrypoint also skips its chown of /data.
+    user: "${SYNAPSE_UID:-991}:${SYNAPSE_GID:-991}"
+    entrypoint: [ "/usr/bin/mautrix-whatsapp", "-c", "/data/config.yaml", "-n" ]
+    volumes:
+      - ./whatsapp:/data:ro
+    networks: [ internal ]
+    security_opt: [ "no-new-privileges:true" ]
+    stop_grace_period: 30s
+    logging: *default-logging
+    mem_limit: ${WHATSAPP_MEM_LIMIT:-512m}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:29318/_matrix/mau/ready || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
 networks:
   internal:
     name: ${STACK_NAME:-operis}-internal

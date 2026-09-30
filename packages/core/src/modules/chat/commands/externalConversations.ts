@@ -8,6 +8,7 @@ import {
   ChatParticipant,
   MAX_SPACE_TITLE_LENGTH,
 } from '../data/entities'
+import { loadAccount, loadAccountTeamIds } from '../lib/accounts'
 import { dbNow } from '../lib/clock'
 import { loadChatMessages } from '../lib/messages'
 import { loadParticipant, requireIdentityId } from '../lib/participants'
@@ -57,9 +58,17 @@ export type EnsureExternalContactInput = {
   /** A label such as `whatsapp` — lowercase, no spaces. */
   network: string
   displayName: string
+  /**
+   * The number the network addresses them by, in E.164 (`+4915112345678`),
+   * when it reveals one. Absent leaves what is stored alone: a network that
+   * hides it this time has not taken it back.
+   */
+  handle?: string | null
 }
 
 export type EnsureExternalContactResult = { id: string; created: boolean }
+
+const HANDLE_PATTERN = /^\+[1-9]\d{6,14}$/
 
 /**
  * Record an outsider, or refresh their name. Writes only when something
@@ -78,6 +87,7 @@ const ensureExternalContactCommand: CommandHandler<EnsureExternalContactInput, E
     }
     const displayName = input.displayName.trim().slice(0, MAX_CONTACT_NAME_LENGTH)
     if (displayName.length === 0) throw badRequest('[internal] an external contact needs a display name')
+    const handle = typeof input.handle === 'string' && HANDLE_PATTERN.test(input.handle) ? input.handle : undefined
 
     const scope = scopeOf(input)
     const where = { id, tenantId: scope.tenantId, organizationId: scope.organizationId }
@@ -85,9 +95,11 @@ const ensureExternalContactCommand: CommandHandler<EnsureExternalContactInput, E
 
     const existing = await findOneWithDecryption(em, ChatExternalContact, where, {}, scope)
     if (existing) {
-      if (existing.displayName !== displayName || existing.network !== input.network) {
+      const newHandle = handle !== undefined && (existing.handle ?? null) !== handle
+      if (existing.displayName !== displayName || existing.network !== input.network || newHandle) {
         existing.displayName = displayName
         existing.network = input.network
+        if (newHandle) existing.handle = handle
         await em.flush()
       }
       return { id, created: false }
@@ -100,6 +112,7 @@ const ensureExternalContactCommand: CommandHandler<EnsureExternalContactInput, E
           ...where,
           network: input.network,
           displayName,
+          handle: handle ?? null,
           createdAt: now,
           updatedAt: now,
         }),
@@ -123,8 +136,17 @@ export type CreateExternalConversationInput = {
   /** A group's name. A one-to-one conversation leaves it empty and is named after its contact. */
   title?: string | null
   externalContactIds: string[]
-  /** The colleagues who handle it. At least one: a conversation nobody inside can read is a black hole. */
+  /**
+   * The colleagues who handle it. At least one: a conversation nobody inside can
+   * read is a black hole. May be empty when `messagingAccountId` is given — the
+   * account's team is seated then.
+   */
   memberUserIds: string[]
+  /**
+   * The messaging account the chat came in through — a portal a bridge created
+   * for a connected WhatsApp number. Its replies leave from that account.
+   */
+  messagingAccountId?: string | null
 }
 
 export type CreateExternalConversationResult = { conversationId: string }
@@ -141,12 +163,28 @@ const createExternalConversationCommand: CommandHandler<
 
     const scope = scopeOf(input)
     const contactIds = [...new Set(input.externalContactIds.map((id) => requireIdentityId(id)))]
-    const memberUserIds = [...new Set(input.memberUserIds.map((id) => requireIdentityId(id)))]
     if (contactIds.length === 0) throw badRequest('[internal] an external conversation needs an external contact')
-    if (memberUserIds.length === 0) throw badRequest('[internal] an external conversation needs a colleague')
 
     const title = input.title?.trim().slice(0, MAX_SPACE_TITLE_LENGTH) || null
     const em = forkEm(ctx)
+
+    const account = input.messagingAccountId
+      ? await loadAccount(em, scope, requireIdentityId(input.messagingAccountId))
+      : null
+    if (input.messagingAccountId && !account) {
+      throw notFound('[internal] that messaging account is not known to this organization')
+    }
+    const memberUserIds = account
+      ? await accountTeam(em, scope, account, input.memberUserIds)
+      : [...new Set(input.memberUserIds.map((id) => requireIdentityId(id)))]
+    if (memberUserIds.length === 0) throw badRequest('[internal] an external conversation needs a colleague')
+    /**
+     * History a connected account imports is not news. The team's read cursors
+     * start at the moment the account connected, so what was said before that
+     * arrives read and notifies nobody, and anything said after it — a customer
+     * writing for the first time — is unread and tells them.
+     */
+    const readFrom = account?.connectedAt ?? null
 
     const contacts = await findWithDecryption(
       em,
@@ -170,6 +208,7 @@ const createExternalConversationCommand: CommandHandler<
         organizationId: scope.organizationId,
         kind: 'external',
         title,
+        messagingAccountId: account?.id ?? null,
         lastMessageAt: now,
         createdAt: now,
         updatedAt: now,
@@ -177,6 +216,8 @@ const createExternalConversationCommand: CommandHandler<
       tx.persist(conversation)
       await tx.flush()
 
+      // The colleagues a chat opens with own it: they answer the client and
+      // hand it over. People added later start as viewers.
       for (const userId of memberUserIds) {
         tx.persist(
           tx.create(ChatParticipant, {
@@ -184,6 +225,8 @@ const createExternalConversationCommand: CommandHandler<
             organizationId: scope.organizationId,
             conversationId: conversation.id,
             userId,
+            access: 'manager',
+            lastReadAt: readFrom,
             createdAt: now,
             updatedAt: now,
           }),
@@ -210,6 +253,32 @@ const createExternalConversationCommand: CommandHandler<
     await emitConversationEvent('chat.conversation.created', scope, memberUserIds, { conversationId })
     return { conversationId }
   },
+}
+
+/**
+ * Who handles a chat that came in through an account: the colleagues named, or
+ * else the account's team — its owner alone, for a personal account. A team
+ * with nobody left in the organization falls back to whoever connected the
+ * account, so a customer is never left writing to nobody while one person
+ * who set it up is still here.
+ */
+async function accountTeam(
+  em: import('@mikro-orm/postgresql').EntityManager,
+  scope: ChatScope,
+  account: { id: string; ownerType: string; ownerUserId?: string | null; connectedByUserId?: string | null },
+  named: readonly string[],
+): Promise<string[]> {
+  // Named colleagues are checked strictly by the caller, like any other.
+  if (named.length > 0) return [...new Set(named.map((id) => requireIdentityId(id)))]
+  const candidates =
+    account.ownerType === 'user'
+      ? [account.ownerUserId].filter((id): id is string => typeof id === 'string')
+      : await loadAccountTeamIds(em, scope, account.id)
+  const active = await loadOrganizationMembers(em, scope, candidates)
+  const team = candidates.filter((id) => active.has(id))
+  if (team.length > 0 || !account.connectedByUserId) return team
+  const fallback = await loadOrganizationMembers(em, scope, [account.connectedByUserId])
+  return fallback.has(account.connectedByUserId) ? [account.connectedByUserId] : []
 }
 
 export type AddExternalParticipantInput = {

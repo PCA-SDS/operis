@@ -46,6 +46,8 @@ const ALLOWED: Record<string, string> = {
     "A pay link's default merchant colours are saved with the link; they are data, not UI chrome.",
   'packages/core/src/modules/customers/components/detail/ManageTagsDialog.tsx':
     "A new tag's default colour is saved with the tag; it is data, not UI chrome.",
+  'packages/core/src/modules/chat/components/accounts/QrCode.tsx':
+    'A QR code is dark on light in both themes: phone cameras read that contrast, and inverted codes fail on some scanners.',
 }
 
 function walk(dir: string, files: string[]) {

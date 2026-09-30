@@ -204,6 +204,10 @@ services:
         condition: service_healthy
     environment:
       SYNAPSE_CONFIG_PATH: /data/homeserver.yaml
+    # Push mode delivers to the app on the host (http://host.docker.internal:3000).
+    # Docker Desktop resolves that name natively; Linux needs this alias.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       # Loopback only. Synapse holds every chat message and its client API is
       # authenticated by bearer token; publishing it on 0.0.0.0 would offer that
@@ -244,6 +248,66 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+    networks:
+      - mercato-network
+
+  # One-shot: the WhatsApp bridge's own role and database inside matrix-postgres.
+  # A role of its own, so the bridge can never read the homeserver's tables.
+  mautrix-whatsapp-db:
+    image: postgres:17-alpine
+    container_name: mercato-mautrix-whatsapp-db
+    profiles:
+      - matrix
+    restart: "no"
+    depends_on:
+      matrix-postgres:
+        condition: service_healthy
+    environment:
+      PGHOST: matrix-postgres
+      PGUSER: ${MATRIX_PG_USER:-synapse}
+      PGPASSWORD: ${MATRIX_PG_PASSWORD:-synapse}
+      PGDATABASE: ${MATRIX_PG_DATABASE:-synapse}
+      WHATSAPP_PG_USER: ${WHATSAPP_PG_USER:-mautrix_whatsapp}
+      WHATSAPP_PG_PASSWORD: ${WHATSAPP_PG_PASSWORD:-}
+      WHATSAPP_PG_DATABASE: ${WHATSAPP_PG_DATABASE:-mautrix_whatsapp}
+    entrypoint: ["/bin/sh", "/ensure-database.sh"]
+    volumes:
+      - ./docker/matrix/mautrix-whatsapp/ensure-database.sh:/ensure-database.sh:ro
+    networks:
+      - mercato-network
+
+  # The WhatsApp bridge — an UNMODIFIED upstream image (AGPL-3.0), spoken to over
+  # Matrix and its provisioning API only. See ADR-0006 and
+  # .ai/specs/2026-09-29-whatsapp-bridge.md. Pinned: a new release migrates its
+  # own schema on start.
+  mautrix-whatsapp:
+    image: dock.mau.dev/mautrix/whatsapp:v0.2609.0
+    container_name: mercato-mautrix-whatsapp
+    restart: unless-stopped
+    profiles:
+      - matrix
+    depends_on:
+      synapse:
+        condition: service_healthy
+      mautrix-whatsapp-db:
+        condition: service_completed_successfully
+    # The rendered config is read-only and 600-mode: the bridge runs as the
+    # developer and with -n, so it merges upstream defaults in memory and never
+    # rewrites the file. Skipping the image's entrypoint also skips its chown.
+    user: "${MATRIX_DEV_UID:-1000}:${MATRIX_DEV_GID:-1000}"
+    entrypoint: ["/usr/bin/mautrix-whatsapp", "-c", "/data/config.yaml", "-n"]
+    ports:
+      # Loopback only: the provisioning API starts a WhatsApp login for any
+      # account on this homeserver, guarded by one shared secret.
+      - "127.0.0.1:${MATRIX_WHATSAPP_PORT:-29318}:29318"
+    volumes:
+      - ./.matrix-dev/whatsapp:/data:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:29318/_matrix/mau/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     networks:
       - mercato-network
 

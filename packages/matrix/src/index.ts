@@ -25,6 +25,7 @@ export {
   matrixConfigFromEnv,
   parseBridgeGhosts,
   type MatrixBridgeGhost,
+  type MatrixBridgeProvisioning,
   type MatrixConfig,
   type MatrixCredentials,
 } from './config'
@@ -39,6 +40,12 @@ export {
   botMxid,
   isOwnedIdentity,
   assertMasqueradable,
+  PERSONAL_ACCOUNT_PREFIX,
+  localpartForAccount,
+  accountMxid,
+  accountFromMxid,
+  assertAccountIdentity,
+  type MessagingAccountOwner,
   type MatrixIdentityConfig,
   type ParsedMxid,
 } from './identity'
@@ -90,7 +97,16 @@ export {
 } from './appservice'
 
 export {
+  BridgeProvisioningClient,
+  type BridgeLoginStep,
+  type BridgeLoginField,
+  type BridgeLogin,
+  type BridgeWhoami,
+} from './provisioning'
+
+export {
   MatrixClient,
+  type MatrixClientScope,
   type RequestOptions,
   type SendEventResult,
   type WhoamiResult,

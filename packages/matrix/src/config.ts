@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { MatrixConfigError } from './errors'
-import type { MatrixIdentityConfig } from './identity'
+import { PERSONAL_ACCOUNT_PREFIX, type MatrixIdentityConfig } from './identity'
 
 /**
  * Appservice credentials, as they arrive from the environment or the encrypted
@@ -36,11 +36,32 @@ export const matrixCredentialsSchema = z.object({
   bridgeGhosts: z
     .array(z.object({ network: z.string().min(1).max(32), prefix: z.string().min(1).max(64) }))
     .default([]),
+  /**
+   * The double-puppet registration's `as_token`. Acts only as account
+   * identities (see `MatrixClient` scope `accounts`) — the one way to reach a
+   * personal WhatsApp account. As sensitive as `asToken`.
+   */
+  doublePuppetAsToken: z.string().min(32).optional(),
+  /**
+   * Each bridge's provisioning API, by network: where logins start and the
+   * shared secret that authorises them. A network listed here must also be in
+   * `bridgeGhosts`, or its contacts would be unknown senders.
+   */
+  provisioning: z
+    .record(z.string(), z.object({ url: z.string().min(1), secret: z.string().min(32) }))
+    .default({}),
 })
 
 export type MatrixCredentials = z.infer<typeof matrixCredentialsSchema>
 
 export type MatrixBridgeGhost = { network: string; prefix: string }
+
+export type MatrixBridgeProvisioning = {
+  /** Normalised origin of the bridge's appservice listener, e.g. `http://mautrix-whatsapp:29318`. */
+  url: string
+  /** `provisioning.shared_secret` — never log it, never send it anywhere but that origin. */
+  secret: string
+}
 
 export type MatrixConfig = MatrixIdentityConfig & {
   /** Normalised: no trailing slash, so path concatenation is unambiguous. */
@@ -49,6 +70,10 @@ export type MatrixConfig = MatrixIdentityConfig & {
   hsToken?: string
   /** Bridge ghost namespaces an outsider may speak from. Absent means none. */
   bridgeGhosts?: readonly MatrixBridgeGhost[]
+  /** The double-puppet token; see the credentials schema. Absent means no personal accounts. */
+  doublePuppetAsToken?: string
+  /** Bridge provisioning APIs by network. Absent means no account can be connected. */
+  provisioning?: Readonly<Record<string, MatrixBridgeProvisioning>>
 }
 
 const LOCALPART_PATTERN = /^[a-z0-9._=/+-]+$/
@@ -79,34 +104,25 @@ function isPrivateHost(hostname: string): boolean {
  * The homeserver URL is operator-supplied and this process will send it a
  * credential, so it is validated the way any outbound-request target is.
  */
-function assertSafeHomeserverUrl(raw: string): URL {
+function assertSafeServiceUrl(raw: string, field: string): URL {
   let url: URL
   try {
     url = new URL(raw)
   } catch {
-    throw new MatrixConfigError('[internal] homeserverUrl is not a valid URL', 'homeserverUrl')
+    throw new MatrixConfigError(`[internal] ${field} is not a valid URL`, field)
   }
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-    throw new MatrixConfigError('[internal] homeserverUrl must use http or https', 'homeserverUrl')
+    throw new MatrixConfigError(`[internal] ${field} must use http or https`, field)
   }
   if (url.username || url.password) {
     // Credentials in the URL would be logged by anything that logs the URL.
-    throw new MatrixConfigError(
-      '[internal] homeserverUrl must not embed credentials',
-      'homeserverUrl',
-    )
+    throw new MatrixConfigError(`[internal] ${field} must not embed credentials`, field)
   }
   if (url.search || url.hash) {
-    throw new MatrixConfigError(
-      '[internal] homeserverUrl must be an origin, without query or fragment',
-      'homeserverUrl',
-    )
+    throw new MatrixConfigError(`[internal] ${field} must be an origin, without query or fragment`, field)
   }
   if (url.protocol === 'http:' && !isPrivateHost(url.hostname)) {
-    throw new MatrixConfigError(
-      '[internal] homeserverUrl must use https for a publicly resolvable host',
-      'homeserverUrl',
-    )
+    throw new MatrixConfigError(`[internal] ${field} must use https for a publicly resolvable host`, field)
   }
   return url
 }
@@ -122,7 +138,7 @@ export function resolveMatrixConfig(input: unknown): MatrixConfig {
   }
   const credentials = parsed.data
 
-  const url = assertSafeHomeserverUrl(credentials.homeserverUrl)
+  const url = assertSafeServiceUrl(credentials.homeserverUrl, 'homeserverUrl')
 
   if (!SERVER_NAME_PATTERN.test(credentials.serverName)) {
     throw new MatrixConfigError('[internal] serverName is not a valid Matrix domain', 'serverName')
@@ -168,11 +184,15 @@ export function resolveMatrixConfig(input: unknown): MatrixConfig {
     }
     // A prefix that reaches into Operis' own namespace would let the bot, the
     // appservice sender or a colleague's identity read as an outsider.
+    // Nor into personal account identities, which would read as an outsider in
+    // their own conversations.
     const overlapsOperis =
       ghost.prefix.startsWith(credentials.userPrefix) ||
       credentials.userPrefix.startsWith(ghost.prefix) ||
       credentials.senderLocalpart.startsWith(ghost.prefix) ||
-      credentials.botLocalpart.startsWith(ghost.prefix)
+      credentials.botLocalpart.startsWith(ghost.prefix) ||
+      ghost.prefix.startsWith(PERSONAL_ACCOUNT_PREFIX) ||
+      PERSONAL_ACCOUNT_PREFIX.startsWith(ghost.prefix)
     if (overlapsOperis) {
       throw new MatrixConfigError(
         '[internal] a bridge ghost prefix overlaps the Operis namespace, sender or bot',
@@ -185,6 +205,23 @@ export function resolveMatrixConfig(input: unknown): MatrixConfig {
     seenPrefixes.add(ghost.prefix)
   }
 
+  const provisioning: Record<string, MatrixBridgeProvisioning> = {}
+  for (const [network, entry] of Object.entries(credentials.provisioning)) {
+    if (!NETWORK_PATTERN.test(network)) {
+      throw new MatrixConfigError('[internal] a provisioning network is a lowercase label such as whatsapp', 'provisioning')
+    }
+    // A bridge whose logins work but whose contacts Operis cannot recognise
+    // would deliver every customer message as an unknown sender — dropped.
+    if (!credentials.bridgeGhosts.some((ghost) => ghost.network === network)) {
+      throw new MatrixConfigError(
+        `[internal] ${network} has a provisioning API but no entry in bridgeGhosts`,
+        'provisioning',
+      )
+    }
+    const serviceUrl = assertSafeServiceUrl(entry.url, 'provisioning')
+    provisioning[network] = { url: serviceUrl.toString().replace(/\/+$/, ''), secret: entry.secret }
+  }
+
   return {
     baseUrl: url.toString().replace(/\/+$/, ''),
     serverName: credentials.serverName,
@@ -194,6 +231,8 @@ export function resolveMatrixConfig(input: unknown): MatrixConfig {
     userPrefix: credentials.userPrefix,
     botLocalpart: credentials.botLocalpart,
     bridgeGhosts: credentials.bridgeGhosts,
+    doublePuppetAsToken: credentials.doublePuppetAsToken,
+    provisioning,
   }
 }
 
@@ -242,5 +281,24 @@ export function matrixConfigFromEnv(env: NodeJS.ProcessEnv = process.env): Matri
     userPrefix: env.OM_MATRIX_USER_PREFIX,
     botLocalpart: env.OM_MATRIX_BOT_LOCALPART,
     bridgeGhosts: parseBridgeGhosts(env.OM_MATRIX_BRIDGE_GHOSTS),
+    doublePuppetAsToken: env.OM_MATRIX_DOUBLE_PUPPET_AS_TOKEN || undefined,
+    provisioning: provisioningFromEnv(env),
   })
+}
+
+/**
+ * `OM_MATRIX_WHATSAPP_PROVISIONING_URL` + `_SECRET`. Both or neither: one
+ * without the other is a half-configured bridge, refused rather than ignored.
+ */
+function provisioningFromEnv(env: NodeJS.ProcessEnv): Record<string, { url: string; secret: string }> {
+  const url = env.OM_MATRIX_WHATSAPP_PROVISIONING_URL?.trim()
+  const secret = env.OM_MATRIX_WHATSAPP_PROVISIONING_SECRET?.trim()
+  if (!url && !secret) return {}
+  if (!url || !secret) {
+    throw new MatrixConfigError(
+      '[internal] OM_MATRIX_WHATSAPP_PROVISIONING_URL and _SECRET must be set together',
+      'provisioning',
+    )
+  }
+  return { whatsapp: { url, secret } }
 }

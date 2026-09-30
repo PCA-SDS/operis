@@ -758,7 +758,14 @@ test.describe('TC-CHAT-012: external participants on a bridged room', () => {
         ],
         [
           'no bridge is configured',
-          async () => mercato(linkArgs({ ...base, roomId: await bridgedRoom('QA none', [ghost]) }), { OM_MATRIX_BRIDGE_GHOSTS: '' }),
+          // A bridge's provisioning API needs its ghosts listed, so a deployment
+          // that also connects WhatsApp accounts drops both together.
+          async () =>
+            mercato(linkArgs({ ...base, roomId: await bridgedRoom('QA none', [ghost]) }), {
+              OM_MATRIX_BRIDGE_GHOSTS: '',
+              OM_MATRIX_WHATSAPP_PROVISIONING_URL: '',
+              OM_MATRIX_WHATSAPP_PROVISIONING_SECRET: '',
+            }),
           /Refused \(no-bridges\)/,
         ],
         ['the room is already linked', () => mercato(linkArgs({ ...base, roomId })), /Refused \(already-mapped\)/],

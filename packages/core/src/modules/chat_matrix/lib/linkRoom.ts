@@ -4,6 +4,7 @@ import { botMxid, bridgeGhostNetwork } from '@open-mercato/matrix'
 import { loadOrganizationMembers, type ChatScope } from '@open-mercato/core/modules/chat/lib/scope'
 import { ChatMatrixRoom } from '../data/entities'
 import { addRoomMember } from './rooms'
+import { ensureBotRegistered } from './identities'
 import { externalContactIdFor, fallbackGhostName, systemContext, type OutsiderDeps } from './outsiders'
 
 const logger = createLogger('chat_matrix').child({ component: 'link-room' })
@@ -132,6 +133,7 @@ export async function linkExternalRoom(
   await assertContactNamesEncrypt(deps, scope)
 
   const bot = botMxid(deps.config)
+  await ensureBotRegistered(deps)
   let joined: Record<string, unknown> = {}
   try {
     joined = (await deps.client.joinedMembers(roomId, bot)).joined ?? {}

@@ -23,6 +23,7 @@ import type { ChatScope } from '@open-mercato/core/modules/chat/lib/scope'
 import { ChatMatrixEvent, ChatMatrixRoom } from '../data/entities'
 import { reactionSubjectKey } from './subjectKey'
 import { ingestMatrixMedia } from './media'
+import { adoptionHint, adoptPortal } from './adoption'
 import {
   actorContext,
   actorKey,
@@ -86,6 +87,8 @@ export type ProjectionSkipReason =
   | 'unmapped-target'
   /** The command refused: Operis' own rule, applied to a Matrix actor. */
   | 'not-permitted'
+  /** Said in a chat moved in from a personal WhatsApp before it was moved. */
+  | 'before-move'
 
 /**
  * Project one event, or explain why not.
@@ -107,6 +110,16 @@ export async function projectEvent(
   // second heuristic, and a redelivered event is too.
   const known = await deps.em.findOne(ChatMatrixEvent, { eventId: event.event_id })
   if (known) return { kind: 'skipped', reason: 'already-known' }
+
+  // A company account's identity arriving in a room: a new WhatsApp chat.
+  // Adopted here, before anything else in the room is projected, so its first
+  // message has a conversation to land in. A failure throws, and the job that
+  // carried the event retries rather than skipping the chat's opening lines.
+  const accountMxid = adoptionHint(deps, event)
+  if (accountMxid) {
+    await adoptPortal(deps, roomId, accountMxid)
+    return { kind: 'skipped', reason: 'not-a-message' }
+  }
 
   // The three relations, before the plain-message path. Each one changes a
   // message that already exists rather than adding one, so each resolves its
@@ -140,12 +153,20 @@ export async function projectEvent(
     return { kind: 'skipped', reason: 'operis-orphan' }
   }
 
-  const room = await deps.em.findOne(ChatMatrixRoom, { roomId })
+  // An unmapped room is either a company account's chat whose arrival was
+  // missed — adopted now — or somewhere Operis has no business reading.
+  const room = (await deps.em.findOne(ChatMatrixRoom, { roomId })) ?? (await adoptPortal(deps, roomId))
   if (!room) {
     // A room the appservice can see but Operis never created. Not an error —
     // the bot may have been invited to something, and reading it into a
     // conversation nobody authorized would be the actual bug.
     return { kind: 'skipped', reason: 'unmapped-room' }
+  }
+  // A chat moved in from a personal WhatsApp brings only what is said from the
+  // move on. The bot's first sync hands it the room's recent history; that
+  // history stays the employee's.
+  if (room.projectFrom && event.origin_server_ts < room.projectFrom.getTime()) {
+    return { kind: 'skipped', reason: 'before-move' }
   }
 
   // A colleague, or — in an external conversation — an outsider a bridge

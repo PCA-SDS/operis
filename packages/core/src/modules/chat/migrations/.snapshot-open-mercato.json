@@ -161,6 +161,23 @@
           "enumItems": [],
           "mappedType": "uuid"
         },
+        "messaging_account_id": {
+          "name": "messaging_account_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
         "organization_id": {
           "name": "organization_id",
           "type": "uuid",
@@ -235,6 +252,15 @@
           "columnNames": [],
           "composite": false,
           "constraint": false,
+          "keyName": "chat_conversations_account_idx",
+          "primary": false,
+          "unique": false,
+          "expression": "create index \"chat_conversations_account_idx\" on \"chat_conversations\" (\"messaging_account_id\") where \"messaging_account_id\" is not null"
+        },
+        {
+          "columnNames": [],
+          "composite": false,
+          "constraint": false,
           "keyName": "chat_conversations_direct_uq",
           "primary": false,
           "unique": false,
@@ -277,6 +303,11 @@
       ],
       "checks": [
         {
+          "name": "chat_conversations_account_chk",
+          "expression": "\"messaging_account_id\" is null or \"kind\" = 'external'",
+          "definition": "check (\"messaging_account_id\" is null or \"kind\" = 'external')"
+        },
+        {
           "name": "chat_conversations_kind_shape_chk",
           "expression": "(\"kind\" = 'direct' and \"direct_key\" is not null and \"title\" is null) or (\"kind\" = 'space' and \"title\" is not null and \"direct_key\" is null) or (\"kind\" = 'external' and \"direct_key\" is null)",
           "definition": "check ((\"kind\" = 'direct' and \"direct_key\" is not null and \"title\" is null) or (\"kind\" = 'space' and \"title\" is not null and \"direct_key\" is null) or (\"kind\" = 'external' and \"direct_key\" is null))"
@@ -307,6 +338,57 @@
           "enumItems": [],
           "mappedType": "datetime"
         },
+        "customer_entity_id": {
+          "name": "customer_entity_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "customer_linked_at": {
+          "name": "customer_linked_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "customer_linked_by_user_id": {
+          "name": "customer_linked_by_user_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
         "display_name": {
           "name": "display_name",
           "type": "text",
@@ -314,6 +396,23 @@
           "autoincrement": false,
           "primary": false,
           "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "text"
+        },
+        "handle": {
+          "name": "handle",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
           "unique": false,
           "length": null,
           "precision": null,
@@ -412,6 +511,15 @@
       },
       "indexes": [
         {
+          "columnNames": [],
+          "composite": false,
+          "constraint": false,
+          "keyName": "chat_external_contacts_customer_idx",
+          "primary": false,
+          "unique": false,
+          "expression": "create index \"chat_external_contacts_customer_idx\" on \"chat_external_contacts\" (\"tenant_id\", \"organization_id\", \"customer_entity_id\") where \"customer_entity_id\" is not null"
+        },
+        {
           "columnNames": [
             "id"
           ],
@@ -446,6 +554,11 @@
         }
       ],
       "checks": [
+        {
+          "name": "chat_external_contacts_customer_chk",
+          "expression": "(\"customer_entity_id\" is null) = (\"customer_linked_at\" is null)",
+          "definition": "check ((\"customer_entity_id\" is null) = (\"customer_linked_at\" is null))"
+        },
         {
           "name": "chat_external_contacts_network_chk",
           "expression": "\"network\" ~ '^[a-z][a-z0-9-]{0,31}$'",
@@ -1486,6 +1599,23 @@
           "enumItems": [],
           "mappedType": "text"
         },
+        "sender_account_id": {
+          "name": "sender_account_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
         "sender_external_contact_id": {
           "name": "sender_external_contact_id",
           "type": "uuid",
@@ -1587,6 +1717,23 @@
           "collation": null,
           "enumItems": [],
           "mappedType": "datetime"
+        },
+        "visibility": {
+          "name": "visibility",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": "'shared'",
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "text"
         }
       },
       "indexes": [
@@ -1655,8 +1802,536 @@
       "checks": [
         {
           "name": "chat_messages_sender_chk",
-          "expression": "num_nonnulls(\"sender_user_id\", \"sender_external_contact_id\") = 1 and (\"sender_external_contact_id\" is null or \"kind\" = 'user')",
-          "definition": "check (num_nonnulls(\"sender_user_id\", \"sender_external_contact_id\") = 1 and (\"sender_external_contact_id\" is null or \"kind\" = 'user'))"
+          "expression": "num_nonnulls(\"sender_user_id\", \"sender_external_contact_id\", \"sender_account_id\") = 1 and ((\"sender_external_contact_id\" is null and \"sender_account_id\" is null) or \"kind\" = 'user')",
+          "definition": "check (num_nonnulls(\"sender_user_id\", \"sender_external_contact_id\", \"sender_account_id\") = 1 and ((\"sender_external_contact_id\" is null and \"sender_account_id\" is null) or \"kind\" = 'user'))"
+        },
+        {
+          "name": "chat_messages_visibility_chk",
+          "expression": "\"visibility\" in ('shared', 'internal') and (\"visibility\" = 'shared' or (\"kind\" = 'user' and \"sender_user_id\" is not null))",
+          "definition": "check (\"visibility\" in ('shared', 'internal') and (\"visibility\" = 'shared' or (\"kind\" = 'user' and \"sender_user_id\" is not null)))"
+        }
+      ],
+      "triggers": [],
+      "foreignKeys": {},
+      "comment": null
+    },
+    {
+      "name": "chat_messaging_account_members",
+      "schema": "public",
+      "columns": {
+        "account_id": {
+          "name": "account_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": true,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": "gen_random_uuid()",
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        }
+      },
+      "indexes": [
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": true,
+          "keyName": "chat_messaging_account_members_pkey",
+          "primary": true,
+          "unique": true
+        },
+        {
+          "columnNames": [
+            "account_id",
+            "user_id"
+          ],
+          "composite": true,
+          "constraint": true,
+          "keyName": "chat_messaging_account_members_uq",
+          "primary": false,
+          "unique": true
+        },
+        {
+          "columnNames": [
+            "tenant_id",
+            "organization_id",
+            "user_id"
+          ],
+          "composite": true,
+          "constraint": false,
+          "keyName": "chat_messaging_account_members_user_idx",
+          "primary": false,
+          "unique": false
+        }
+      ],
+      "checks": [],
+      "triggers": [],
+      "foreignKeys": {},
+      "comment": null
+    },
+    {
+      "name": "chat_messaging_accounts",
+      "schema": "public",
+      "columns": {
+        "connected_at": {
+          "name": "connected_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "connected_by_user_id": {
+          "name": "connected_by_user_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "disconnected_at": {
+          "name": "disconnected_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        },
+        "display_name": {
+          "name": "display_name",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "text"
+        },
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": true,
+          "nullable": false,
+          "unique": true,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": "gen_random_uuid()",
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "login_step": {
+          "name": "login_step",
+          "type": "jsonb",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "json"
+        },
+        "network": {
+          "name": "network",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "text"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "owner_type": {
+          "name": "owner_type",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "text"
+        },
+        "owner_user_id": {
+          "name": "owner_user_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "remote_handle": {
+          "name": "remote_handle",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "text"
+        },
+        "show_sender_name": {
+          "name": "show_sender_name",
+          "type": "boolean",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": "false",
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "boolean"
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": "'pending'",
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "text"
+        },
+        "status_reason": {
+          "name": "status_reason",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "text"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": false,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "uuid"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamptz(6)",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": 6,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "datetime"
+        }
+      },
+      "indexes": [
+        {
+          "columnNames": [],
+          "composite": false,
+          "constraint": false,
+          "keyName": "chat_messaging_accounts_personal_uq",
+          "primary": false,
+          "unique": false,
+          "expression": "create unique index \"chat_messaging_accounts_personal_uq\" on \"chat_messaging_accounts\" (\"tenant_id\", \"organization_id\", \"owner_user_id\", \"network\") where \"owner_type\" = 'user' and \"deleted_at\" is null"
+        },
+        {
+          "columnNames": [
+            "id"
+          ],
+          "composite": false,
+          "constraint": true,
+          "keyName": "chat_messaging_accounts_pkey",
+          "primary": true,
+          "unique": true
+        },
+        {
+          "columnNames": [
+            "tenant_id",
+            "organization_id"
+          ],
+          "composite": true,
+          "constraint": false,
+          "keyName": "chat_messaging_accounts_scope_idx",
+          "primary": false,
+          "unique": false
+        },
+        {
+          "columnNames": [
+            "id",
+            "tenant_id",
+            "organization_id"
+          ],
+          "composite": true,
+          "constraint": true,
+          "keyName": "chat_messaging_accounts_scope_uq",
+          "primary": false,
+          "unique": true
+        }
+      ],
+      "checks": [
+        {
+          "name": "chat_messaging_accounts_network_chk",
+          "expression": "\"network\" ~ '^[a-z][a-z0-9-]{0,31}$'",
+          "definition": "check (\"network\" ~ '^[a-z][a-z0-9-]{0,31}$')"
+        },
+        {
+          "name": "chat_messaging_accounts_owner_chk",
+          "expression": "\"owner_type\" in ('company', 'user') and (\"owner_type\" = 'user') = (\"owner_user_id\" is not null)",
+          "definition": "check (\"owner_type\" in ('company', 'user') and (\"owner_type\" = 'user') = (\"owner_user_id\" is not null))"
+        },
+        {
+          "name": "chat_messaging_accounts_status_chk",
+          "expression": "\"status\" in ('pending', 'connecting', 'connected', 'disconnected', 'failed')",
+          "definition": "check (\"status\" in ('pending', 'connecting', 'connected', 'disconnected', 'failed'))"
         }
       ],
       "triggers": [],
@@ -1667,6 +2342,23 @@
       "name": "chat_participants",
       "schema": "public",
       "columns": {
+        "access": {
+          "name": "access",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": [],
+          "mappedType": "text"
+        },
         "conversation_id": {
           "name": "conversation_id",
           "type": "uuid",
@@ -1938,6 +2630,11 @@
         }
       ],
       "checks": [
+        {
+          "name": "chat_participants_access_chk",
+          "expression": "\"access\" is null or (\"access\" in ('viewer', 'participant', 'manager') and \"user_id\" is not null)",
+          "definition": "check (\"access\" is null or (\"access\" in ('viewer', 'participant', 'manager') and \"user_id\" is not null))"
+        },
         {
           "name": "chat_participants_external_shape_chk",
           "expression": "(\"external_contact_id\" is null) = (\"conversation_kind\" is null) and (\"conversation_kind\" is null or \"conversation_kind\" = 'external') and (\"external_contact_id\" is null or \"role\" = 'member')",

@@ -9,6 +9,7 @@ import { buildDirectKey } from '../lib/conversations'
 import { loadChatMessages } from '../lib/messages'
 import { loadOrganizationMember, type ChatScope } from '../lib/scope'
 import { loadParticipant, requireIdentityId, type ChatActor } from '../lib/participants'
+import { hasAccess, isChatAccess } from '../lib/access'
 import { publishReadReceiptSafely, publishTypingSafely } from '../lib/transport'
 import {
   actingUserId,
@@ -203,7 +204,7 @@ const markConversationReadCommand: CommandHandler<MarkConversationReadInput, { l
     const requestedAt = input.readAt ? new Date(input.readAt) : null
     const readAtParam = requestedAt && !Number.isNaN(requestedAt.getTime()) ? requestedAt : null
 
-    const updated = await sql<{ last_read_at: Date | string }>`
+    const updated = await sql<{ last_read_at: Date | string; access: string | null }>`
       update chat_participants
          set last_read_at = greatest(
                coalesce(last_read_at, '-infinity'::timestamptz),
@@ -217,7 +218,7 @@ const markConversationReadCommand: CommandHandler<MarkConversationReadInput, { l
          and ${readerColumn(actor)}
          and tenant_id = ${scope.tenantId}::uuid
          and organization_id = ${scope.organizationId}::uuid
-      returning last_read_at
+      returning last_read_at, access
     `.execute(em.getKysely())
 
     const row = updated.rows[0]
@@ -246,8 +247,11 @@ const markConversationReadCommand: CommandHandler<MarkConversationReadInput, { l
      * count is already correct from the UPDATE above, and nothing about it
      * depends on the homeserver hearing. With the local transport it is a no-op.
      */
+    // A viewer reading a client conversation is not the company reading it:
+    // the client's ticks turn blue only for someone who may answer them.
+    const mayTellTheRoom = hasAccess({ access: isChatAccess(row.access) ? row.access : null }, 'participant')
     const newest =
-      input.externalOrigin || actor.kind !== 'user'
+      input.externalOrigin || actor.kind !== 'user' || !mayTellTheRoom
         ? null
         : await newestReadableMessageId(em, scope, input.conversationId, lastReadAt)
     if (newest && actor.kind === 'user') {
@@ -267,6 +271,10 @@ const markConversationReadCommand: CommandHandler<MarkConversationReadInput, { l
  * matched on its own column, with the id asserted before it reaches SQL.
  */
 function readerColumn(actor: ChatActor) {
+  if (actor.kind === 'account') {
+    // The company's phone reading a chat is not a colleague reading it.
+    throw new Error('[internal] a messaging account has no read cursor')
+  }
   return actor.kind === 'user'
     ? sql`user_id = ${requireIdentityId(actor.userId)}::uuid`
     : sql`external_contact_id = ${requireIdentityId(actor.externalContactId)}::uuid`
@@ -293,6 +301,9 @@ async function newestReadableMessageId(
       tenantId: scope.tenantId,
       organizationId: scope.organizationId,
       kind: 'user',
+      // An internal note never reached the room, so there is no event to point
+      // a receipt at; the newest message that did is what was read there.
+      visibility: 'shared',
       deletedAt: null,
       createdAt: { $lte: new Date(lastReadAt) },
     },
@@ -376,6 +387,11 @@ export type SetTypingInput = {
   organizationId: string
   conversationId: string
   typing: boolean
+  /**
+   * Composing an internal note: colleagues still see it, the client never
+   * does — nothing is sent to the transport.
+   */
+  note?: boolean
   /** Set only by the transport's projector. Suppresses the mirror. */
   externalOrigin?: ChatEphemeralOrigin
 }
@@ -417,7 +433,9 @@ const setTypingCommand: CommandHandler<SetTypingInput, { typing: boolean }> = {
       })
     }
 
-    if (!input.externalOrigin) {
+    // Only someone who may answer the client makes the client see "typing…",
+    // and only while answering — not while writing a note.
+    if (!input.externalOrigin && !input.note && hasAccess(participant, 'participant')) {
       await publishTypingSafely(chatTransportFrom(ctx), { em: forkEm(ctx), container: ctx.container }, scope, {
         conversationId: input.conversationId,
         userId,

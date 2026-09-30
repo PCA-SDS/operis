@@ -64,9 +64,18 @@ write_state() {
 # COMPOSE_PROFILES from the same .env, so this is the one switch for both.
 matrix_enabled() {
   [ -f "$ENV_FILE" ] || return 1
-  case ",$(sed -n 's/^COMPOSE_PROFILES=//p' "$ENV_FILE" | tail -1)," in
+  case ",$(read_env COMPOSE_PROFILES)," in
     *,matrix,*) return 0 ;;
     *)          return 1 ;;
+  esac
+}
+
+# The WhatsApp bridge: its own profile, on top of `matrix`.
+whatsapp_enabled() {
+  matrix_enabled || return 1
+  case ",$(read_env COMPOSE_PROFILES)," in
+    *,whatsapp,*) return 0 ;;
+    *)            return 1 ;;
   esac
 }
 
@@ -78,6 +87,7 @@ status() {
   printf '\n=== health ===\n'
   local services="app postgres redis meilisearch"
   if matrix_enabled; then services="$services matrix-postgres synapse"; fi
+  if whatsapp_enabled; then services="$services mautrix-whatsapp"; fi
   for svc in $services; do
     cid="$(dc ps -q "$svc" 2>/dev/null || true)"
     if [ -n "$cid" ]; then
@@ -153,6 +163,30 @@ backup_matrix_database() {
     fail "pre-deploy backup of the homeserver database FAILED — refusing to deploy.
        Fix matrix-postgres first, or set SKIP_BACKUP=1 if you accept the risk."
   fi
+
+  # The WhatsApp bridge's database lives in the same instance and, like Synapse,
+  # migrates its own schema when a new image starts. It holds the WhatsApp
+  # sessions: losing it logs every connected account out.
+  whatsapp_enabled || return 0
+  local wa_db
+  wa_db="$(read_env WHATSAPP_PG_DATABASE)"; wa_db="${wa_db:-mautrix_whatsapp}"
+  printf '%s' "$wa_db" | grep -Eq '^[a-z_][a-z0-9_]{0,62}$' \
+    || fail "WHATSAPP_PG_DATABASE '$wa_db' is not a plain Postgres identifier"
+  if ! docker exec "$cid" psql -U "$user" -d "$db" -tAc "select 1 from pg_database where datname = '$wa_db'" 2>/dev/null | grep -q 1; then
+    log "no $wa_db database yet — skipping its pre-deploy backup (first WhatsApp deploy?)"
+    return 0
+  fi
+  label="predeploy-whatsapp-$(date -u '+%Y%m%dT%H%M%SZ')"
+  log "backing up the WhatsApp bridge database -> $BACKUP_DIR/$label.dump"
+  if docker exec "$cid" pg_dump -U "$user" -d "$wa_db" -Fc \
+       > "$BACKUP_DIR/$label.dump" 2>>"$LOG_FILE"; then
+    chmod 600 "$BACKUP_DIR/$label.dump"
+    log "backup complete ($(du -h "$BACKUP_DIR/$label.dump" | cut -f1))"
+  else
+    rm -f "$BACKUP_DIR/$label.dump"
+    fail "pre-deploy backup of the WhatsApp bridge database FAILED — refusing to deploy.
+       Fix matrix-postgres first, or set SKIP_BACKUP=1 if you accept the risk."
+  fi
 }
 
 # ------------------------------------------------------------------------------
@@ -226,7 +260,16 @@ perms="$(stat -c '%a' "$ENV_FILE")"
 # the container actually receives — and the check below would then be
 # validating a string no process ever sees.
 read_env() {
-  sed -n "s/^$1=//p" "$ENV_FILE" | tail -1
+  local value
+  value="$(sed -n "s/^$1=//p" "$ENV_FILE" | tail -1)"
+  # Compose strips one pair of matching quotes around a value, so this must
+  # too: otherwise COMPOSE_PROFILES="matrix" is on for compose and off here, and
+  # a quoted token lands in a rendered registration with its quotes attached.
+  case "$value" in
+    \"*\") value="${value#\"}"; value="${value%\"}" ;;
+    \'*\') value="${value#\'}"; value="${value%\'}" ;;
+  esac
+  printf '%s' "$value"
 }
 
 ENV_IMAGE="$(read_env APP_IMAGE)"
@@ -329,13 +372,20 @@ fi
 matrix_config_fingerprint() {
   [ -f "$APP_DIR/matrix/homeserver.yaml" ] || { printf 'none'; return; }
   cat "$APP_DIR/matrix/homeserver.yaml" "$APP_DIR/matrix/registration.operis.yaml" \
-      "$APP_DIR/matrix/log.config" 2>/dev/null | sha256sum | cut -d' ' -f1
+      "$APP_DIR/matrix/log.config" "$APP_DIR/matrix/registration.whatsapp.yaml" \
+      "$APP_DIR/matrix/registration.doublepuppet.yaml" 2>/dev/null | sha256sum | cut -d' ' -f1
+}
+whatsapp_config_fingerprint() {
+  [ -f "$APP_DIR/whatsapp/config.yaml" ] || { printf 'none'; return; }
+  sha256sum "$APP_DIR/whatsapp/config.yaml" | cut -d' ' -f1
 }
 MATRIX_BEFORE=none
+WHATSAPP_BEFORE=none
 if matrix_enabled; then
   [ -x "$APP_DIR/matrix-render.sh" ] \
     || fail "COMPOSE_PROFILES enables matrix but $APP_DIR/matrix-render.sh is missing — CI syncs it; run the workflow once"
   MATRIX_BEFORE="$(matrix_config_fingerprint)"
+  WHATSAPP_BEFORE="$(whatsapp_config_fingerprint)"
   log "matrix profile enabled — rendering the Synapse config"
   if ! "$APP_DIR/matrix-render.sh" 2>&1 | tee -a "$LOG_FILE"; then
     fail "matrix-render.sh failed (see above). Nothing was pulled, backed up or restarted."
@@ -446,6 +496,7 @@ fi
 # Sidecars too, so a compose `up` never stalls on a slow registry mid-restart.
 SIDECARS="postgres redis meilisearch translation"
 if matrix_enabled; then SIDECARS="$SIDECARS matrix-postgres synapse"; fi
+if whatsapp_enabled; then SIDECARS="$SIDECARS mautrix-whatsapp"; fi
 # shellcheck disable=SC2086
 dc pull --quiet $SIDECARS >>"$LOG_FILE" 2>&1 || true
 
@@ -476,6 +527,11 @@ if matrix_enabled && [ "$MATRIX_BEFORE" != none ] && [ "$MATRIX_BEFORE" != "$(ma
   log "Synapse config changed — restarting synapse"
   dc restart synapse >>"$LOG_FILE" 2>&1 || log "WARNING: synapse restart failed — ./dc logs synapse"
 fi
+# The bridge likewise reads its config only at start.
+if whatsapp_enabled && [ "$WHATSAPP_BEFORE" != none ] && [ "$WHATSAPP_BEFORE" != "$(whatsapp_config_fingerprint)" ]; then
+  log "WhatsApp bridge config changed — restarting mautrix-whatsapp"
+  dc restart mautrix-whatsapp >>"$LOG_FILE" 2>&1 || log "WARNING: mautrix-whatsapp restart failed — ./dc logs mautrix-whatsapp"
+fi
 
 # ------------------------------------------------------------------------------
 # 4. Verify, and roll the image back if it did not come up.
@@ -493,6 +549,18 @@ if wait_for_health; then
       log "synapse: $(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$cid" 2>/dev/null)"
     else
       log "WARNING: matrix profile enabled but no synapse container is running — ./dc logs synapse"
+    fi
+  fi
+
+  # The /sync reader and drift checks are registered when a tenant is first set
+  # up — so a stack initialised on `local` and switched to `matrix` later would
+  # have neither. Idempotent, and it leaves a schedule an operator disabled
+  # alone. Best-effort: the release is already live and healthy by now.
+  if [ "$(read_env OM_CHAT_TRANSPORT)" = "matrix" ]; then
+    if dc exec -T app yarn mercato chat_matrix schedules >>"$LOG_FILE" 2>&1; then
+      log "chat_matrix schedules registered"
+    else
+      log "WARNING: could not register the chat_matrix schedules — ./dc exec app yarn mercato chat_matrix schedules"
     fi
   fi
 

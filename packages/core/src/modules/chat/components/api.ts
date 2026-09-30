@@ -10,12 +10,14 @@ import type {
   ChatSettingsDto,
   ChatTranslationListDto,
   ChatConversationListDto,
+  ChatCrmSearchResultDto,
   ChatMemberListDto,
   ChatMessagePageDto,
   ChatSearchResultDto,
   ChatAttachmentDto,
   ChatDirectUploadTicketDto,
   ChatSharedResourcesDto,
+  ChatParticipantAccess,
   ChatParticipantRole,
   ChatSendMessageResultDto,
   ChatUnreadCountDto,
@@ -50,7 +52,7 @@ function searchQueryParams(params: ChatSearchParams): Record<string, string | nu
 }
 
 export const chatApi = {
-  searchDirectory: (params: { q?: string; limit?: number }, signal?: AbortSignal) =>
+  searchDirectory: (params: { q?: string; limit?: number; includeSelf?: 'true' }, signal?: AbortSignal) =>
     readApiResultOrThrow<ChatDirectoryResult>(`${BASE}/directory${toQueryString(params)}`, { signal }),
 
   listConversations: (params: { limit?: number }, signal?: AbortSignal) =>
@@ -85,10 +87,10 @@ export const chatApi = {
   listMembers: (id: string, params: { q?: string; limit?: number; offset?: number }, signal?: AbortSignal) =>
     readApiResultOrThrow<ChatMemberListDto>(`${BASE}/conversations/${id}/members${toQueryString(params)}`, { signal }),
 
-  addMembers: async (id: string, memberIds: string[]) =>
+  addMembers: async (id: string, memberIds: string[], access?: ChatParticipantAccess) =>
     (await apiCallOrThrow<{ added: string[] }>(
       `${BASE}/conversations/${id}/members`,
-      jsonRequestInit('POST', { memberIds }),
+      jsonRequestInit('POST', access ? { memberIds, access } : { memberIds }),
     )).result!,
 
   removeMember: async (id: string, userId: string) =>
@@ -101,6 +103,23 @@ export const chatApi = {
     (await apiCallOrThrow<{ userId: string; role: ChatParticipantRole }>(
       `${BASE}/conversations/${id}/members/${userId}`,
       jsonRequestInit('PATCH', { role }),
+    )).result!,
+
+  searchCrm: (id: string, q: string, signal?: AbortSignal) =>
+    readApiResultOrThrow<ChatCrmSearchResultDto>(`${BASE}/conversations/${id}/crm-search${toQueryString({ q })}`, {
+      signal,
+    }),
+
+  linkContactCustomer: async (id: string, contactId: string, customerEntityId: string | null) =>
+    (await apiCallOrThrow<{ externalContactId: string; customerEntityId: string | null }>(
+      `${BASE}/conversations/${id}/contacts/${contactId}/customer`,
+      jsonRequestInit('PUT', { customerEntityId }),
+    )).result!,
+
+  setMemberAccess: async (id: string, userId: string, access: ChatParticipantAccess) =>
+    (await apiCallOrThrow<{ userId: string; access: ChatParticipantAccess }>(
+      `${BASE}/conversations/${id}/members/${userId}`,
+      jsonRequestInit('PATCH', { access }),
     )).result!,
 
   listMessages: (id: string, params: { cursor?: string; limit?: number }, signal?: AbortSignal) =>
@@ -219,6 +238,8 @@ export const chatApi = {
       replyToMessageId?: string
       /** Staged attachment ids; the server validates each against its own row. */
       attachmentIds?: string[]
+      /** `internal` for an internal note in a client conversation. */
+      visibility?: 'shared' | 'internal'
     },
   ) =>
     (await apiCallOrThrow<ChatSendMessageResultDto>(

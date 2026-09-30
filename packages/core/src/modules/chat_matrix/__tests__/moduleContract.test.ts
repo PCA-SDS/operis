@@ -4,6 +4,7 @@ import { features } from '../acl'
 import { metadata } from '../index'
 import setup from '../setup'
 import {
+  ChatMatrixAccountLogin,
   ChatMatrixEvent,
   ChatMatrixIdentity,
   ChatMatrixRoom,
@@ -60,22 +61,23 @@ describe('ACL', () => {
 })
 
 describe('entities', () => {
-  it('owns exactly the five mapping tables', () => {
+  it('owns exactly its six tables: five mapping tables and the account logins', () => {
     const entities = [
       ChatMatrixIdentity,
       ChatMatrixRoom,
+      ChatMatrixAccountLogin,
       ChatMatrixEvent,
       ChatMatrixTransaction,
       ChatMatrixSyncState,
     ]
-    expect(entities).toHaveLength(5)
+    expect(entities).toHaveLength(6)
     expect(entities.every((entity) => typeof entity === 'function')).toBe(true)
   })
 
   it('prefixes every table with the module id', () => {
     const source = fs.readFileSync(path.join(MODULE_ROOT, 'data', 'entities.ts'), 'utf8')
     const tables = [...source.matchAll(/tableName:\s*'([^']+)'/g)].map((match) => match[1])
-    expect(tables).toHaveLength(5)
+    expect(tables).toHaveLength(6)
     expect(tables.filter((table) => !table.startsWith('chat_matrix_'))).toEqual([])
   })
 

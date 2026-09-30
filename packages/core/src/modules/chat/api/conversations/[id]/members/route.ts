@@ -3,6 +3,8 @@ import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { chatAddMembersSchema, chatMemberListQuerySchema } from '../../../../data/validators'
 import { chatConversationCreateRateLimit, chatDirectoryRateLimit } from '../../../../lib/rateLimits'
 import type { AddSpaceMembersInput } from '../../../../commands/spaces'
+import { ChatConversation, ChatParticipant } from '../../../../data/entities'
+import { withCrm } from '../../../../lib/crm'
 import {
   chatService,
   enforceChatRateLimit,
@@ -56,7 +58,21 @@ export async function GET(req: Request, context: { params?: Record<string, unkno
       offset: query.offset,
       query: query.q,
     })
-    return jsonOk(members)
+    // Past the membership check above, so these name only the caller's own row.
+    const where = { tenantId: request.scope.tenantId, organizationId: request.scope.organizationId }
+    const [conversation, seat] = await Promise.all([
+      request.em.findOne(ChatConversation, { ...where, id }),
+      request.em.findOne(ChatParticipant, { ...where, conversationId: id, userId: request.userId }),
+    ])
+    return jsonOk(
+      await withCrm(
+        request.em,
+        request.container,
+        request.scope,
+        { userId: request.userId, access: seat?.access ?? null, external: conversation?.kind === 'external' },
+        members,
+      ),
+    )
   } catch (error) {
     return toChatErrorResponse(error, 'chat.spaces.listMembers')
   }
@@ -90,6 +106,7 @@ export async function POST(req: Request, context: { params?: Record<string, unkn
         organizationId: request.scope.organizationId,
         conversationId: id,
         memberIds: body.memberIds,
+        access: body.access,
       },
       resourceKind: 'chat.conversation',
       resourceId: id,
@@ -110,14 +127,14 @@ export const openApi: OpenApiRouteDoc = {
     GET: {
       summary: 'List the members of a space',
       description:
-        'Members only; a space the caller does not belong to is indistinguishable from a missing one. Owners are listed first, then by join order. People who have left the organization are omitted rather than shown as blanks.',
+        'Members only; a space the caller does not belong to is indistinguishable from a missing one. Owners are listed first, then by join order. People who have left the organization are omitted rather than shown as blanks. In a client conversation, each outsider carries their number when the network reveals it and their CRM link — named only for a caller the CRM lets see that record — or, while unlinked, the CRM person with that number.',
       responses: [{ status: 200, description: 'A page of members.', schema: memberListSchema }],
       errors: [...COMMON_ERRORS, ...RATE_LIMITED_ERRORS],
     },
     POST: {
       summary: 'Add members to a space',
       description:
-        'Owners only. Ids already in the space are ignored rather than refused, so two owners adding the same person at once — or a double-clicked button — converge on "they are in" instead of one of them failing. Any id that is not an active member of the caller’s own organization fails the whole request.',
+        'Owners only — managers, in a client conversation. Ids already in the space are ignored rather than refused, so two owners adding the same person at once — or a double-clicked button — converge on "they are in" instead of one of them failing. Any id that is not an active member of the caller’s own organization fails the whole request. In a client conversation, `access` sets the level the people added get (`viewer` when omitted), and each is notified they were assigned.',
       responses: [
         { status: 200, description: 'The members actually added.', schema: addMembersResponseSchema },
       ],

@@ -11,6 +11,7 @@ import {
 } from '@open-mercato/matrix'
 import { ChatMatrixSyncState } from '../data/entities'
 import { projectEvent, projectReceipts, type ProjectionSkipReason } from '../lib/projection'
+import { ensureBotRegistered } from '../lib/identities'
 import { CHAT_MATRIX_QUEUES, DEFAULT_SYNC_STREAM } from '../lib/queue'
 
 const logger = createLogger('chat_matrix').child({ component: 'sync' })
@@ -120,6 +121,8 @@ export default async function handle(
   const state = await loadState(em)
 
   try {
+    // `/sync` reads as the bot; a bot the homeserver has never heard of reads nothing.
+    await ensureBotRegistered({ client, config })
     const response = await client.sync({
       since: state.syncToken,
       // A first sync with no cursor must not long-poll: there is a backlog to

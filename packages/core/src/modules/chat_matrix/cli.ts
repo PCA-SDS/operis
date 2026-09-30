@@ -126,6 +126,94 @@ async function backfill(rest: string[]): Promise<void> {
  * see what a pass actually does. Read-only with respect to the homeserver: it
  * reads, projects what Operis does not already have, and advances the cursor.
  */
+/**
+ * Register the `/sync` reader and every organization's drift check.
+ *
+ *   yarn mercato chat_matrix schedules
+ *
+ * Idempotent. `seedDefaults` registers them only when a tenant is initialised,
+ * so a stack set up on `local` and switched to `matrix` later would have
+ * neither: inbound would rest on push alone and drift would go unwatched.
+ * deploy.sh runs this after every healthy deploy on the `matrix` transport. A
+ * schedule an operator switched off stays off.
+ */
+async function schedules(): Promise<void> {
+  const container = await createRequestContainer()
+  const transport = container.resolve('chatTransport') as { id: string }
+  if (transport.id !== 'matrix') {
+    process.stdout.write(`The chat transport is "${transport.id}" — nothing to schedule.\n`)
+    return
+  }
+  const cradle = container as unknown as { hasRegistration?: (name: string) => boolean }
+  if (typeof cradle.hasRegistration !== 'function' || !cradle.hasRegistration('schedulerService')) {
+    throw new Error('No scheduler service is registered, so nothing would ever run the /sync reader.')
+  }
+  const { registerDriftSchedule, registerSyncSchedule } = await import('./lib/schedules')
+  const scheduler = container.resolve('schedulerService') as import('./lib/schedules').SchedulerServiceLike
+  const em = container.resolve<EntityManager>('em').fork()
+  const organizations = await em
+    .getConnection()
+    .execute<Array<{ id: string; tenant_id: string }>>('select id, tenant_id from organizations where deleted_at is null')
+
+  await registerSyncSchedule(scheduler, 'keep')
+  for (const organization of organizations) {
+    await registerDriftSchedule(scheduler, { tenantId: organization.tenant_id, organizationId: organization.id }, 'keep')
+  }
+  process.stdout.write(`scheduled  sync=1  drift=${organizations.length}\n`)
+}
+
+/**
+ * Ask the bridge how every connected messaging account is doing, now, instead
+ * of waiting for the drift schedule — after restarting the bridge, say, or to
+ * see why an account shows disconnected.
+ *
+ *   yarn mercato chat_matrix accounts [--organization <id>]
+ *
+ * Prints one line per account the bridge knows; a drop is recorded, and its
+ * managers told, exactly as the scheduled check would.
+ */
+async function accounts(rest: string[]): Promise<void> {
+  const args = parseCliArgs(rest)
+  const container = await createRequestContainer()
+  const cradle = container as unknown as { hasRegistration?: (name: string) => boolean }
+  if (typeof cradle.hasRegistration !== 'function' || !cradle.hasRegistration('matrixConfig')) {
+    process.stderr.write('The chat transport is not Matrix, so no messaging account can be connected.\n')
+    process.exitCode = 1
+    return
+  }
+  const config = container.resolve('matrixConfig') as import('@open-mercato/matrix').MatrixConfig
+  if (Object.keys(config.provisioning ?? {}).length === 0) {
+    process.stderr.write('No bridge provisioning API is configured (OM_MATRIX_WHATSAPP_PROVISIONING_URL).\n')
+    process.exitCode = 1
+    return
+  }
+  const { checkAccountHealth } = await import('./lib/accounts')
+  const { ChatMatrixAccountLogin } = await import('./data/entities')
+  const em = container.resolve<EntityManager>('em').fork()
+  const organizationFilter = typeof args.organization === 'string' ? { organizationId: args.organization } : {}
+  const rows = await em.find(ChatMatrixAccountLogin, { registeredAt: { $ne: null }, ...organizationFilter })
+  const scopes = new Map(rows.map((row) => [`${row.tenantId}:${row.organizationId}`, row]))
+  let changed = 0
+  for (const row of scopes.values()) {
+    changed += await checkAccountHealth(
+      {
+        em: container.resolve<EntityManager>('em'),
+        commandBus: container.resolve('commandBus'),
+        config,
+        client: container.resolve('matrixClient'),
+        container: container as never,
+      },
+      { tenantId: row.tenantId, organizationId: row.organizationId },
+    )
+  }
+  for (const row of await em.fork().find(ChatMatrixAccountLogin, { registeredAt: { $ne: null }, ...organizationFilter })) {
+    process.stdout.write(
+      `account=${row.accountId}  organization=${row.organizationId}  bridge=${row.bridgeState ?? 'unknown'}\n`,
+    )
+  }
+  process.stdout.write(`checked  accounts=${rows.length}  changed=${changed}\n`)
+}
+
 async function sync(): Promise<void> {
   const { default: syncWorker } = await import('./workers/sync')
   const container = await createRequestContainer()
@@ -276,9 +364,21 @@ const cli: ModuleCli[] = [
     },
   },
   {
+    command: 'schedules',
+    async run() {
+      await schedules()
+    },
+  },
+  {
     command: 'sync',
     async run() {
       await sync()
+    },
+  },
+  {
+    command: 'accounts',
+    async run(rest) {
+      await accounts(rest)
     },
   },
 ]

@@ -12,6 +12,7 @@ import {
 } from '../shared'
 import { CHAT_TAG, COMMON_ERRORS, directoryResponseSchema, RATE_LIMITED_ERRORS } from '../openapi'
 import { searchParamsToObject } from '@open-mercato/shared/lib/http/query'
+import { parseBooleanToken } from '@open-mercato/shared/lib/boolean'
 
 export const metadata = {
   GET: { requireAuth: true, requireFeatures: ['chat.view'] },
@@ -41,7 +42,7 @@ export async function GET(req: Request) {
     const query = chatDirectoryQuerySchema.parse(searchParamsToObject(req.url))
     const result = await searchOrganizationDirectory(request.em, request.scope, {
       query: query.q ?? '',
-      excludeUserId: request.userId,
+      excludeUserId: parseBooleanToken(query.includeSelf) === true ? null : request.userId,
       limit: query.limit,
     })
     return jsonOk(result)
@@ -57,7 +58,7 @@ export const openApi: OpenApiRouteDoc = {
     GET: {
       summary: 'Search the caller’s organization directory',
       description:
-        'Active, confirmed users of the caller’s own organization, excluding the caller. Matches display name, work email or role name. Never crosses an organization or tenant boundary.',
+        'Active, confirmed users of the caller’s own organization, excluding the caller unless `includeSelf=true` (picking a team the caller may belong to). Matches display name, work email or role name. Never crosses an organization or tenant boundary.',
       responses: [
         { status: 200, description: 'Matching colleagues.', schema: directoryResponseSchema },
       ],

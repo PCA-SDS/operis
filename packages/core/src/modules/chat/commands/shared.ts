@@ -3,7 +3,7 @@ import type { AwilixContainer } from 'awilix'
 import type { CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
 import { forbidden, notFound } from '@open-mercato/shared/lib/crud/errors'
 import { findOneWithDecryption } from '@open-mercato/shared/lib/encryption/find'
-import { ChatExternalContact, ChatMessage, ChatParticipant } from '../data/entities'
+import { ChatExternalContact, ChatMessage, ChatMessagingAccount, ChatParticipant } from '../data/entities'
 import { emitChatEvent, type ChatEventId } from '../events'
 import { loadChatMessages } from '../lib/messages'
 import { requireIdentityId, type ChatActor } from '../lib/participants'
@@ -31,18 +31,21 @@ export async function actingUserId(ctx: CommandRuntimeContext): Promise<string> 
 
 /**
  * Who is acting: the logged-in colleague, or — only when the transport's
- * projector says so — an outsider.
+ * projector says so — an outsider or the messaging account itself.
  *
- * The outsider arm is read from `externalOrigin`, which HTTP routes never
- * populate: they build command input field by field. So an outsider can act
- * only through the projector, and a client cannot post as a customer.
+ * Those two arms are read from `externalOrigin`, which HTTP routes never
+ * populate: they build command input field by field. So neither can act except
+ * through the projector, and a client cannot post as a customer or as the
+ * company's phone.
  */
 export async function resolveChatActor(
   ctx: CommandRuntimeContext,
-  externalOrigin: { externalContactId?: string | null } | undefined,
+  externalOrigin: { externalContactId?: string | null; senderAccountId?: string | null } | undefined,
 ): Promise<ChatActor> {
   const externalContactId = externalOrigin?.externalContactId
   if (externalContactId) return { kind: 'external', externalContactId }
+  const accountId = externalOrigin?.senderAccountId
+  if (accountId) return { kind: 'account', accountId }
   return { kind: 'user', userId: await actingUserId(ctx) }
 }
 
@@ -61,6 +64,22 @@ export async function loadActorIdentity(
   if (actor.kind === 'user') {
     const member = await loadOrganizationMember(em, scope, actor.userId)
     return member ? { name: member.name, network: null } : null
+  }
+  if (actor.kind === 'account') {
+    // Deleted accounts included: a phone may still report an edit or a delete
+    // that happened just before its account was removed.
+    const account = await findOneWithDecryption(
+      em,
+      ChatMessagingAccount,
+      {
+        id: requireIdentityId(actor.accountId),
+        tenantId: scope.tenantId,
+        organizationId: scope.organizationId,
+      },
+      {},
+      scope,
+    )
+    return account ? { name: account.displayName, network: account.network } : null
   }
   const contact = await findOneWithDecryption(
     em,

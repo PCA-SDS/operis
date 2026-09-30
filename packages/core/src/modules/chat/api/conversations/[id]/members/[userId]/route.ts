@@ -2,7 +2,7 @@ import { z } from 'zod'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
 import { chatSetMemberRoleSchema } from '../../../../../data/validators'
 import { chatConversationCreateRateLimit } from '../../../../../lib/rateLimits'
-import type { RemoveSpaceMemberInput, SetSpaceMemberRoleInput } from '../../../../../commands/spaces'
+import type { RemoveSpaceMemberInput, SetMemberAccessInput, SetSpaceMemberRoleInput } from '../../../../../commands/spaces'
 import {
   enforceChatRateLimit,
   jsonOk,
@@ -78,13 +78,14 @@ export async function DELETE(req: Request, context: { params?: Record<string, un
 }
 
 /**
- * Promote a member to owner, or step one back down.
+ * Promote a member to owner, or step one back down — or, in a client
+ * conversation, set a colleague's level.
  *
  * The promotion half is what keeps "the last owner cannot leave" from being a
  * dead end — there is always a way to create the second owner that rule asks
  * for. Both halves are owner-only and both are guarded by the same owner count,
  * so a space cannot be left without an administrator either by leaving or by
- * everyone demoting themselves.
+ * everyone demoting themselves. Levels follow the same shape with managers.
  */
 export async function PATCH(req: Request, context: { params?: Record<string, unknown> }) {
   try {
@@ -97,6 +98,25 @@ export async function PATCH(req: Request, context: { params?: Record<string, unk
     if (limited) return limited
 
     const body = chatSetMemberRoleSchema.parse(await req.json())
+    if ('access' in body) {
+      const leveled = await runChatCommand<SetMemberAccessInput, { userId: string; access: string }>({
+        request,
+        req,
+        commandId: 'chat.conversations.setAccess',
+        input: {
+          tenantId: request.scope.tenantId,
+          organizationId: request.scope.organizationId,
+          conversationId: id,
+          userId,
+          access: body.access,
+        },
+        resourceKind: 'chat.conversation',
+        resourceId: id,
+        operation: 'update',
+      })
+      if (!leveled.ok) return leveled.response
+      return jsonOk(leveled.result)
+    }
     const outcome = await runChatCommand<
       SetSpaceMemberRoleInput,
       { userId: string; role: 'owner' | 'member' }
@@ -137,9 +157,9 @@ export const openApi: OpenApiRouteDoc = {
       errors: [...COMMON_ERRORS, ...RATE_LIMITED_ERRORS],
     },
     PATCH: {
-      summary: 'Change a member’s role',
+      summary: 'Change a member’s role or level',
       description:
-        'Owners only. Demoting the last owner is refused, so a space always has someone able to manage it.',
+        'In a space, send `{ role }`: owners only, and demoting the last owner is refused, so a space always has someone able to manage it. In a client conversation, send `{ access }`: managers only. `viewer` reads and writes internal notes, `participant` also answers the client, `manager` also decides who is in it; taking the last manager away is refused.',
       responses: [{ status: 200, description: 'The resulting role.', schema: memberRoleResponseSchema }],
       errors: [...COMMON_ERRORS, ...RATE_LIMITED_ERRORS],
     },

@@ -202,9 +202,20 @@ jobs:
             deploy/backup.sh \
             deploy/required-env \
             deploy/dc \
+            deploy/matrix-render.sh \
             target:${{ inputs.app_dir }}/
           rsync -az --checksum deploy/docker-compose.prod.yml target:${{ inputs.app_dir }}/docker-compose.yml
-          ssh target 'chmod +x ${{ inputs.app_dir }}/deploy.sh ${{ inputs.app_dir }}/backup.sh ${{ inputs.app_dir }}/dc'
+          # The Matrix templates matrix-render.sh renders from — the same files
+          # `yarn matrix:up` uses in development, so the two cannot drift. Synced
+          # to every stack; used only by one whose .env enables the profile.
+          ssh target 'mkdir -p ${{ inputs.app_dir }}/matrix-template'
+          rsync -az --checksum \
+            docker/matrix/synapse/homeserver.yaml.template \
+            docker/matrix/synapse/log.config \
+            docker/matrix/mautrix-whatsapp/config.yaml.template \
+            docker/matrix/mautrix-whatsapp/ensure-database.sh \
+            target:${{ inputs.app_dir }}/matrix-template/
+          ssh target 'chmod +x ${{ inputs.app_dir }}/deploy.sh ${{ inputs.app_dir }}/backup.sh ${{ inputs.app_dir }}/dc ${{ inputs.app_dir }}/matrix-render.sh'
 
       - name: Authenticate the server to GHCR (ephemeral)
         # No permanent registry password is stored on the VPS. This is the

@@ -17,7 +17,7 @@ export const metadata = {
 }
 
 const paramsSchema = z.object({ id: z.string().uuid() })
-const bodySchema = z.object({ typing: z.boolean() })
+const bodySchema = z.object({ typing: z.boolean(), note: z.boolean().optional() })
 
 /**
  * Say that the caller is typing, or has stopped.
@@ -49,6 +49,7 @@ export async function POST(req: Request, context: { params?: Record<string, unkn
       organizationId: request.scope.organizationId,
       conversationId: id,
       typing: body.typing,
+      note: body.note,
     }
 
     const outcome = await runChatCommand<SetTypingInput, { typing: boolean }>({
