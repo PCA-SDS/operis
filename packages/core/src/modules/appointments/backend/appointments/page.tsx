@@ -180,7 +180,13 @@ function StatusFilterButton({
               <span className="flex size-5 items-center justify-center rounded border border-input">
                 {checked ? <Check className="size-4 text-primary" /> : null}
               </span>
-              <AppointmentStatusBadge statusCode={option.code} label={option.label} dot={false} />
+              <AppointmentStatusBadge
+                statusCode={option.code}
+                label={option.label}
+                backgroundColor={option.backgroundColor}
+                textColor={option.textColor}
+                dot={false}
+              />
             </button>
           )
         })}
