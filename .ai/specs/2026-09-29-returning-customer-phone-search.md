@@ -30,7 +30,7 @@ The encrypted customer phone column cannot support substring matching with SQL `
 
 ## Architecture
 
-The booking endpoint delegates matching to the customer lookup helper. That helper combines display-name token IDs, primary-phone token IDs, and exact deterministic phone/email hash candidates, then loads/decrypts only tenant-scoped matching people. No plaintext phone search is added to SQL. Selecting a suggestion without an email still requests booking history by phone.
+The booking endpoints delegate matching to a shared customer lookup helper. That helper combines display-name token IDs, primary-phone token IDs, and exact deterministic phone/email hash candidates, then loads/decrypts only tenant-scoped matching people. No plaintext phone search is added to SQL. Public lookup requires both phone and email to match the same customer; the authenticated staff lookup supports phone-only history and returns only the latest booking service lines within the caller's authorized organization scope.
 
 ## Data Models
 
@@ -38,7 +38,7 @@ No schema changes. The behavior depends on existing `search_tokens` rows for `cu
 
 ## API Contracts
 
-`GET /api/appointments/customer-search?search=<query>` remains authenticated and tenant-scoped. The public returning-customer lookup accepts an omitted email and continues returning the same response shape.
+`GET /api/appointments/customer-search?search=<query>` remains authenticated and tenant-scoped. `POST /api/appointments/public/customer` remains unauthenticated, requires phone and email to resolve to the same person, and retains its response contract. `POST /api/appointments/customer-history` requires authenticated appointment-create access, derives tenant scope from auth, and returns only latest booking service lines within authorized organization scope.
 
 ## Risks & Impact Review
 
@@ -51,7 +51,8 @@ No schema changes. The behavior depends on existing `search_tokens` rows for `cu
 
 - Integration coverage exercises the authenticated customer-search API against real search-token rows and verifies tenant isolation.
 - Appointment list route coverage verifies formatted partial-phone search uses normalized digits and retains tenant/organization filters.
-- No database schema changes. The public customer lookup request now permits an omitted email; callers that provide email remain supported.
+- Integration coverage verifies public phone-only lookup is rejected and staff phone-only history lookup requires authentication.
+- No database schema changes. Public customer lookup requires phone and email to match the same person; a new authenticated staff history endpoint supports phone-only lookup.
 - Referral inline creation is not part of this change.
 
 ## Changelog

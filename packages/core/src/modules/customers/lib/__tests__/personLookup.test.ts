@@ -119,6 +119,16 @@ describe('checkPersonIdentity', () => {
     })
   })
 
+  it('requires every supplied contact to match for public identity verification', async () => {
+    const { em } = createEm([{ id: 'p1', tenantId: TENANT, phone: '+6591234567', phoneCountryCode: '65' }])
+    await expect(checkPersonIdentity(
+      em,
+      { tenantId: TENANT },
+      { phone: '+6591234567', phoneCountryCode: '65', email: 'unmatched@example.com' },
+      { requireAllProvidedContactsMatch: true },
+    )).resolves.toMatchObject({ exists: false, customer: null })
+  })
+
   it('reports a miss for an unknown contact', async () => {
     const { em } = createEm([{ id: 'p1', tenantId: TENANT, phone: '+6591234567', phoneCountryCode: '65' }])
     await expect(checkPersonIdentity(em, { tenantId: TENANT }, { phone: '+6599999999', phoneCountryCode: '65' })).resolves.toMatchObject({

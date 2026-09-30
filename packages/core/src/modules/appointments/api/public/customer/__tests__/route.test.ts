@@ -18,7 +18,7 @@ jest.mock('@open-mercato/shared/lib/ratelimit/helpers', () => {
 })
 
 jest.mock('../../../../lib/intake', () => ({
-  lookupPublicCustomerForAppointment: (...args: unknown[]) => mockLookupPublicCustomerForAppointment(...args),
+  lookupReturningCustomerForAppointment: (...args: unknown[]) => mockLookupPublicCustomerForAppointment(...args),
 }))
 
 jest.mock('@open-mercato/shared/lib/i18n/server', () => ({
@@ -85,33 +85,15 @@ describe('appointments public customer lookup route', () => {
     expect(mockLookupPublicCustomerForAppointment).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ tenantId: validBody.tenantId, email: validBody.email }),
+      { requireAllProvidedContactsMatch: true },
     )
   })
 
-  it('looks up a returning customer by phone when email is unavailable', async () => {
-    mockLookupPublicCustomerForAppointment.mockResolvedValue({
-      exists: true,
-      customer: {
-        id: '44444444-4444-4444-8444-444444444444',
-        name: 'Subha',
-        salutation: 'Ms',
-        email: null,
-        phone: '+61 401193184',
-        phoneCountryCode: '61',
-        phoneCountry: 'AU',
-        source: 'other',
-        origin: 'local',
-        organizationId: '33333333-3333-4333-8333-333333333333',
-      },
-      lastBooking: null,
-    })
-
+  it('requires email on the public lookup endpoint', async () => {
     const { POST } = await import('../route')
     const body = {
       tenantId: validBody.tenantId,
       phone: '+61 401193184',
-      phoneCountryCode: '+61',
-      phoneCountry: 'au',
     }
     const response = await POST(
       new Request('http://localhost/api/appointments/public/customer', {
@@ -121,12 +103,9 @@ describe('appointments public customer lookup route', () => {
       }),
     )
 
-    expect(response.status).toBe(200)
-    expect(await response.json()).toMatchObject({ exists: true, customer: { email: null } })
-    expect(mockLookupPublicCustomerForAppointment).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining(body),
-    )
+    expect(response.status).toBe(400)
+    expect((await response.json()).code).toBe('INVALID_INPUT')
+    expect(mockLookupPublicCustomerForAppointment).not.toHaveBeenCalled()
   })
 
   it('maps identity conflicts to HTTP 409', async () => {

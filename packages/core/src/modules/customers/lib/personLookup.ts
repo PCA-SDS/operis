@@ -235,6 +235,7 @@ export async function checkPersonIdentity(
   em: EntityManager,
   scope: PersonTenantScope,
   input: { phone?: string | null; email?: string | null; phoneCountryCode?: string | null; phoneCountry?: string | null },
+  options: { requireAllProvidedContactsMatch?: boolean } = {},
 ): Promise<PersonCheckResult> {
   await assertTenantActive(em, scope.tenantId)
 
@@ -257,6 +258,10 @@ export async function checkPersonIdentity(
       error: 'Phone and email match different people.',
       code: 'PERSON_IDENTITY_CONFLICT',
     })
+  }
+
+  if (options.requireAllProvidedContactsMatch && ((phoneInput && !phoneMatch) || (emailInput && !emailMatch))) {
+    return { exists: false, customer: null, lastBooking: null }
   }
 
   const match = phoneMatch ?? emailMatch

@@ -143,13 +143,13 @@ export function BookingOverviewCreateSheet({
   }, [customerSearch, isCustomerSearchOpen, open, organizationId, tenantId])
 
   const loadCustomerHistory = async (customer: Customer) => {
-    if (!tenantId || !customer.phone) {
+    if (!customer.phone) {
       setPreviousServices([])
       return
     }
-    const history = await apiCall<{ lastBooking?: { serviceLines?: AppointmentServiceSelection[] } | null }>('/api/appointments/public/customer', {
+    const history = await apiCall<{ lastBooking?: { serviceLines?: AppointmentServiceSelection[] } | null }>('/api/appointments/customer-history', {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ tenantId, phone: customer.phone, email: customer.email?.trim() || undefined, phoneCountryCode: customer.phoneCountryCode ?? '+84', phoneCountry: customer.phoneCountry ?? 'vn' }),
+      body: JSON.stringify({ organizationId: organizationId ?? undefined, phone: customer.phone, email: customer.email?.trim() || undefined, phoneCountryCode: customer.phoneCountryCode ?? '+84', phoneCountry: customer.phoneCountry ?? 'vn' }),
     }, { fallback: null })
     setPreviousServices(history.result?.lastBooking?.serviceLines ?? [])
   }

@@ -10,7 +10,11 @@ import { Appointment, AppointmentLine, AppointmentStatus } from '../data/entitie
 import { ResourcesAssignment } from '@open-mercato/core/modules/resources/data/entities'
 import { DEFAULT_PUBLIC_APPOINTMENT_STATUS_CODE } from '../data/constants'
 import { ensureSystemAppointmentStatuses } from '../setup'
-import type { AppointmentPublicCreateInput, AppointmentPublicCustomerLookupInput, AppointmentStaffCreateInput } from '../data/validators'
+import type {
+  AppointmentPublicCreateInput,
+  AppointmentStaffCreateInput,
+  AppointmentStaffCustomerLookupInput,
+} from '../data/validators'
 import { toAppointmentPhoneSnapshot } from './phoneSnapshot'
 import {
   snapshotLineOptions,
@@ -41,7 +45,7 @@ export type CreatedAppointmentResult = {
   lineCount: number
 }
 
-export type PublicCustomerLookupResult = Omit<PersonCheckResult, 'lastBooking'> & {
+export type ReturningCustomerLookupResult = Omit<PersonCheckResult, 'lastBooking'> & {
   lastBooking: {
     organizationId: string
     requestedStartAt: string
@@ -52,11 +56,14 @@ export type PublicCustomerLookupResult = Omit<PersonCheckResult, 'lastBooking'> 
   } | null
 }
 
-export async function lookupPublicCustomerForAppointment(
+export async function lookupReturningCustomerForAppointment(
   em: EntityManager,
-  input: AppointmentPublicCustomerLookupInput,
-): Promise<PublicCustomerLookupResult> {
-  const identity = await checkPersonIdentity(em, { tenantId: input.tenantId }, input)
+  input: AppointmentStaffCustomerLookupInput,
+  options: { organizationIds?: string[]; requireAllProvidedContactsMatch?: boolean } = {},
+): Promise<ReturningCustomerLookupResult> {
+  const identity = await checkPersonIdentity(em, { tenantId: input.tenantId }, input, {
+    requireAllProvidedContactsMatch: options.requireAllProvidedContactsMatch,
+  })
   if (!identity.exists || !identity.customer) {
     return { exists: false, customer: null, lastBooking: null }
   }
@@ -67,6 +74,9 @@ export async function lookupPublicCustomerForAppointment(
       tenantId: input.tenantId,
       customerEntityId: identity.customer.id,
       deletedAt: null,
+      ...(options.organizationIds !== undefined
+        ? { organizationId: { $in: options.organizationIds } }
+        : {}),
     },
     {
       orderBy: { requestedStartAt: 'DESC' },

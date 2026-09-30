@@ -66,6 +66,24 @@ test.describe('TC-APPT-SEARCH-001: Returning-customer partial phone search', () 
       })
       expect(appointmentId, 'appointment fixture should be created').toBeTruthy()
 
+      const publicPhoneOnlyLookup = await request.post('/api/appointments/public/customer', {
+        data: { tenantId, phone, phoneCountryCode: '84', phoneCountry: 'VN' },
+      })
+      expect(publicPhoneOnlyLookup.status(), 'public lookup must retain email verification').toBe(400)
+
+      const unauthenticatedHistory = await request.post('/api/appointments/customer-history', {
+        data: { organizationId, phone, phoneCountryCode: '84', phoneCountry: 'VN' },
+      })
+      expect(unauthenticatedHistory.status(), 'staff customer history must require authentication').toBe(401)
+
+      const staffHistory = await apiRequest(request, 'POST', '/api/appointments/customer-history', {
+        token: adminToken,
+        data: { organizationId, phone, phoneCountryCode: '84', phoneCountry: 'VN' },
+      })
+      expect(staffHistory.status(), 'staff can retrieve phone-only customer history').toBe(200)
+      const staffHistoryBody = await readJsonSafe<{ lastBooking?: { organizationId?: string } | null }>(staffHistory)
+      expect(staffHistoryBody?.lastBooking?.organizationId).toBe(organizationId)
+
       const appointmentResponse = await apiRequest(
         request,
         'GET',
