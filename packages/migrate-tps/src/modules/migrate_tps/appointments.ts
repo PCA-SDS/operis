@@ -12,7 +12,7 @@ import { CatalogProduct, CatalogProductCategoryAssignment, CatalogProductOption,
 import { ResourcesAssignment, ResourcesResource } from '@open-mercato/core/modules/resources/data/entities'
 import { StaffTeamMember } from '@open-mercato/core/modules/staff/data/entities'
 import { TPS_LOCATION_MAPPING, queryTps, type Client } from './lib'
-import { buildSelectedOptions, createOptionSnapshots, type SelectedOptions, type TpsSelectedOptionDetail } from './lib/appointmentOptionSnapshots'
+import { buildSelectedOptions, createOptionSnapshots, type OptionsByProductAndSource, type SelectedOptions, type TpsSelectedOptionDetail } from './lib/appointmentOptionSnapshots'
 
 type TpsBooking = {
   id: string
@@ -208,7 +208,7 @@ async function migrateAppointments(
     const productId = typeof assignment.product === 'string' ? assignment.product : assignment.product.id
     if (!categoryByProduct.has(productId)) categoryByProduct.set(productId, assignment.category.name)
   }
-  const optionByProductAndSource = new Map<string, CatalogProductOption>()
+  const optionsByProductAndSource: OptionsByProductAndSource = new Map()
   const groupsByProduct = new Map<string, Map<string, CatalogProductOptionGroup>>()
   const groupsById = new Map<string, CatalogProductOptionGroup>()
   const optionsById = new Map<string, CatalogProductOption>()
@@ -222,7 +222,10 @@ async function migrateAppointments(
     optionsById.set(option.id, option)
     const sourceId = typeof option.metadata?.tps_id === 'string' ? option.metadata.tps_id : null
     const product = option.group.product
-    if (sourceId && product) optionByProductAndSource.set(`${product.id}:${sourceId}`, option)
+    if (sourceId && product) {
+      const key = `${product.id}:${sourceId}`
+      optionsByProductAndSource.set(key, [...(optionsByProductAndSource.get(key) ?? []), option])
+    }
   }
 
   const resources = await em.find(ResourcesResource, { tenantId, deletedAt: null })
@@ -337,7 +340,7 @@ async function migrateAppointments(
       const matchingAllocations = allocationsByService.get(selection.itemId ?? '') ?? []
       const lineAllocations = matchingAllocations.length > 0 ? matchingAllocations : [undefined]
       const allocation = lineAllocations[0]
-      const selectedOptions: SelectedOptions = buildSelectedOptions(product.id, selection.selectedOptionsDetails, optionByProductAndSource)
+      const selectedOptions: SelectedOptions = buildSelectedOptions(product.id, selection.selectedOptionsDetails, optionsByProductAndSource, groupsById)
       const variant = variantByProduct.get(product.id)
       const duration = allocation?.duration_minutes ?? parseDuration(selection.duration) ?? durationInMinutes(variant?.durationValue, variant?.durationUnit) ?? 60
       const price = priceByProduct.get(product.id)

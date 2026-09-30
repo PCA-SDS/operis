@@ -31,23 +31,34 @@ describe('TPS appointment option snapshots', () => {
   const builderGroupId = 'builder-group'
   const lengthGroupId = 'length-group'
   const scopeGroupId = 'scope-group'
+  const alternateLengthGroupId = 'alternate-length-group'
+  const alternateScopeGroupId = 'alternate-scope-group'
   const builderOption = option('builder-option', builderGroupId, 'CND™ Plexigel Build Overlay')
   const lengthOption = option('length-option', lengthGroupId, 'Short / Medium')
   const scopeOption = option('scope-option', scopeGroupId, 'Manicure')
-  const optionsBySource = new Map([
-    [`${productId}:plexigel-overlay`, builderOption],
-    [`${productId}:length-short`, lengthOption],
-    [`${productId}:scope-mani`, scopeOption],
+  const alternateLengthOption = option('alternate-length-option', alternateLengthGroupId, 'Long / Extra Long')
+  const alternateScopeOption = option('alternate-scope-option', alternateScopeGroupId, 'Manicure')
+  const optionsBySource = new Map<string, CatalogProductOption[]>([
+    [`${productId}:plexigel-overlay`, [builderOption]],
+    [`${productId}:length-short`, [lengthOption]],
+    [`${productId}:scope-mani`, [alternateScopeOption, scopeOption]],
   ])
 
   it('keeps every option in a TPS nested selection path', () => {
+    const groupsById = new Map([
+      [builderGroupId, group(builderGroupId, 'Builder Type')],
+      [lengthGroupId, group(lengthGroupId, 'Nail Length', builderOption.id)],
+      [scopeGroupId, group(scopeGroupId, 'Service Scope', lengthOption.id)],
+      [alternateLengthGroupId, group(alternateLengthGroupId, 'Nail Length', builderOption.id)],
+      [alternateScopeGroupId, group(alternateScopeGroupId, 'Service Scope', alternateLengthOption.id)],
+    ])
     expect(buildSelectedOptions(productId, [{
       path: [
         { optionId: 'plexigel-overlay' },
         { optionId: 'length-short' },
       ],
       optionId: 'scope-mani',
-    }], optionsBySource)).toEqual({
+    }], optionsBySource, groupsById)).toEqual({
       [builderGroupId]: builderOption.id,
       [lengthGroupId]: lengthOption.id,
       [scopeGroupId]: scopeOption.id,

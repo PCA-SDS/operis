@@ -9,6 +9,7 @@ export type TpsSelectedOptionDetail = {
 }
 
 export type SelectedOptions = Record<string, string | string[]>
+export type OptionsByProductAndSource = Map<string, CatalogProductOption[]>
 
 function getOptionGroupId(option: CatalogProductOption): string {
   return typeof option.group === 'string' ? option.group : option.group.id
@@ -17,15 +18,22 @@ function getOptionGroupId(option: CatalogProductOption): string {
 export function buildSelectedOptions(
   productId: string,
   details: TpsSelectedOptionDetail[] | undefined,
-  optionByProductAndSource: Map<string, CatalogProductOption>,
+  optionsByProductAndSource: OptionsByProductAndSource,
+  groupsById: Map<string, CatalogProductOptionGroup>,
 ): SelectedOptions {
   const selectedOptions: SelectedOptions = {}
 
-  const addOption = (sourceOptionId: string | undefined): void => {
-    if (!sourceOptionId) return
-    const option = optionByProductAndSource.get(`${productId}:${sourceOptionId}`)
-    if (!option) return
+  const resolveOption = (sourceOptionId: string, parentOptionId: string | null): CatalogProductOption | undefined => {
+    const candidates = optionsByProductAndSource.get(`${productId}:${sourceOptionId}`) ?? []
+    const matchingCandidates = candidates.filter((candidate) => {
+      const group = groupsById.get(getOptionGroupId(candidate))
+      return (group?.parentOption?.id ?? null) === parentOptionId
+    })
+    if (matchingCandidates.length === 1) return matchingCandidates[0]
+    return undefined
+  }
 
+  const addOption = (option: CatalogProductOption): void => {
     const groupId = getOptionGroupId(option)
     const current = selectedOptions[groupId]
     if (current === undefined) {
@@ -39,8 +47,14 @@ export function buildSelectedOptions(
   }
 
   for (const detail of details ?? []) {
-    for (const pathEntry of detail.path ?? []) addOption(pathEntry.optionId)
-    addOption(detail.optionId)
+    let parentOptionId: string | null = null
+    for (const sourceOptionId of [...(detail.path ?? []).map((entry) => entry.optionId), detail.optionId]) {
+      if (!sourceOptionId) continue
+      const option = resolveOption(sourceOptionId, parentOptionId)
+      if (!option) break
+      addOption(option)
+      parentOptionId = option.id
+    }
   }
 
   return selectedOptions
