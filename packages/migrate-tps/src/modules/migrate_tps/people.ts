@@ -113,7 +113,7 @@ async function loadBranchOrganizations(
   return result
 }
 
-async function migrateCustomers(
+export async function migrateCustomers(
   em: EntityManager,
   customers: TpsCustomer[],
   tenantId: string,
@@ -159,12 +159,11 @@ async function migrateCustomers(
   for (const existing of existingEntities) {
     if (existing.description) entitiesByMarker.set(existing.description, existing)
   }
-  if (repairConflicts) {
+  if (replace || repairConflicts) {
     for (const [marker, entity] of entitiesByMarker) {
       if (!marker.startsWith(`[${CUSTOMER_MARKER_PREFIX}`)) continue
       const sourceId = marker.slice(`[${CUSTOMER_MARKER_PREFIX}`.length, -1)
-      const source = sourceById.get(sourceId)
-      if (!source || phoneOwnerBySourceId.get(source.id) === source.id) continue
+      if (!sourceById.has(sourceId)) continue
       entity.primaryPhone = null
       entity.primaryPhoneHash = null
       entity.phoneCountryCode = null
