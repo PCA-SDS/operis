@@ -1,7 +1,10 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
 import type { CommandBus, CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
-import { findOrCreatePersonForIntake } from '@open-mercato/core/modules/customers/lib/personLookup'
+import {
+  findOrCreatePersonForIntake,
+  type FindOrCreatePersonResult,
+} from '@open-mercato/core/modules/customers/lib/personLookup'
 import {
   listBookableServicesForOrganization,
   type BookableServiceDeps,
@@ -157,10 +160,29 @@ async function enforceOrganizationBookingPolicy(
   })
 }
 
+async function fillMissingCustomerAttribution(
+  person: FindOrCreatePersonResult,
+  customer: { source?: string | null; origin?: string | null },
+  deps: StaffEditDeps,
+) {
+  if (person.created || !deps.commandBus || !deps.commandContext) return
+  const source = customer.source?.trim()
+  const origin = customer.origin?.trim()
+  const patch = {
+    ...(source && !person.source ? { source } : {}),
+    ...(origin && !person.origin ? { origin } : {}),
+  }
+  if (!Object.keys(patch).length) return
+  await deps.commandBus.execute('customers.people.update', {
+    input: { id: person.entityId, ...patch },
+    ctx: deps.commandContext,
+  })
+}
+
 export async function createAppointmentFromPublicIntake(
   em: EntityManager,
   input: AppointmentPublicCreateInput & { statusCode?: string },
-  deps: BookableServiceDeps,
+  deps: StaffEditDeps,
 ): Promise<CreatedAppointmentResult> {
   const requestedStartAt = new Date(input.requestedStartAt)
   if (Number.isNaN(requestedStartAt.getTime())) {
@@ -226,6 +248,7 @@ export async function createAppointmentFromPublicIntake(
     startsAt: requestedStartAt,
     endsAt: requestedEndAt,
   })
+  await fillMissingCustomerAttribution(person, input.customer, deps)
   const customerName = `${input.customer.firstName.trim()} ${input.customer.lastName.trim()}`.trim()
   const phoneSnapshot = toAppointmentPhoneSnapshot(
     input.customer.phone,

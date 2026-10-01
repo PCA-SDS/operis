@@ -292,6 +292,8 @@ export type FindOrCreatePersonResult = {
   entityId: string
   personId: string
   created: boolean
+  source: string | null
+  origin: string | null
 }
 
 export function mapErpClientStatusToOperis(status: string | null | undefined): {
@@ -333,6 +335,8 @@ export async function findOrCreatePersonForIntake(
       entityId: existingCheck.customer.id,
       personId: profile?.id ?? existingCheck.customer.id,
       created: false,
+      source: existingCheck.customer.source,
+      origin: existingCheck.customer.origin,
     }
   }
 
@@ -372,5 +376,5 @@ export async function findOrCreatePersonForIntake(
   em.persist(profile)
   await em.flush()
 
-  return { entityId: entity.id, personId: profile.id, created: true }
+  return { entityId: entity.id, personId: profile.id, created: true, source: entity.source ?? null, origin: entity.origin ?? null }
 }

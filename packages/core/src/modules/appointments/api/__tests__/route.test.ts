@@ -46,9 +46,16 @@ const validCreateBody = {
   lines: [{ productId: '11111111-1111-4111-8111-111111111111' }],
 }
 
+function mockOrganizationScope(organizationId: string) {
+  jest.doMock('@open-mercato/core/modules/directory/utils/organizationScope', () => ({
+    resolveOrganizationScopeForRequest: async () => ({ selectedId: organizationId, filterIds: [organizationId] }),
+  }))
+}
+
 describe('appointments staff create route', () => {
   beforeEach(() => {
     jest.resetModules()
+    jest.dontMock('@open-mercato/core/modules/directory/utils/organizationScope')
     mockResolveTranslations.mockResolvedValue({
       translate: (_key: string, fallback?: string) => fallback ?? _key,
     })
@@ -98,6 +105,77 @@ describe('appointments staff create route', () => {
       }),
       { pricingService: {} },
     )
+  })
+
+  it('lets intake fill a returning customer\'s referral only for users who may manage people', async () => {
+    mockOrganizationScope('33333333-3333-4333-8333-333333333333')
+    const commandBus = { execute: jest.fn() }
+    const userHasAllFeatures = jest.fn(async () => true)
+    mockCreateRequestContainer.mockResolvedValue({
+      resolve: (token: string) => {
+        if (token === 'catalogPricingService') return {}
+        if (token === 'rbacService') return { userHasAllFeatures }
+        if (token === 'commandBus') return commandBus
+        return { fork: () => ({}) }
+      },
+    })
+    mockGetAuthFromRequest.mockResolvedValue({
+      sub: 'staff-1',
+      tenantId: '22222222-2222-4222-8222-222222222222',
+      orgId: '33333333-3333-4333-8333-333333333333',
+    })
+    mockCreateAppointmentFromPublicIntake.mockResolvedValue({ id: '55555555-5555-4555-8555-555555555555' })
+
+    const { POST } = await import('../route')
+    const response = await POST(
+      new Request('http://localhost/api/appointments', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(validCreateBody),
+      }),
+    )
+
+    expect(response.status).toBe(201)
+    expect(userHasAllFeatures).toHaveBeenCalledWith('staff-1', ['customers.people.manage'], {
+      tenantId: '22222222-2222-4222-8222-222222222222',
+      organizationId: '33333333-3333-4333-8333-333333333333',
+    })
+    const deps = mockCreateAppointmentFromPublicIntake.mock.calls[0][2]
+    expect(deps.commandBus).toBe(commandBus)
+    expect(deps.commandContext).toMatchObject({
+      auth: expect.objectContaining({ sub: 'staff-1' }),
+      selectedOrganizationId: '33333333-3333-4333-8333-333333333333',
+    })
+  })
+
+  it('does not pass a command bus to users who may not manage people', async () => {
+    mockOrganizationScope('33333333-3333-4333-8333-333333333333')
+    mockCreateRequestContainer.mockResolvedValue({
+      resolve: (token: string) => {
+        if (token === 'catalogPricingService') return {}
+        if (token === 'rbacService') return { userHasAllFeatures: async () => false }
+        if (token === 'commandBus') throw new Error('[internal] commandBus must not be resolved')
+        return { fork: () => ({}) }
+      },
+    })
+    mockGetAuthFromRequest.mockResolvedValue({
+      sub: 'staff-2',
+      tenantId: '22222222-2222-4222-8222-222222222222',
+      orgId: '33333333-3333-4333-8333-333333333333',
+    })
+    mockCreateAppointmentFromPublicIntake.mockResolvedValue({ id: '55555555-5555-4555-8555-555555555555' })
+
+    const { POST } = await import('../route')
+    const response = await POST(
+      new Request('http://localhost/api/appointments', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(validCreateBody),
+      }),
+    )
+
+    expect(response.status).toBe(201)
+    expect(mockCreateAppointmentFromPublicIntake.mock.calls[0][2]).toEqual({ pricingService: {} })
   })
 
   it('rejects when org scope is missing', async () => {
