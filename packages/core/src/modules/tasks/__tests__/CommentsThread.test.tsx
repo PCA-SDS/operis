@@ -146,6 +146,27 @@ describe('posting a comment', () => {
     await waitFor(() => expect(createComment).toHaveBeenCalledTimes(1))
   })
 
+  it('enables the Comment button while typing, before the editor loses focus', async () => {
+    render(<CommentsThread taskId="task-1" />)
+    const button = screen.getByRole('button', { name: /^comment$/i })
+    expect(button).toBeDisabled()
+
+    typeWithoutBlurring('Typed, not blurred')
+    fireEvent.input(editor())
+
+    expect(button).toBeEnabled()
+    fireEvent.click(button)
+    await waitFor(() => expect(createComment).toHaveBeenCalledTimes(1))
+    expect(createComment.mock.calls[0]![0]).toMatchObject({ plaintext: 'Typed, not blurred' })
+  })
+
+  it('keeps the Comment button disabled while the box holds only whitespace', () => {
+    render(<CommentsThread taskId="task-1" />)
+    typeWithoutBlurring('   ')
+    fireEvent.input(editor())
+    expect(screen.getByRole('button', { name: /^comment$/i })).toBeDisabled()
+  })
+
   it('says so when the post fails instead of clearing the box', async () => {
     createComment.mockRejectedValue(new Error('nope'))
     render(<CommentsThread taskId="task-1" />)
@@ -185,5 +206,39 @@ describe('the thread', () => {
     ]
     render(<CommentsThread taskId="task-1" />)
     expect(screen.getByText('Comments (3)')).toBeInTheDocument()
+  })
+})
+
+describe('editing a comment', () => {
+  beforeEach(() => {
+    thread.total = 1
+    thread.comments = [
+      {
+        id: 'comment-1',
+        body: '<p>Original note</p>',
+        plaintext: 'Original note',
+        author: { id: 'user-1', name: 'Amir Haddad' },
+        createdAt: '2026-08-24T10:00:00.000Z',
+        updatedAt: '2026-08-24T10:00:00.000Z',
+        isEdited: false,
+      },
+    ]
+    updateComment.mockResolvedValue({ id: 'comment-1' })
+  })
+
+  it('counts the existing text and saves an edit typed without blurring', async () => {
+    render(<CommentsThread taskId="task-1" />)
+    fireEvent.click(screen.getByRole('button', { name: /edit comment/i }))
+
+    expect(screen.getByText(/^13\//)).toBeInTheDocument()
+    const box = screen.getByRole('textbox', { name: 'editor' })
+    box.innerHTML = 'Revised note'
+    fireEvent.input(box)
+
+    const save = screen.getByRole('button', { name: /^save$/i })
+    expect(save).toBeEnabled()
+    fireEvent.click(save)
+    await waitFor(() => expect(updateComment).toHaveBeenCalledTimes(1))
+    expect(JSON.stringify(updateComment.mock.calls[0])).toContain('Revised note')
   })
 })
