@@ -106,6 +106,28 @@ export function parseIdList(raw?: string): string[] {
     .filter((value) => UUID_REGEX.test(value));
 }
 
+function buildProductScopeWhere(ctx: CrudCtx): Record<string, unknown> {
+  const isAllOrganizations = ctx.organizationIds === null && ctx.organizationScope?.allowedIds === null;
+  const isUnresolvedScope = ctx.organizationScope === null || ctx.organizationScope === undefined;
+  const organizationId = isAllOrganizations || isUnresolvedScope
+    ? undefined
+    : (ctx.selectedOrganizationId ?? ctx.auth?.orgId ?? null);
+  const organizationIds = isAllOrganizations
+    ? undefined
+    : isUnresolvedScope
+      ? []
+      : ctx.organizationIds ?? [];
+  return buildScopedWhere(
+    {},
+    {
+      organizationId,
+      organizationIds,
+      tenantId: ctx.auth?.tenantId ?? null,
+      softDeleteField: null,
+    },
+  );
+}
+
 export async function buildProductFilters(
   query: ProductsQuery,
   ctx: CrudCtx,
@@ -187,6 +209,7 @@ export async function buildProductFilters(
     organizationId: ctx.selectedOrganizationId ?? ctx.auth?.orgId ?? null,
     tenantId: ctx.auth?.tenantId ?? null,
   };
+  const scopeWhere = buildProductScopeWhere(ctx);
   const term = sanitizeSearchTerm(query.search);
   const channelFilterIds = parseIdList(query.channelIds);
   const categoryFilterIds = parseIdList(query.categoryIds);
@@ -211,7 +234,7 @@ export async function buildProductFilters(
       em,
       CatalogProduct,
       {
-        ...scope,
+        ...scopeWhere,
         ...(query.withDeleted ? {} : { deletedAt: null }),
         $or: [
           { title: { $ilike: like } },
@@ -235,9 +258,9 @@ export async function buildProductFilters(
       em,
       CatalogOffer,
       {
+        ...scopeWhere,
         channelId: { $in: channelFilterIds },
         deletedAt: null,
-        ...scope,
       },
       { fields: ["id", "product"] },
       scope,
@@ -256,7 +279,7 @@ export async function buildProductFilters(
     const assignments = await findWithDecryption(
       em,
       CatalogProductCategoryAssignment,
-      { category: { $in: categoryFilterIds }, ...scope },
+      { category: { $in: categoryFilterIds }, ...scopeWhere },
       { fields: ["id", "product"] },
       scope,
     );
@@ -274,7 +297,7 @@ export async function buildProductFilters(
     const assignments = await findWithDecryption(
       em,
       CatalogProductTagAssignment,
-      { tag: { $in: tagFilterIds }, ...scope },
+      { tag: { $in: tagFilterIds }, ...scopeWhere },
       { fields: ["id", "product"] },
       scope,
     );
@@ -395,10 +418,11 @@ async function decorateProductsAfterList(
       organizationId: ctx.selectedOrganizationId ?? ctx.auth?.orgId ?? null,
       tenantId: ctx.auth?.tenantId ?? null,
     };
+    const scopeWhere = buildProductScopeWhere(ctx);
     const offers = await findWithDecryption(
       em,
       CatalogOffer,
-      { product: { $in: productIds }, deletedAt: null, ...scope },
+      { product: { $in: productIds }, deletedAt: null, ...scopeWhere },
       { orderBy: { createdAt: "asc" } },
       scope,
     );
@@ -416,16 +440,7 @@ async function decorateProductsAfterList(
       { name?: string | null; code?: string | null }
     >();
     if (channelIds.length) {
-      const scopedChannelsWhere = buildScopedWhere(
-        { id: { $in: channelIds } },
-        {
-          organizationId: ctx.selectedOrganizationId ?? ctx.auth?.orgId ?? null,
-          organizationIds: Array.isArray(ctx.organizationIds)
-            ? ctx.organizationIds
-            : undefined,
-          tenantId: ctx.auth?.tenantId ?? null,
-        },
-      );
+      const scopedChannelsWhere = { id: { $in: channelIds }, ...scopeWhere };
       const channels = await findWithDecryption(em, SalesChannel, scopedChannelsWhere, {
         fields: ["id", "name", "code"],
       });
@@ -467,7 +482,7 @@ async function decorateProductsAfterList(
     const categoryAssignments = await findWithDecryption(
       em,
       CatalogProductCategoryAssignment,
-      { product: { $in: productIds }, ...scope },
+      { product: { $in: productIds }, ...scopeWhere },
       { populate: ["category"], orderBy: { position: "asc" } },
       scope,
     );
@@ -485,7 +500,7 @@ async function decorateProductsAfterList(
       ? await findWithDecryption(
           em,
           CatalogProductCategory,
-          { id: { $in: Array.from(parentIds) }, ...scope },
+          { id: { $in: Array.from(parentIds) }, ...scopeWhere },
           { fields: ["id", "name"] },
           scope,
         )
@@ -533,12 +548,9 @@ async function decorateProductsAfterList(
     const tagAssignments = await findWithDecryption(
       em,
       CatalogProductTagAssignment,
-      { product: { $in: productIds } },
+      { product: { $in: productIds }, ...scopeWhere },
       { populate: ["tag"] },
-      {
-        tenantId: ctx.auth?.tenantId ?? null,
-        organizationId: ctx.auth?.orgId ?? null,
-      },
+      scope,
     );
     const tagsByProduct = new Map<string, string[]>();
     for (const assignment of tagAssignments) {
@@ -563,7 +575,7 @@ async function decorateProductsAfterList(
     const variants = await findWithDecryption(
       em,
       CatalogProductVariant,
-      { product: { $in: productIds }, deletedAt: null, ...scope },
+      { product: { $in: productIds }, deletedAt: null, ...scopeWhere },
       { fields: ["id", "product"] },
       scope,
     );
@@ -589,7 +601,7 @@ async function decorateProductsAfterList(
     const priceRows = await findWithDecryption<CatalogProductPrice>(
       em,
       CatalogProductPrice,
-      { ...priceWhere, ...scope },
+      { ...priceWhere, ...scopeWhere },
       { populate: ["offer", "variant", "product", "priceKind"] },
       scope,
     );
