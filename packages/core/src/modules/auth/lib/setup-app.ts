@@ -1,6 +1,7 @@
 import { hash } from 'bcryptjs'
 import { randomBytes } from 'node:crypto'
 import type { EntityManager } from '@mikro-orm/postgresql'
+import type { InitSetupContext } from '@open-mercato/shared/modules/setup'
 import { Role, RoleAcl, User, UserRole } from '@open-mercato/core/modules/auth/data/entities'
 import { Tenant, Organization } from '@open-mercato/core/modules/directory/data/entities'
 import { rebuildHierarchyForTenant } from '@open-mercato/core/modules/directory/lib/hierarchy'
@@ -18,6 +19,7 @@ import { createLogger } from '@open-mercato/shared/lib/logger'
 const logger = createLogger('auth').child({ component: 'setup' })
 
 const DEFAULT_ROLE_NAMES = ['employee', 'admin', 'superadmin'] as const
+const TENANT_DEFAULT_ROLE_NAMES = ['employee', 'admin'] as const
 const DEMO_SUPERADMIN_EMAIL = 'superadmin@acme.com'
 const DEFAULT_DERIVED_EMAIL_DOMAIN = DEMO_SUPERADMIN_EMAIL.split('@')[1] ?? 'acme.com'
 
@@ -735,6 +737,61 @@ export async function ensureCustomRoleAcls(
   if (seeded > 0) {
     logger.info('Seeded custom role ACLs', { seeded })
   }
+}
+
+/**
+ * Default roles for a tenant provisioned outside `setupInitialTenant`, such as one a
+ * super admin creates in the directory UI. Like self-service onboarding, it never
+ * creates a `superadmin` role: that grant is platform-wide, not tenant-scoped.
+ */
+export async function ensureTenantDefaultRoles(
+  em: EntityManager,
+  tenantId: string,
+  modules?: Module[],
+): Promise<void> {
+  const resolvedModules = modules ?? tryGetModules()
+  await ensureRoles(em, { tenantId, roleNames: [...TENANT_DEFAULT_ROLE_NAMES] })
+  await ensureDefaultRoleAcls(em, tenantId, resolvedModules, { includeSuperadminRole: false })
+  await ensureCustomRoleAcls(em, tenantId, resolvedModules)
+}
+
+export type SeedOrganizationDefaultsOptions = {
+  em: EntityManager
+  container: InitSetupContext['container']
+  tenantId: string
+  organizationId: string
+  modules?: Module[]
+}
+
+/**
+ * Runs every module's `onTenantCreated` and `seedDefaults` hook for an organization,
+ * matching what `mercato init` and onboarding do for a tenant's first organization.
+ * Each hook runs on its own EM fork and is best-effort, so one failing module neither
+ * aborts the others nor leaks its unflushed state.
+ */
+export async function seedOrganizationDefaults(
+  options: SeedOrganizationDefaultsOptions,
+): Promise<void> {
+  const { em, container, tenantId, organizationId } = options
+  const resolvedModules = options.modules ?? tryGetModules()
+  const runHook = async (hookId: string, run: (hookEm: EntityManager) => Promise<void>) => {
+    try {
+      await run(em.fork())
+    } catch (err) {
+      logger.error('Organization setup hook failed', { hookId, tenantId, organizationId, err })
+    }
+  }
+  for (const mod of resolvedModules) {
+    const onTenantCreated = mod.setup?.onTenantCreated?.bind(mod.setup)
+    if (!onTenantCreated) continue
+    await runHook(`onTenantCreated:${mod.id}`, (hookEm) => onTenantCreated({ em: hookEm, tenantId, organizationId }))
+  }
+  for (const mod of resolvedModules) {
+    const seedDefaults = mod.setup?.seedDefaults?.bind(mod.setup)
+    if (!seedDefaults) continue
+    await runHook(`seedDefaults:${mod.id}`, (hookEm) => seedDefaults({ em: hookEm, tenantId, organizationId, container }))
+  }
+  await ensureCustomRoleAcls(em, tenantId, resolvedModules)
 }
 
 async function ensureRoleAclFor(

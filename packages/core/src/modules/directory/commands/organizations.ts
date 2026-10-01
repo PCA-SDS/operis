@@ -7,6 +7,7 @@ import { Organization, Tenant } from '@open-mercato/core/modules/directory/data/
 import { organizationCreateSchema, organizationUpdateSchema } from '@open-mercato/core/modules/directory/data/validators'
 import { rebuildHierarchyForTenant } from '@open-mercato/core/modules/directory/lib/hierarchy'
 import { enforceTenantSelection } from '@open-mercato/core/modules/auth/lib/tenantAccess'
+import { seedOrganizationDefaults } from '@open-mercato/core/modules/auth/lib/setup-app'
 import { E } from '#generated/entities.ids.generated'
 import type { CrudEmitContext, CrudEventsConfig, CrudIndexerConfig } from '@open-mercato/shared/lib/crud/types'
 import {
@@ -28,6 +29,9 @@ import {
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { toOptionalString } from '@open-mercato/shared/lib/string/coerce'
 import { slugify } from '@open-mercato/shared/lib/slugify'
+import { createLogger } from '@open-mercato/shared/lib/logger'
+
+const logger = createLogger('directory').child({ component: 'organizations' })
 
 export const organizationCrudEvents: CrudEventsConfig = {
   module: 'directory',
@@ -297,6 +301,7 @@ const createOrganizationCommand: CommandHandler<Record<string, unknown>, Organiz
     if (parentId && childIds.includes(parentId)) throw new CrudHttpError(400, { error: 'Child cannot equal parent' })
     await ensureChildrenValid(em, tenantId, childIds)
     const childParentsBefore = await loadChildParentSnapshots(em, tenantId, childIds)
+    const existingOrganization = await em.findOne(Organization, { tenant: tenantId, deletedAt: null }, { fields: ['id'] })
 
     const tenantRef = em.getReference(Tenant, tenantId)
     const baseSlug = parsed.slug ? parsed.slug : slugify(parsed.name)
@@ -351,6 +356,14 @@ const createOrganizationCommand: CommandHandler<Record<string, unknown>, Organiz
       events: organizationCrudEvents,
       indexer: organizationCrudIndexer,
     })
+
+    if (!existingOrganization) {
+      try {
+        await seedOrganizationDefaults({ em, container: ctx.container, tenantId, organizationId: recordId })
+      } catch (err) {
+        logger.error('Failed to seed defaults for the first organization of a tenant', { tenantId, organizationId: recordId, err })
+      }
+    }
 
     return organization
   },

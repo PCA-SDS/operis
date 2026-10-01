@@ -20,6 +20,7 @@ import { isTenantDataEncryptionEnabled } from '@open-mercato/shared/lib/encrypti
 import { makeCreateRedo } from '@open-mercato/shared/lib/commands/redo'
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import type { TenantModuleService } from '@open-mercato/core/modules/directory/lib/tenantModules'
+import { ensureTenantDefaultRoles } from '@open-mercato/core/modules/auth/lib/setup-app'
 
 const logger = createLogger('directory').child({ component: 'tenants' })
 
@@ -93,6 +94,13 @@ const createTenantCommand: CommandHandler<TenantPayload, Tenant> = {
       await tenantModules.provisionTenant(String(tenant.id))
     } catch (err) {
       logger.error('Failed to provision tenant modules', { tenantId: String(tenant.id), err })
+    }
+
+    try {
+      const em = ctx.container.resolve('em') as EntityManager
+      await ensureTenantDefaultRoles(em, String(tenant.id))
+    } catch (err) {
+      logger.error('Failed to provision tenant default roles', { tenantId: String(tenant.id), err })
     }
 
     const identifiers = {
