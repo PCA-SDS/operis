@@ -22,7 +22,7 @@ import {
 import { appointmentStaffCreateSchema } from '../data/validators'
 import { createAppointmentFromPublicIntake } from '../lib/intake'
 import { emitAppointmentEvent } from '../events'
-import { deriveScheduleConfirmationStatus } from '../lib/scheduleTracking'
+import { deriveScheduleConfirmationStatus, SCHEDULE_TRACKING_SINCE } from '../lib/scheduleTracking'
 import { compareAppointmentListRows } from '../lib/appointmentListSorting'
 import { getVisibleAppointmentExternalNotes } from '../lib/notes'
 import { buildIlikeTerm } from '@open-mercato/shared/lib/db/buildIlikeTerm'
@@ -59,6 +59,40 @@ const appointmentListQuerySchema = z.object({
   statusCode: z.string().trim().optional(),
   organizationId: z.string().uuid().optional(),
 })
+
+function appointmentListOrderBy() {
+  return [
+    {
+      [raw((alias) => `case
+        when ${alias}."created_at" >= ?
+          and ${alias}."status_code" <> ?
+          and not exists (
+            select 1
+            from "appointment_lines" as "pin_line"
+            inner join "resources_assignments" as "pin_assignment"
+              on "pin_assignment"."source_entity_id" = "pin_line"."id"
+              and "pin_assignment"."tenant_id" = ${alias}."tenant_id"
+              and "pin_assignment"."source_module" = ?
+              and "pin_assignment"."source_entity_type" = ?
+              and "pin_assignment"."state" = ?
+              and "pin_assignment"."cancelled_at" is null
+            where "pin_line"."appointment_id" = ${alias}."id"
+              and "pin_line"."deleted_at" is null
+          )
+        then 0
+        else 1
+      end`, [
+        SCHEDULE_TRACKING_SINCE,
+        'cancelled',
+        'appointment',
+        'appointment_line',
+        'confirmed',
+      ])]: 'asc',
+    },
+    { createdAt: 'desc' },
+    { requestedStartAt: 'desc' },
+  ] as never
+}
 
 function mapAppointment(row: Appointment, organizationName: string | null = null) {
   return {
@@ -279,7 +313,7 @@ export async function GET(req: Request) {
     }
 
     const [rows, total] = await em.findAndCount(Appointment, where, {
-      orderBy: { createdAt: 'desc', requestedStartAt: 'desc' },
+      orderBy: appointmentListOrderBy(),
       limit: query.pageSize,
       offset: (query.page - 1) * query.pageSize,
     })
