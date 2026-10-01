@@ -226,8 +226,8 @@ export default setup
 
 | Hook | When it runs | Gate | Use case |
 |------|-------------|------|----------|
-| `onTenantCreated` | Inside `setupInitialTenant()` | Always | Settings rows, sequences, config |
-| `seedDefaults` | During init/onboarding | Always | Dictionaries, tax rates, statuses |
+| `onTenantCreated` | Inside `setupInitialTenant()`, and for the first organization of a tenant created in Directory | Always | Settings rows, sequences, config |
+| `seedDefaults` | During init/onboarding, and for the first organization of a tenant created in Directory | Always | Dictionaries, tax rates, statuses |
 | `seedExamples` | During init/onboarding | Skipped with `--no-examples` | Demo data |
 | `defaultRoleFeatures` | Declarative, merged during `ensureDefaultRoleAcls()` and `yarn mercato auth sync-role-acls` | Always | Role ACL features |
 
