@@ -81,9 +81,9 @@
     "@open-mercato/core": "workspace:*",
     "@open-mercato/shared": "workspace:*",
     "@types/jest": "^30.0.0",
-    "@types/node": "^26.1.2",
-    "jest": "^30.4.2",
-    "ts-jest": "^29.4.12",
+    "@types/node": "^26.6.3",
+    "jest": "^30.5.2",
+    "ts-jest": "^29.4.14",
     "typescript": "7.0.2"
   },
   "repository": {
@@ -92,6 +92,6 @@
     "directory": "packages/migrate-tps"
   },
   "dependencies": {
-    "pg": "8.22.0"
+    "pg": "8.23.0"
   }
 }
