@@ -107,14 +107,21 @@ export function parseIdList(raw?: string): string[] {
 }
 
 function buildProductScopeWhere(ctx: CrudCtx): Record<string, unknown> {
-  const isAllOrganizations = ctx.organizationIds === null;
+  const isAllOrganizations = ctx.organizationIds === null && ctx.organizationScope?.allowedIds === null;
+  const isUnresolvedScope = ctx.organizationScope === null || ctx.organizationScope === undefined;
+  const organizationId = isAllOrganizations || isUnresolvedScope
+    ? undefined
+    : (ctx.selectedOrganizationId ?? ctx.auth?.orgId ?? null);
+  const organizationIds = isAllOrganizations
+    ? undefined
+    : isUnresolvedScope
+      ? []
+      : ctx.organizationIds ?? [];
   return buildScopedWhere(
     {},
     {
-      organizationId: isAllOrganizations
-        ? undefined
-        : (ctx.selectedOrganizationId ?? ctx.auth?.orgId ?? null),
-      organizationIds: isAllOrganizations ? undefined : ctx.organizationIds ?? undefined,
+      organizationId,
+      organizationIds,
       tenantId: ctx.auth?.tenantId ?? null,
       softDeleteField: null,
     },

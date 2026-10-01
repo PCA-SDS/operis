@@ -100,6 +100,7 @@ describe('catalog products route helpers', () => {
       {
         container,
         auth: { tenantId: 'tenant-1', orgId: 'org-auth' },
+        organizationScope: { allowedIds: null },
         organizationIds: null,
         selectedOrganizationId: null,
       } as any,
@@ -112,6 +113,36 @@ describe('catalog products route helpers', () => {
     )
     expect(forkedEm.find.mock.calls[0][1]).not.toHaveProperty('organizationId')
     expect(filters.id).toEqual({ $eq: 'prod-all-org' })
+  })
+
+  it('fails closed when organization scope resolution fails without a home organization', async () => {
+    const forkedEm = {
+      find: jest.fn().mockResolvedValue([]),
+    }
+    const em = { fork: () => forkedEm }
+    const container = { resolve: jest.fn().mockReturnValue(em) }
+    ;(buildCustomFieldFiltersFromQuery as jest.Mock).mockResolvedValueOnce({})
+
+    const filters = await buildProductFilters(
+      { search: 'widget' } as any,
+      {
+        container,
+        auth: { tenantId: 'tenant-1', orgId: null },
+        organizationScope: null,
+        organizationIds: null,
+        selectedOrganizationId: null,
+      } as any,
+    )
+
+    expect(forkedEm.find).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        organizationId: { $in: [] },
+        tenantId: 'tenant-1',
+      }),
+      expect.anything(),
+    )
+    expect(filters.id).toEqual({ $eq: '00000000-0000-0000-0000-000000000000' })
   })
 
   it('dispatches independent filter prequeries concurrently and intersects them (issue #3179)', async () => {
