@@ -6,8 +6,6 @@ import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
-import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
-import { resolveOrganizationScopeFilter } from '@open-mercato/core/modules/directory/utils/organizationScopeFilter'
 import { appointmentStaffCustomerLookupSchema } from '../../data/validators'
 import { lookupReturningCustomerForAppointment } from '../../lib/intake'
 
@@ -39,18 +37,7 @@ export async function POST(req: Request) {
     const body = appointmentStaffCustomerLookupSchema.parse(await req.json())
     const container = await createRequestContainer()
     const em = (container.resolve('em') as EntityManager).fork()
-    const scope = await resolveOrganizationScopeForRequest({
-      container,
-      auth,
-      request: req,
-      selectedId: body.organizationId,
-    })
-    const organizationFilter = resolveOrganizationScopeFilter(scope, auth)
-    const result = await lookupReturningCustomerForAppointment(
-      em,
-      { ...body, tenantId: auth.tenantId },
-      { organizationIds: organizationFilter.organizationIds },
-    )
+    const result = await lookupReturningCustomerForAppointment(em, { ...body, tenantId: auth.tenantId })
 
     return NextResponse.json({ lastBooking: result.lastBooking })
   } catch (error) {
@@ -76,7 +63,7 @@ export const openApi: OpenApiRouteDoc = {
   methods: {
     POST: {
       summary: 'Find the latest booking services for a customer',
-      description: 'Requires appointment-create permission and scopes customer history to the authenticated tenant and authorized organization selection.',
+      description: 'Requires appointment-create permission and returns the latest appointment service lines across the authenticated tenant.',
       requestBody: { contentType: 'application/json', schema: appointmentStaffCustomerLookupSchema },
       responses: [
         { status: 200, description: 'Latest appointment service lines', schema: successSchema },

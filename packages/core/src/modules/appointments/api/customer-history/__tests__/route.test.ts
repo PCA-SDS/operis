@@ -1,22 +1,11 @@
 /** @jest-environment node */
 
 const mockGetAuthFromRequest = jest.fn()
-const mockResolveOrganizationScopeForRequest = jest.fn()
-const mockResolveOrganizationScopeFilter = jest.fn()
 const mockLookupReturningCustomerForAppointment = jest.fn()
-const mockResolveTranslations = jest.fn()
 const mockCreateRequestContainer = jest.fn()
 
 jest.mock('@open-mercato/shared/lib/auth/server', () => ({
   getAuthFromRequest: (...args: unknown[]) => mockGetAuthFromRequest(...args),
-}))
-
-jest.mock('@open-mercato/core/modules/directory/utils/organizationScope', () => ({
-  resolveOrganizationScopeForRequest: (...args: unknown[]) => mockResolveOrganizationScopeForRequest(...args),
-}))
-
-jest.mock('@open-mercato/core/modules/directory/utils/organizationScopeFilter', () => ({
-  resolveOrganizationScopeFilter: (...args: unknown[]) => mockResolveOrganizationScopeFilter(...args),
 }))
 
 jest.mock('../../../lib/intake', () => ({
@@ -39,14 +28,10 @@ describe('appointments staff customer history route', () => {
   beforeEach(() => {
     jest.resetModules()
     mockGetAuthFromRequest.mockReset()
-    mockResolveOrganizationScopeForRequest.mockReset()
-    mockResolveOrganizationScopeFilter.mockReset()
     mockLookupReturningCustomerForAppointment.mockReset()
     mockCreateRequestContainer.mockReset()
     mockGetAuthFromRequest.mockResolvedValue({ tenantId: TENANT_ID, orgId: ORGANIZATION_ID, sub: 'staff-user' })
     mockCreateRequestContainer.mockResolvedValue({ resolve: () => ({ fork: () => ({}) }) })
-    mockResolveOrganizationScopeForRequest.mockResolvedValue({ selectedId: ORGANIZATION_ID, filterIds: [ORGANIZATION_ID] })
-    mockResolveOrganizationScopeFilter.mockReturnValue({ organizationIds: [ORGANIZATION_ID] })
     mockLookupReturningCustomerForAppointment.mockResolvedValue({
       exists: true,
       customer: { id: CUSTOMER_ID, name: 'Subha' },
@@ -63,7 +48,7 @@ describe('appointments staff customer history route', () => {
     expect(metadata.POST).toEqual({ requireAuth: true, requireFeatures: ['appointments.create'] })
   })
 
-  it('uses authenticated tenant and authorized organization for phone-only history lookup', async () => {
+  it('uses the authenticated tenant without narrowing phone-only history to the selected organization', async () => {
     const { POST } = await import('../route')
     const response = await POST(new Request('http://localhost/api/appointments/customer-history', {
       method: 'POST',
@@ -74,14 +59,9 @@ describe('appointments staff customer history route', () => {
     expect(response.status).toBe(200)
     const result = await response.json() as { lastBooking?: { organizationId?: string } | null; customer?: unknown }
     expect(result).toMatchObject({ lastBooking: { organizationId: ORGANIZATION_ID } })
-    expect(mockResolveOrganizationScopeForRequest).toHaveBeenCalledWith(expect.objectContaining({
-      auth: expect.objectContaining({ tenantId: TENANT_ID }),
-      selectedId: ORGANIZATION_ID,
-    }))
     expect(mockLookupReturningCustomerForAppointment).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ tenantId: TENANT_ID, phone: '+61 401193184' }),
-      { organizationIds: [ORGANIZATION_ID] },
     )
     expect(result.customer).toBeUndefined()
   })

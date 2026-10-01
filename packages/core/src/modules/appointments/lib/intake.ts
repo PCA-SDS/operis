@@ -59,7 +59,7 @@ export type ReturningCustomerLookupResult = Omit<PersonCheckResult, 'lastBooking
 export async function lookupReturningCustomerForAppointment(
   em: EntityManager,
   input: AppointmentStaffCustomerLookupInput,
-  options: { organizationIds?: string[]; requireAllProvidedContactsMatch?: boolean } = {},
+  options: { requireAllProvidedContactsMatch?: boolean } = {},
 ): Promise<ReturningCustomerLookupResult> {
   const identity = await checkPersonIdentity(em, { tenantId: input.tenantId }, input, {
     requireAllProvidedContactsMatch: options.requireAllProvidedContactsMatch,
@@ -74,9 +74,6 @@ export async function lookupReturningCustomerForAppointment(
       tenantId: input.tenantId,
       customerEntityId: identity.customer.id,
       deletedAt: null,
-      ...(options.organizationIds !== undefined
-        ? { organizationId: { $in: options.organizationIds } }
-        : {}),
     },
     {
       orderBy: { requestedStartAt: 'DESC' },

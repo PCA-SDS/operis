@@ -31,7 +31,7 @@ The encrypted customer phone column cannot support substring matching with SQL `
 
 ## Architecture
 
-The booking endpoints delegate matching to a shared customer lookup helper. That helper combines display-name token IDs, primary-phone token IDs, and exact deterministic phone/email hash candidates, then loads/decrypts only tenant-scoped matching people. No plaintext phone search is added to SQL. Public lookup requires both phone and email to match the same customer; the authenticated staff lookup supports phone-only history and returns only the latest booking service lines within the caller's authorized organization scope.
+The booking endpoints delegate matching to a shared customer lookup helper. That helper combines display-name token IDs, primary-phone token IDs, and exact deterministic phone/email hash candidates, then loads/decrypts only tenant-scoped matching people. No plaintext phone search is added to SQL. Public lookup requires both phone and email to match the same customer; the authenticated staff lookup supports phone-only history and returns the latest booking service lines across the authenticated tenant because customers are shared across its organizations.
 
 ## Data Models
 
@@ -39,7 +39,7 @@ The returning-customer sheet depends on existing `search_tokens` rows for `custo
 
 ## API Contracts
 
-`GET /api/appointments/customer-search?search=<query>` remains authenticated and tenant-scoped. `POST /api/appointments/public/customer` remains unauthenticated, requires phone and email to resolve to the same person, and retains its response contract. `POST /api/appointments/customer-history` requires authenticated appointment-create access, derives tenant scope from auth, and returns only latest booking service lines within authorized organization scope.
+`GET /api/appointments/customer-search?search=<query>` remains authenticated and tenant-scoped. `POST /api/appointments/public/customer` remains unauthenticated, requires phone and email to resolve to the same person, and retains its response contract. `POST /api/appointments/customer-history` requires authenticated appointment-create access, derives tenant scope from auth, and returns the latest booking service lines across organizations in that tenant.
 
 ## Risks & Impact Review
 
@@ -52,7 +52,7 @@ The returning-customer sheet depends on existing `search_tokens` rows for `custo
 
 - Integration coverage exercises the authenticated customer-search API against real search-token rows and verifies tenant isolation.
 - Appointment list route coverage verifies formatted partial-phone search uses normalized digits and retains tenant/organization filters.
-- Integration coverage verifies public phone-only lookup is rejected and staff phone-only history lookup requires authentication.
+- Integration coverage verifies public phone-only lookup is rejected, staff phone-only history lookup requires authentication, and the latest same-tenant booking can come from another organization.
 - No database schema changes. Public customer lookup requires phone and email to match the same person; a new authenticated staff history endpoint supports phone-only lookup.
 - Referral inline creation is not part of this change.
 
@@ -60,3 +60,4 @@ The returning-customer sheet depends on existing `search_tokens` rows for `custo
 
 - 2026-09-29 — Documented tenant-scoped partial-phone search, legacy reindex requirement, phone-only returning lookup, and integration coverage.
 - 2026-09-30 — Indexed normalized appointment phone snapshots with `pg_trgm` and moved substring matching into the organization-scoped appointment list query, preserving all-organizations mode without an intermediate unbounded ID list.
+- 2026-10-01 — Corrected staff customer history to select the tenant-wide latest booking instead of narrowing it to the currently selected organization.
