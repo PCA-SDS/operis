@@ -116,6 +116,104 @@ describe('createAppointmentFromPublicIntake', () => {
     expect(em.flush).toHaveBeenCalled()
   })
 
+  describe('referral and origin for a returning customer', () => {
+    const staffCustomer = {
+      firstName: 'Sam',
+      lastName: 'Patel',
+      phone: '+447700900456',
+      source: 'google',
+      origin: 'local',
+    }
+    const staffInput = {
+      tenantId,
+      organizationId,
+      requestedStartAt: '2026-09-01T10:00:00.000Z',
+      bookingType: 'walk_in' as const,
+      customer: staffCustomer,
+      lines: [{ productId }],
+    }
+    const commandContext = { auth: { sub: 'staff-1' } }
+
+    function returningCustomer(stored: { source: string | null; origin: string | null }) {
+      mockFindOrCreatePersonForIntake.mockResolvedValue({
+        entityId: customerEntityId,
+        personId: customerEntityId,
+        created: false,
+        ...stored,
+      })
+    }
+
+    it('fills the source and origin the customer does not have yet', async () => {
+      returningCustomer({ source: null, origin: null })
+      const commandBus = { execute: jest.fn(async () => ({})) }
+      const { createAppointmentFromPublicIntake } = await import('../intake')
+
+      await createAppointmentFromPublicIntake(em as never, staffInput, {
+        commandBus: commandBus as never,
+        commandContext: commandContext as never,
+      })
+
+      expect(commandBus.execute).toHaveBeenCalledTimes(1)
+      expect(commandBus.execute).toHaveBeenCalledWith('customers.people.update', {
+        input: { id: customerEntityId, source: 'google', origin: 'local' },
+        ctx: commandContext,
+      })
+    })
+
+    it('keeps a source or origin the customer already has', async () => {
+      returningCustomer({ source: 'facebook', origin: null })
+      const commandBus = { execute: jest.fn(async () => ({})) }
+      const { createAppointmentFromPublicIntake } = await import('../intake')
+
+      await createAppointmentFromPublicIntake(em as never, staffInput, {
+        commandBus: commandBus as never,
+        commandContext: commandContext as never,
+      })
+
+      expect(commandBus.execute).toHaveBeenCalledWith('customers.people.update', {
+        input: { id: customerEntityId, origin: 'local' },
+        ctx: commandContext,
+      })
+    })
+
+    it('does not update a customer whose source and origin are both set', async () => {
+      returningCustomer({ source: 'facebook', origin: 'tourist' })
+      const commandBus = { execute: jest.fn(async () => ({})) }
+      const { createAppointmentFromPublicIntake } = await import('../intake')
+
+      await createAppointmentFromPublicIntake(em as never, staffInput, {
+        commandBus: commandBus as never,
+        commandContext: commandContext as never,
+      })
+
+      expect(commandBus.execute).not.toHaveBeenCalled()
+    })
+
+    it('never updates an existing customer without a command bus (public booking)', async () => {
+      returningCustomer({ source: null, origin: null })
+      const { createAppointmentFromPublicIntake } = await import('../intake')
+
+      const result = await createAppointmentFromPublicIntake(em as never, staffInput, {})
+
+      expect(result.customerCreated).toBe(false)
+      expect(em.flush).toHaveBeenCalled()
+    })
+
+    it('does not save the booking when the customer update fails', async () => {
+      returningCustomer({ source: null, origin: null })
+      const commandBus = { execute: jest.fn(async () => { throw new Error('[internal] update failed') }) }
+      const { createAppointmentFromPublicIntake } = await import('../intake')
+
+      await expect(
+        createAppointmentFromPublicIntake(em as never, staffInput, {
+          commandBus: commandBus as never,
+          commandContext: commandContext as never,
+        }),
+      ).rejects.toThrow('[internal] update failed')
+      expect(em.flush).not.toHaveBeenCalled()
+    })
+  })
+
   it('rejects services that are not bookable for the organization', async () => {
     mockListBookableServicesForOrganization.mockResolvedValue([])
     const { createAppointmentFromPublicIntake } = await import('../intake')
