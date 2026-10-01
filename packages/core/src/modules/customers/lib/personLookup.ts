@@ -3,7 +3,12 @@ import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { findOneWithDecryption, findWithDecryption } from '@open-mercato/shared/lib/encryption/find'
 import { Organization, Tenant } from '@open-mercato/core/modules/directory/data/entities'
 import { CustomerEntity, CustomerPersonProfile } from '../data/entities'
-import { emailLookupHashCandidates, phoneLookupHashCandidates, resolvePhoneIdentity } from './contactIdentity'
+import {
+  computeEmailLookupHash,
+  emailLookupHashCandidates,
+  phoneLookupHashCandidates,
+  resolvePhoneIdentity,
+} from './contactIdentity'
 import { normalizeEmail } from '@open-mercato/shared/lib/validation'
 import { findEntityIdsBySearchTokensCompat, type SearchTokenDatabase } from '@open-mercato/shared/lib/search/tokenLookup'
 import { extractPhoneDigits } from '@open-mercato/shared/lib/phone'
@@ -202,6 +207,33 @@ export async function assertBookingPersonScope(
   }
 }
 
+function phoneIdentityHashCandidates(primaryPhone: string, dialCode: string): string[] {
+  const digits = extractPhoneDigits(primaryPhone)
+  const nationalDigits = primaryPhone.trim().startsWith('+') && digits.startsWith(dialCode)
+    ? digits.slice(dialCode.length)
+    : ''
+  return Array.from(new Set([
+    ...phoneLookupHashCandidates(digits),
+    ...phoneLookupHashCandidates(nationalDigits),
+  ]))
+}
+
+async function isPhoneHashClaimed(
+  em: EntityManager,
+  tenantId: string,
+  primaryPhoneHash: string | null,
+): Promise<boolean> {
+  if (!primaryPhoneHash) return false
+  const holder = await findOneWithDecryption(
+    em,
+    CustomerEntity,
+    { tenantId, kind: 'person', deletedAt: null, primaryPhoneHash },
+    undefined,
+    { tenantId },
+  )
+  return holder !== null
+}
+
 export async function findPersonByPhoneIdentity(
   em: EntityManager,
   scope: PersonTenantScope,
@@ -216,7 +248,7 @@ export async function findPersonByPhoneIdentity(
   })
   if (!identity.primaryPhone || !identity.phoneCountryCode) return null
 
-  const phoneHashes = phoneLookupHashCandidates(identity.primaryPhone)
+  const phoneHashes = phoneIdentityHashCandidates(identity.primaryPhone, identity.phoneCountryCode)
   if (phoneHashes.length === 0) return null
 
   const entity = await findOneWithDecryption(em, CustomerEntity, {
@@ -224,8 +256,8 @@ export async function findPersonByPhoneIdentity(
     kind: 'person',
     deletedAt: null,
     primaryPhoneHash: { $in: phoneHashes },
-    phoneCountryCode: identity.phoneCountryCode,
-  }, undefined, scope)
+    $or: [{ phoneCountryCode: identity.phoneCountryCode }, { phoneCountryCode: null }],
+  }, { orderBy: { createdAt: 'asc' } }, scope)
   if (!entity) return null
   const profile = await loadPersonProfile(em, entity.id)
   return { entity, profile }
@@ -347,14 +379,19 @@ export async function findOrCreatePersonForIntake(
   })
   const { lifecycleStage, status } = mapErpClientStatusToOperis('prospect')
   const displayName = `${input.firstName.trim()} ${input.lastName.trim()}`.trim()
+  const primaryEmail = normalizeEmail(input.email)
 
   const entity = em.create(CustomerEntity, {
     organizationId: input.organizationId,
     tenantId: input.tenantId,
     kind: 'person',
     displayName,
-    primaryEmail: normalizeEmail(input.email),
+    primaryEmail,
+    primaryEmailHash: computeEmailLookupHash(primaryEmail),
     primaryPhone: phoneIdentity.primaryPhone,
+    primaryPhoneHash: await isPhoneHashClaimed(em, input.tenantId, phoneIdentity.primaryPhoneHash)
+      ? null
+      : phoneIdentity.primaryPhoneHash,
     phoneCountryCode: phoneIdentity.phoneCountryCode,
     phoneCountry: phoneIdentity.phoneCountry,
     source: input.source?.trim() || null,
