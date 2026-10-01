@@ -9,7 +9,7 @@ import { flash } from '@open-mercato/ui/backend/FlashMessages'
 import { useCurrentUserId } from '@open-mercato/ui/backend/utils/useCurrentUserId'
 import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { TASK_COMMENT_PLAINTEXT_MAX_LENGTH } from '../data/types'
-import { RichTextEditor, RichTextView, type RichTextValue } from './RichText'
+import { RichTextEditor, RichTextView, trimRichText, type RichTextValue } from './RichText'
 import { CARD_CAPTION_CLASS, ErrorState, SkeletonBlock, UserAvatar } from './ui-bits'
 import { formatEditedAt, formatTaskDateTime } from './format'
 import { useCommentMutations, useTaskComments, useTaskError } from './hooks'
@@ -50,6 +50,7 @@ export function CommentsThread({ taskId }: { taskId: string }) {
         <RichTextEditor
           value={draft.html}
           onChange={setDraft}
+          onInput={setDraft}
           onSubmit={(value) => void post(value)}
           placeholder={t('tasks.comments.placeholder', 'Leave a comment…')}
           minRows={3}
@@ -174,13 +175,14 @@ function CommentEditor({
   saving: boolean
 }) {
   const t = useT()
-  const [draft, setDraft] = React.useState<RichTextValue>({ html: initialHtml, text: '' })
+  const [draft, setDraft] = React.useState<RichTextValue>(() => trimRichText(initialHtml))
 
   return (
     <div className="space-y-2">
       <RichTextEditor
         value={initialHtml}
         onChange={setDraft}
+        onInput={setDraft}
         onSubmit={(next) => {
           if (saving || next.text.trim().length === 0) return
           onSave(next)

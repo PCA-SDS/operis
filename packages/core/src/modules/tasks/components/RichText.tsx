@@ -14,12 +14,14 @@ export type RichTextValue = { html: string; text: string }
  * have to parse markup.
  *
  * The DS editor reports on blur, which is also when a task description should
- * save — a field-level PATCH per keystroke would be a write storm.
+ * save — a field-level PATCH per keystroke would be a write storm. A caller that
+ * needs the live draft (to enable a submit button while typing) passes `onInput`.
  */
 export function RichTextEditor({
   value,
   onChange,
   onBlur,
+  onInput,
   onSubmit,
   placeholder,
   minRows = 3,
@@ -30,6 +32,8 @@ export function RichTextEditor({
   value: string
   onChange?: (next: RichTextValue) => void
   onBlur?: (next: RichTextValue) => void
+  /** Reports the live draft on every edit. Use for UI state only, never to save. */
+  onInput?: (next: RichTextValue) => void
   /** Enter (without Shift) commits the draft. Shift+Enter stays a newline. */
   onSubmit?: (next: RichTextValue) => void
   placeholder?: string
@@ -39,6 +43,11 @@ export function RichTextEditor({
   variant?: 'standard' | 'basic' | 'minimal'
 }) {
   const containerRef = React.useRef<HTMLDivElement | null>(null)
+
+  const readLiveDraft = React.useCallback((): RichTextValue => {
+    const node = containerRef.current?.querySelector('[data-slot="rich-editor-content"]')
+    return trimRichText(node instanceof HTMLElement ? node.innerHTML : value)
+  }, [value])
 
   const handleChange = React.useCallback(
     (html: string) => {
@@ -55,13 +64,16 @@ export function RichTextEditor({
       event.preventDefault()
       // The editor only reports on blur, and Enter does not blur it — so the
       // draft in React state is a keystroke behind. Read the live content.
-      const node = containerRef.current?.querySelector('[data-slot="rich-editor-content"]')
-      const next = trimRichText(node instanceof HTMLElement ? node.innerHTML : value)
+      const next = readLiveDraft()
       onChange?.(next)
       onSubmit(next)
     },
-    [onSubmit, onChange, value],
+    [onSubmit, onChange, readLiveDraft],
   )
+
+  const handleInput = React.useCallback(() => {
+    onInput?.(readLiveDraft())
+  }, [onInput, readLiveDraft])
 
   const editor = (
     <RichEditor
@@ -75,12 +87,17 @@ export function RichTextEditor({
     />
   )
 
-  if (!onSubmit) return editor
+  if (!onSubmit && !onInput) return editor
 
   // `display: contents` keeps the wrapper out of layout while leaving it in the
-  // event path, so adding a submit handler cannot reflow the field.
+  // event path, so adding a submit or input handler cannot reflow the field.
   return (
-    <div ref={containerRef} onKeyDown={handleKeyDown} style={{ display: 'contents' }}>
+    <div
+      ref={containerRef}
+      onKeyDown={onSubmit ? handleKeyDown : undefined}
+      onInput={onInput ? handleInput : undefined}
+      style={{ display: 'contents' }}
+    >
       {editor}
     </div>
   )
