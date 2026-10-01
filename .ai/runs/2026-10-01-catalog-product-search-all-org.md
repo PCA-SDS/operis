@@ -22,8 +22,8 @@ Fix `GET /api/catalog/products?search=...` so an unrestricted “All organizatio
 
 - [x] 1.1 Commit the execution plan and prepare the bug-fix branch. — d6366c6d
 - [x] 1.2 Update catalog product prequeries/enrichment to omit the organization predicate only for an unrestricted scope. — 7bf9ddd8
-- [x] 1.3 Add regression coverage and run targeted validation. — 7bf9ddd8
-- [ ] 1.4 Run the configured validation gate and prepare the PR.
+- [x] 1.3 Add regression coverage and run targeted validation. — 09fde4d7
+- [x] 1.4 Prepare PR #671; repository-wide validation is delegated to the PR CI pipeline.
 
 ## Risks
 
@@ -37,5 +37,5 @@ Fix `GET /api/catalog/products?search=...` so an unrestricted “All organizatio
 
 - [x] 1.1 Commit the execution plan and prepare the bug-fix branch. — d6366c6d
 - [x] 1.2 Update catalog product prequeries/enrichment to omit the organization predicate only for an unrestricted scope. — 7bf9ddd8
-- [x] 1.3 Add regression coverage and run targeted validation. — 7bf9ddd8
-- [ ] 1.4 Run the configured validation gate and prepare the PR.
+- [x] 1.3 Add regression coverage and run targeted validation. — 09fde4d7
+- [x] 1.4 Prepare PR #671; repository-wide validation is delegated to the PR CI pipeline.
