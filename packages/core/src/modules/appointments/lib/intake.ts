@@ -59,7 +59,7 @@ export type ReturningCustomerLookupResult = Omit<PersonCheckResult, 'lastBooking
 export async function lookupReturningCustomerForAppointment(
   em: EntityManager,
   input: AppointmentStaffCustomerLookupInput,
-  options: { organizationIds?: string[]; requireAllProvidedContactsMatch?: boolean } = {},
+  options: { requireAllProvidedContactsMatch?: boolean } = {},
 ): Promise<ReturningCustomerLookupResult> {
   const identity = await checkPersonIdentity(em, { tenantId: input.tenantId }, input, {
     requireAllProvidedContactsMatch: options.requireAllProvidedContactsMatch,
@@ -68,15 +68,14 @@ export async function lookupReturningCustomerForAppointment(
     return { exists: false, customer: null, lastBooking: null }
   }
 
+  // Staff history is intentionally tenant-wide: do not filter by organization.
+  // Isolation is `tenantId` + customer, not the caller's selected location.
   const appointment = await em.findOne(
     Appointment,
     {
       tenantId: input.tenantId,
       customerEntityId: identity.customer.id,
       deletedAt: null,
-      ...(options.organizationIds !== undefined
-        ? { organizationId: { $in: options.organizationIds } }
-        : {}),
     },
     {
       orderBy: { requestedStartAt: 'DESC' },

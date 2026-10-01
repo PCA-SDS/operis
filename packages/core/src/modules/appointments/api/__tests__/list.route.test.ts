@@ -363,8 +363,39 @@ describe('appointments list route totals', () => {
     expect(findAndCount).toHaveBeenCalledWith(
       Appointment,
       expect.objectContaining({ tenantId: TENANT_ID, organizationId: { $in: [ORGANIZATION_ID] } }),
-      expect.objectContaining({ limit: 10, offset: 10 }),
+      expect.objectContaining({ limit: 10, offset: 10, orderBy: expect.any(Array) }),
     )
+  })
+
+  it('pins actionable unconfirmed appointments before applying pagination', async () => {
+    const em = {
+      find: jest.fn(async () => []),
+      findAndCount: jest.fn(async () => [[], 0]),
+    }
+    mockCreateRequestContainer.mockResolvedValue({
+      resolve: () => ({ fork: () => em }),
+    })
+
+    const { GET } = await import('../route')
+    const response = await GET(new Request('http://localhost/api/appointments?page=1&pageSize=10'))
+
+    expect(response.status).toBe(200)
+    const options = em.findAndCount.mock.calls[0]?.[2] as {
+      limit: number
+      offset: number
+      orderBy: Array<Record<PropertyKey, string>>
+    }
+    const pinOrderKey = Reflect.ownKeys(options.orderBy[0] ?? {})[0]
+
+    expect(options.limit).toBe(10)
+    expect(options.offset).toBe(0)
+    expect(typeof pinOrderKey).toBe('symbol')
+    expect((pinOrderKey as symbol).description).toContain('not exists')
+    expect((pinOrderKey as symbol).description).toContain('resources_assignments')
+    expect(options.orderBy.slice(1)).toEqual([
+      { createdAt: 'desc' },
+      { requestedStartAt: 'desc' },
+    ])
   })
 
   it('leaves the appointment query unrestricted for an authorized all-organization scope', async () => {
