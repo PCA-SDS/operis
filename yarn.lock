@@ -7530,15 +7530,19 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@mermaid-js/layout-elk@npm:~0.2.2":
-  version: 0.2.2
-  resolution: "@mermaid-js/layout-elk@npm:0.2.2"
+"@mermaid-js/layout-elk@npm:~1.0.0":
+  version: 1.0.0
+  resolution: "@mermaid-js/layout-elk@npm:1.0.0"
   dependencies:
     d3: "npm:^7.9.0"
+    dagre-d3-es: "npm:7.0.14"
+    dayjs: "npm:^1.11.21"
+    dompurify: "npm:^3.4.12"
     elkjs: "npm:^0.9.3"
+    katex: "npm:^0.16.47"
   peerDependencies:
-    mermaid: ^11.0.2
-  checksum: 10/151fb5320e72f4e64a9bef76e2be3dd76dbd417c22fd67b81f543f0e784eeeceb512365ae567c21bdb051dfa1ce70072fdee182a2831564c59c4b89d9a5ccf18
+    mermaid: ^12.0.0
+  checksum: 10/fbdf81103a37305cd4edad58ff2e0c93f7791a238fb1817c931f0c3290dc6459f076fbb8d1633aa1b10b4023bd4eae9b34e40dfdef6ebb6f772d85f1aaad5f67
   languageName: node
   linkType: hard
 
@@ -24328,7 +24332,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"katex@npm:^0.16.45":
+"katex@npm:^0.16.45, katex@npm:^0.16.47":
   version: 0.16.47
   resolution: "katex@npm:0.16.47"
   dependencies:
@@ -27158,7 +27162,7 @@ __metadata:
     "@docusaurus/theme-mermaid": "npm:^3.10.2"
     "@easyops-cn/docusaurus-search-local": "npm:^0.55.2"
     "@mdx-js/react": "npm:^3.0.0"
-    "@mermaid-js/layout-elk": "npm:~0.2.2"
+    "@mermaid-js/layout-elk": "npm:~1.0.0"
     "@tsconfig/docusaurus": "npm:^2.0.9"
     "@types/node": "npm:^26.1.2"
     "@types/react": "npm:^19.2.17"
