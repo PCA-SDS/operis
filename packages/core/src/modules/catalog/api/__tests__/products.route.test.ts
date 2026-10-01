@@ -87,6 +87,33 @@ describe('catalog products route helpers', () => {
     expect((filters as any).custom).toEqual({ $eq: 'value' })
   })
 
+  it('searches products across all organizations when the scope is unrestricted', async () => {
+    const forkedEm = {
+      find: jest.fn().mockResolvedValue([{ id: 'prod-all-org' }]),
+    }
+    const em = { fork: () => forkedEm }
+    const container = { resolve: jest.fn().mockReturnValue(em) }
+    ;(buildCustomFieldFiltersFromQuery as jest.Mock).mockResolvedValueOnce({})
+
+    const filters = await buildProductFilters(
+      { search: 'widget' } as any,
+      {
+        container,
+        auth: { tenantId: 'tenant-1', orgId: 'org-auth' },
+        organizationIds: null,
+        selectedOrganizationId: null,
+      } as any,
+    )
+
+    expect(forkedEm.find).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ tenantId: 'tenant-1' }),
+      expect.anything(),
+    )
+    expect(forkedEm.find.mock.calls[0][1]).not.toHaveProperty('organizationId')
+    expect(filters.id).toEqual({ $eq: 'prod-all-org' })
+  })
+
   it('dispatches independent filter prequeries concurrently and intersects them (issue #3179)', async () => {
     const expectedConcurrent = 4
     let dispatched = 0
