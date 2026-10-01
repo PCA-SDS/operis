@@ -143,17 +143,29 @@ test.describe('TC-APPT-SEARCH-001: Returning-customer partial phone search', () 
         )
         childAppointmentId = childInserted.rows[0]?.id ?? null
 
+        await client.query(
+          `insert into appointment_statuses
+             (id, tenant_id, code, label, description, is_system, sort_order, created_at, updated_at)
+           select gen_random_uuid(), $1, status.code, status.label, status.description, status.is_system,
+                  status.sort_order, now(), now()
+           from appointment_statuses status
+           where status.tenant_id = $2 and status.code = 'new_request' and status.deleted_at is null
+           order by status.id
+           limit 1`,
+          [foreignTenantId, tenantId],
+        )
+
         const foreignInserted = await client.query<{ id: string }>(
           `insert into appointments
              (tenant_id, organization_id, customer_entity_id, customer_name, customer_phone,
               status_id, status_code, requested_start_at, created_at, updated_at)
            select $1, $2, $3, $4, $5, status.id, 'new_request', now() + interval '1 hour', now(), now()
            from appointment_statuses status
-           where status.tenant_id = $6 and status.code = 'new_request' and status.deleted_at is null
+           where status.tenant_id = $1 and status.code = 'new_request' and status.deleted_at is null
            order by status.id
            limit 1
            returning id`,
-          [foreignTenantId, foreignOrganizationId, customerId, displayName, phone, tenantId],
+          [foreignTenantId, foreignOrganizationId, customerId, displayName, phone],
         )
         foreignHistoryAppointmentId = foreignInserted.rows[0]?.id ?? null
       })
@@ -231,6 +243,15 @@ test.describe('TC-APPT-SEARCH-001: Returning-customer partial phone search', () 
               (id): id is string => Boolean(id),
             ),
           ])
+        }).catch(() => undefined)
+      }
+      if (foreignTenantId) {
+        await withClient(async (client) => {
+          await client.query(
+            `delete from appointment_statuses
+             where tenant_id = $1 and code = 'new_request'`,
+            [foreignTenantId],
+          )
         }).catch(() => undefined)
       }
       if (customerId) {
