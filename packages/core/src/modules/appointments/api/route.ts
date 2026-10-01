@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { raw } from '@mikro-orm/core'
 import type { EntityManager } from '@mikro-orm/postgresql'
 import type { OpenApiRouteDoc } from '@open-mercato/shared/lib/openapi'
+import type { CommandBus, CommandRuntimeContext } from '@open-mercato/shared/lib/commands'
 import { createRequestContainer } from '@open-mercato/shared/lib/di/container'
 import { getAuthFromRequest } from '@open-mercato/shared/lib/auth/server'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
@@ -451,6 +452,29 @@ export async function POST(req: Request) {
     }
     const em = (container.resolve('em') as EntityManager).fork()
     const pricingService = container.resolve<CatalogPricingService>('catalogPricingService')
+    const rbac = container.resolve('rbacService') as {
+      userHasAllFeatures?: (
+        userId: string,
+        features: string[],
+        scope: { tenantId: string | null; organizationId: string | null },
+      ) => Promise<boolean>
+    }
+    const canUpdateCustomer = await rbac.userHasAllFeatures?.(
+      auth.sub,
+      ['customers.people.manage'],
+      { tenantId: auth.tenantId, organizationId },
+    )
+    const commandContext: CommandRuntimeContext = {
+      container,
+      auth,
+      organizationScope: createScope,
+      selectedOrganizationId: createScope?.selectedId ?? organizationId,
+      organizationIds: createScope?.filterIds ?? [organizationId],
+      request: req,
+    }
+    const customerProfileDeps = canUpdateCustomer
+      ? { commandBus: container.resolve<CommandBus>('commandBus'), commandContext }
+      : {}
     const { organizationId: _ignoredOrganizationId, ...intakeBody } = body
     const result = await createAppointmentFromPublicIntake(
       em,
@@ -459,7 +483,7 @@ export async function POST(req: Request) {
         tenantId: auth.tenantId,
         organizationId,
       },
-      { pricingService },
+      { pricingService, ...customerProfileDeps },
     )
     try {
       await emitAppointmentEvent('appointments.appointment.created', {
