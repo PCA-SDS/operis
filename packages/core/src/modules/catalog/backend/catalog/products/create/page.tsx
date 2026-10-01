@@ -1937,7 +1937,8 @@ function ProductBuilder({
               />
             ) : (
               <textarea
-                className="min-h-[180px] w-full rounded-md border border-input bg-input-bg px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                rows={8}
+                className="w-full rounded-md border border-input bg-input-bg px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 value={values.description}
                 onChange={(event) =>
                   setValue("description", event.target.value)
