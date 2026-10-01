@@ -66,6 +66,36 @@ describe('appointments staff customer history route', () => {
     expect(result.customer).toBeUndefined()
   })
 
+  it('returns a latest booking from another organization in the authenticated tenant', async () => {
+    const otherOrganizationId = '55555555-5555-4555-8555-555555555555'
+    mockLookupReturningCustomerForAppointment.mockResolvedValue({
+      exists: true,
+      customer: { id: CUSTOMER_ID, name: 'Subha' },
+      lastBooking: {
+        organizationId: otherOrganizationId,
+        requestedStartAt: '2026-10-01T04:15:00.000Z',
+        serviceLines: [{ productId: '11111111-1111-4111-8111-111111111111', selectedOptions: null }],
+      },
+    })
+
+    const { POST } = await import('../route')
+    const response = await POST(new Request('http://localhost/api/appointments/customer-history', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ organizationId: ORGANIZATION_ID, phone: '+61 401193184', phoneCountryCode: '61', phoneCountry: 'AU' }),
+    }))
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toMatchObject({
+      lastBooking: { organizationId: otherOrganizationId },
+    })
+    expect(mockLookupReturningCustomerForAppointment).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ tenantId: TENANT_ID, organizationId: ORGANIZATION_ID, phone: '+61 401193184' }),
+    )
+    expect(mockLookupReturningCustomerForAppointment.mock.calls[0]?.[2]).toBeUndefined()
+  })
+
   it('rejects requests without an authenticated tenant', async () => {
     mockGetAuthFromRequest.mockResolvedValue(null)
     const { POST } = await import('../route')

@@ -68,6 +68,8 @@ export async function lookupReturningCustomerForAppointment(
     return { exists: false, customer: null, lastBooking: null }
   }
 
+  // Staff history is intentionally tenant-wide: do not filter by organization.
+  // Isolation is `tenantId` + customer, not the caller's selected location.
   const appointment = await em.findOne(
     Appointment,
     {

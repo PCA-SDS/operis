@@ -37,6 +37,11 @@ export async function POST(req: Request) {
     const body = appointmentStaffCustomerLookupSchema.parse(await req.json())
     const container = await createRequestContainer()
     const em = (container.resolve('em') as EntityManager).fork()
+    // `appointments.create` is tenant-wide for this read: customers are shared
+    // across locations, so walk-in staff may restore the latest booking even
+    // when it belongs to another organization in the same tenant. The query is
+    // still bound to `auth.tenantId`; `organizationId` on the body does not
+    // narrow history.
     const result = await lookupReturningCustomerForAppointment(em, { ...body, tenantId: auth.tenantId })
 
     return NextResponse.json({ lastBooking: result.lastBooking })

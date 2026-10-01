@@ -23,6 +23,8 @@ test.describe('TC-APPT-SEARCH-001: Returning-customer partial phone search', () 
     let secondaryOrganizationId: string | null = null
     let childOrganizationId: string | null = null
     let childAppointmentId: string | null = null
+    let foreignOrganizationId: string | null = null
+    let foreignHistoryAppointmentId: string | null = null
 
     try {
       const tenantResponse = await apiRequest(request, 'POST', '/api/directory/tenants', {
@@ -87,6 +89,14 @@ test.describe('TC-APPT-SEARCH-001: Returning-customer partial phone search', () 
       childOrganizationId = (await readJsonSafe<{ id?: string }>(childOrganizationResponse))?.id ?? null
       expect(childOrganizationId, 'child organization id should be returned').toBeTruthy()
 
+      const foreignOrganizationResponse = await apiRequest(request, 'POST', '/api/directory/organizations', {
+        token: superadminToken,
+        data: { name: `QA APPT HISTORY FOREIGN ${Date.now()}`, tenantId: foreignTenantId },
+      })
+      expect(foreignOrganizationResponse.status(), 'foreign organization fixture should be created').toBe(201)
+      foreignOrganizationId = (await readJsonSafe<{ id?: string }>(foreignOrganizationResponse))?.id ?? null
+      expect(foreignOrganizationId, 'foreign organization id should be returned').toBeTruthy()
+
       const appointmentPhoneDigits = `84276${String(Date.now()).slice(-6)}`
       const appointmentPhone = `+84 (${appointmentPhoneDigits.slice(2, 5)}) ${appointmentPhoneDigits.slice(5)}`
       const appointmentPhoneSearch = appointmentPhoneDigits.slice(2, 8)
@@ -132,10 +142,25 @@ test.describe('TC-APPT-SEARCH-001: Returning-customer partial phone search', () 
           [tenantId, childOrganizationId, customerId, displayName, appointmentPhone],
         )
         childAppointmentId = childInserted.rows[0]?.id ?? null
+
+        const foreignInserted = await client.query<{ id: string }>(
+          `insert into appointments
+             (tenant_id, organization_id, customer_entity_id, customer_name, customer_phone,
+              status_id, status_code, requested_start_at, created_at, updated_at)
+           select $1, $2, $3, $4, $5, status.id, 'new_request', now() + interval '1 hour', now(), now()
+           from appointment_statuses status
+           where status.tenant_id = $6 and status.code = 'new_request' and status.deleted_at is null
+           order by status.id
+           limit 1
+           returning id`,
+          [foreignTenantId, foreignOrganizationId, customerId, displayName, phone, tenantId],
+        )
+        foreignHistoryAppointmentId = foreignInserted.rows[0]?.id ?? null
       })
       expect(appointmentId, 'appointment fixture should be created').toBeTruthy()
       expect(latestHistoryAppointmentId, 'cross-organization history fixture should be created').toBeTruthy()
       expect(childAppointmentId, 'child-organization appointment fixture should be created').toBeTruthy()
+      expect(foreignHistoryAppointmentId, 'cross-tenant history fixture should be created').toBeTruthy()
 
       const publicPhoneOnlyLookup = await request.post('/api/appointments/public/customer', {
         data: { tenantId, phone, phoneCountryCode: '+84', phoneCountry: 'VN' },
@@ -154,6 +179,7 @@ test.describe('TC-APPT-SEARCH-001: Returning-customer partial phone search', () 
       expect(staffHistory.status(), 'staff can retrieve phone-only customer history').toBe(200)
       const staffHistoryBody = await readJsonSafe<{ lastBooking?: { organizationId?: string } | null }>(staffHistory)
       expect(staffHistoryBody?.lastBooking?.organizationId).toBe(secondaryOrganizationId)
+      expect(staffHistoryBody?.lastBooking?.organizationId).not.toBe(foreignOrganizationId)
 
       const appointmentResponse = await apiRequest(
         request,
@@ -198,11 +224,12 @@ test.describe('TC-APPT-SEARCH-001: Returning-customer partial phone search', () 
       const isolatedBody = await readJsonSafe<SearchBody>(isolatedResponse)
       expect(isolatedBody?.items?.some((item) => item.id === customerId)).toBe(false)
     } finally {
-      if (appointmentId || latestHistoryAppointmentId || childAppointmentId) {
+      if (appointmentId || latestHistoryAppointmentId || childAppointmentId || foreignHistoryAppointmentId) {
         await withClient(async (client) => {
-          await client.query('delete from appointments where id = any($1::uuid[]) and tenant_id = $2', [
-            [appointmentId, latestHistoryAppointmentId, childAppointmentId].filter((id): id is string => Boolean(id)),
-            tenantId,
+          await client.query('delete from appointments where id = any($1::uuid[])', [
+            [appointmentId, latestHistoryAppointmentId, childAppointmentId, foreignHistoryAppointmentId].filter(
+              (id): id is string => Boolean(id),
+            ),
           ])
         }).catch(() => undefined)
       }
@@ -217,6 +244,7 @@ test.describe('TC-APPT-SEARCH-001: Returning-customer partial phone search', () 
       await deleteEntityIfExists(request, adminToken, '/api/customers/people', customerId)
       await deleteGeneralEntityIfExists(request, superadminToken, '/api/directory/organizations', childOrganizationId)
       await deleteGeneralEntityIfExists(request, superadminToken, '/api/directory/organizations', secondaryOrganizationId)
+      await deleteGeneralEntityIfExists(request, superadminToken, '/api/directory/organizations', foreignOrganizationId)
       await deleteGeneralEntityIfExists(request, superadminToken, '/api/directory/tenants', foreignTenantId)
     }
   })

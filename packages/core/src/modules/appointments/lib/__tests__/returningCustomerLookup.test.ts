@@ -53,4 +53,29 @@ describe('lookupReturningCustomerForAppointment', () => {
     )
     expect(result.lastBooking?.organizationId).toBe(latestOrganizationId)
   })
+
+  it('scopes the latest-booking query to the authenticated tenant', async () => {
+    const findOne = jest.fn().mockResolvedValue(null)
+    const { lookupReturningCustomerForAppointment } = await import('../intake')
+
+    const result = await lookupReturningCustomerForAppointment(
+      { findOne } as never,
+      {
+        tenantId,
+        organizationId: selectedOrganizationId,
+        phone: '+84 901 234 567',
+      },
+    )
+
+    expect(findOne).toHaveBeenCalledWith(
+      expect.anything(),
+      {
+        tenantId,
+        customerEntityId,
+        deletedAt: null,
+      },
+      expect.objectContaining({ orderBy: { requestedStartAt: 'DESC' } }),
+    )
+    expect(result.lastBooking).toBeNull()
+  })
 })
