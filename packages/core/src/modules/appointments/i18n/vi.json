@@ -199,6 +199,7 @@
   "appointments.list.schedule.pinned": "Pinned booking",
   "appointments.list.schedule.unconfirmed": "Unconfirmed",
   "appointments.list.search.placeholder": "Search appointments…",
+  "appointments.list.search.scopeHint": "Tìm kiếm trên tất cả địa điểm bạn được phép truy cập trong tenant này.",
   "appointments.list.title": "Appointments",
   "appointments.list.urgency.createdAt": "Created: {value}",
   "appointments.list.urgency.dayAgo": "1 day ago",

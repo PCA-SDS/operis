@@ -9,6 +9,7 @@ import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { resolveOrganizationScopeForRequest } from '@open-mercato/core/modules/directory/utils/organizationScope'
 import { resolveOrganizationScopeFilter } from '@open-mercato/core/modules/directory/utils/organizationScopeFilter'
+import { ALL_ORGANIZATIONS_COOKIE_VALUE } from '@open-mercato/core/modules/directory/constants'
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
 import { CatalogProductOption } from '@open-mercato/core/modules/catalog/data/entities'
 import { ResourcesAssignment } from '@open-mercato/core/modules/resources/data/entities'
@@ -249,16 +250,15 @@ export async function GET(req: Request) {
     const container = await createRequestContainer()
     const em = (container.resolve('em') as EntityManager).fork()
 
-    // `?organizationId=` is caller input, so it goes through the allow-list
-    // rather than into the query. `resolveOrganizationScopeForRequest` honors a
-    // selection only when the principal may act on it and otherwise falls back
-    // to their own accessible scope, so a restricted caller asking for another
-    // branch reads their own rows instead of that branch's.
+    // Search spans all organizations allowed to this principal; without a
+    // search term, the selected organization remains the list scope. In both
+    // cases the resolver enforces tenant and organization access before the
+    // resulting filter is applied to appointment rows.
     const scope = await resolveOrganizationScopeForRequest({
       container,
       auth,
       request: req,
-      selectedId: query.organizationId,
+      selectedId: query.search ? ALL_ORGANIZATIONS_COOKIE_VALUE : query.organizationId,
     })
     const orgFilter = resolveOrganizationScopeFilter(scope, auth)
 
