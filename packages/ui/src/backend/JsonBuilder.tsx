@@ -151,6 +151,7 @@ export function JsonBuilder({
             {mode === 'raw' ? (
                 <div className="space-y-2">
                     <textarea
+                        rows={14}
                         value={rawString}
                         onChange={(e) => handleRawChange(e.target.value)}
                         onBlur={() => {
@@ -160,7 +161,7 @@ export function JsonBuilder({
                             } catch { }
                         }}
                         placeholder='{"key": "value"}'
-                        className="w-full rounded border px-3 py-2 min-h-[300px] text-sm font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="w-full rounded border px-3 py-2 text-sm font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         disabled={disabled}
                     />
                     {parseError && (

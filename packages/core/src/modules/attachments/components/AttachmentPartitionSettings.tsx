@@ -474,8 +474,9 @@ export function AttachmentPartitionSettings({ s3Enabled }: AttachmentPartitionSe
             <div className="space-y-2">
               <Label htmlFor="partition-description">{t('attachments.partitions.form.descriptionLabel', 'Description')}</Label>
               <textarea
+                rows={3}
                 id="partition-description"
-                className="min-h-[80px] w-full rounded-md border border-input bg-input-bg px-3 py-2 text-sm"
+                className="w-full rounded-md border border-input bg-input-bg px-3 py-2 text-sm"
                 value={form.description}
                 onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
                 placeholder={t('attachments.partitions.form.descriptionPlaceholder', 'Explain how this partition is used.')}

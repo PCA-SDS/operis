@@ -23,8 +23,9 @@ const NotesWidgetClient: React.FC<DashboardWidgetComponentProps<NotesSettings>> 
           {t('example.widgets.notes.settings.label', 'Notes')}
         </label>
         <textarea
+          rows={7}
           id="dashboard-notes"
-          className="min-h-[160px] w-full resize-y rounded-md border px-3 py-2 text-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="w-full resize-none rounded-md border px-3 py-2 text-sm focus-visible:border-ring focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           value={value.text}
           onChange={(event) => onSettingsChange({ text: event.target.value })}
           placeholder={t('example.widgets.notes.settings.placeholder', 'Write quick notes you want to keep handy.')}

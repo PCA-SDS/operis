@@ -4476,8 +4476,9 @@ const SimpleMarkdownEditor = React.memo(function SimpleMarkdownEditor({ value = 
         <Button variant="ghost" size="sm" className="h-auto px-2 py-0.5 text-xs" onMouseDown={(e) => e.preventDefault()} onClick={() => wrap('__')}>{underlineLabel}</Button>
       </div>
       <textarea
+        rows={7}
         ref={taRef}
-        className="w-full min-h-[100px] sm:min-h-[160px] resize-y px-2 py-2 font-mono text-sm outline-none"
+        className="w-full resize-none px-2 py-2 font-mono text-sm outline-none"
         spellCheck={false}
         value={local}
         onChange={(e) => { typingRef.current = true; setLocal(e.target.value) }}

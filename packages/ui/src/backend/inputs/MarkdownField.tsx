@@ -17,8 +17,9 @@ const isTestEnv =
 // would have to transform, so under test we render a plain controlled textarea instead.
 const MarkdownFieldTestStub: ComponentType<MarkdownFieldProps> = ({ value, onChange }) => (
   <textarea
+    rows={7}
     data-testid="markdown-field"
-    className="min-h-[160px] w-full rounded-md border border-input bg-input-bg px-3 py-2 text-sm"
+    className="w-full rounded-md border border-input bg-input-bg px-3 py-2 text-sm"
     value={value ?? ''}
     onChange={(event) => onChange(event.target.value)}
   />

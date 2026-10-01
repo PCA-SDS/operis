@@ -544,9 +544,10 @@ export function DictionariesManager() {
             <div className="space-y-2">
               <label className="text-sm font-medium">{t('dictionaries.config.dialog.descriptionLabel', 'Description')}</label>
               <textarea
+                rows={5}
                 value={form.description}
                 onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
-                className="min-h-[120px] w-full rounded border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="w-full rounded border px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 placeholder={t('dictionaries.config.dialog.descriptionPlaceholder', 'Explain how this dictionary is used (optional).')}
               />
             </div>
