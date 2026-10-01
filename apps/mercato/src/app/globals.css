@@ -833,6 +833,10 @@ TODO: Fix that latter to have reference by the package names
 }
 
 @layer base {
+  textarea {
+    resize: none !important;
+  }
+
   * {
     @apply border-border outline-ring/50;
   }
