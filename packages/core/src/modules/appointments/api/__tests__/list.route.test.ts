@@ -43,6 +43,7 @@ jest.mock('@open-mercato/core/modules/directory/utils/organizationScopeFilter', 
 
 const TENANT_ID = '11111111-1111-4111-8111-111111111111'
 const ORGANIZATION_ID = '22222222-2222-4222-8222-222222222222'
+const SECOND_ORGANIZATION_ID = '44444444-4444-4444-8444-444444444444'
 const APPOINTMENT_ID = '33333333-3333-4333-8333-333333333333'
 
 describe('appointments list route totals', () => {
@@ -87,7 +88,16 @@ describe('appointments list route totals', () => {
     }), expect.anything())
   })
 
-  it('matches appointment phone snapshots by normalized partial digits', async () => {
+  it('searches phone snapshots across authorized organizations while retaining other filters', async () => {
+    mockResolveOrganizationScopeForRequest.mockResolvedValue({
+      selectedId: null,
+      filterIds: [ORGANIZATION_ID, SECOND_ORGANIZATION_ID],
+    })
+    mockResolveOrganizationScopeFilter.mockReturnValue({
+      organizationIds: [ORGANIZATION_ID, SECOND_ORGANIZATION_ID],
+      where: { organizationId: { $in: [ORGANIZATION_ID, SECOND_ORGANIZATION_ID] } },
+      rbacOrganizationId: ORGANIZATION_ID,
+    })
     const em = {
       find: jest.fn(async () => []),
       findAndCount: jest.fn(async () => [[], 0]),
@@ -97,13 +107,20 @@ describe('appointments list route totals', () => {
     })
 
     const { GET } = await import('../route')
-    const response = await GET(new Request('http://localhost/api/appointments?search=%2B84%20276-119'))
+    const response = await GET(new Request(
+      `http://localhost/api/appointments?organizationId=${ORGANIZATION_ID}&search=%2B84%20276-119&statusCode=booked&requestedStartAtFrom=2026-09-21`,
+    ))
 
     expect(response.status).toBe(200)
+    expect(mockResolveOrganizationScopeForRequest).toHaveBeenCalledWith(expect.objectContaining({
+      selectedId: '__all__',
+    }))
     const [, where] = em.findAndCount.mock.calls[0] ?? []
     expect(where).toEqual(expect.objectContaining({
       tenantId: TENANT_ID,
-      organizationId: { $in: [ORGANIZATION_ID] },
+      organizationId: { $in: [ORGANIZATION_ID, SECOND_ORGANIZATION_ID] },
+      statusCode: 'booked',
+      requestedStartAt: { $gte: new Date('2026-09-21T00:00:00.000Z') },
       $or: expect.any(Array),
     }))
     const searchFilters = (where as { $or: Array<Record<string, unknown>> }).$or
@@ -118,7 +135,9 @@ describe('appointments list route totals', () => {
       Appointment,
       expect.objectContaining({
         tenantId: TENANT_ID,
-        organizationId: { $in: [ORGANIZATION_ID] },
+        organizationId: { $in: [ORGANIZATION_ID, SECOND_ORGANIZATION_ID] },
+        statusCode: 'booked',
+        requestedStartAt: { $gte: new Date('2026-09-21T00:00:00.000Z') },
         $or: expect.any(Array),
       }),
       expect.anything(),

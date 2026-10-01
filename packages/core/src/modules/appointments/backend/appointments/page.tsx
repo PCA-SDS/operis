@@ -626,41 +626,46 @@ export default function AppointmentsListPage() {
         <DataTable
           title={t('appointments.list.title')}
           toolbar={(
-            <FilterBar
-              searchValue={search}
-              onSearchChange={(value) => {
-                setSearch(value)
-                setPage(1)
-              }}
-              searchPlaceholder={t('appointments.list.search.placeholder', 'Search bookings…')}
-              trailingItems={(
-                <div className="flex items-center gap-2">
-                  <DateRangePicker
-                    value={bookingDateRange}
-                    onChange={handleBookingDateRangeChange}
-                    placeholder={t('appointments.list.filters.bookingDate', 'Booking date')}
-                    aria-label={t('appointments.list.filters.bookingDate', 'Booking date')}
-                    size="sm"
-                    showPresets={false}
-                    numberOfMonths={1}
-                    showRangeLabel={false}
-                    className="w-auto min-w-40 max-w-56"
-                  />
-                  {bookingDateRange ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label={t('appointments.list.filters.clearBookingDate', 'Clear booking date')}
-                      title={t('appointments.list.filters.clearBookingDate', 'Clear booking date')}
-                      onClick={() => handleBookingDateRangeChange(null)}
-                    >
-                      <X className="size-4" aria-hidden="true" />
-                    </Button>
-                  ) : null}
-                </div>
-              )}
-            />
+            <div className="space-y-2">
+              <FilterBar
+                searchValue={search}
+                onSearchChange={(value) => {
+                  setSearch(value)
+                  setPage(1)
+                }}
+                searchPlaceholder={t('appointments.list.search.placeholder', 'Search bookings…')}
+                trailingItems={(
+                  <div className="flex items-center gap-2">
+                    <DateRangePicker
+                      value={bookingDateRange}
+                      onChange={handleBookingDateRangeChange}
+                      placeholder={t('appointments.list.filters.bookingDate', 'Booking date')}
+                      aria-label={t('appointments.list.filters.bookingDate', 'Booking date')}
+                      size="sm"
+                      showPresets={false}
+                      numberOfMonths={1}
+                      showRangeLabel={false}
+                      className="w-auto min-w-40 max-w-56"
+                    />
+                    {bookingDateRange ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={t('appointments.list.filters.clearBookingDate', 'Clear booking date')}
+                        title={t('appointments.list.filters.clearBookingDate', 'Clear booking date')}
+                        onClick={() => handleBookingDateRangeChange(null)}
+                      >
+                        <X className="size-4" aria-hidden="true" />
+                      </Button>
+                    ) : null}
+                  </div>
+                )}
+              />
+              <p className="text-sm text-muted-foreground">
+                {t('appointments.list.search.scopeHint', 'Searches all locations you can access in this tenant.')}
+              </p>
+            </div>
           )}
           actions={
             <div className="flex flex-wrap items-center gap-2">

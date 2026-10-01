@@ -18,7 +18,7 @@ The encrypted customer phone column cannot support substring matching with SQL `
 
 - Resolve phone matches through `customers:customer_entity` / `primary_phone` tokens.
 - Keep every token query scoped to the authenticated tenant, and keep final entity reads tenant-scoped as well.
-- For `GET /api/appointments?search=...`, match phone-only queries of at least four digits against normalized `appointments.customer_phone` snapshots in the same scoped list query. The query preserves the selected organization, the caller's allowed organization set, and all-organizations mode; it never widens beyond the authenticated tenant.
+- For `GET /api/appointments?search=...`, match phone-only queries of at least four digits against normalized `appointments.customer_phone` snapshots. Any non-empty search spans all organizations the caller is authorized to access in the authenticated tenant, regardless of the currently selected organization. Without a search term, preserve the selected-organization scope. Status and date filters continue to apply in either case.
 - Use a PostgreSQL trigram GIN expression index over the normalized phone snapshot so substring matching does not scan all appointment rows or materialize an unbounded appointment-ID list. The query expression and partial-index predicate must remain aligned.
 - For a tenant with existing customers, rebuild the projection and tokens after deploying this behavior:
 
@@ -47,11 +47,12 @@ The returning-customer sheet depends on existing `search_tokens` rows for `custo
 |---|---|---|---|---|
 | Existing customer has no phone search tokens | Medium | Returning-customer suggestions | Run the tenant-scoped search reindex command after deployment | Partial phone search remains unavailable for that record until reindex completes |
 | Search tokens are scoped to a different tenant | High | Customer data isolation | Scope token lookup and final entity query by authenticated tenant; integration test seeds a matching token under a foreign tenant | None known |
+| Appointment search spans more organizations than the selected location | Medium | Appointment visibility | Resolve the all-organizations scope through the existing authorization helper; retain authenticated tenant and caller's allowed organization set | Results may include other locations the caller is already authorized to access |
 
 ## Final Compliance Report
 
 - Integration coverage exercises the authenticated customer-search API against real search-token rows and verifies tenant isolation.
-- Appointment list route coverage verifies formatted partial-phone search uses normalized digits and retains tenant/organization filters.
+- Appointment-list unit and integration coverage verifies formatted partial-phone search uses normalized digits, includes an authorized child location despite a selected location, and retains tenant, status, and date filters.
 - Integration coverage verifies public phone-only lookup is rejected and staff phone-only history lookup requires authentication.
 - No database schema changes. Public customer lookup requires phone and email to match the same person; a new authenticated staff history endpoint supports phone-only lookup.
 - Referral inline creation is not part of this change.
@@ -60,3 +61,4 @@ The returning-customer sheet depends on existing `search_tokens` rows for `custo
 
 - 2026-09-29 — Documented tenant-scoped partial-phone search, legacy reindex requirement, phone-only returning lookup, and integration coverage.
 - 2026-09-30 — Indexed normalized appointment phone snapshots with `pg_trgm` and moved substring matching into the organization-scoped appointment list query, preserving all-organizations mode without an intermediate unbounded ID list.
+- 2026-09-30 — Appointment-table searches now span all caller-authorized organizations in the authenticated tenant; date/status filters and non-search selected-location behavior remain unchanged.
