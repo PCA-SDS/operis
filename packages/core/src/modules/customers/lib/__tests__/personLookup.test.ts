@@ -3,12 +3,12 @@
 import type { EntityManager } from '@mikro-orm/postgresql'
 import { isCrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import { computeEmailLookupHash, computePhoneLookupHash } from '../contactIdentity'
-import { checkPersonIdentity } from '../personLookup'
+import { checkPersonIdentity, findOrCreatePersonForIntake } from '../personLookup'
 
 const TENANT = '22222222-2222-4222-8222-222222222222'
 const OTHER_TENANT = '99999999-9999-4999-8999-999999999999'
 
-type Row = { id: string; tenantId: string; phone?: string; email?: string; deleted?: boolean }
+type Row = { id: string; tenantId: string; phone?: string; email?: string; phoneCountryCode?: string | null; deleted?: boolean }
 
 /**
  * Stands in for the columns the real query filters on: rows are matched by the
@@ -26,11 +26,16 @@ function createEm(rows: Row[]) {
          return hit ? { id: hit.id, primaryPhone: hit.phone, primaryEmail: hit.email } : null
       }
       if (where.primaryPhoneHash) {
-         const wantedHashes = where.primaryPhoneHash.$in as string[]
+         const wantedHashes = typeof where.primaryPhoneHash === 'string'
+           ? [where.primaryPhoneHash]
+           : where.primaryPhoneHash.$in as string[]
+         const allowedCodes = Array.isArray(where.$or)
+           ? where.$or.map((clause: { phoneCountryCode: string | null }) => clause.phoneCountryCode)
+           : null
          const hit = rows.find(r => 
            r.tenantId === where.tenantId && 
            !r.deleted && 
-           r.phoneCountryCode === where.phoneCountryCode &&
+           (allowedCodes === null || allowedCodes.includes(r.phoneCountryCode ?? null)) &&
            Boolean(r.phone && wantedHashes.includes(computePhoneLookupHash(r.phone) ?? ''))
          )
          return hit ? { id: hit.id, primaryPhone: hit.phone, primaryEmail: hit.email, phoneCountryCode: hit.phoneCountryCode } : null
@@ -111,6 +116,29 @@ describe('checkPersonIdentity', () => {
     })
   })
 
+  it('matches a person saved without a country code by the full international number', async () => {
+    const { em } = createEm([{ id: 'p1', tenantId: TENANT, phone: '+15550134477', phoneCountryCode: null }])
+    await expect(checkPersonIdentity(em, { tenantId: TENANT }, { phone: '+1 5550134477', phoneCountryCode: '1' })).resolves.toMatchObject({
+      exists: true,
+      customer: { id: 'p1' },
+    })
+  })
+
+  it('matches a nationally stored number when the booking sends it internationally', async () => {
+    const { em } = createEm([{ id: 'p1', tenantId: TENANT, phone: '203 400 7772', phoneCountryCode: '1' }])
+    await expect(checkPersonIdentity(em, { tenantId: TENANT }, { phone: '+1 203 400 7772', phoneCountryCode: '1' })).resolves.toMatchObject({
+      exists: true,
+      customer: { id: 'p1' },
+    })
+  })
+
+  it('does not match the same national digits stored under another country code', async () => {
+    const { em } = createEm([{ id: 'p1', tenantId: TENANT, phone: '203 400 7772', phoneCountryCode: '44' }])
+    await expect(checkPersonIdentity(em, { tenantId: TENANT }, { phone: '+1 203 400 7772', phoneCountryCode: '1' })).resolves.toMatchObject({
+      exists: false,
+    })
+  })
+
   it('matches on email case-insensitively', async () => {
     const { em } = createEm([{ id: 'p1', tenantId: TENANT, email: 'ada@example.com' }])
     await expect(checkPersonIdentity(em, { tenantId: TENANT }, { email: 'ADA@Example.com' })).resolves.toMatchObject({
@@ -175,4 +203,71 @@ describe('checkPersonIdentity', () => {
     ).resolves.toMatchObject({ exists: true })
   })
 
+})
+
+describe('findOrCreatePersonForIntake', () => {
+  const ORGANIZATION = '33333333-3333-4333-8333-333333333333'
+
+  function createIntakeEm(rows: Row[]) {
+    const { em, findOne } = createEm(rows)
+    const created: Record<string, unknown>[] = []
+    const base = findOne.getMockImplementation()!
+    findOne.mockImplementation(async (entity: unknown, where: Record<string, any>) => {
+      const name = (entity as { name?: string })?.name
+      if (name === 'Organization') return { id: where.id }
+      if (name === 'CustomerPersonProfile') return null
+      return base(entity, where)
+    })
+    Object.assign(em, {
+      create: jest.fn((_entity: unknown, data: Record<string, unknown>) => {
+        const row = { id: `new-${created.length + 1}`, ...data }
+        created.push(row)
+        return row
+      }),
+      persist: jest.fn(),
+      flush: jest.fn(async () => {}),
+    })
+    return { em, created }
+  }
+
+  const intakeInput = {
+    tenantId: TENANT,
+    organizationId: ORGANIZATION,
+    firstName: 'Sam',
+    lastName: 'Patel',
+    phone: '+1 5550134477',
+    phoneCountryCode: '1',
+    email: 'Sam@Example.com',
+  }
+
+  it('stores the phone and email lookup hashes on a new person so the next booking finds them', async () => {
+    const { em, created } = createIntakeEm([])
+
+    const result = await findOrCreatePersonForIntake(em, intakeInput)
+
+    expect(result.created).toBe(true)
+    const person = created.find((row) => row.kind === 'person')
+    expect(person).toMatchObject({
+      primaryPhoneHash: computePhoneLookupHash('+1 5550134477'),
+      primaryEmailHash: computeEmailLookupHash('sam@example.com'),
+    })
+  })
+
+  it('reuses the person the People form saved without a country code', async () => {
+    const { em, created } = createIntakeEm([{ id: 'p1', tenantId: TENANT, phone: '+15550134477', phoneCountryCode: null }])
+
+    const result = await findOrCreatePersonForIntake(em, intakeInput)
+
+    expect(result).toMatchObject({ entityId: 'p1', created: false })
+    expect(created).toHaveLength(0)
+  })
+
+  it('leaves the phone hash empty when another person already holds the number', async () => {
+    const { em, created } = createIntakeEm([{ id: 'p1', tenantId: TENANT, phone: '+15550134477', phoneCountryCode: '44' }])
+
+    const result = await findOrCreatePersonForIntake(em, intakeInput)
+
+    expect(result.created).toBe(true)
+    expect(created.find((row) => row.kind === 'person')).toMatchObject({ primaryPhoneHash: null })
+  })
 })
