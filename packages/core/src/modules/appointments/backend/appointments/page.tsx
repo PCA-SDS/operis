@@ -63,6 +63,8 @@ type Row = {
   scheduleConfirmationStatus: 'confirmed' | 'unconfirmed' | 'not_applicable'
 }
 
+type AppointmentCellContext = { row: { original: Row } }
+
 type ListPayload = { items: Row[]; total?: number; totalPages?: number; totalIsCapped?: boolean }
 
 type StatusOption = {
@@ -493,7 +495,7 @@ export default function AppointmentsListPage() {
           <div className="text-center">{t('appointments.list.columns.urgency', 'Urgency')}</div>
         ),
         meta: { width: urgencyColumnWidth, truncate: false },
-        cell: ({ row }) => (
+        cell: ({ row }: AppointmentCellContext) => (
           <div className="flex justify-center">
               <AppointmentUrgencyCell
                 createdAt={row.original.createdAt}
@@ -508,7 +510,7 @@ export default function AppointmentsListPage() {
         accessorKey: 'totalAmount',
         header: t('appointments.list.columns.total', 'Total'),
         meta: { width: totalColumnWidth, truncate: false },
-        cell: ({ row }) => (
+        cell: ({ row }: AppointmentCellContext) => (
           <span className="whitespace-nowrap">
             {formatTotalRange(
               row.original.totalAmountMin,
@@ -524,7 +526,7 @@ export default function AppointmentsListPage() {
         accessorKey: 'requestedStartAt',
         header: t('appointments.list.columns.bookingDate', 'Booking Date'),
         meta: { width: '9rem', truncate: false },
-        cell: ({ row }) =>
+        cell: ({ row }: AppointmentCellContext) =>
           formatDate(parseRequestedAt(row.original.requestedStartAt), { fallback: t('appointments.list.noValue') }),
       },
       {
@@ -532,7 +534,7 @@ export default function AppointmentsListPage() {
         accessorKey: 'requestedStartAt',
         header: t('appointments.list.columns.time', 'Time'),
         meta: { width: timeColumnWidth, truncate: false },
-        cell: ({ row }) => (
+        cell: ({ row }: AppointmentCellContext) => (
           <div className="flex flex-col">
             <span className="font-medium">
               {formatTime(parseRequestedAt(row.original.requestedStartAt), { fallback: t('appointments.list.noValue') })}
@@ -546,11 +548,11 @@ export default function AppointmentsListPage() {
       },
       {
         id: 'customerName',
-        accessorFn: (row) =>
+        accessorFn: (row: Row) =>
           formatCustomerDisplayName(row.customerSalutation, row.customerName),
         header: t('appointments.list.columns.customerName', 'Customer Name'),
         meta: { width: '14rem', truncate: false },
-        cell: ({ row }) => (
+        cell: ({ row }: AppointmentCellContext) => (
           <span className="font-medium">
             {formatCustomerDisplayName(
               row.original.customerSalutation,
@@ -561,11 +563,11 @@ export default function AppointmentsListPage() {
       },
       {
         id: 'contact',
-        accessorFn: (row) =>
+        accessorFn: (row: Row) =>
           `${row.customerPhoneCountryCode ?? ''} ${row.customerPhone ?? ''} ${row.customerEmail ?? ''}`.trim(),
         header: t('appointments.list.columns.contact', 'Contact'),
         meta: { width: '14rem', truncate: true, maxWidth: '14rem' },
-        cell: ({ row }) => (
+        cell: ({ row }: AppointmentCellContext) => (
           <AppointmentContactCell
             phoneCountryCode={row.original.customerPhoneCountryCode}
             customerPhone={row.original.customerPhone}
@@ -578,7 +580,7 @@ export default function AppointmentsListPage() {
         accessorKey: 'organizationName',
         header: t('appointments.list.columns.location', 'Location'),
         meta: { width: '11rem', truncate: false },
-        cell: ({ row }) =>
+        cell: ({ row }: AppointmentCellContext) =>
           row.original.organizationName?.trim() || t('appointments.list.noValue'),
       },
       {
@@ -586,7 +588,7 @@ export default function AppointmentsListPage() {
         accessorKey: 'externalNotes',
         header: t('appointments.list.columns.customerNotes', 'Customer Notes'),
         meta: { width: '10rem', truncate: true, maxWidth: '10rem' },
-        cell: ({ row }) => (
+        cell: ({ row }: AppointmentCellContext) => (
           <AppointmentNotesCell
             notes={row.original.externalNotes}
             titleKey="appointments.list.notes.customerTitle"
@@ -599,7 +601,7 @@ export default function AppointmentsListPage() {
         accessorKey: 'notes',
         header: t('appointments.list.columns.internalNotes', 'Internal Notes'),
         meta: { width: '10rem', truncate: true, maxWidth: '10rem' },
-        cell: ({ row }) => (
+        cell: ({ row }: AppointmentCellContext) => (
           <AppointmentNotesCell
             notes={row.original.notes}
             titleKey="appointments.list.notes.internalTitle"
@@ -612,7 +614,7 @@ export default function AppointmentsListPage() {
         accessorKey: 'statusCode',
         header: t('appointments.list.columns.schedule', 'Schedule'),
         meta: { width: '11rem', truncate: false },
-        cell: ({ row }) => <ScheduleBadge status={row.original.scheduleConfirmationStatus} t={t} />,
+        cell: ({ row }: AppointmentCellContext) => <ScheduleBadge status={row.original.scheduleConfirmationStatus} t={t} />,
       },
       {
         id: 'statusCode',
@@ -629,7 +631,7 @@ export default function AppointmentsListPage() {
           />
         ),
         meta: { width: statusColumnWidth, truncate: false },
-        cell: ({ row }) => (
+        cell: ({ row }: AppointmentCellContext) => (
           <AppointmentStatusSelect
             appointmentId={row.original.id}
             statusCode={row.original.statusCode}
@@ -643,7 +645,7 @@ export default function AppointmentsListPage() {
         id: 'actions',
         header: () => <div className="text-center">{t('appointments.list.columns.actions', 'Actions')}</div>,
         meta: { width: '14rem', truncate: false },
-        cell: ({ row }) => (
+        cell: ({ row }: AppointmentCellContext) => (
           <div className="flex items-center justify-end gap-1.5">
             <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-xs" title={t('appointments.list.actions.view', 'View Details')}>
               <Link href={`/backend/appointments/${row.original.id}`}>
