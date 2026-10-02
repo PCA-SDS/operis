@@ -9,6 +9,7 @@ import { OrderEditingSettings } from '../../../components/OrderEditingSettings'
 import { ShippingMethodsSettings } from '../../../components/ShippingMethodsSettings'
 import { PaymentMethodsSettings } from '../../../components/PaymentMethodsSettings'
 import { AdjustmentKindSettings } from '../../../components/AdjustmentKindSettings'
+import { resolveReturnToParam } from '@open-mercato/shared/lib/navigation/returnTo'
 
 export default async function SalesConfigurationPage({
   searchParams,
@@ -16,9 +17,7 @@ export default async function SalesConfigurationPage({
   searchParams?: { returnTo?: string | string[] }
 }) {
   const { translate } = await resolveTranslations()
-  const returnTo = typeof searchParams?.returnTo === 'string' && searchParams.returnTo.trim().length
-    ? searchParams.returnTo.trim()
-    : null
+  const returnTo = resolveReturnToParam(searchParams)
 
   return (
     <Page>

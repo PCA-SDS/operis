@@ -3,6 +3,7 @@ import { Page, PageBody, PageHeader } from '@open-mercato/ui/backend/Page'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import CustomersConfigurationSections from '../../../components/CustomersConfigurationSections'
+import { resolveReturnToParam } from '@open-mercato/shared/lib/navigation/returnTo'
 
 export default async function CustomersConfigurationPage({
   searchParams,
@@ -10,9 +11,7 @@ export default async function CustomersConfigurationPage({
   searchParams?: { returnTo?: string | string[] }
 }) {
   const { translate } = await resolveTranslations()
-  const returnTo = typeof searchParams?.returnTo === 'string' && searchParams.returnTo.trim().length
-    ? searchParams.returnTo.trim()
-    : null
+  const returnTo = resolveReturnToParam(searchParams)
 
   return (
     <Page>
