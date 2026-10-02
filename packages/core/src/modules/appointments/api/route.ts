@@ -152,6 +152,11 @@ function mapAppointmentTotals(
   options: AppointmentLineOption[],
   legacyOptionPricesById: Map<string, number>,
 ) {
+  type PriceRange = { min: number; max: number }
+  const addRanges = (left: PriceRange, right: PriceRange): PriceRange => ({
+    min: left.min + right.min,
+    max: left.max + right.max,
+  })
   const optionsByGroupId = new Map<string, AppointmentLineOption[]>()
   for (const option of options) {
     const groupId = String(option.group.id)
@@ -159,40 +164,50 @@ function mapAppointmentTotals(
     groupOptions.push(option)
     optionsByGroupId.set(groupId, groupOptions)
   }
-  const optionTotalsByLineId = new Map<string, number>()
+  const optionTotalsByLineId = new Map<string, PriceRange>()
   for (const group of optionGroups) {
     const lineId = String(group.line.id)
     for (const option of optionsByGroupId.get(group.id) ?? []) {
-      if (option.priceFlat == null || option.priceFlat.trim() === '') continue
-      const amount = Number(option.priceFlat)
-      if (!Number.isFinite(amount)) continue
-      optionTotalsByLineId.set(lineId, (optionTotalsByLineId.get(lineId) ?? 0) + amount)
+      const flat = option.priceFlat == null || option.priceFlat.trim() === '' ? null : Number(option.priceFlat)
+      const min = option.priceMin == null || option.priceMin.trim() === '' ? null : Number(option.priceMin)
+      const max = option.priceMax == null || option.priceMax.trim() === '' ? null : Number(option.priceMax)
+      const range = flat != null && Number.isFinite(flat)
+        ? { min: flat, max: flat }
+        : min != null || max != null
+          ? {
+              min: min != null && Number.isFinite(min) ? min : max ?? 0,
+              max: max != null && Number.isFinite(max) ? max : min ?? 0,
+            }
+          : null
+      if (!range) continue
+      optionTotalsByLineId.set(lineId, addRanges(optionTotalsByLineId.get(lineId) ?? { min: 0, max: 0 }, range))
     }
   }
 
-  const totals = new Map<string, { amount: number; currencyCode: string | null }>()
+  const totals = new Map<string, { range: PriceRange; currencyCode: string | null }>()
   const linesWithOptionSnapshots = new Set(optionGroups.map((group) => String(group.line.id)))
   for (const line of lines) {
     const appointmentId = String(line.appointment.id)
     const rawAmount = line.unitPriceGross ?? line.unitPriceNet
     const baseAmount = rawAmount == null || rawAmount.trim() === '' ? null : Number(rawAmount)
-    let optionAmount = optionTotalsByLineId.get(line.id) ?? 0
-    let hasOptionPrice = optionTotalsByLineId.has(line.id)
+    let optionRange = optionTotalsByLineId.get(line.id) ?? null
+    let hasOptionPrice = optionRange !== null
     if (!linesWithOptionSnapshots.has(line.id)) {
       for (const optionId of collectSelectedOptionIds(line.selectedOptions)) {
         const legacyOptionPrice = legacyOptionPricesById.get(optionId)
         if (legacyOptionPrice === undefined) continue
-        optionAmount += legacyOptionPrice
+        optionRange = addRanges(optionRange ?? { min: 0, max: 0 }, { min: legacyOptionPrice, max: legacyOptionPrice })
         hasOptionPrice = true
       }
     }
     const hasValidBaseAmount = baseAmount != null && Number.isFinite(baseAmount)
     if (!hasValidBaseAmount && !hasOptionPrice) continue
-    const amount = (hasValidBaseAmount ? baseAmount : 0) + optionAmount
-    if (!Number.isFinite(amount)) continue
+    const baseRange = hasValidBaseAmount ? { min: baseAmount, max: baseAmount } : { min: 0, max: 0 }
+    const range = addRanges(baseRange, optionRange ?? { min: 0, max: 0 })
+    if (!Number.isFinite(range.min) || !Number.isFinite(range.max)) continue
     const current = totals.get(appointmentId)
     totals.set(appointmentId, {
-      amount: (current?.amount ?? 0) + amount,
+      range: current ? addRanges(current.range, range) : range,
       currencyCode: current?.currencyCode ?? line.currencyCode ?? null,
     })
   }
@@ -395,7 +410,9 @@ export async function GET(req: Request) {
         const total = totals.get(row.id)
         return {
           ...mapAppointment(row, orgNames.get(row.organizationId) ?? null),
-          totalAmount: total?.amount ?? null,
+          totalAmount: total && total.range.min === total.range.max ? total.range.min : null,
+          totalAmountMin: total?.range.min ?? null,
+          totalAmountMax: total?.range.max ?? null,
           currencyCode: total?.currencyCode ?? null,
           scheduleConfirmationStatus,
         }

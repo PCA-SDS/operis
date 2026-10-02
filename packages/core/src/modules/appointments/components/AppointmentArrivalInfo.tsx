@@ -26,10 +26,10 @@ export function AppointmentArrivalInfo({
   return (
     <div
       className={cn(
-        'mt-1 inline-flex max-w-full rounded-sm px-1.5 py-0.5 text-xs font-semibold whitespace-nowrap',
+        'mt-1 whitespace-nowrap text-xs font-medium',
         isFuture
-          ? 'bg-status-info-bg text-status-info-text'
-          : 'bg-status-error-bg text-status-error-text',
+          ? 'text-status-info-text'
+          : 'text-status-error-text',
       )}
     >
       {text}

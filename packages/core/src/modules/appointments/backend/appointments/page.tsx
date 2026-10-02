@@ -29,14 +29,15 @@ import { AppointmentUrgencyCell } from '../../components/AppointmentUrgencyCell'
 import { AppointmentArrivalInfo } from '../../components/AppointmentArrivalInfo'
 import { StatusBadge } from '@open-mercato/ui/primitives/status-badge'
 import { AppointmentStatusBadge } from '../../components/AppointmentStatusBadge'
-import { APPOINTMENT_BOOKING_TYPE_OPTIONS } from '../../data/constants'
 import { formatCustomerDisplayName } from '../../lib/customerName'
 import { formatCustomerPhone } from '../../lib/phoneSnapshot'
 import { DateRangePicker } from '@open-mercato/ui/primitives/date-range-picker'
 import type { DateRange } from '@open-mercato/ui/backend/date-range/dateRanges'
 import { FilterBar } from '@open-mercato/ui/backend/FilterBar'
 import { format } from 'date-fns/format'
+import { formatDistance } from 'date-fns'
 import { getAppointmentPermissionSet } from '../../lib/permissions'
+import { getTimeAgoParts } from '../../lib/urgency'
 import { formatDate, formatTime } from '@open-mercato/shared/lib/time'
 
 type Row = {
@@ -56,6 +57,8 @@ type Row = {
   createdAt: string
   updatedAt: string
   totalAmount: number | null
+  totalAmountMin: number | null
+  totalAmountMax: number | null
   currencyCode: string | null
   scheduleConfirmationStatus: 'confirmed' | 'unconfirmed' | 'not_applicable'
 }
@@ -81,12 +84,6 @@ function parseRequestedAt(value: string): Date | null {
   }
 }
 
-function formatBookingType(value: string | null | undefined, emptyLabel: string) {
-  if (!value) return emptyLabel
-  const label = APPOINTMENT_BOOKING_TYPE_OPTIONS.find((option) => option.value === value)?.label
-  return label ?? value
-}
-
 function formatTotal(amount: number | null, currencyCode: string | null, emptyLabel: string) {
   if (amount === null || !Number.isFinite(amount)) return emptyLabel
   try {
@@ -100,6 +97,17 @@ function formatTotal(amount: number | null, currencyCode: string | null, emptyLa
   }
 }
 
+function formatTotalRange(
+  min: number | null,
+  max: number | null,
+  currencyCode: string | null,
+  emptyLabel: string,
+) {
+  if (min === null || max === null || !Number.isFinite(min) || !Number.isFinite(max)) return emptyLabel
+  if (min === max) return formatTotal(min, currencyCode, emptyLabel)
+  return `${formatTotal(min, currencyCode, emptyLabel)} - ${formatTotal(max, currencyCode, emptyLabel)}`
+}
+
 function ScheduleBadge({ status, t }: { status: Row['scheduleConfirmationStatus']; t: ReturnType<typeof useT> }) {
   const isConfirmed = status === 'confirmed'
   const isUnconfirmed = status === 'unconfirmed'
@@ -107,7 +115,7 @@ function ScheduleBadge({ status, t }: { status: Row['scheduleConfirmationStatus'
     return <StatusBadge variant="neutral">{t('appointments.list.schedule.notApplicable', 'Not tracked')}</StatusBadge>
   }
   return (
-    <StatusBadge variant={isConfirmed ? 'success' : 'warning'} dot>
+    <StatusBadge variant={isConfirmed ? 'success' : 'warning'}>
       <span className="inline-flex items-center gap-1">
         <CalendarCheck className="size-3.5" />
         {isConfirmed
@@ -436,13 +444,37 @@ export default function AppointmentsListPage() {
         0,
       )
       const statusColumnWidth = `${Math.max(18, Math.ceil(longestStatusLabel * 0.75 + 7))}rem`
+      const longestUrgencyLabel = rows.reduce((longest, row) => {
+        const parts = getTimeAgoParts(row.createdAt)
+        if (!parts) return longest
+        const labelLength = parts.kind === 'just_now'
+          ? 8
+          : parts.count.toString().length + (
+            parts.kind === 'minutes' ? 9 : parts.kind === 'hours' ? 7 : 8
+          )
+        return Math.max(longest, labelLength)
+      }, 0)
+      const urgencyColumnWidth = `${Math.max(9, Math.ceil(longestUrgencyLabel * 0.5 + 3.5))}rem`
+      const longestTotalLabel = rows.reduce(
+        (longest, row) => Math.max(
+          longest,
+          formatTotalRange(row.totalAmountMin, row.totalAmountMax, row.currencyCode, '').length,
+        ),
+        'Total'.length,
+      )
+      const totalColumnWidth = `${Math.max(12, Math.ceil(longestTotalLabel * 0.55 + 2))}rem`
+      const longestArrivalLabel = rows.reduce((longest, row) => {
+        const bookingTime = new Date(row.requestedStartAt)
+        if (Number.isNaN(bookingTime.getTime())) return longest
+        return Math.max(longest, formatDistance(bookingTime, Date.now(), { addSuffix: true }).length)
+      }, 'Time'.length)
+      const timeColumnWidth = `${Math.max(8, Math.ceil(longestArrivalLabel * 0.5 + 2))}rem`
       const columnOrder = [
         'urgency',
         'customerName',
         'total',
         'externalNotes',
         'organizationName',
-        'bookingType',
         'bookingDate',
         'bookingTime',
         'schedule',
@@ -460,7 +492,7 @@ export default function AppointmentsListPage() {
         header: () => (
           <div className="text-center">{t('appointments.list.columns.urgency', 'Urgency')}</div>
         ),
-        meta: { width: '12rem', truncate: false },
+        meta: { width: urgencyColumnWidth, truncate: false },
         cell: ({ row }) => (
           <div className="flex justify-center">
               <AppointmentUrgencyCell
@@ -475,8 +507,17 @@ export default function AppointmentsListPage() {
         id: 'total',
         accessorKey: 'totalAmount',
         header: t('appointments.list.columns.total', 'Total'),
-        meta: { width: '8rem', truncate: false },
-        cell: ({ row }) => formatTotal(row.original.totalAmount, row.original.currencyCode, t('appointments.list.noValue')),
+        meta: { width: totalColumnWidth, truncate: false },
+        cell: ({ row }) => (
+          <span className="whitespace-nowrap">
+            {formatTotalRange(
+              row.original.totalAmountMin,
+              row.original.totalAmountMax,
+              row.original.currencyCode,
+              t('appointments.list.noValue'),
+            )}
+          </span>
+        ),
       },
       {
         id: 'bookingDate',
@@ -490,7 +531,7 @@ export default function AppointmentsListPage() {
         id: 'bookingTime',
         accessorKey: 'requestedStartAt',
         header: t('appointments.list.columns.time', 'Time'),
-        meta: { width: '8rem' },
+        meta: { width: timeColumnWidth, truncate: false },
         cell: ({ row }) => (
           <div className="flex flex-col">
             <span className="font-medium">
@@ -539,13 +580,6 @@ export default function AppointmentsListPage() {
         meta: { width: '11rem', truncate: false },
         cell: ({ row }) =>
           row.original.organizationName?.trim() || t('appointments.list.noValue'),
-      },
-      {
-        id: 'bookingType',
-        accessorKey: 'bookingType',
-        header: t('appointments.list.columns.bookingType', 'Type of booking'),
-        meta: { width: '12rem', truncate: false },
-        cell: ({ row }) => formatBookingType(row.original.bookingType, t('appointments.list.noValue')),
       },
       {
         id: 'externalNotes',
@@ -651,7 +685,7 @@ export default function AppointmentsListPage() {
         (columnOrderIndex.get(String(right.id)) ?? Number.MAX_SAFE_INTEGER)
       ))
     },
-    [canCreate, canManage, canViewSeatPlanner, handleClone, handleDelete, handleRowStatusChange, prepareSeatPlannerScope, selectedStatusCodes, statusOptions, t],
+    [canCreate, canManage, canViewSeatPlanner, handleClone, handleDelete, handleRowStatusChange, prepareSeatPlannerScope, rows, selectedStatusCodes, statusOptions, t],
   )
 
   return (
