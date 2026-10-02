@@ -24,7 +24,12 @@ registerBackendRouteManifests(backendRouteFacades)
 
 type Awaitable<T> = T | Promise<T>
 
-type BackendParams = { params: Awaitable<{ slug?: string[] }> }
+type BackendSearchParams = Record<string, string | string[] | undefined>
+
+type BackendParams = {
+  params: Awaitable<{ slug?: string[] }>
+  searchParams?: Awaitable<BackendSearchParams>
+}
 
 async function renderAccessDenied() {
   const { translate } = await resolveTranslations()
@@ -57,6 +62,7 @@ export async function generateMetadata(props: BackendParams): Promise<Metadata> 
 
 export default async function BackendCatchAll(props: BackendParams) {
   const params = await props.params
+  const searchParams: BackendSearchParams = (await props.searchParams) ?? {}
   const pathname = '/backend/' + (params.slug?.join('/') ?? '')
   const match = findRouteManifestMatch(getBackendRouteManifests(), pathname)
   if (!match) return notFound()
@@ -156,7 +162,7 @@ export default async function BackendCatchAll(props: BackendParams) {
         routeParentHref={[...(match.route.breadcrumb ?? [])].reverse().find((item) => item.href)?.href ?? null}
       >
         <div className="contents" data-component-handle={pageHandle}>
-          <Component params={match.params} />
+          <Component params={match.params} searchParams={searchParams} />
         </div>
       </BackendModuleFrame>
     </>

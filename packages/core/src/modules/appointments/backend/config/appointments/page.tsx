@@ -4,6 +4,7 @@ import { Button } from '@open-mercato/ui/primitives/button'
 import { resolveTranslations } from '@open-mercato/shared/lib/i18n/server'
 import { AppointmentStatusSettings } from '../../../components/AppointmentStatusSettings'
 import { AppointmentEmailSettings } from '../../../components/AppointmentEmailSettings'
+import { resolveReturnToParam } from '@open-mercato/shared/lib/navigation/returnTo'
 
 export default async function AppointmentsConfigurationPage({
   searchParams,
@@ -11,10 +12,7 @@ export default async function AppointmentsConfigurationPage({
   searchParams?: { returnTo?: string | string[] }
 }) {
   const { translate } = await resolveTranslations()
-  const returnTo =
-    typeof searchParams?.returnTo === 'string' && searchParams.returnTo.trim().length
-      ? searchParams.returnTo.trim()
-      : null
+  const returnTo = resolveReturnToParam(searchParams)
 
   return (
     <Page>
