@@ -6,10 +6,11 @@ import {
   calculateCartTotal,
   formatBookingDate,
   formatBookingTime,
+  getAppointmentEmailCopyrightYear,
+  INTERNAL_APPOINTMENT_EMAIL_FONT_FAMILY,
   type AppointmentEmailData as BookingEmailData,
   type CartItem,
 } from './appointment-email'
-import { EMAIL_FONT_FAMILY } from '@open-mercato/shared/lib/email/typography'
 
 const logger = createLogger('appointments').child({ component: 'email-template' })
 
@@ -222,7 +223,7 @@ export default function BookingNoti(data: BookingEmailData) {
                     <Text style={styles.footerText}>
                       This is an automated notification from Privé Spa Booking System
                     </Text>
-                    <Text style={styles.copyrightText}>© 2024 Privé Spa</Text>
+                    <Text style={styles.copyrightText}>© {getAppointmentEmailCopyrightYear()} Privé Spa</Text>
                   </Section>
                 </Container>
               </td>
@@ -239,7 +240,7 @@ const styles = {
   body: {
     margin: 0,
     padding: 0,
-    fontFamily: EMAIL_FONT_FAMILY,
+    fontFamily: INTERNAL_APPOINTMENT_EMAIL_FONT_FAMILY,
     backgroundColor: '#e8f3ed',
   },
   outerTable: {

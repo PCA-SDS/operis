@@ -2,6 +2,13 @@ import { formatInTimeZone } from 'date-fns-tz'
 
 const APP_TIME_ZONE = 'Asia/Ho_Chi_Minh'
 
+export const CUSTOMER_APPOINTMENT_EMAIL_FONT_FAMILY = "'Montserrat', Arial, Helvetica, sans-serif"
+export const INTERNAL_APPOINTMENT_EMAIL_FONT_FAMILY = "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif"
+
+export function getAppointmentEmailCopyrightYear(now = new Date()): number {
+  return now.getFullYear()
+}
+
 export type Price = number | { min: number; max: number }
 
 export type EmailOptionDetail = {
