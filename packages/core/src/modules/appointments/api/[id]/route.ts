@@ -50,6 +50,8 @@ function mapLine(line: AppointmentLine, snapshots: LineOptionSnapshots) {
       groupName: group.breadcrumbPath ?? group.groupName,
       name: option.optionName,
       priceFlat: option.priceFlat,
+      priceMin: option.priceMin,
+      priceMax: option.priceMax,
     }))),
     sortOrder: line.sortOrder,
   }

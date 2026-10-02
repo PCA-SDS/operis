@@ -9,7 +9,7 @@ import {
   APPOINTMENT_EMAIL_SETTINGS_KEY,
   APPOINTMENT_EMAIL_SETTINGS_MODULE_ID,
   appointmentEmailSettingsSchema,
-  DEFAULT_APPOINTMENT_EMAIL_SETTINGS,
+  normalizeAppointmentEmailSettings,
 } from '../../lib/email-settings'
 import { runRouteMutationGuards } from '@open-mercato/shared/lib/crud/route-mutation-guard'
 
@@ -32,8 +32,7 @@ export async function GET(req: Request) {
       { tenantId: auth.tenantId },
     )
     const value = record?.source === 'tenant' ? record.value : null
-    const settings = appointmentEmailSettingsSchema.safeParse(value)
-    return NextResponse.json(settings.success ? settings.data : DEFAULT_APPOINTMENT_EMAIL_SETTINGS)
+    return NextResponse.json(normalizeAppointmentEmailSettings(value))
   } catch (err) {
     logger.error('GET failed', { err })
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

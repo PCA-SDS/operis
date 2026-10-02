@@ -5,7 +5,7 @@ import { flexRender, type RowData, type SortingState, type ColumnVisibilityState
 import { useLegacyTable, getCoreRowModel, getSortedRowModel, type LegacyColumnDef as ColumnDef, type LegacyColumn as TableColumn } from '@tanstack/react-table/legacy'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { RefreshCw, Loader2, SlidersHorizontal, MoreHorizontal, Circle, Filter, Columns3, ChevronDown, Check, GripVertical, Inbox, Save } from 'lucide-react'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableRowMarker, TableSortLabel, TABLE_ICON_COLUMN_WIDTH, tableAriaSort, type TableCellAlign } from '../primitives/table'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableRowMarker, TableSortLabel, TABLE_ICON_COLUMN_WIDTH, tableAriaSort, type TableCellAlign, type TableDensity } from '../primitives/table'
 import { Button } from '../primitives/button'
 import { Checkbox } from '../primitives/checkbox'
 import {
@@ -360,6 +360,10 @@ export type DataTableProps<T extends RowData> = {
    */
   showSaveViewButton?: boolean
   embedded?: boolean
+  /** Controls table cell density without changing the surrounding DataTable layout. */
+  density?: TableDensity
+  /** Reduces the vertical padding of the standalone table toolbar/header. */
+  compactHeader?: boolean
   onCustomFieldFilterFieldsetChange?: (fieldset: string | null, entityId?: string) => void
   customFieldFilterKeyExtras?: Array<string | number | boolean | null | undefined>
   injectionSpotId?: string
@@ -1387,6 +1391,8 @@ export function DataTable<T extends RowData>({
   viewApiRef,
   showSaveViewButton = false,
   embedded = false,
+  density,
+  compactHeader = false,
   onCustomFieldFilterFieldsetChange,
   customFieldFilterKeyExtras,
   injectionSpotId,
@@ -3458,7 +3464,11 @@ export function DataTable<T extends RowData>({
   const headerWrapperClassName = embedded ? 'pb-3' : ''
   const headerContentClassName =
     'flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-4'
-  const toolbarWrapperClassName = embedded ? 'mt-2' : 'px-4 py-3 sm:px-5'
+  const toolbarWrapperClassName = embedded
+    ? 'mt-2'
+    : compactHeader
+      ? 'px-4 py-2 sm:px-5'
+      : 'px-4 py-3 sm:px-5'
   const tableScrollWrapperClassName = embedded ? '' : 'overflow-auto'
   /* The table owns its vertical scroll. Without a cap, a 500-row page grows the
      document instead, so the header scrolls away and the pager sits an entire
@@ -3710,7 +3720,7 @@ export function DataTable<T extends RowData>({
         ) : null}
         <Table
           columns={gridColumnTracks}
-          density={embedded ? 'compact' : 'default'}
+          density={density ?? (embedded ? 'compact' : 'default')}
           className={mobileFit ? 'min-w-0' : 'min-w-[640px] md:min-w-0'}
         >
           <TableHeader sticky={isHeaderPinned}>

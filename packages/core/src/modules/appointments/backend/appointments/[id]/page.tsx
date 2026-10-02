@@ -27,6 +27,8 @@ type Line = {
     groupName: string | null
     name: string
     priceFlat: string | null
+    priceMin: string | null
+    priceMax: string | null
   }>
 }
 
@@ -73,6 +75,40 @@ function numericValue(value: string | null | undefined): number | null {
   if (value == null || value.trim() === '') return null
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : null
+}
+
+type PriceRange = {
+  min: number
+  max: number
+}
+
+function toPriceRange(
+  priceFlat: string | null | undefined,
+  priceMin: string | null | undefined,
+  priceMax: string | null | undefined,
+): PriceRange | null {
+  const flat = numericValue(priceFlat)
+  if (flat != null) return { min: flat, max: flat }
+  const min = numericValue(priceMin)
+  const max = numericValue(priceMax)
+  if (min == null && max == null) return null
+  return {
+    min: min ?? max ?? 0,
+    max: max ?? min ?? 0,
+  }
+}
+
+function formatPriceRange(range: PriceRange, currencyCode: string | null): string {
+  const min = formatCurrency(String(range.min), currencyCode) ?? String(range.min)
+  const max = formatCurrency(String(range.max), currencyCode) ?? String(range.max)
+  return range.min === range.max ? min : `${min} - ${max}`
+}
+
+function addPriceRanges(left: PriceRange, right: PriceRange): PriceRange {
+  return {
+    min: left.min + right.min,
+    max: left.max + right.max,
+  }
 }
 
 function Field({
@@ -264,11 +300,20 @@ export default function AppointmentDetailPage({ params }: { params?: { id?: stri
   const savedStatusLabel =
     statuses.find((status) => status.code === detail.statusCode)?.label ?? detail.statusCode
   const savedStatus = statuses.find((status) => status.code === detail.statusCode)
-  const totalAmount = detail.lines.reduce((total, line) => {
-    const basePrice = numericValue(line.unitPriceGross) ?? 0
-    const optionTotal = (line.options ?? []).reduce((sum, option) => sum + (numericValue(option.priceFlat) ?? 0), 0)
-    return total + basePrice + optionTotal
-  }, 0)
+  const linePriceRanges = detail.lines.map((line) => {
+    const basePrice = toPriceRange(line.unitPriceGross, null, null)
+    const optionPrice = (line.options ?? []).reduce<PriceRange | null>((total, option) => {
+      const range = toPriceRange(option.priceFlat, option.priceMin, option.priceMax)
+      if (!range) return total
+      return total ? addPriceRanges(total, range) : range
+    }, null)
+    if (!basePrice && !optionPrice) return null
+    return addPriceRanges(basePrice ?? { min: 0, max: 0 }, optionPrice ?? { min: 0, max: 0 })
+  })
+  const totalAmount = linePriceRanges.reduce<PriceRange | null>((total, range) => {
+    if (!range) return total
+    return total ? addPriceRanges(total, range) : range
+  }, null)
   const totalCurrencyCode = detail.lines.find((line) => line.currencyCode)?.currencyCode ?? null
   const seatPlannerHref = `/backend/appointments/${encodeURIComponent(detail.id)}/seat-planner`
 
@@ -420,9 +465,15 @@ export default function AppointmentDetailPage({ params }: { params?: { id?: stri
           </h2>
           <div className="space-y-3">
             {detail.lines.map((line, index) => {
-              const basePrice = numericValue(line.unitPriceGross)
-              const optionTotal = (line.options ?? []).reduce((total, option) => total + (numericValue(option.priceFlat) ?? 0), 0)
-              const subtotal = basePrice == null && optionTotal === 0 ? null : (basePrice ?? 0) + optionTotal
+              const basePrice = toPriceRange(line.unitPriceGross, null, null)
+              const optionPrice = (line.options ?? []).reduce<PriceRange | null>((total, option) => {
+                const range = toPriceRange(option.priceFlat, option.priceMin, option.priceMax)
+                if (!range) return total
+                return total ? addPriceRanges(total, range) : range
+              }, null)
+              const subtotal = !basePrice && !optionPrice
+                ? null
+                : addPriceRanges(basePrice ?? { min: 0, max: 0 }, optionPrice ?? { min: 0, max: 0 })
 
               return (
                 <article key={line.id} className="rounded-lg border border-border bg-surface p-3">
@@ -453,7 +504,7 @@ export default function AppointmentDetailPage({ params }: { params?: { id?: stri
                     />
                     <Field
                       label={t('appointments.detail.field.price')}
-                      value={formatCurrency(line.unitPriceGross, line.currencyCode) ?? empty}
+                      value={formatPriceRange(basePrice ?? { min: 0, max: 0 }, line.currencyCode)}
                       icon={<DollarSign className="size-3.5" aria-hidden="true" />}
                     />
                   </div>
@@ -471,9 +522,9 @@ export default function AppointmentDetailPage({ params }: { params?: { id?: stri
                               {option.groupName ? <span className="mr-1.5">{option.groupName}:</span> : null}
                               <span className="font-medium text-foreground">{option.name}</span>
                             </span>
-                            {option.priceFlat != null ? (
+                            {toPriceRange(option.priceFlat, option.priceMin, option.priceMax) ? (
                               <span className="shrink-0 text-sm font-medium text-foreground">
-                                +{formatCurrency(option.priceFlat, line.currencyCode) ?? option.priceFlat}
+                                +{formatPriceRange(toPriceRange(option.priceFlat, option.priceMin, option.priceMax)!, line.currencyCode)}
                               </span>
                             ) : null}
                           </div>
@@ -487,7 +538,7 @@ export default function AppointmentDetailPage({ params }: { params?: { id?: stri
                     <span className="text-base font-semibold text-foreground">
                       {subtotal == null
                         ? empty
-                        : formatCurrency(String(subtotal), line.currencyCode) ?? String(subtotal)}
+                        : formatPriceRange(subtotal, line.currencyCode)}
                     </span>
                   </div>
                 </article>
@@ -497,7 +548,7 @@ export default function AppointmentDetailPage({ params }: { params?: { id?: stri
           <div className="flex items-center justify-between rounded-lg bg-muted/40 px-3 py-2.5">
             <span className="text-base font-semibold text-foreground">{t('appointments.detail.totalAmount', 'Total amount')}</span>
             <span className="text-xl font-semibold text-foreground">
-              {formatCurrency(String(totalAmount), totalCurrencyCode) ?? String(totalAmount)}
+              {totalAmount ? formatPriceRange(totalAmount, totalCurrencyCode) : empty}
             </span>
           </div>
         </section>

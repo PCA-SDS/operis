@@ -59,7 +59,7 @@ export function AppointmentUrgencyCell({ createdAt, statusCode, isPinned = false
   return (
     <div
       className={cn(
-        'inline-flex max-w-full items-center justify-center gap-1.5 rounded-md border px-2 py-1',
+        'inline-flex max-w-full items-center justify-center gap-1 rounded-md border px-1.5 py-0.5',
         overdue && 'border-status-error-border bg-status-error-bg text-status-error-text',
         !overdue &&
           isNewRequest &&
@@ -72,22 +72,22 @@ export function AppointmentUrgencyCell({ createdAt, statusCode, isPinned = false
     >
       {overdue ? (
         <span className="relative inline-flex shrink-0" aria-hidden="true">
-          <AlertTriangle className="size-3.5 animate-pulse text-status-error-icon" />
-          <span className="absolute inset-0 size-3.5 animate-ping rounded-full bg-status-error-icon/40" />
+          <AlertTriangle className="size-3 animate-pulse text-status-error-icon" />
+          <span className="absolute inset-0 size-3 animate-ping rounded-full bg-status-error-icon/40" />
         </span>
       ) : (
         <Clock
           className={cn(
-            'size-3.5 shrink-0',
+            'size-3 shrink-0',
             isNewRequest ? 'text-status-warning-icon' : 'text-muted-foreground',
           )}
           aria-hidden="true"
         />
       )}
-      {isPinned ? <Pin className="size-3.5 shrink-0 fill-status-warning-icon text-status-warning-icon" aria-label={t('appointments.list.schedule.pinned', 'Pinned booking')} /> : null}
+      {isPinned ? <Pin className="size-3 shrink-0 fill-status-warning-icon text-status-warning-icon" aria-label={t('appointments.list.schedule.pinned', 'Pinned booking')} /> : null}
       <span
         className={cn(
-          'whitespace-nowrap text-xs',
+          'shrink-0 whitespace-nowrap text-xs leading-none',
           overdue || isNewRequest ? 'font-semibold' : 'font-medium',
         )}
       >

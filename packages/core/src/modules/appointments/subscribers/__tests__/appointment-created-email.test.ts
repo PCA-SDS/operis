@@ -7,6 +7,7 @@ import {
   createTestCredentialResolver,
   type TestCredentialResolver,
 } from '@open-mercato/shared/lib/testing/integrationCredentials'
+import { DEFAULT_APPOINTMENT_EMAIL_SETTINGS } from '../../lib/email-settings'
 
 jest.mock('@open-mercato/shared/lib/email/send', () => ({ sendEmail: jest.fn() }))
 
@@ -35,7 +36,7 @@ function buildAppointment(overrides: Partial<AppointmentFixture> = {}): Appointm
 
 function buildContext(input: {
   appointment: AppointmentFixture
-  settings: Record<string, string> | null
+  settings: Record<string, unknown> | null
   resolver: TestCredentialResolver
 }) {
   const em = {
@@ -169,6 +170,32 @@ describe('appointment created email subscriber', () => {
       to: ['spa@example.com'],
       from: 'default@example.com',
       apiKey: 'org-resend-key',
+    }))
+  })
+
+  it('uses customized subjects when custom mode is active', async () => {
+    const { ctx } = buildContext({
+      appointment: buildAppointment(),
+      settings: {
+        ...DEFAULT_APPOINTMENT_EMAIL_SETTINGS,
+        to: 'spa@example.com',
+        templateMode: 'custom',
+        customization: {
+          ...DEFAULT_APPOINTMENT_EMAIL_SETTINGS.customization,
+          internalSubjectPrefix: '[SPA] Request from',
+          customerSubject: 'Your request reached us',
+        },
+      },
+      resolver: createTestCredentialResolver(organizationResend),
+    })
+
+    await handle(publicBooking(), ctx)
+
+    expect(sendEmail).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      subject: '[SPA] Request from Mr. Ada Lovelace - Ben Thanh',
+    }))
+    expect(sendEmail).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      subject: 'Your request reached us',
     }))
   })
 

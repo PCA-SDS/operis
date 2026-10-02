@@ -10,7 +10,7 @@ The public appointment API stores the request and raises an internal notificatio
 
 ## 📝 Proposed Solution
 
-Add two appointment-owned React Email templates and a persistent subscriber for `appointments.appointment.created`. The subscriber handles only events marked `source: public_booking`, reloads the appointment using tenant and organization scope, reads tenant-scoped recipient settings, and sends the internal email plus the customer receipt when a customer email exists. Reuse the shared Resend transport and its test capture behavior. TPS template branding is intentionally retained temporarily and can be generalized later.
+Add two appointment-owned React Email templates and a persistent subscriber for `appointments.appointment.created`. The subscriber handles only events marked `source: public_booking`, reloads the appointment using tenant and organization scope, reads tenant-scoped recipient settings, and sends the internal email plus the customer receipt when a customer email exists. Reuse the shared Resend transport and its test capture behavior. Preserve the original TPS templates as an exact, locked preset and offer an explicitly selected custom mode for tenant-owned branding and supporting copy.
 
 ## 📝 Architecture
 
@@ -19,6 +19,9 @@ Add two appointment-owned React Email templates and a persistent subscriber for 
 - Staff-created and cloned appointments do not send these emails because they do not carry the public booking source.
 - The internal template includes contact details, branch, requested date/time, service/options, prices when available, total when calculable, and a dashboard link. It accepts `externalNotes` in the loaded view model but does not render them, matching the TPS template.
 - The customer template includes the unconfirmed-request notice, booking details, service prices, health and safety note, and update instructions. The feedback block is intentionally omitted for now.
+- `original_prive` is the default template mode. It calls the original `AppointmentNoti` and `AppointmentConfirmationEmail` components directly, so saved legacy settings and new tenants retain the previous output without transformation. Its audience-specific legacy font stacks are template-owned rather than inherited from mutable shared email typography.
+- `custom` uses separate configurable React Email components. Dynamic booking/customer/service values and the service table remain code-owned; administrators edit only branding, contact details, subjects, and supporting copy. Unedited default copy preserves the legacy inline emphasis, membership badge, contact placement, sign-off weight, and audience-specific typography.
+- `POST /api/appointments/email-settings/preview` renders both audiences from unsaved settings and representative sample booking data. It does not persist settings or send email.
 
 ## 📝 Data Model
 
@@ -34,12 +37,14 @@ No public booking request or response contract changes. Internal settings API:
 | `to` | Comma-separated tenant internal recipients; required for internal notices |
 | `cc` / `bcc` | Optional comma-separated tenant recipients |
 | `replyTo` | Optional tenant reply address |
+| `templateMode` | `original_prive` (default) or `custom` |
+| `customization` | Branding, contact, subject, and supporting-copy values used only by custom mode |
 
 `RESEND_API_KEY` and the platform fallback `EMAIL_FROM` remain instance-level transport settings. Email settings are protected by `appointments.settings.manage` and resolved using the event tenant ID. There is no cross-tenant default recipient.
 
 ## 📝 UI/UX
 
-Appointments settings includes per-tenant sender, internal recipients, CC, BCC, and reply-to fields. Email copy and layout follow the English TPS templates. The customer message is sent only when the appointment snapshot has an email address.
+Appointments settings separates delivery from design. The design switch presents two clear choices: a locked “Original Privé” preset with an exact-output explanation, and “Customized” with progressive tabs for brand/contact, internal email, and customer email. Booking variables are never exposed as template syntax: customer, branch, date/time, service, option, and price data are inserted automatically. Both modes can be previewed with realistic sample data before saving; custom fields can be reset locally to the original values. The customer message is sent only when the appointment snapshot has an email address.
 
 ## 📝 Edge Cases & Failure Scenarios
 
@@ -53,7 +58,7 @@ Appointments settings includes per-tenant sender, internal recipients, CC, BCC, 
 
 - Email delivery depends on the existing Resend key and sender configuration. Failures do not roll back the already-created appointment.
 - Persistent event delivery can result in duplicate emails if a worker retries after Resend accepted a message but before the worker recorded success; Resend idempotency is not currently exposed by the shared helper.
-- TPS branding, sender template text, and dashboard CTA remain temporary and should be generalized later.
+- The original TPS preset intentionally retains its historical branding, copy, formatting, and dashboard CTA while deriving the copyright year at render time. Tenant customization requires switching to custom mode; this prevents accidental visual drift in the compatibility preset.
 - The feedback block is omitted per the current request.
 
 ## 📋 Phasing
@@ -65,6 +70,7 @@ Single phase: add templates, event subscriber, configuration documentation, and 
 1. Add appointment email view-model formatting and the internal/customer React Email templates.
 2. Add a scoped persistent subscriber that sends only for public booking events through the shared mail helper.
 3. Document instance transport configuration and test tenant settings, recipient handling, missing-email behavior, and non-public event filtering.
+4. Add the exact original/custom mode selector, unsaved preview route, configurable custom templates, and regression coverage proving original mode returns the unchanged legacy component trees.
 
 ## Final Compliance Report
 
@@ -79,3 +85,4 @@ Single phase: add templates, event subscriber, configuration documentation, and 
 | Date | Change |
 |---|---|
 | 2026-09-16 | Implemented TPS-matched appointment emails, tenant-scoped email address settings, and omitted the feedback block temporarily. |
+| 2026-10-02 | Added an exact locked Original Privé preset, opt-in customized templates, and a safe two-audience preview workflow. |

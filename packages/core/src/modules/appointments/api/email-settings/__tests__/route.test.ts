@@ -19,6 +19,7 @@ jest.mock('@open-mercato/shared/lib/crud/route-mutation-guard', () => ({
 }))
 
 import { GET, PUT } from '../route'
+import { DEFAULT_APPOINTMENT_EMAIL_SETTINGS } from '../../../lib/email-settings'
 
 const makePutRequest = (body: unknown) => new Request('http://localhost/api/appointments/email-settings', {
   method: 'PUT',
@@ -47,7 +48,7 @@ describe('appointment email settings route', () => {
   it('ignores instance-level email settings for a tenant', async () => {
     getRecordMock.mockResolvedValue({ source: 'instance', value: { from: '', to: 'other-tenant@example.com', cc: '', bcc: '', replyTo: '' } })
     const response = await GET(new Request('http://localhost/api/appointments/email-settings'))
-    await expect(response.json()).resolves.toEqual({ from: '', to: '', cc: '', bcc: '', replyTo: '' })
+    await expect(response.json()).resolves.toEqual(DEFAULT_APPOINTMENT_EMAIL_SETTINGS)
   })
 
   it('rejects unauthenticated requests', async () => {
@@ -60,7 +61,8 @@ describe('appointment email settings route', () => {
     const settings = { from: 'NAM <from@example.com>', to: 'spa@example.com,manager@example.com', cc: '', bcc: '', replyTo: 'reply@example.com' }
     const response = await PUT(makePutRequest(settings))
     expect(response.status).toBe(200)
-    expect(setValueMock).toHaveBeenCalledWith('appointments', 'public_booking_email', settings, { tenantId })
+    const normalizedSettings = { ...DEFAULT_APPOINTMENT_EMAIL_SETTINGS, ...settings }
+    expect(setValueMock).toHaveBeenCalledWith('appointments', 'public_booking_email', normalizedSettings, { tenantId })
     expect(runRouteMutationGuardsMock).toHaveBeenCalledWith(
       expect.objectContaining({
         container,
@@ -68,7 +70,7 @@ describe('appointment email settings route', () => {
         input: expect.objectContaining({ resourceKind: 'appointments.email-settings' }),
       }),
     )
-    await expect(response.json()).resolves.toEqual(settings)
+    await expect(response.json()).resolves.toEqual(normalizedSettings)
   })
 
   it('rejects invalid addresses without saving', async () => {

@@ -1,7 +1,7 @@
 export const metadata = {
   requireAuth: true,
   requireFeatures: ['appointments.view'],
-  pageTitle: 'Booking Overview',
+  pageTitle: 'Confirmed Calendar',
   pageTitleKey: 'appointments.overview.title',
   pageGroup: 'Appointments',
   pageGroupKey: 'appointments.nav.group',
@@ -10,6 +10,6 @@ export const metadata = {
   icon: 'calendar-days',
   breadcrumb: [
     { label: 'Appointments', labelKey: 'appointments.nav.list', href: '/backend/appointments' },
-    { label: 'Booking Overview', labelKey: 'appointments.overview.title' },
+    { label: 'Confirmed Calendar', labelKey: 'appointments.overview.title' },
   ],
 }

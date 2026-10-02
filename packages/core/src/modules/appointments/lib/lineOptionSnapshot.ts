@@ -341,6 +341,8 @@ export type LineOptionSnapshots = {
       code: string | null
       note: string | null
       priceFlat: string | null
+      priceMin: string | null
+      priceMax: string | null
       durationValue: number | null
       durationUnit: string | null
       isAddon: boolean
@@ -361,6 +363,8 @@ function mapOptionGroupSnapshot(group: AppointmentLineOptionGroup): LineOptionSn
       code: option.code ?? null,
       note: option.note ?? null,
       priceFlat: option.priceFlat ?? null,
+      priceMin: option.priceMin ?? null,
+      priceMax: option.priceMax ?? null,
       durationValue: option.durationValue ?? null,
       durationUnit: option.durationUnit ?? null,
       isAddon: option.isAddon,

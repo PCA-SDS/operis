@@ -7,17 +7,15 @@ import {
 import { createLogger } from '@open-mercato/shared/lib/logger'
 import { Appointment, AppointmentLine, AppointmentLineOption } from '../data/entities'
 import { Organization } from '@open-mercato/core/modules/directory/data/entities'
-import AppointmentNoti from '../emails/AppointmentNoti'
-import AppointmentConfirmationEmail from '../emails/AppointmentConfirmationEmail'
 import type { AppointmentEmailData, EmailOptionDetail, EmailServiceSelection, Price } from '../emails/appointment-email'
 import type { ModuleConfigService } from '@open-mercato/core/modules/configs/lib/module-config-service'
 import type { IntegrationLogService } from '@open-mercato/core/modules/integrations/lib/log-service'
 import {
   APPOINTMENT_EMAIL_SETTINGS_KEY,
   APPOINTMENT_EMAIL_SETTINGS_MODULE_ID,
-  appointmentEmailSettingsSchema,
-  DEFAULT_APPOINTMENT_EMAIL_SETTINGS,
+  normalizeAppointmentEmailSettings,
 } from '../lib/email-settings'
+import { buildAppointmentEmailContent } from '../lib/email-content'
 
 
 const logger = createLogger('appointments').child({ component: 'created-email' })
@@ -176,9 +174,9 @@ export default async function handle(payload: AppointmentCreatedPayload, ctx: Re
     { tenantId: payload.tenantId },
   )
   const rawSettings = settingsRecord?.source === 'tenant' ? settingsRecord.value : null
-  const parsedSettings = appointmentEmailSettingsSchema.safeParse(rawSettings)
-  const settings = parsedSettings.success ? parsedSettings.data : DEFAULT_APPOINTMENT_EMAIL_SETTINGS
+  const settings = normalizeAppointmentEmailSettings(rawSettings)
   const sender = settings.from || undefined
+  const content = buildAppointmentEmailContent(emailData, settings)
 
   const sends: Array<{ recipientType: 'internal' | 'customer'; task: Promise<unknown> }> = []
   const internalRecipients = parseEmailList(settings.to)
@@ -191,8 +189,8 @@ export default async function handle(payload: AppointmentCreatedPayload, ctx: Re
         bcc: parseEmailList(settings.bcc),
         from: sender,
         replyTo: settings.replyTo || undefined,
-        subject: `[TPS][BR] from ${emailData.salutation}. ${emailData.customerName} - ${emailData.location}`,
-        react: AppointmentNoti(emailData),
+        subject: content.internal.subject,
+        react: content.internal.react,
       }),
     })
   } else {
@@ -215,8 +213,8 @@ export default async function handle(payload: AppointmentCreatedPayload, ctx: Re
         to: emailData.customerEmail,
         from: sender,
         replyTo: settings.replyTo || undefined,
-        subject: 'Your booking has been recorded – The Privé Spa',
-        react: AppointmentConfirmationEmail(emailData),
+        subject: content.customer.subject,
+        react: content.customer.react,
       }),
     })
   }
