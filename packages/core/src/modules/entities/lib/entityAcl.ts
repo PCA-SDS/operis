@@ -1,6 +1,7 @@
 import { CrudHttpError } from '@open-mercato/shared/lib/crud/errors'
 import type { RbacService } from '@open-mercato/core/modules/auth/services/rbacService'
 import { getModules } from '@open-mercato/shared/lib/i18n/server'
+import { getEntityIds } from '@open-mercato/shared/lib/encryption/entityIds'
 import { authorizeFeatures } from '@open-mercato/shared/security/featurePolicy'
 import { isEntitleableModule } from '@open-mercato/core/modules/directory/lib/tenantModules'
 import { deriveCustomEntityRecordFeature } from './recordFeatures'
@@ -135,6 +136,9 @@ export async function resolveReachableModuleSet(
  * module that does not exist for them.
  *
  * Entity ids are `<module>:<entity>`, and platform-owned ids are never gated.
+ * Neither is a custom entity a tenant created: its prefix is free text
+ * (`qa20261001:asset`), not a module, so asking whether that "module" is
+ * entitled hid every such entity's fields from its own record forms.
  * A null set means entitlement could not be resolved, which stands down rather
  * than blanking the registry.
  */
@@ -146,7 +150,22 @@ export function isEntityModuleReachable(
   const separator = entityId.indexOf(':')
   const owningModule = separator === -1 ? entityId : entityId.slice(0, separator)
   if (!isEntitleableModule(owningModule)) return true
+  if (isTenantCreatedEntityId(entityId)) return true
   return reachableModuleIds.has(owningModule)
+}
+
+/**
+ * True for an entity no module declares: not in the generated entity-id
+ * registry and not a module's declared custom entity. Without a populated
+ * registry (unit harnesses, partial bootstraps) the answer is unknowable, so it
+ * reports false and the module gate keeps applying.
+ */
+function isTenantCreatedEntityId(entityId: string): boolean {
+  if (isDeclaredCustomEntity(entityId)) return false
+  const registry = getEntityIds(false)
+  const moduleEntityIds = Object.values(registry ?? {}).flatMap((moduleEntities) => Object.values(moduleEntities ?? {}))
+  if (moduleEntityIds.length === 0) return false
+  return !moduleEntityIds.includes(entityId)
 }
 
 export function resolveEntityAclRequirement(entityId: string): EntityAclRequirement | null {

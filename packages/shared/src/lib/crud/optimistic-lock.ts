@@ -280,7 +280,7 @@ export function buildOptimisticLockConflictBody(currentIso: string, expectedIso:
  *         return row?.updatedAt ? row.updatedAt.toISOString() : null
  *       },
  *     },
- *   })).singleton(),
+ *   })).proxy().singleton(),
  * })
  * ```
  */

@@ -3,6 +3,7 @@ import {
   resolveReachableModuleSet,
 } from '@open-mercato/core/modules/entities/lib/entityAcl'
 import { registerModules } from '@open-mercato/shared/lib/modules/registry'
+import { registerEntityIds } from '@open-mercato/shared/lib/encryption/entityIds'
 import type { Module } from '@open-mercato/shared/modules/registry'
 
 const TEST_MODULES: Module[] = [
@@ -41,6 +42,36 @@ describe('entity metadata narrowing', () => {
 
   it('stands down when entitlement could not be resolved', () => {
     expect(isEntityModuleReachable('sales:order', null)).toBe(true)
+  })
+})
+
+describe('tenant-created custom entities', () => {
+  const reachable = new Set(['customers'])
+
+  beforeEach(() => {
+    registerEntityIds({
+      customers: { person: 'customers:person' },
+      sales: { order: 'sales:order' },
+    } as never)
+  })
+
+  afterEach(() => {
+    registerEntityIds(undefined as never)
+  })
+
+  it('keeps an entity a tenant created, whatever its free-text prefix', () => {
+    expect(isEntityModuleReachable('qa20261001:asset', reachable)).toBe(true)
+    expect(isEntityModuleReachable('inventory:widget', reachable)).toBe(true)
+  })
+
+  it('still hides a module-owned entity when that module is not entitled', () => {
+    expect(isEntityModuleReachable('sales:order', reachable)).toBe(false)
+    expect(isEntityModuleReachable('customers:person', reachable)).toBe(true)
+  })
+
+  it('keeps gating when the entity registry is not populated', () => {
+    registerEntityIds(undefined as never)
+    expect(isEntityModuleReachable('qa20261001:asset', reachable)).toBe(false)
   })
 })
 

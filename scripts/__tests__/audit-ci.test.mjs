@@ -128,6 +128,7 @@ test('the shipped allowlist parses and covers the documented image-size exceptio
   const allowlist = loadAllowlist(ALLOWLIST_PATH)
   assert.equal(allowlist.get('GHSA-W3RX-R6R6-PGPR')?.package, 'image-size')
   assert.equal(allowlist.get('GHSA-5P2G-FCMC-QVQQ')?.package, 'image-size')
+  assert.equal(allowlist.get('GHSA-86W9-CPQP-85RV')?.package, 'node-forge')
 })
 
 test('loadAllowlist returns an empty map when the file is missing', () => {

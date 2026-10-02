@@ -125,6 +125,7 @@ export function AppointmentEmailSettings() {
     try {
       await runMutation({
         operation: async () => {
+          // optimistic-lock-exempt: tenant-scoped module-config settings blob with no exposed per-record version.
           const call = await apiCall('/api/appointments/email-settings', {
             method: 'PUT',
             headers: { 'content-type': 'application/json' },

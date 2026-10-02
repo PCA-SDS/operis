@@ -224,12 +224,17 @@ export async function createRequestContainer(): Promise<AppContainer> {
     // registrations override this default via Awilix replace semantics —
     // see the enterprise `record_locks` module for the canonical override.
     // Spec: .ai/specs/implemented/2026-05-25-oss-optimistic-locking.md
-    crudMutationGuardService: asFunction((em: EntityManager) =>
+    //
+    // `.proxy()` reads `em` by property key. CLASSIC injection would read the
+    // parameter name instead, and esbuild renames a parameter that shadows the
+    // `em` declared above (to `em2`), which made this service unresolvable in
+    // every built package and silently disabled the guard.
+    crudMutationGuardService: asFunction(({ em: scopedEm }: { em: EntityManager }) =>
       createOptimisticLockGuardService({
-        getEm: () => em,
+        getEm: () => scopedEm,
         readers: getAllOptimisticLockReaders(),
       }),
-    ).scoped(),
+    ).proxy().scoped(),
     // Default OSS command-level optimistic-lock guard, awaited by
     // `enforceCommandOptimisticLockWithGuards` for Command-pattern writes.
     // Header/explicit-token compare only (no `resolveExpected`), so it is
