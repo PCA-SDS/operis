@@ -738,7 +738,7 @@ export default function AppointmentsListPage() {
             <div className="flex flex-wrap items-center gap-2">
               <Button asChild variant="outline">
                 <Link href="/backend/appointments/booking-overview">
-                  {t('appointments.list.actions.overview', 'Booking Overview')}
+                  {t('appointments.list.actions.overview', 'Confirmed Calendar')}
                 </Link>
               </Button>
               {canManageSettings ? (

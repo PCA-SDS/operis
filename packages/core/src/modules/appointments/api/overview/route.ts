@@ -299,12 +299,12 @@ export async function GET(req: Request) {
     })
   } catch (error) {
     if (error instanceof z.ZodError) return NextResponse.json({ error: translate('appointments.overview.invalidDate', 'Invalid overview date.'), code: 'INVALID_DATE' }, { status: 400 })
-    return NextResponse.json({ error: translate('appointments.overview.failed', 'Unable to load booking overview.'), code: 'OVERVIEW_FAILED' }, { status: 500 })
+    return NextResponse.json({ error: translate('appointments.overview.failed', 'Unable to load confirmed calendar.'), code: 'OVERVIEW_FAILED' }, { status: 500 })
   }
 }
 
 export const openApi: OpenApiRouteDoc = {
   tag: 'Appointments',
-  summary: 'Load the daily appointment booking overview',
-  methods: { GET: { summary: 'Load daily booking overview', responses: [{ status: 200, description: 'Daily booking overview' }] } },
+  summary: 'Load the confirmed appointment calendar',
+  methods: { GET: { summary: 'Load confirmed appointment calendar', responses: [{ status: 200, description: 'Confirmed appointment calendar' }] } },
 }

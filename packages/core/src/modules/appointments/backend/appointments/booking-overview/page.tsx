@@ -453,7 +453,7 @@ export default function BookingOverviewPage() {
         const call = await apiCall<Overview>(`/api/appointments/overview?${params.toString()}`, { signal: controller.signal }, { fallback: null })
         if (cancelled) return
         if (!call.ok || !call.result) {
-          flash(t('appointments.overview.error.load', 'Unable to load booking overview.'), 'error')
+          flash(t('appointments.overview.error.load', 'Unable to load confirmed calendar.'), 'error')
           setOverview(null)
         } else {
           setOverview(call.result)
@@ -462,13 +462,13 @@ export default function BookingOverviewPage() {
       } catch (error) {
         if (controller.signal.aborted || isAbortError(error)) {
           if (!cancelled && timedOut) {
-            flash(t('appointments.overview.error.timeout', 'Booking overview took too long to load.'), 'error')
+          flash(t('appointments.overview.error.timeout', 'Confirmed calendar took too long to load.'), 'error')
             setOverview(null)
           }
           return
         }
         if (!cancelled) {
-          flash(t('appointments.overview.error.load', 'Unable to load booking overview.'), 'error')
+          flash(t('appointments.overview.error.load', 'Unable to load confirmed calendar.'), 'error')
           setOverview(null)
         }
       } finally {
@@ -921,8 +921,7 @@ export default function BookingOverviewPage() {
         <div className="flex h-full min-h-0 flex-col gap-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h1 className={PAGE_TITLE_CLASS}>{t('appointments.overview.title', 'Booking Overview')}</h1>
-              <p className="text-sm text-muted-foreground">{t('appointments.overview.description', 'Daily booking timeline')}</p>
+              <h1 className={PAGE_TITLE_CLASS}>{t('appointments.overview.title', 'Confirmed Calendar')}</h1>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {placementAppointment ? <Button type="button" variant="outline" disabled={isAssigning} onClick={() => setPlacementAppointment(null)}><Users className="mr-2 size-4" />{t('appointments.overview.placing', 'Placing: {{name}}').replace('{{name}}', placementAppointment.customerName)}<X className="ml-2 size-4" /></Button> : null}
@@ -949,7 +948,7 @@ export default function BookingOverviewPage() {
           </div>
 
           <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-border bg-muted/20">
-            {isLoading ? <AppointmentResourceTimelineSkeleton /> : !overview ? <div className="flex min-h-96 items-center justify-center text-sm text-muted-foreground">{t('appointments.overview.empty', 'No booking overview data available.')}</div> : (
+            {isLoading ? <AppointmentResourceTimelineSkeleton /> : !overview ? <div className="flex min-h-96 items-center justify-center text-sm text-muted-foreground">{t('appointments.overview.empty', 'No confirmed calendar data available.')}</div> : (
               <AppointmentResourceTimeline
                 date={date}
                 resources={overview.resources}
