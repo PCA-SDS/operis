@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { CalendarDays } from 'lucide-react'
+import { CalendarDays, Clock3 } from 'lucide-react'
 import { Button } from '@open-mercato/ui/primitives/button'
 import { Skeleton } from '@open-mercato/ui/primitives/skeleton'
 import { Popover, PopoverContent, PopoverTrigger } from '@open-mercato/ui/primitives/popover'
@@ -9,7 +9,6 @@ import { useT } from '@open-mercato/shared/lib/i18n/context'
 import { cn } from '@open-mercato/shared/lib/utils'
 import { resolveRegisteredLucideIconNode } from '@open-mercato/ui/backend/icons/lucideRegistry'
 import { minutesToTime, timeToMinutes } from '../lib/timeOfDay'
-import { formatTime } from '@open-mercato/shared/lib/time'
 
 const START_HOUR = 8
 const END_HOUR = 22
@@ -88,6 +87,16 @@ function allocationTop(value: string, hourHeight: number, timelineStartMinutes: 
 
 function allocationHeight(startsAt: string, endsAt: string, hourHeight: number) {
   return Math.max(24, ((new Date(endsAt).getTime() - new Date(startsAt).getTime()) / 60000 / SLOT_MINUTES) * (hourHeight / (60 / SLOT_MINUTES)))
+}
+
+function formatTimelineTime(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '—'
+  return new Intl.DateTimeFormat(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).format(date)
 }
 
 function buildSlots(timelineStartMinutes: number, timelineEndMinutes: number) {
@@ -229,6 +238,7 @@ function TimelineAppointmentBlock({
   hourHeight,
   timelineStartMinutes,
   timelineEndMinutes,
+  resourceColor,
   renderPopover,
   placementMode,
 }: {
@@ -237,6 +247,7 @@ function TimelineAppointmentBlock({
   hourHeight: number
   timelineStartMinutes: number
   timelineEndMinutes: number
+  resourceColor?: string | null
   placementMode?: boolean
   renderPopover?: AppointmentResourceTimelineProps['renderAppointmentPopover']
 }) {
@@ -244,14 +255,25 @@ function TimelineAppointmentBlock({
   const services = block.services ?? [{ name: block.serviceName, category: block.serviceCategory ?? null, startsAt: block.startsAt, endsAt: block.endsAt }]
   const blockHeight = allocationHeight(block.startsAt, block.endsAt, hourHeight) - 6
   const isCompact = blockHeight < 176
-  const isVeryCompact = blockHeight < 124
+  const isVeryCompact = blockHeight < 48
   const hasRibbon = appointment.bookingType === 'booking_form' || appointment.statusCode === 'deposit_received_booked'
+  const customResourceColor = resourceColor?.trim() || null
+  const blockStyle = customResourceColor && !placementMode
+    ? {
+        borderColor: customResourceColor,
+        backgroundColor: `color-mix(in srgb, ${customResourceColor} 14%, transparent)`,
+      }
+    : undefined
   const trigger = (
     <Button
       type="button"
       variant="ghost"
-      className={`absolute left-0 right-0 z-20 min-h-6 items-start justify-start overflow-hidden rounded-md border text-left shadow-sm ${isCompact ? 'p-1' : 'p-1.5'} ${block.state === 'confirmed' ? 'border-status-success-border bg-status-success-bg text-status-success-text' : 'border-status-warning-border bg-status-warning-bg text-status-warning-text'} ${placementMode ? 'pointer-events-none border-2 border-primary bg-primary/10 text-muted-foreground' : ''}`}
-      style={{ top: allocationTop(block.startsAt, hourHeight, timelineStartMinutes) + 3, height: blockHeight }}
+      className={`absolute left-0 right-0 z-20 min-h-6 items-start justify-start overflow-hidden rounded-md border text-left shadow-sm ${isCompact ? 'p-1' : 'p-1.5'} ${customResourceColor ? 'border-border bg-surface text-foreground' : block.state === 'confirmed' ? 'border-status-success-border bg-status-success-bg text-status-success-text' : 'border-status-warning-border bg-status-warning-bg text-status-warning-text'} ${placementMode ? 'pointer-events-none border-2 border-primary bg-primary/10 text-muted-foreground' : ''}`}
+      style={{
+        top: allocationTop(block.startsAt, hourHeight, timelineStartMinutes) + 3,
+        height: blockHeight,
+        ...blockStyle,
+      }}
     >
       <AppointmentBlockRibbons appointment={appointment} />
         <span className="block min-w-0">
@@ -261,13 +283,18 @@ function TimelineAppointmentBlock({
             <span key={`${service.name}-${service.startsAt}`} className="block min-w-0">
               <span className="flex items-baseline justify-between gap-2">
                 <span className={cn('truncate font-semibold', isCompact ? 'text-[11px]' : 'text-xs')}>{service.name}</span>
-                <span className={cn('shrink-0 opacity-75', isCompact ? 'text-[10px]' : 'text-[11px]')}>{formatTime(service.startsAt)} - {formatTime(service.endsAt)}</span>
+                <span className="shrink-0 text-[10px] opacity-75">{formatTimelineTime(service.startsAt)} - {formatTimelineTime(service.endsAt)}</span>
               </span>
               {!isVeryCompact && service.category ? <span className="block truncate text-[11px] opacity-75">{service.category}</span> : null}
             </span>
           ))}
         </span>
-        {!isVeryCompact ? <span className="mt-1 block truncate text-xs opacity-80">{formatTime(block.startsAt)} - {formatTime(block.endsAt)}</span> : null}
+        {!isVeryCompact ? (
+          <span className="mt-1 inline-flex max-w-full items-center gap-1 truncate text-xs opacity-80">
+            <Clock3 className="size-3 shrink-0" aria-hidden="true" />
+            <span className="truncate">{formatTimelineTime(block.startsAt)} - {formatTimelineTime(block.endsAt)}</span>
+          </span>
+        ) : null}
       </span>
     </Button>
   )
@@ -291,7 +318,17 @@ function TimelineAppointmentBlock({
           if (isAppointmentPopoverOverlayTarget(event.detail.originalEvent.target)) event.preventDefault()
         }}
       >
-        <div className={cn('h-1 w-full shrink-0', block.state === 'confirmed' ? 'bg-status-success-icon' : 'bg-status-warning-icon')} />
+        <div
+          className={cn(
+            'h-1 w-full shrink-0',
+            customResourceColor
+              ? 'bg-primary'
+              : block.state === 'confirmed'
+                ? 'bg-status-success-icon'
+                : 'bg-status-warning-icon',
+          )}
+          style={customResourceColor ? { backgroundColor: customResourceColor } : undefined}
+        />
         {renderPopover(appointment, block, () => setOpen(false), { startMinutes: timelineStartMinutes, endMinutes: timelineEndMinutes })}
       </PopoverContent>
     </Popover>
@@ -445,7 +482,7 @@ export function AppointmentResourceTimeline({ date, resources, timelineWindows, 
                   {resourceBlocks.map((block) => {
                     const appointment = appointmentById.get(block.appointmentId)
                     if (!appointment) return null
-                    return <TimelineAppointmentBlock key={`${block.appointmentId}-${block.resourceId}`} appointment={appointment} block={block} hourHeight={hourHeight} timelineStartMinutes={timelineBounds.startMinutes} timelineEndMinutes={timelineBounds.endMinutes} placementMode={placementMode} renderPopover={renderAppointmentPopover} />
+                    return <TimelineAppointmentBlock key={`${block.appointmentId}-${block.resourceId}`} appointment={appointment} block={block} hourHeight={hourHeight} timelineStartMinutes={timelineBounds.startMinutes} timelineEndMinutes={timelineBounds.endMinutes} resourceColor={resource.typeColor} placementMode={placementMode} renderPopover={renderAppointmentPopover} />
                   })}
                 </div>
               )
