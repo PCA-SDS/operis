@@ -114,7 +114,7 @@ export function AppointmentStatusSelect({
         }}
         disabled={disabled || isSaving || statuses.length === 0}
       >
-        <SelectTrigger className="h-auto min-w-[10rem] gap-1 rounded-md border border-border bg-surface px-2 py-1 shadow-sm">
+        <SelectTrigger className="h-auto min-w-[10rem] gap-1 whitespace-nowrap rounded-md border border-border bg-surface px-2 py-1 shadow-sm [&>span]:line-clamp-none [&>span]:shrink-0">
           <SelectValue placeholder={t('appointments.list.columns.status')}>
             {statusCode ? (
               <AppointmentStatusBadge

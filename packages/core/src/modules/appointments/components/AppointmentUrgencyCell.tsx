@@ -87,7 +87,7 @@ export function AppointmentUrgencyCell({ createdAt, statusCode, isPinned = false
       {isPinned ? <Pin className="size-3.5 shrink-0 fill-status-warning-icon text-status-warning-icon" aria-label={t('appointments.list.schedule.pinned', 'Pinned booking')} /> : null}
       <span
         className={cn(
-          'whitespace-nowrap text-xs',
+          'shrink-0 whitespace-nowrap text-xs',
           overdue || isNewRequest ? 'font-semibold' : 'font-medium',
         )}
       >

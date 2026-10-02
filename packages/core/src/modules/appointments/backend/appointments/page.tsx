@@ -149,6 +149,7 @@ function StatusFilterButton({
         <Button
           type="button"
           variant="outline"
+          size="sm"
           className="gap-2 border-dashed"
           aria-label={t('appointments.list.filters.status', 'Status')}
           onPointerDown={(event) => event.stopPropagation()}
@@ -429,14 +430,37 @@ export default function AppointmentsListPage() {
   }, [])
 
   const columns = React.useMemo<ColumnDef<Row>[]>(
-    () => [
+    () => {
+      const longestStatusLabel = statusOptions.reduce(
+        (longest, option) => Math.max(longest, option.label.length),
+        0,
+      )
+      const statusColumnWidth = `${Math.max(18, Math.ceil(longestStatusLabel * 0.75 + 7))}rem`
+      const columnOrder = [
+        'urgency',
+        'customerName',
+        'total',
+        'externalNotes',
+        'organizationName',
+        'bookingType',
+        'bookingDate',
+        'bookingTime',
+        'schedule',
+        'notes',
+        'contact',
+        'statusCode',
+        'actions',
+      ]
+      const columnOrderIndex = new Map(columnOrder.map((columnId, index) => [columnId, index]))
+
+      return [
       {
         id: 'urgency',
         accessorKey: 'createdAt',
         header: () => (
           <div className="text-center">{t('appointments.list.columns.urgency', 'Urgency')}</div>
         ),
-        size: 140,
+        meta: { width: '12rem', truncate: false },
         cell: ({ row }) => (
           <div className="flex justify-center">
               <AppointmentUrgencyCell
@@ -451,12 +475,14 @@ export default function AppointmentsListPage() {
         id: 'total',
         accessorKey: 'totalAmount',
         header: t('appointments.list.columns.total', 'Total'),
+        meta: { width: '8rem', truncate: false },
         cell: ({ row }) => formatTotal(row.original.totalAmount, row.original.currencyCode, t('appointments.list.noValue')),
       },
       {
         id: 'bookingDate',
         accessorKey: 'requestedStartAt',
         header: t('appointments.list.columns.bookingDate', 'Booking Date'),
+        meta: { width: '9rem', truncate: false },
         cell: ({ row }) =>
           formatDate(parseRequestedAt(row.original.requestedStartAt), { fallback: t('appointments.list.noValue') }),
       },
@@ -464,6 +490,7 @@ export default function AppointmentsListPage() {
         id: 'bookingTime',
         accessorKey: 'requestedStartAt',
         header: t('appointments.list.columns.time', 'Time'),
+        meta: { width: '8rem' },
         cell: ({ row }) => (
           <div className="flex flex-col">
             <span className="font-medium">
@@ -481,8 +508,9 @@ export default function AppointmentsListPage() {
         accessorFn: (row) =>
           formatCustomerDisplayName(row.customerSalutation, row.customerName),
         header: t('appointments.list.columns.customerName', 'Customer Name'),
+        meta: { width: '14rem', truncate: false },
         cell: ({ row }) => (
-          <span className="truncate font-medium">
+          <span className="font-medium">
             {formatCustomerDisplayName(
               row.original.customerSalutation,
               row.original.customerName,
@@ -495,7 +523,7 @@ export default function AppointmentsListPage() {
         accessorFn: (row) =>
           `${row.customerPhoneCountryCode ?? ''} ${row.customerPhone ?? ''} ${row.customerEmail ?? ''}`.trim(),
         header: t('appointments.list.columns.contact', 'Contact'),
-        meta: { truncate: false },
+        meta: { width: '14rem', truncate: true, maxWidth: '14rem' },
         cell: ({ row }) => (
           <AppointmentContactCell
             phoneCountryCode={row.original.customerPhoneCountryCode}
@@ -508,6 +536,7 @@ export default function AppointmentsListPage() {
         id: 'organizationName',
         accessorKey: 'organizationName',
         header: t('appointments.list.columns.location', 'Location'),
+        meta: { width: '11rem', truncate: false },
         cell: ({ row }) =>
           row.original.organizationName?.trim() || t('appointments.list.noValue'),
       },
@@ -515,13 +544,14 @@ export default function AppointmentsListPage() {
         id: 'bookingType',
         accessorKey: 'bookingType',
         header: t('appointments.list.columns.bookingType', 'Type of booking'),
+        meta: { width: '12rem', truncate: false },
         cell: ({ row }) => formatBookingType(row.original.bookingType, t('appointments.list.noValue')),
       },
       {
         id: 'externalNotes',
         accessorKey: 'externalNotes',
         header: t('appointments.list.columns.customerNotes', 'Customer Notes'),
-        meta: { truncate: false },
+        meta: { width: '10rem', truncate: true, maxWidth: '10rem' },
         cell: ({ row }) => (
           <AppointmentNotesCell
             notes={row.original.externalNotes}
@@ -534,7 +564,7 @@ export default function AppointmentsListPage() {
         id: 'notes',
         accessorKey: 'notes',
         header: t('appointments.list.columns.internalNotes', 'Internal Notes'),
-        meta: { truncate: false },
+        meta: { width: '10rem', truncate: true, maxWidth: '10rem' },
         cell: ({ row }) => (
           <AppointmentNotesCell
             notes={row.original.notes}
@@ -547,7 +577,7 @@ export default function AppointmentsListPage() {
         id: 'schedule',
         accessorKey: 'statusCode',
         header: t('appointments.list.columns.schedule', 'Schedule'),
-        meta: { truncate: false },
+        meta: { width: '11rem', truncate: false },
         cell: ({ row }) => <ScheduleBadge status={row.original.scheduleConfirmationStatus} t={t} />,
       },
       {
@@ -564,7 +594,7 @@ export default function AppointmentsListPage() {
             t={t}
           />
         ),
-        meta: { truncate: false },
+        meta: { width: statusColumnWidth, truncate: false },
         cell: ({ row }) => (
           <AppointmentStatusSelect
             appointmentId={row.original.id}
@@ -578,7 +608,7 @@ export default function AppointmentsListPage() {
       {
         id: 'actions',
         header: () => <div className="text-center">{t('appointments.list.columns.actions', 'Actions')}</div>,
-        meta: { truncate: false },
+        meta: { width: '14rem', truncate: false },
         cell: ({ row }) => (
           <div className="flex items-center justify-end gap-1.5">
             <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-xs" title={t('appointments.list.actions.view', 'View Details')}>
@@ -616,7 +646,11 @@ export default function AppointmentsListPage() {
           </div>
         ),
       },
-    ],
+      ].sort((left, right) => (
+        (columnOrderIndex.get(String(left.id)) ?? Number.MAX_SAFE_INTEGER) -
+        (columnOrderIndex.get(String(right.id)) ?? Number.MAX_SAFE_INTEGER)
+      ))
+    },
     [canCreate, canManage, canViewSeatPlanner, handleClone, handleDelete, handleRowStatusChange, prepareSeatPlannerScope, selectedStatusCodes, statusOptions, t],
   )
 
@@ -662,9 +696,6 @@ export default function AppointmentsListPage() {
                   </div>
                 )}
               />
-              <p className="text-sm text-muted-foreground">
-                {t('appointments.list.search.scopeHint', 'Searches all locations you can access in this tenant.')}
-              </p>
             </div>
           )}
           actions={
@@ -693,6 +724,9 @@ export default function AppointmentsListPage() {
           }
           columns={columns}
           data={rows}
+          density="compact"
+          compactHeader
+          maxBodyHeight={false}
           pagination={{
             page: currentPage,
             pageSize,
