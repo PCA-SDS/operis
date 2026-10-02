@@ -117,6 +117,10 @@ export const REPO_WIDE_GUARDS = [
         scans: 'every module contract.ts across packages/ and apps/ — contracts re-exporting entities, importing another module, importing an implementation folder, or declaring ids outside their own namespace',
       },
       {
+        path: 'src/__tests__/di-injection-param-names.test.ts',
+        scans: 'every packages/*/src root plus apps/mercato/src — asFunction factories whose CLASSIC-injected parameter names esbuild renames in the package build',
+      },
+      {
         path: 'src/modules/__tests__/crud-indexer-config.test.ts',
         scans: 'packages/ and apps/ — CRUD indexer configuration',
       },
