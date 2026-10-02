@@ -10,6 +10,11 @@
       "package": "image-size",
       "reason": "image-size <=2.0.2 JXL/HEIF parser DoS (CVE-2025-71329). Same archived, unpatched image-size <=2.0.2 as GHSA-w3rx-r6r6-pgpr, reachable only via the docs build — see that entry for the full justification.",
       "addedAt": "2026-08-10"
+    },
+    "GHSA-86w9-cpqp-85rv": {
+      "package": "node-forge",
+      "reason": "node-forge <=1.4.0 RSA PKCS#1 v1.5 signature verification flaw (CVE-2026-85393). The monorepo already pins node-forge to 1.4.0 because @parse/node-apn@6.5.0 hard-codes the vulnerable 1.3.1 dependency; the advisory currently has no patched upstream version. The dependency is used by the APNs transport package, and the pin must remain until @parse/node-apn relaxes its exact dependency or node-forge publishes a fixed release. Re-check on dependency/toolchain updates and remove this exception when a fixed version is available.",
+      "addedAt": "2026-10-02"
     }
   }
 }
