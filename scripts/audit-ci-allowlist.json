@@ -10,6 +10,11 @@
       "package": "image-size",
       "reason": "image-size <=2.0.2 JXL/HEIF parser DoS (CVE-2025-71329). Same archived, unpatched image-size <=2.0.2 as GHSA-w3rx-r6r6-pgpr, reachable only via the docs build — see that entry for the full justification.",
       "addedAt": "2026-08-10"
+    },
+    "GHSA-86w9-cpqp-85rv": {
+      "package": "node-forge",
+      "reason": "node-forge <=1.4.0 RSA PKCS#1 v1.5 signature verification accepts extra nested DigestAlgorithm elements. No patched release exists (1.4.0 is still latest) and every @parse/node-apn release, the only dependent (via packages/channel-apns), pins 1.3.x/1.4.0. node-apn calls node-forge only to parse PKCS#12/PEM certificate credentials (pkcs12FromAsn1, decryptRsaPrivateKey, certificateFromAsn1, key fingerprint) and never verifies an RSA signature; our APNs adapter uses token-based .p8 auth through jsonwebtoken, so even that certificate path is not taken. Re-check when node-forge ships a fix or node-apn drops it.",
+      "addedAt": "2026-10-02"
     }
   }
 }
